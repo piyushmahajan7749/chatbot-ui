@@ -32,22 +32,9 @@ export const SidebarSwitcher: FC<SidebarSwitcherProps> = ({
           contentType="chats"
           onContentTypeChange={onContentTypeChange}
         />
-
         <SidebarSwitchItem
-          icon={<IconAdjustmentsHorizontal size={SIDEBAR_ICON_SIZE} />}
-          contentType="presets"
-          onContentTypeChange={onContentTypeChange}
-        />
-
-        <SidebarSwitchItem
-          icon={<IconPencil size={SIDEBAR_ICON_SIZE} />}
-          contentType="prompts"
-          onContentTypeChange={onContentTypeChange}
-        />
-
-        <SidebarSwitchItem
-          icon={<IconSparkles size={SIDEBAR_ICON_SIZE} />}
-          contentType="models"
+          icon={<IconRobotFace size={SIDEBAR_ICON_SIZE} />}
+          contentType="assistants"
           onContentTypeChange={onContentTypeChange}
         />
 
@@ -60,18 +47,6 @@ export const SidebarSwitcher: FC<SidebarSwitcherProps> = ({
         <SidebarSwitchItem
           icon={<IconBooks size={SIDEBAR_ICON_SIZE} />}
           contentType="collections"
-          onContentTypeChange={onContentTypeChange}
-        />
-
-        <SidebarSwitchItem
-          icon={<IconRobotFace size={SIDEBAR_ICON_SIZE} />}
-          contentType="assistants"
-          onContentTypeChange={onContentTypeChange}
-        />
-
-        <SidebarSwitchItem
-          icon={<IconBolt size={SIDEBAR_ICON_SIZE} />}
-          contentType="tools"
           onContentTypeChange={onContentTypeChange}
         />
       </TabsList>

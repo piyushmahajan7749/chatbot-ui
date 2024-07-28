@@ -1,11 +1,11 @@
 import { FC } from "react"
 
-interface ChatbotUISVGProps {
+interface ShadowAISVGProps {
   theme: "dark" | "light"
   scale?: number
 }
 
-export const ChatbotUISVG: FC<ChatbotUISVGProps> = ({ theme, scale = 1 }) => {
+export const ShadowAISVG: FC<ShadowAISVGProps> = ({ theme, scale = 1 }) => {
   return (
     <svg
       width={189 * scale}
@@ -29,7 +29,7 @@ export const ChatbotUISVG: FC<ChatbotUISVGProps> = ({ theme, scale = 1 }) => {
         fill={`${theme === "dark" ? "#fff" : "#000"}`}
       />
       <path
-        d="M59.6722 51.6H75.5122V84C75.5122 86.016 76.0162 87.672 77.0242 88.968C78.0802 90.216 79.6882 90.84 81.8482 90.84C84.0082 90.84 85.5922 90.216 86.6002 88.968C87.6562 87.672 88.1842 86.016 88.1842 84V51.6H104.024V85.44C104.024 89.04 103.424 92.088 102.224 94.584C101.072 97.032 99.4642 99.024 97.4002 100.56C95.3362 102.048 92.9602 103.128 90.2722 103.8C87.6322 104.52 84.8242 104.88 81.8482 104.88C78.8722 104.88 76.0402 104.52 73.3522 103.8C70.7122 103.128 68.3602 102.048 66.2962 100.56C64.2322 99.024 62.6002 97.032 61.4002 94.584C60.2482 92.088 59.6722 89.04 59.6722 85.44V51.6ZM113.751 51.6H129.951V102H113.751V51.6Z"
+        d="M41.6722 51.6H57.5122V102H41.6722V51.6ZM64.751 51.6H80.951V90.84H106.471V102H64.751V51.6ZM113.751 51.6H129.951V102H113.751V51.6Z"
         fill={`${theme === "dark" ? "#fff" : "#000"}`}
       />
     </svg>

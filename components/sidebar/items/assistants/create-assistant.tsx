@@ -158,29 +158,6 @@ export const CreateAssistant: FC<CreateAssistantProps> = ({
           </div>
 
           <div className="space-y-1 pt-2">
-            <Label className="flex space-x-1">
-              <div>Image</div>
-
-              <div className="text-xs">(optional)</div>
-            </Label>
-
-            <ImagePicker
-              src={imageLink}
-              image={selectedImage}
-              onSrcChange={setImageLink}
-              onImageChange={setSelectedImage}
-              width={100}
-              height={100}
-            />
-          </div>
-
-          <ChatSettingsForm
-            chatSettings={assistantChatSettings as any}
-            onChangeChatSettings={setAssistantChatSettings}
-            useAdvancedDropdown={true}
-          />
-
-          <div className="space-y-1 pt-2">
             <Label>Files & Collections</Label>
 
             <AssistantRetrievalSelect
@@ -188,21 +165,6 @@ export const CreateAssistant: FC<CreateAssistantProps> = ({
               onAssistantRetrievalItemsSelect={handleRetrievalItemSelect}
             />
           </div>
-
-          {checkIfModelIsToolCompatible() ? (
-            <div className="space-y-1">
-              <Label>Tools</Label>
-
-              <AssistantToolSelect
-                selectedAssistantTools={selectedAssistantToolItems}
-                onAssistantToolsSelect={handleToolSelect}
-              />
-            </div>
-          ) : (
-            <div className="pt-1 font-semibold">
-              Model is not compatible with tools.
-            </div>
-          )}
         </>
       )}
       onOpenChange={onOpenChange}
