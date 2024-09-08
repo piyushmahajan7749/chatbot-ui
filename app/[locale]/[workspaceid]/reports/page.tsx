@@ -1,15 +1,13 @@
-"use client"
+import { FC } from "react"
+import { ReportsList } from "@/components/reports/reports-list"
 
-import { ChatbotUIContext } from "@/context/context"
-import { useContext } from "react"
+interface ReportViewProps {}
 
-export default function ReportsPage() {
-  const { selectedWorkspace } = useContext(ChatbotUIContext)
-
+export const ReportView: FC<ReportViewProps> = ({}) => {
   return (
-    <div className="flex h-screen w-full flex-col items-center justify-center">
-      <div className="text-4xl">Reports for {selectedWorkspace?.name}</div>
-      {/* Add more content for the reports page */}
+    <div className="flex h-full flex-col">
+      <h1 className="mb-4 text-2xl font-bold">Reports</h1>
+      <ReportsList />
     </div>
   )
 }

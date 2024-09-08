@@ -12,6 +12,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation"
 import { FC, useState } from "react"
 import { useSelectFileHandler } from "../chat/chat-hooks/use-select-file-handler"
 import { CommandK } from "../utility/command-k"
+import { ReportView } from "@/app/[locale]/[workspaceid]/reports/page"
 
 export const SIDEBAR_WIDTH = 350
 
@@ -67,6 +68,15 @@ export const Dashboard: FC<DashboardProps> = ({ children }) => {
     localStorage.setItem("showSidebar", String(!showSidebar))
   }
 
+  const renderContent = () => {
+    switch (contentType) {
+      case "reports":
+        return <ReportView />
+      default:
+        return children
+    }
+  }
+
   return (
     <div className="flex size-full">
       <CommandK />
@@ -110,7 +120,7 @@ export const Dashboard: FC<DashboardProps> = ({ children }) => {
             drop file here
           </div>
         ) : (
-          children
+          renderContent()
         )}
 
         <Button
@@ -118,7 +128,6 @@ export const Dashboard: FC<DashboardProps> = ({ children }) => {
             "absolute left-[4px] top-[50%] z-10 size-[32px] cursor-pointer"
           )}
           style={{
-            // marginLeft: showSidebar ? `${SIDEBAR_WIDTH}px` : "0px",
             transform: showSidebar ? "rotate(180deg)" : "rotate(0deg)"
           }}
           variant="ghost"
