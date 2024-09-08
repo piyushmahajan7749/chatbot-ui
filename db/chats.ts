@@ -39,6 +39,20 @@ export const createChat = async (chat: TablesInsert<"chats">) => {
   return createdChat
 }
 
+export const createReport = async (report: TablesInsert<"reports">) => {
+  const { data: createdReport, error } = await supabase
+    .from("reports")
+    .insert([report])
+    .select("*")
+    .single()
+
+  if (error) {
+    throw new Error(error.message)
+  }
+
+  return createdReport
+}
+
 export const createChats = async (chats: TablesInsert<"chats">[]) => {
   const { data: createdChats, error } = await supabase
     .from("chats")

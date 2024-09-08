@@ -1,1 +1,6 @@
-export type ContentType = "chats" | "files" | "collections" | "assistants"
+export type ContentType =
+  | "chats"
+  | "files"
+  | "collections"
+  | "assistants"
+  | "reports"

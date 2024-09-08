@@ -4,6 +4,7 @@
 
 import { ChatbotUIContext } from "@/context/context"
 import { getProfileByUserId } from "@/db/profile"
+import { getReports } from "@/db/reports"
 import { getWorkspaceImageFromStorage } from "@/db/storage/workspace-images"
 import { getWorkspacesByUserId } from "@/db/workspaces"
 import { convertBlobToBase64 } from "@/lib/blob-to-b64"
@@ -123,6 +124,8 @@ export const GlobalState: FC<GlobalStateProps> = ({ children }) => {
   const [selectedTools, setSelectedTools] = useState<Tables<"tools">[]>([])
   const [toolInUse, setToolInUse] = useState<string>("none")
 
+  const [reports, setReports] = useState<Tables<"reports">[]>([])
+
   useEffect(() => {
     ;(async () => {
       const profile = await fetchStartingData()
@@ -149,6 +152,16 @@ export const GlobalState: FC<GlobalStateProps> = ({ children }) => {
         if (!localModels) return
         setAvailableLocalModels(localModels)
       }
+      const fetchReports = async () => {
+        const session = (await supabase.auth.getSession()).data.session
+
+        if (session) {
+          const user = session.user
+          const fetchedReports = await getReports(user.id)
+          setReports(fetchedReports)
+        }
+      }
+      fetchReports()
     })()
   }, [])
 
@@ -225,7 +238,8 @@ export const GlobalState: FC<GlobalStateProps> = ({ children }) => {
         setTools,
         workspaces,
         setWorkspaces,
-
+        reports,
+        setReports,
         // MODELS STORE
         envKeyMap,
         setEnvKeyMap,

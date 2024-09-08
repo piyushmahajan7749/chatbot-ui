@@ -89,8 +89,10 @@ export const SidebarDeleteItem: FC<SidebarDeleteItemProps> = ({
   }
 
   const handleDelete = async () => {
-    const deleteFunction = deleteFunctions[contentType]
-    const setStateFunction = stateUpdateFunctions[contentType]
+    const deleteFunction =
+      deleteFunctions[contentType as keyof typeof deleteFunctions]
+    const setStateFunction =
+      stateUpdateFunctions[contentType as keyof typeof stateUpdateFunctions]
 
     if (!deleteFunction || !setStateFunction) return
 

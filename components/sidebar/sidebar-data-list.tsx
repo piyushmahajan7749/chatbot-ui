@@ -13,9 +13,18 @@ import { ChatItem } from "./items/chat/chat-item"
 import { CollectionItem } from "./items/collections/collection-item"
 import { FileItem } from "./items/files/file-item"
 import { Folder } from "./items/folders/folder-item"
+import { updateReport } from "@/db/reports"
+
+// Add this type definition at the top of the file
+type ValidContentType =
+  | "chats"
+  | "files"
+  | "assistants"
+  | "collections"
+  | "reports"
 
 interface SidebarDataListProps {
-  contentType: ContentType
+  contentType: ValidContentType
   data: DataListType
   folders: Tables<"folders">[]
 }
@@ -25,7 +34,7 @@ export const SidebarDataList: FC<SidebarDataListProps> = ({
   data,
   folders
 }) => {
-  const { setChats, setFiles, setCollections, setAssistants } =
+  const { setChats, setFiles, setCollections, setAssistants, setReports } =
     useContext(ChatbotUIContext)
 
   const divRef = useRef<HTMLDivElement>(null)
@@ -108,6 +117,7 @@ export const SidebarDataList: FC<SidebarDataListProps> = ({
     chats: updateChat,
     files: updateFile,
     assistants: updateAssistant,
+    reports: updateReport,
 
     collections: updateCollection
   }
@@ -116,7 +126,7 @@ export const SidebarDataList: FC<SidebarDataListProps> = ({
     chats: setChats,
     files: setFiles,
     assistants: setAssistants,
-
+    reports: setReports,
     collections: setCollections
   }
 
@@ -125,8 +135,9 @@ export const SidebarDataList: FC<SidebarDataListProps> = ({
 
     if (!item) return null
 
-    const updateFunction = updateFunctions[contentType]
-    const setStateFunction = stateUpdateFunctions[contentType]
+    const updateFunction = updateFunctions[contentType as ValidContentType]
+    const setStateFunction =
+      stateUpdateFunctions[contentType as ValidContentType]
 
     if (!updateFunction || !setStateFunction) return
 
