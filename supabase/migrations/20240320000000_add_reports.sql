@@ -128,3 +128,42 @@ CREATE TRIGGER update_report_collections_updated_at
 BEFORE UPDATE ON report_collections 
 FOR EACH ROW 
 EXECUTE PROCEDURE update_updated_at_column();
+
+--------------- REPORT WORKSPACES ---------------
+
+-- TABLE --
+
+CREATE TABLE IF NOT EXISTS report_workspaces (
+    -- REQUIRED RELATIONSHIPS
+    user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
+    report_id UUID NOT NULL REFERENCES reports(id) ON DELETE CASCADE,
+    workspace_id UUID NOT NULL REFERENCES workspaces(id) ON DELETE CASCADE,
+
+    PRIMARY KEY(report_id, workspace_id),
+
+    -- METADATA
+    created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMPTZ
+);
+
+-- INDEXES --
+
+CREATE INDEX report_workspaces_user_id_idx ON report_workspaces(user_id);
+CREATE INDEX report_workspaces_report_id_idx ON report_workspaces(report_id);
+CREATE INDEX report_workspaces_workspace_id_idx ON report_workspaces(workspace_id);
+
+-- RLS --
+
+ALTER TABLE report_workspaces ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Allow full access to own report_workspaces"
+    ON report_workspaces
+    USING (user_id = auth.uid())
+    WITH CHECK (user_id = auth.uid());
+
+-- TRIGGERS --
+
+CREATE TRIGGER update_report_workspaces_updated_at
+BEFORE UPDATE ON report_workspaces 
+FOR EACH ROW 
+EXECUTE PROCEDURE update_updated_at_column();
