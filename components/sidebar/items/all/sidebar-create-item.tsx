@@ -18,6 +18,8 @@ import { createFileBasedOnExtension } from "@/db/files"
 import { createModel } from "@/db/models"
 import { createPreset } from "@/db/presets"
 import { createPrompt } from "@/db/prompts"
+import { createReportCollections } from "@/db/report-collections"
+import { createReportFiles } from "@/db/report-files"
 import { createReport, updateReport } from "@/db/reports"
 import {
   getAssistantImageFromStorage,
@@ -174,13 +176,12 @@ export const SidebarCreateItem: FC<SidebarCreateItemProps> = ({
     },
     reports: async (
       createState: {
-        image: File
         files: Tables<"files">[]
         collections: Tables<"collections">[]
-      } & Tables<"assistants">,
+      } & Tables<"reports">,
       workspaceId: string
     ) => {
-      const { image, files, collections, ...rest } = createState
+      const { files, collections, ...rest } = createState
 
       const createdReport = await createReport(rest, workspaceId)
 
@@ -188,18 +189,18 @@ export const SidebarCreateItem: FC<SidebarCreateItemProps> = ({
 
       const reportFiles = files.map(file => ({
         user_id: rest.user_id,
-        assistant_id: createdReport.id,
+        report_id: createdReport.id,
         file_id: file.id
       }))
 
       const reportCollections = collections.map(collection => ({
         user_id: rest.user_id,
-        assistant_id: createdReport.id,
+        report_id: createdReport.id,
         collection_id: collection.id
       }))
 
-      await createAssistantFiles(reportFiles)
-      await createAssistantCollections(reportCollections)
+      await createReportFiles(reportFiles)
+      await createReportCollections(reportCollections)
 
       return updatedReport
     },
