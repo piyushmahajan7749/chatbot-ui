@@ -71,7 +71,7 @@ export const Dashboard: FC<DashboardProps> = ({ children }) => {
   const renderContent = () => {
     switch (contentType) {
       case "reports":
-        return <ReportView />
+        return <ReportView defaultTab="aim" />
       default:
         return children
     }
