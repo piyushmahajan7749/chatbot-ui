@@ -8,15 +8,18 @@ import { Button } from "../ui/button"
 import { CreateAssistant } from "./items/assistants/create-assistant"
 import { CreateCollection } from "./items/collections/create-collection"
 import { CreateFile } from "./items/files/create-file"
+import { CreateReport } from "../reports/create-report"
 
 interface SidebarCreateButtonsProps {
   contentType: ContentType
   hasData: boolean
+  createReport: React.ReactNode
 }
 
 export const SidebarCreateButtons: FC<SidebarCreateButtonsProps> = ({
   contentType,
-  hasData
+  hasData,
+  createReport
 }) => {
   const { profile, selectedWorkspace, folders, setFolders } =
     useContext(ChatbotUIContext)
@@ -27,6 +30,7 @@ export const SidebarCreateButtons: FC<SidebarCreateButtonsProps> = ({
   const [isCreatingFile, setIsCreatingFile] = useState(false)
   const [isCreatingCollection, setIsCreatingCollection] = useState(false)
   const [isCreatingAssistant, setIsCreatingAssistant] = useState(false)
+  const [isCreatingReport, setIsCreatingReport] = useState(false)
   const [isCreatingTool, setIsCreatingTool] = useState(false)
   const [isCreatingModel, setIsCreatingModel] = useState(false)
 
@@ -65,6 +69,10 @@ export const SidebarCreateButtons: FC<SidebarCreateButtonsProps> = ({
         return async () => {
           setIsCreatingAssistant(true)
         }
+      case "reports":
+        return async () => {
+          setIsCreatingReport(true)
+        }
 
       default:
         break
@@ -101,6 +109,13 @@ export const SidebarCreateButtons: FC<SidebarCreateButtonsProps> = ({
         <CreateAssistant
           isOpen={isCreatingAssistant}
           onOpenChange={setIsCreatingAssistant}
+        />
+      )}
+
+      {isCreatingReport && (
+        <CreateReport
+          isOpen={isCreatingReport}
+          onOpenChange={setIsCreatingReport}
         />
       )}
     </div>

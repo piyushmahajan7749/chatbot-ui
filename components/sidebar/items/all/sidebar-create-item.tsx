@@ -11,13 +11,14 @@ import { createAssistantCollections } from "@/db/assistant-collections"
 import { createAssistantFiles } from "@/db/assistant-files"
 import { createAssistantTools } from "@/db/assistant-tools"
 import { createAssistant, updateAssistant } from "@/db/assistants"
-import { createChat, createReport } from "@/db/chats"
+import { createChat } from "@/db/chats"
 import { createCollectionFiles } from "@/db/collection-files"
 import { createCollection } from "@/db/collections"
 import { createFileBasedOnExtension } from "@/db/files"
 import { createModel } from "@/db/models"
 import { createPreset } from "@/db/presets"
 import { createPrompt } from "@/db/prompts"
+import { createReport, updateReport } from "@/db/reports"
 import {
   getAssistantImageFromStorage,
   uploadAssistantImage
@@ -68,7 +69,7 @@ export const SidebarCreateItem: FC<SidebarCreateItemProps> = ({
     chats: createChat,
     presets: createPreset,
     prompts: createPrompt,
-    reports: createReport,
+
     files: async (
       createState: { file: File } & TablesInsert<"files">,
       workspaceId: string
@@ -170,6 +171,37 @@ export const SidebarCreateItem: FC<SidebarCreateItemProps> = ({
       await createAssistantTools(assistantTools)
 
       return updatedAssistant
+    },
+    reports: async (
+      createState: {
+        image: File
+        files: Tables<"files">[]
+        collections: Tables<"collections">[]
+      } & Tables<"assistants">,
+      workspaceId: string
+    ) => {
+      const { image, files, collections, ...rest } = createState
+
+      const createdReport = await createReport(rest, workspaceId)
+
+      let updatedReport = createdReport
+
+      const reportFiles = files.map(file => ({
+        user_id: rest.user_id,
+        assistant_id: createdReport.id,
+        file_id: file.id
+      }))
+
+      const reportCollections = collections.map(collection => ({
+        user_id: rest.user_id,
+        assistant_id: createdReport.id,
+        collection_id: collection.id
+      }))
+
+      await createAssistantFiles(reportFiles)
+      await createAssistantCollections(reportCollections)
+
+      return updatedReport
     },
     tools: createTool,
     models: createModel
