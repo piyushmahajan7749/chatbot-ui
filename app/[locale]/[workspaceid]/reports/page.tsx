@@ -3,12 +3,11 @@ import { Edit } from "lucide-react"
 import { Label } from "@radix-ui/react-label"
 import { cn } from "@/lib/utils"
 import { InfoListBox } from "./components/infobox"
-import { AimComponent } from "./components/aimcomponent"
-import ApproachComponent, {
-  AnalysisComponent
-} from "./components/analysiscomponent"
-import ConclusionComponent from "./components/conclusisoncomponent"
+import { ReportDraftComponent } from "./components/reportdraft"
+import { AnalysisComponent } from "./components/analysis"
 import { Card } from "@/components/ui/card"
+import AddDataComponent from "./components/adddata"
+import ReportOutlineComponent from "./components/reportoutline"
 
 interface ReportViewProps {
   defaultTab: string
@@ -37,12 +36,12 @@ export const ReportView: FC<ReportViewProps> = ({ defaultTab }) => {
 
   const sections = [
     {
-      title: "Aim",
+      title: "Data",
       dataId: "aimList",
       imageId: "aimImage",
       icon: <Edit className="size-5" />,
       component: (
-        <AimComponent
+        <AddDataComponent
           onCancel={() => setTransitionEffect(false)}
           onSave={handleSave}
           colorId="report"
@@ -50,12 +49,12 @@ export const ReportView: FC<ReportViewProps> = ({ defaultTab }) => {
       )
     },
     {
-      title: "Approach",
-      dataId: "approachList",
-      imageId: "approachImage",
+      title: "Report Outline",
+      dataId: "reportOutline",
+      imageId: "reportOutlineImage",
       icon: <Edit className="size-5" />,
       component: (
-        <ApproachComponent
+        <ReportOutlineComponent
           onCancel={() => setTransitionEffect(false)}
           onSave={handleSave}
           colorId="report"
@@ -63,7 +62,7 @@ export const ReportView: FC<ReportViewProps> = ({ defaultTab }) => {
       )
     },
     {
-      title: "Analysis",
+      title: "Charts",
       dataId: "analysisList",
       imageId: "analysisImage",
       icon: <Edit className="size-5" />,
@@ -76,12 +75,12 @@ export const ReportView: FC<ReportViewProps> = ({ defaultTab }) => {
       )
     },
     {
-      title: "Conclusion",
+      title: "Review & Download",
       dataId: "conclusionList",
       imageId: "conclusionImage",
       icon: <Edit className="size-5" />,
       component: (
-        <ConclusionComponent
+        <ReportDraftComponent
           onCancel={() => setTransitionEffect(false)}
           onSave={handleSave}
           colorId="report"
@@ -100,10 +99,10 @@ export const ReportView: FC<ReportViewProps> = ({ defaultTab }) => {
   const getRegComponent = () => {
     return isEditing ? (
       <div
-        style={{ minHeight: 240 }}
-        className="relative flex size-full flex-col rounded-lg border border-gray-200 bg-white shadow-md"
+        style={{ minHeight: 500 }}
+        className="relative flex size-full flex-col rounded-lg border border-gray-200 bg-zinc-900 shadow-md"
       >
-        <div>{currentComponent}</div>
+        <div className="text-white">{currentComponent}</div>
       </div>
     ) : (
       <InfoListBox
@@ -185,10 +184,8 @@ export const ReportView: FC<ReportViewProps> = ({ defaultTab }) => {
           isTransitioning ? "scale-95 opacity-0" : "scale-100 opacity-100"
         }`}
       >
-        <div className="flex w-full justify-between">
-          <div className="w-2/3">{getRegComponent()}</div>
-          {/* You can add an image here if needed */}
-        </div>
+        <div className="my-4 w-full">{getRegComponent()}</div>
+        {/* You can add an image here if needed */}
       </div>
     </div>
   )

@@ -68,7 +68,7 @@ export function InfoListBox({
 }: InfoListBoxProps) {
   return (
     <div
-      style={{ minHeight: 160 }}
+      style={{ minHeight: 260 }}
       className="relative flex h-full flex-col rounded-lg border border-gray-200 bg-white shadow-md"
       key={key}
     >
