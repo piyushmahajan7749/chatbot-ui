@@ -100,7 +100,7 @@ export const ReportView: FC<ReportViewProps> = ({ defaultTab }) => {
     return isEditing ? (
       <div
         style={{ minHeight: 500 }}
-        className="relative flex size-full flex-col rounded-lg border border-gray-200 bg-zinc-900 shadow-md"
+        className="relative flex size-full flex-col rounded-lg bg-zinc-900 shadow-md"
       >
         <div className="text-white">{currentComponent}</div>
       </div>
