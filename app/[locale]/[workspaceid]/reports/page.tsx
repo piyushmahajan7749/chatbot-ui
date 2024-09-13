@@ -1,10 +1,8 @@
 import { FC, useState, useEffect } from "react"
 import { Edit } from "lucide-react"
 import { Label } from "@radix-ui/react-label"
-import { cn } from "@/lib/utils"
 import { InfoListBox } from "./components/infobox"
 import { ReportDraftComponent } from "./components/reportdraft"
-import { AnalysisComponent } from "./components/analysis"
 import { Card } from "@/components/ui/card"
 import AddDataComponent from "./components/adddata"
 import ReportOutlineComponent from "./components/reportoutline"
@@ -63,19 +61,6 @@ export const ReportView: FC<ReportViewProps> = ({ defaultTab }) => {
       )
     },
     {
-      title: "Charts",
-      dataId: "analysisList",
-      imageId: "analysisImage",
-      icon: <Edit className="size-5" />,
-      component: (
-        <AnalysisComponent
-          onCancel={() => setTransitionEffect(false)}
-          onSave={handleSave}
-          colorId="report"
-        />
-      )
-    },
-    {
       title: "Review & Download",
       dataId: "conclusionList",
       imageId: "conclusionImage",
@@ -98,27 +83,13 @@ export const ReportView: FC<ReportViewProps> = ({ defaultTab }) => {
   const [currentComponent, setCurrentComponent] = useState(() => getComponent())
 
   const getRegComponent = () => {
-    return isEditing ? (
+    return (
       <div
         style={{ minHeight: 500 }}
         className="relative flex size-full flex-col rounded-lg bg-zinc-900 shadow-md"
       >
         <div className="text-white">{currentComponent}</div>
       </div>
-    ) : (
-      <InfoListBox
-        key={selectedTab}
-        onEdit={() => {
-          setTransitionEffect(true)
-          setTimeout(() => {
-            setEditing(true)
-            setTransitioning(false)
-          }, 500)
-        }}
-        title={getSelectedSection()?.title!}
-        description={[]} // You'll need to populate this with actual data
-        colorId="report"
-      />
     )
   }
 
@@ -132,20 +103,18 @@ export const ReportView: FC<ReportViewProps> = ({ defaultTab }) => {
     }
   }, [selectedTab])
 
-  const getSelectedSection = () => sections.find(d => d.dataId === selectedTab)
-
   return (
     <ReportProvider>
       <div className="flex h-full flex-col">
-        <div className="bg-main mb-4 grid grid-cols-4 p-4">
+        <div className="bg-main mb-4 grid grid-cols-3 p-4">
           {sections.map((section, index) => (
             <div
               className="align-center flex flex-col justify-center"
               key={index}
             >
               <Label
-                className={`mb-1 truncate text-center text-xs font-semibold 
-                  ${section.dataId === selectedTab ? "text-reportborder" : ""}`}
+                className={`text-md mb-4 truncate text-center font-semibold 
+                  ${section.dataId === selectedTab ? "text-white" : "text-gray-400"}`}
               >
                 {section.title}
               </Label>
@@ -157,20 +126,23 @@ export const ReportView: FC<ReportViewProps> = ({ defaultTab }) => {
                     setSelectedTab(section.dataId)
                   }
                 }}
-                className={`mx-8 justify-center border-solid bg-white ${
+                className={`bg-main mx-8 flex justify-center border-solid border-gray-400 ${
                   section.dataId === selectedTab
-                    ? "border-reportborder shadow-2xl"
+                    ? "border border-gray-400 shadow-2xl"
                     : "shadow-sm"
                 } cursor-pointer`}
                 style={{
                   minWidth: "100px",
                   width: "auto",
-                  height: "100px",
+                  height: "80px",
                   borderWidth: section.dataId === selectedTab ? "3px" : "1px"
                 }}
               >
                 <div className="flex h-full flex-col items-center justify-center">
-                  <Edit className="size-7" color="black" />
+                  <Edit
+                    className="size-7"
+                    color={section.dataId === selectedTab ? "white" : "gray"}
+                  />
                 </div>
               </Card>
             </div>
