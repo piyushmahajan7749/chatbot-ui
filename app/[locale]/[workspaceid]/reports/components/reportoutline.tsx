@@ -27,7 +27,7 @@ export function ReportOutlineComponent({
     const generateOutline = async () => {
       setLoading(true)
       try {
-        const response = await fetch("/api/generate-outline", {
+        const response = await fetch("/api/report/outline", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ selectedData })
@@ -41,7 +41,7 @@ export function ReportOutlineComponent({
         setLoading(false)
       }
     }
-
+    debugger
     if (Object.keys(selectedData).length > 0) {
       generateOutline()
     }
