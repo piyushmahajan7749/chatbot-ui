@@ -169,13 +169,8 @@ export const ReportView: FC<ReportViewProps> = ({ defaultTab }) => {
                   borderWidth: section.dataId === selectedTab ? "3px" : "1px"
                 }}
               >
-                <div className="flex justify-center">
-                  <div
-                    className="size-5 cursor-pointer"
-                    style={{ marginTop: "26px" }}
-                  >
-                    {section.icon}
-                  </div>
+                <div className="flex h-full flex-col items-center justify-center">
+                  <Edit className="size-7" color="black" />
                 </div>
               </Card>
             </div>
