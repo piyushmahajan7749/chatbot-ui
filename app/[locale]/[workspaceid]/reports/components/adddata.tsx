@@ -8,7 +8,8 @@ import { ArrowRightIcon, Plus, X } from "lucide-react"
 import { ChatbotUIContext } from "@/context/context"
 import { FilePicker } from "@/components/chat/file-picker"
 import { Tables } from "@/supabase/types"
-import { Badge } from "@/components/ui/badge" // Assuming you have this component
+import { Badge } from "@/components/ui/badge"
+import { useReportContext } from "@/context/ReportContext"
 
 interface AddDataProps {
   onSave: () => void
@@ -28,13 +29,20 @@ export function AddDataComponent({ onCancel, onSave, colorId }: AddDataProps) {
   const [showFilePicker, setShowFilePicker] = useState(false)
   const [selectedFileType, setSelectedFileType] = useState("")
   const [selectedItems, setSelectedItems] = useState<{
-    [key: string]: SelectedItem[]
+    [key: string]: {
+      id: string
+      name: string
+      type: "file" | "collection"
+      content?: string
+    }[]
   }>({
     Protocol: [],
     Papers: [],
     "Experiment Data": [],
     "Other files": []
   })
+
+  const { setSelectedData } = useReportContext()
 
   useEffect(() => {
     console.log("Selected items updated:", selectedItems)
@@ -43,7 +51,7 @@ export function AddDataComponent({ onCancel, onSave, colorId }: AddDataProps) {
   const handleSave = async () => {
     setLoading(true)
     try {
-      console.log("Saving selected items:", selectedItems)
+      setSelectedData(selectedItems)
       onSave()
     } catch (error) {
       console.error(error)
@@ -58,7 +66,7 @@ export function AddDataComponent({ onCancel, onSave, colorId }: AddDataProps) {
       ...prev,
       [selectedFileType]: [
         ...prev[selectedFileType],
-        { id: file.id, name: file.name, type: "file" as const }
+        { id: file.id, name: file.name, type: "file" }
       ]
     }))
     setShowFilePicker(false)
@@ -66,21 +74,13 @@ export function AddDataComponent({ onCancel, onSave, colorId }: AddDataProps) {
 
   const handleCollectionSelect = (collection: Tables<"collections">) => {
     console.log("Collection selected:", collection)
-    setSelectedItems(prev => {
-      const updatedItems = {
-        ...prev,
-        [selectedFileType]: [
-          ...prev[selectedFileType],
-          {
-            id: collection.id,
-            name: collection.name,
-            type: "collection"
-          } as SelectedItem
-        ]
-      }
-      console.log("Updated selected items:", updatedItems)
-      return updatedItems
-    })
+    setSelectedItems(prev => ({
+      ...prev,
+      [selectedFileType]: [
+        ...prev[selectedFileType],
+        { id: collection.id, name: collection.name, type: "collection" }
+      ]
+    }))
     setShowFilePicker(false)
   }
 
@@ -153,6 +153,18 @@ export function AddDataComponent({ onCancel, onSave, colorId }: AddDataProps) {
           </div>
         ))}
       </div>
+      {showFilePicker && (
+        <FilePicker
+          isOpen={showFilePicker}
+          onOpenChange={setShowFilePicker}
+          isFocused={true}
+          onSelectFile={handleFileSelect}
+          onSelectCollection={handleCollectionSelect}
+          selectedFileIds={[]}
+          selectedCollectionIds={[]}
+          searchQuery=""
+        />
+      )}
       <div className="my-8 flex justify-center">
         <Button
           onClick={handleSave}

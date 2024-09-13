@@ -52,24 +52,12 @@ export function ReportDraftComponent({
             <div
               className={`mb-4 flex w-full flex-row items-center justify-center rounded-t-lg bg-zinc-700 py-3`}
             >
-              <Label className="pl-4 text-lg font-bold">Aim</Label>
+              <Label className="pl-4 text-lg font-bold">
+                Review your report
+              </Label>
             </div>
           </div>
-          <div className="mb-80 flex w-full flex-col justify-center"></div>
-          <div className="flex w-full flex-row justify-center">
-            <Button onClick={onCancel} className="my-2 mr-4 w-1/6" color="gray">
-              <ArrowLeftIcon className="mr-2 size-4" />
-              Previous
-            </Button>
-            <Button
-              onClick={handleSave}
-              className=" my-2 w-1/6"
-              style={{ backgroundColor: "link" }}
-            >
-              Next
-              <ArrowRightIcon className="ml-2 size-4" />
-            </Button>
-          </div>
+          <div className="flex w-full flex-col justify-center"></div>
         </>
       )}
     </div>

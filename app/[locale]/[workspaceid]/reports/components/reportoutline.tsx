@@ -1,6 +1,7 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
+import { useReportContext } from "@/context/ReportContext"
 
 import { Label } from "@radix-ui/react-label"
 import { Loader } from "../../../../../components/ui/loader"
@@ -19,32 +20,39 @@ export function ReportOutlineComponent({
   colorId
 }: ReportOutlineProps) {
   const [isLoading, setLoading] = useState(false)
+  const { selectedData, setReportOutline } = useReportContext()
+  const [generatedOutline, setGeneratedOutline] = useState("")
 
-  const handleSave = async () => {
-    setLoading(true)
-
-    const listOptions = []
-
-    try {
-      const data = {
-        data: {
-          //   habitBeatList: listOptions
-        }
+  useEffect(() => {
+    const generateOutline = async () => {
+      setLoading(true)
+      try {
+        const response = await fetch("/api/generate-outline", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ selectedData })
+        })
+        const data = await response.json()
+        setGeneratedOutline(data.outline)
+        setReportOutline(data.outline)
+      } catch (error) {
+        console.error("Error generating outline:", error)
+      } finally {
+        setLoading(false)
       }
-      //   updateProject(data)
-      onSave()
-    } catch (error) {
-      console.error(error)
-    } finally {
-      setLoading(false)
     }
-  }
 
+    if (Object.keys(selectedData).length > 0) {
+      generateOutline()
+    }
+  }, [selectedData])
+
+  // Render the generated outline
   return (
-    <div className="flex w-full flex-col items-center  justify-center">
+    <div className="flex w-full flex-col items-center justify-center">
       {isLoading ? (
         <div className="my-48">
-          <Loader text="Generating content" />
+          <Loader text="Generating outline" />
         </div>
       ) : (
         <>
@@ -52,24 +60,13 @@ export function ReportOutlineComponent({
             <div
               className={`mb-4 flex w-full flex-row items-center justify-center rounded-t-lg bg-zinc-700 py-3`}
             >
-              <Label className="pl-4 text-lg font-bold">Aim</Label>
+              <Label className="pl-4 text-lg font-bold">Report Outline</Label>
             </div>
           </div>
-          <div className="mb-80 flex w-full flex-col justify-center"></div>
-          <div className="flex w-full flex-row justify-center">
-            <Button onClick={onCancel} className="my-2 mr-4 w-1/6" color="gray">
-              <ArrowLeftIcon className="mr-2 size-4" />
-              Previous
-            </Button>
-            <Button
-              onClick={handleSave}
-              className=" my-2 w-1/6"
-              style={{ backgroundColor: "link" }}
-            >
-              Next
-              <ArrowRightIcon className="ml-2 size-4" />
-            </Button>
+          <div className=" flex w-full flex-col justify-center text-gray-300">
+            <pre>{generatedOutline}</pre>
           </div>
+          <Button onClick={onSave}>Save Outline</Button>
         </>
       )}
     </div>

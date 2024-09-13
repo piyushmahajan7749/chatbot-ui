@@ -8,6 +8,7 @@ import { AnalysisComponent } from "./components/analysis"
 import { Card } from "@/components/ui/card"
 import AddDataComponent from "./components/adddata"
 import ReportOutlineComponent from "./components/reportoutline"
+import { ReportProvider } from "@/context/ReportContext"
 
 interface ReportViewProps {
   defaultTab: string
@@ -134,59 +135,61 @@ export const ReportView: FC<ReportViewProps> = ({ defaultTab }) => {
   const getSelectedSection = () => sections.find(d => d.dataId === selectedTab)
 
   return (
-    <div className="flex h-full flex-col">
-      <div className={cn("bg-main mb-4 grid grid-cols-4 p-4")}>
-        {sections.map((section, index) => (
-          <div
-            className="align-center flex flex-col justify-center"
-            key={index}
-          >
-            <Label
-              className={`mb-1 truncate text-center text-xs font-semibold 
-                ${section.dataId === selectedTab ? "text-reportborder" : ""}`}
+    <ReportProvider>
+      <div className="flex h-full flex-col">
+        <div className="bg-main mb-4 grid grid-cols-4 p-4">
+          {sections.map((section, index) => (
+            <div
+              className="align-center flex flex-col justify-center"
+              key={index}
             >
-              {section.title}
-            </Label>
-            <Card
-              onClick={() => {
-                if (section.dataId === selectedTab) {
-                  setTransitionEffect(true)
-                } else {
-                  setSelectedTab(section.dataId)
-                }
-              }}
-              className={`mx-8 justify-center border-solid bg-white ${
-                section.dataId === selectedTab
-                  ? "border-reportborder shadow-2xl"
-                  : "shadow-sm"
-              } cursor-pointer`}
-              style={{
-                minWidth: "100px",
-                width: "auto",
-                height: "100px",
-                borderWidth: section.dataId === selectedTab ? "3px" : "1px"
-              }}
-            >
-              <div className="flex justify-center">
-                <div
-                  className="size-5 cursor-pointer"
-                  style={{ marginTop: "26px" }}
-                >
-                  {section.icon}
+              <Label
+                className={`mb-1 truncate text-center text-xs font-semibold 
+                  ${section.dataId === selectedTab ? "text-reportborder" : ""}`}
+              >
+                {section.title}
+              </Label>
+              <Card
+                onClick={() => {
+                  if (section.dataId === selectedTab) {
+                    setTransitionEffect(true)
+                  } else {
+                    setSelectedTab(section.dataId)
+                  }
+                }}
+                className={`mx-8 justify-center border-solid bg-white ${
+                  section.dataId === selectedTab
+                    ? "border-reportborder shadow-2xl"
+                    : "shadow-sm"
+                } cursor-pointer`}
+                style={{
+                  minWidth: "100px",
+                  width: "auto",
+                  height: "100px",
+                  borderWidth: section.dataId === selectedTab ? "3px" : "1px"
+                }}
+              >
+                <div className="flex justify-center">
+                  <div
+                    className="size-5 cursor-pointer"
+                    style={{ marginTop: "26px" }}
+                  >
+                    {section.icon}
+                  </div>
                 </div>
-              </div>
-            </Card>
-          </div>
-        ))}
+              </Card>
+            </div>
+          ))}
+        </div>
+        <div
+          className={`w-7/8 mx-12 transition-all duration-500 ease-in-out ${
+            isTransitioning ? "scale-95 opacity-0" : "scale-100 opacity-100"
+          }`}
+        >
+          <div className="my-4 w-full">{getRegComponent()}</div>
+          {/* You can add an image here if needed */}
+        </div>
       </div>
-      <div
-        className={`w-7/8 mx-12 transition-all duration-500 ease-in-out ${
-          isTransitioning ? "scale-95 opacity-0" : "scale-100 opacity-100"
-        }`}
-      >
-        <div className="my-4 w-full">{getRegComponent()}</div>
-        {/* You can add an image here if needed */}
-      </div>
-    </div>
+    </ReportProvider>
   )
 }
