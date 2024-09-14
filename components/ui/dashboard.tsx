@@ -12,7 +12,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation"
 import { FC, useState } from "react"
 import { useSelectFileHandler } from "../chat/chat-hooks/use-select-file-handler"
 import { CommandK } from "../utility/command-k"
-import { ReportView } from "@/app/[locale]/[workspaceid]/reports/page"
+import ReportsPage from "@/app/[locale]/[workspaceid]/reports/page"
 
 export const SIDEBAR_WIDTH = 350
 
@@ -71,7 +71,7 @@ export const Dashboard: FC<DashboardProps> = ({ children }) => {
   const renderContent = () => {
     switch (contentType) {
       case "reports":
-        return <ReportView defaultTab="aim" />
+        return <ReportsPage />
       default:
         return children
     }

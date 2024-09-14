@@ -13,7 +13,7 @@ interface ReportViewProps {
   defaultTab: string
 }
 
-export const ReportView: FC<ReportViewProps> = ({ defaultTab }) => {
+const ReportView: FC<ReportViewProps> = ({ defaultTab }) => {
   const [isEditing, setEditing] = useState(true)
   const [selectedTab, setSelectedTab] = useState("aimList")
   const [isTransitioning, setTransitioning] = useState(false)
@@ -160,4 +160,8 @@ export const ReportView: FC<ReportViewProps> = ({ defaultTab }) => {
       </div>
     </ReportProvider>
   )
+}
+
+export default function ReportsPage() {
+  return <ReportView defaultTab="aim" />
 }
