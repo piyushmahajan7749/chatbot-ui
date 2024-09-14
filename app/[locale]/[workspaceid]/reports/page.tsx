@@ -1,3 +1,5 @@
+"use client"
+
 import { FC, useState, useEffect } from "react"
 import { Edit } from "lucide-react"
 import { Label } from "@radix-ui/react-label"

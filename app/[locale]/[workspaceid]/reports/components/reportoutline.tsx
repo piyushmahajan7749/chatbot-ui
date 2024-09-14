@@ -6,7 +6,6 @@ import { useReportContext } from "@/context/reportcontext"
 import { Label } from "@radix-ui/react-label"
 import { Loader } from "../../../../../components/ui/loader"
 import { Button } from "../../../../../components/ui/button"
-import { ArrowLeftIcon, ArrowRightIcon } from "lucide-react"
 
 interface ReportOutlineProps {
   onSave: () => void
