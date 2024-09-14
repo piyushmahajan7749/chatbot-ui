@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { useReportContext } from "@/context/ReportContext"
+import { useReportContext } from "@/context/reportcontext"
 
 import { Label } from "@radix-ui/react-label"
 import { Loader } from "../../../../../components/ui/loader"
@@ -63,7 +63,7 @@ export function ReportOutlineComponent({
               <Label className="pl-4 text-lg font-bold">Report Outline</Label>
             </div>
           </div>
-          <div className=" flex w-full flex-col justify-center text-gray-300">
+          <div className=" flex w-full flex-col justify-center p-4 pl-8 text-gray-300">
             <pre>{generatedOutline}</pre>
           </div>
           <Button onClick={onSave}>Save Outline</Button>

@@ -1,15 +1,13 @@
 "use client"
 
 import { useState, useContext, useEffect } from "react"
-import { Label } from "@radix-ui/react-label"
-import { Loader } from "../../../../../components/ui/loader"
 import { Button } from "../../../../../components/ui/button"
 import { ArrowRightIcon, Plus, X } from "lucide-react"
 import { ChatbotUIContext } from "@/context/context"
 import { FilePicker } from "@/components/chat/file-picker"
 import { Tables } from "@/supabase/types"
 import { Badge } from "@/components/ui/badge"
-import { useReportContext } from "@/context/ReportContext"
+import { useReportContext } from "@/context/reportcontext"
 
 interface AddDataProps {
   onSave: () => void

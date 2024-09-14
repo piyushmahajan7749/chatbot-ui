@@ -1,12 +1,11 @@
 import { FC, useState, useEffect } from "react"
 import { Edit } from "lucide-react"
 import { Label } from "@radix-ui/react-label"
-import { InfoListBox } from "./components/infobox"
 import { ReportDraftComponent } from "./components/reportdraft"
 import { Card } from "@/components/ui/card"
 import AddDataComponent from "./components/adddata"
 import ReportOutlineComponent from "./components/reportoutline"
-import { ReportProvider } from "@/context/ReportContext"
+import { ReportProvider } from "@/context/reportcontext"
 
 interface ReportViewProps {
   defaultTab: string
