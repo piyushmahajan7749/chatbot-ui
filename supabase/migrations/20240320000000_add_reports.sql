@@ -27,8 +27,8 @@ CREATE TABLE IF NOT EXISTS reports (
 
 -- INDEXES --
 
-CREATE INDEX reports_user_id_idx ON reports(user_id);
-CREATE INDEX reports_workspace_id_idx ON reports(workspace_id);
+-- CREATE INDEX reports_user_id_idx ON reports(user_id);
+-- CREATE INDEX reports_workspace_id_idx ON reports(workspace_id);
 
 -- RLS --
 
@@ -70,9 +70,9 @@ CREATE TABLE IF NOT EXISTS report_files (
 
 -- INDEXES --
 
-CREATE INDEX report_files_user_id_idx ON report_files(user_id);
-CREATE INDEX report_files_report_id_idx ON report_files(report_id);
-CREATE INDEX report_files_file_id_idx ON report_files(file_id);
+-- CREATE INDEX report_files_user_id_idx ON report_files(user_id);
+-- CREATE INDEX report_files_report_id_idx ON report_files(report_id);
+-- CREATE INDEX report_files_file_id_idx ON report_files(file_id);
 
 -- RLS --
 
@@ -109,9 +109,9 @@ CREATE TABLE IF NOT EXISTS report_collections (
 
 -- INDEXES --
 
-CREATE INDEX report_collections_user_id_idx ON report_collections(user_id);
+-- CREATE INDEX report_collections_user_id_idx ON report_collections(user_id);
 CREATE INDEX report_collections_report_id_idx ON report_collections(report_id);
-CREATE INDEX report_collections_collection_id_idx ON report_collections(collection_id);
+-- CREATE INDEX report_collections_collection_id_idx ON report_collections(collection_id);
 
 -- RLS --
 
@@ -148,9 +148,9 @@ CREATE TABLE IF NOT EXISTS report_workspaces (
 
 -- INDEXES --
 
-CREATE INDEX report_workspaces_user_id_idx ON report_workspaces(user_id);
+-- CREATE INDEX report_workspaces_user_id_idx ON report_workspaces(user_id);
 CREATE INDEX report_workspaces_report_id_idx ON report_workspaces(report_id);
-CREATE INDEX report_workspaces_workspace_id_idx ON report_workspaces(workspace_id);
+-- CREATE INDEX report_workspaces_workspace_id_idx ON report_workspaces(workspace_id);
 
 -- RLS --
 

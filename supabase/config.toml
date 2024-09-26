@@ -1,6 +1,6 @@
 # A string used to distinguish different Supabase projects on the same host. Defaults to the
 # working directory name when running `supabase init`.
-project_id = "chatbotui"
+project_id = "zfspdjuopjduoceunfug"
 
 [api]
 # Port to use for the API URL.
@@ -19,6 +19,7 @@ max_rows = 1000
 port = 54322
 # Port used by db diff command to initialise the shadow database.
 shadow_port = 54320
+params = { sslmode = "disable" }
 # The database major version to use. This has to be the same as your remote database's. Run `SHOW
 # server_version;` on the remote database to check.
 major_version = 15

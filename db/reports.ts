@@ -103,6 +103,7 @@ export const createReportWorkspace = async (item: {
     .single()
 
   if (error) {
+    console.error("Error creating report workspace:", error)
     throw new Error(error.message)
   }
 

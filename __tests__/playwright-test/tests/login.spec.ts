@@ -1,4 +1,4 @@
-import { test, expect, Page } from "@playwright/test"
+import { test, expect, Page } from "playwright/test"
 
 test("start chatting is displayed", async ({ page }: { page: Page }) => {
   await page.goto("http://localhost:3000/")
