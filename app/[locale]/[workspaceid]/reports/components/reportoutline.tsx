@@ -21,37 +21,62 @@ export function ReportOutlineComponent({
   const [isLoading, setLoading] = useState(false)
   const { selectedData, setReportOutline } = useReportContext()
   const [generatedOutline, setGeneratedOutline] = useState("")
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     const generateOutline = async () => {
       setLoading(true)
+      setError(null)
       try {
+        console.log("Sending data to API:", selectedData)
         const response = await fetch("/api/report/outline", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ selectedData })
+          body: JSON.stringify(selectedData)
         })
+        if (!response.ok) {
+          const errorData = await response.json()
+          throw new Error(
+            `HTTP error! status: ${response.status}, message: ${errorData.message || "Unknown error"}`
+          )
+        }
         const data = await response.json()
-        setGeneratedOutline(data.outline)
-        setReportOutline(data.outline)
+        console.log("Received data from API:", data)
+        if (data.outline) {
+          setGeneratedOutline(data.outline)
+          setReportOutline(data.outline)
+        } else {
+          throw new Error("No outline data received")
+        }
       } catch (error) {
         console.error("Error generating outline:", error)
+        setError(error instanceof Error ? error.message : String(error))
+        setGeneratedOutline("")
       } finally {
         setLoading(false)
       }
     }
-    debugger
-    if (Object.keys(selectedData).length > 0) {
+
+    if (
+      selectedData.userPrompt &&
+      selectedData.protocol &&
+      selectedData.papers &&
+      selectedData.dataFiles
+    ) {
       generateOutline()
     }
-  }, [selectedData])
+  }, [selectedData, setReportOutline])
 
-  // Render the generated outline
   return (
     <div className="flex w-full flex-col items-center justify-center">
       {isLoading ? (
         <div className="my-48">
           <Loader text="Generating outline" />
+        </div>
+      ) : error ? (
+        <div className="text-red-500">
+          <p>Error: {error}</p>
+          <p>Please try again or contact support if the problem persists.</p>
         </div>
       ) : (
         <>
@@ -62,10 +87,10 @@ export function ReportOutlineComponent({
               <Label className="pl-4 text-lg font-bold">Report Outline</Label>
             </div>
           </div>
-          <div className=" flex w-full flex-col justify-center p-4 pl-8 text-gray-300">
+          <div className="flex w-full flex-col justify-center p-4 pl-8 text-gray-300">
             <pre>{generatedOutline}</pre>
           </div>
-          <Button onClick={onSave}>Save Outline</Button>
+          {generatedOutline && <Button onClick={onSave}>Save Outline</Button>}
         </>
       )}
     </div>

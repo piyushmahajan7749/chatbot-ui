@@ -1,8 +1,20 @@
 import React, { createContext, useState, useContext, ReactNode } from "react"
 
 interface ReportContextType {
-  selectedData: any
-  setSelectedData: React.Dispatch<React.SetStateAction<any>>
+  selectedData: {
+    userPrompt: string
+    protocol: string
+    papers: string[]
+    dataFiles: string[]
+  }
+  setSelectedData: React.Dispatch<
+    React.SetStateAction<{
+      userPrompt: string
+      protocol: string
+      papers: string[]
+      dataFiles: string[]
+    }>
+  >
   reportOutline: string
   setReportOutline: React.Dispatch<React.SetStateAction<string>>
   reportDraft: string
@@ -16,7 +28,12 @@ interface ReportProviderProps {
 }
 
 export const ReportProvider: React.FC<ReportProviderProps> = ({ children }) => {
-  const [selectedData, setSelectedData] = useState({})
+  const [selectedData, setSelectedData] = useState<SelectedData>({
+    userPrompt: "",
+    protocol: "",
+    papers: [],
+    dataFiles: []
+  })
   const [reportOutline, setReportOutline] = useState("")
   const [reportDraft, setReportDraft] = useState("")
 
@@ -34,6 +51,13 @@ export const ReportProvider: React.FC<ReportProviderProps> = ({ children }) => {
       {children}
     </ReportContext.Provider>
   )
+}
+
+interface SelectedData {
+  userPrompt: string
+  protocol: string
+  papers: string[]
+  dataFiles: string[]
 }
 
 export const useReportContext = () => {

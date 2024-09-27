@@ -8,6 +8,8 @@ import { FilePicker } from "@/components/chat/file-picker"
 import { Tables } from "@/supabase/types"
 import { Badge } from "@/components/ui/badge"
 import { useReportContext } from "@/context/reportcontext"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
 
 interface AddDataProps {
   onSave: () => void
@@ -27,18 +29,14 @@ export function AddDataComponent({ onCancel, onSave, colorId }: AddDataProps) {
   const [showFilePicker, setShowFilePicker] = useState(false)
   const [selectedFileType, setSelectedFileType] = useState("")
   const [selectedItems, setSelectedItems] = useState<{
-    [key: string]: {
-      id: string
-      name: string
-      type: "file" | "collection"
-      content?: string
-    }[]
+    [key: string]: SelectedItem[]
   }>({
     Protocol: [],
     Papers: [],
     "Experiment Data": [],
     "Other files": []
   })
+  const [userPrompt, setUserPrompt] = useState("")
 
   const { setSelectedData } = useReportContext()
 
@@ -49,7 +47,16 @@ export function AddDataComponent({ onCancel, onSave, colorId }: AddDataProps) {
   const handleSave = async () => {
     setLoading(true)
     try {
-      setSelectedData(selectedItems)
+      const formattedData = {
+        userPrompt,
+        protocol: selectedItems.Protocol[0]?.name || "",
+        papers: selectedItems.Papers.map(item => item.name),
+        dataFiles: [
+          ...selectedItems["Experiment Data"].map(item => item.name),
+          ...selectedItems["Other files"].map(item => item.name)
+        ]
+      }
+      setSelectedData(formattedData)
       onSave()
     } catch (error) {
       console.error(error)
@@ -60,13 +67,21 @@ export function AddDataComponent({ onCancel, onSave, colorId }: AddDataProps) {
 
   const handleFileSelect = (file: Tables<"files">) => {
     console.log("File selected:", file)
-    setSelectedItems(prev => ({
-      ...prev,
-      [selectedFileType]: [
-        ...prev[selectedFileType],
-        { id: file.id, name: file.name, type: "file" }
-      ]
-    }))
+    if (selectedFileType === "Protocol" && selectedItems.Protocol.length > 0) {
+      // Replace existing protocol file
+      setSelectedItems(prev => ({
+        ...prev,
+        Protocol: [{ id: file.id, name: file.name, type: "file" }]
+      }))
+    } else {
+      setSelectedItems(prev => ({
+        ...prev,
+        [selectedFileType]: [
+          ...prev[selectedFileType],
+          { id: file.id, name: file.name, type: "file" }
+        ]
+      }))
+    }
     setShowFilePicker(false)
   }
 
@@ -118,6 +133,15 @@ export function AddDataComponent({ onCancel, onSave, colorId }: AddDataProps) {
 
   return (
     <div className="flex h-full flex-col">
+      <div className="mb-4">
+        <Label htmlFor="userPrompt">User Prompt</Label>
+        <Input
+          id="userPrompt"
+          value={userPrompt}
+          onChange={e => setUserPrompt(e.target.value)}
+          placeholder="Enter your research question or prompt"
+        />
+      </div>
       <div className="mb-8 grid w-full max-w-5xl grow grid-cols-4 gap-8">
         {cardData.map((card, index) => (
           <div key={index} className="flex h-full flex-col">
@@ -146,7 +170,9 @@ export function AddDataComponent({ onCancel, onSave, colorId }: AddDataProps) {
               }}
             >
               <Plus className="mr-2 size-4" />
-              Add {card.title}
+              {card.title === "Protocol"
+                ? "Upload Protocol"
+                : `Add ${card.title}`}
             </Button>
           </div>
         ))}
