@@ -49,11 +49,11 @@ export function AddDataComponent({ onCancel, onSave, colorId }: AddDataProps) {
     try {
       const formattedData = {
         userPrompt,
-        protocol: selectedItems.Protocol[0]?.name || "",
-        papers: selectedItems.Papers.map(item => item.name),
+        protocol: selectedItems.Protocol[0]?.id || "",
+        papers: selectedItems.Papers.map(item => item.id), //
         dataFiles: [
-          ...selectedItems["Experiment Data"].map(item => item.name),
-          ...selectedItems["Other files"].map(item => item.name)
+          ...selectedItems["Experiment Data"].map(item => item.id),
+          ...selectedItems["Other files"].map(item => item.id)
         ]
       }
       setSelectedData(formattedData)

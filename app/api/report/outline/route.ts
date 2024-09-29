@@ -1,192 +1,161 @@
 import { StateGraph, END } from "@langchain/langgraph"
 import { ChatOpenAI } from "@langchain/openai"
-import { BaseMessage, MessageContent } from "@langchain/core/messages"
 import {
   ChatPromptTemplate,
   MessagesPlaceholder
 } from "@langchain/core/prompts"
+import { retrieveRelevantContent } from "./retrieval"
 import { MemorySaver, Annotation } from "@langchain/langgraph"
-import { ServerRuntime } from "next"
-import { checkApiKey, getServerProfile } from "@/lib/server/server-chat-helpers"
-import { decode, encode } from "gpt-tokenizer"
 
-export const runtime: ServerRuntime = "edge"
+type AgentType =
+  | "router"
+  | "outline_agent"
+  | "content_agent"
+  | "review_agent"
+  | "finalize_agent"
 
-// Update StateAnnotation to include new fields
+// Define the state type
 const StateAnnotation = Annotation.Root({
-  messages: Annotation<BaseMessage[]>({
+  messages: Annotation<any[]>({
     reducer: (x, y) => x.concat(y)
   }),
   userPrompt: Annotation<string>(),
   protocol: Annotation<string>(),
   papers: Annotation<string[]>(),
   dataFiles: Annotation<string[]>(),
-  processAgentInput: Annotation<string>(),
-  visualizationAgentInput: Annotation<string[]>(),
-  searcherAgentInput: Annotation<{ papers: string[]; reportOutline: string }>(),
-  codeAgentInput: Annotation<string>(),
-  reportAgentInput: Annotation<string>(),
-  qualityReviewAgentInput: Annotation<string>(),
   reportOutline: Annotation<string>(),
+  reportContent: Annotation<string>(),
   qualityReview: Annotation<string>(),
   needsRevision: Annotation<boolean>(),
-  sender: Annotation<string>(),
-  current_agent: Annotation<string>(),
-  processDecision: Annotation<string>(),
-  visualizationState: Annotation<string>(),
-  searcherState: Annotation<string>(),
-  codeState: Annotation<string>()
+  current_agent: Annotation<AgentType>(),
+  processDecision: Annotation<AgentType>()
 })
 
-// Initialize language model
+// Initialize the model
 const model = new ChatOpenAI({
-  modelName: "gpt-4o-2024-08-06",
-  temperature: 0.7,
-  apiKey: process.env.OPENAI_KEY
+  modelName: "gpt-4-turbo-preview",
+  temperature: 0.7
 })
 
-// Update prompts for each agent
-
-const processAgentPrompt = ChatPromptTemplate.fromMessages([
+// Define prompts for each agent
+const routerPrompt = ChatPromptTemplate.fromMessages([
   [
     "system",
-    "You are a research supervisor overseeing the entire research process. Create a report outline based on the provided protocol and user prompt."
+    "You are a router that decides which agent should handle the current task in the report generation process."
   ],
   new MessagesPlaceholder("messages"),
   [
     "human",
-    "Protocol: {protocol}\n\nUser Prompt: {userPrompt}\n\nCreate a report outline based on this information."
+    "Based on the current state and user prompt, which agent should handle the next step? Options are: outline_agent, content_agent, review_agent, or finalize_agent."
   ]
 ])
 
-const visualizationAgentPrompt = ChatPromptTemplate.fromMessages([
+const outlineAgentPrompt = ChatPromptTemplate.fromMessages([
   [
     "system",
-    "You are a data visualization expert. Create insightful charts and graphs based on the data files provided."
+    "You are an outline creator. Generate a detailed outline for the report based on the protocol, papers, and data files."
   ],
   new MessagesPlaceholder("messages"),
   [
     "human",
-    "Data Files: {visualizationAgentInput}\n\nCreate visualizations based on these data files."
+    "Create a detailed outline for the report using the following information:\n\nProtocol: {protocol}\n\nPapers: {papers}\n\nData Files: {dataFiles}\n\nUser Prompt: {userPrompt}"
   ]
 ])
 
-const searcherAgentPrompt = ChatPromptTemplate.fromMessages([
+const contentAgentPrompt = ChatPromptTemplate.fromMessages([
   [
     "system",
-    "You are a literature search expert. Conduct a literature search based on the provided papers (if any) and the current report outline."
+    "You are a content writer. Write detailed content for each section of the report outline."
   ],
   new MessagesPlaceholder("messages"),
   [
     "human",
-    "Papers: {papers}\n\nCurrent Report Outline: {reportOutline}\n\nConduct a literature search and provide relevant information. If no papers are provided, focus on the report outline and suggest relevant areas for literature search."
+    "Write detailed content for the following report outline:\n\n{reportOutline}\n\nUse the following information:\n\nProtocol: {protocol}\n\nPapers: {papers}\n\nData Files: {dataFiles}"
   ]
 ])
 
-const codeAgentPrompt = ChatPromptTemplate.fromMessages([
+const reviewAgentPrompt = ChatPromptTemplate.fromMessages([
   [
     "system",
-    "You are a skilled coder. Write data analysis code to process the data files and assist in generating results for the lab experiments."
+    "You are a quality reviewer. Review the report content and provide feedback for improvements."
   ],
   new MessagesPlaceholder("messages"),
-  ["human", "{input}"]
+  [
+    "human",
+    "Review the following report content and provide feedback for improvements:\n\n{reportContent}"
+  ]
 ])
 
-const reportAgentPrompt = ChatPromptTemplate.fromMessages([
+const finalizeAgentPrompt = ChatPromptTemplate.fromMessages([
   [
     "system",
-    "You are an experienced report writer. Write the research report, including a table of contents and detailed content for each section."
+    "You are a report finalizer. Make final adjustments to the report based on the review feedback."
   ],
   new MessagesPlaceholder("messages"),
-  ["human", "{input}"]
-])
-
-const qualityReviewAgentPrompt = ChatPromptTemplate.fromMessages([
   [
-    "system",
-    "You are a quality reviewer. Perform a quality review of the report and provide feedback."
-  ],
-  new MessagesPlaceholder("messages"),
-  ["human", "{input}"]
+    "human",
+    "Finalize the report based on the following review feedback:\n\n{qualityReview}\n\nCurrent report content:\n\n{reportContent}"
+  ]
 ])
 
-const noteAgentPrompt = ChatPromptTemplate.fromMessages([
-  [
-    "system",
-    "You are a note-taker who records the research process. Summarize the key points and decisions made so far."
-  ],
-  new MessagesPlaceholder("messages"),
-  ["human", "{input}"]
-])
-
-// Update the function that determines which agent to call next
-function shouldContinue(state: typeof StateAnnotation.State) {
+// Function to determine which agent to call next
+function routeNext(state: typeof StateAnnotation.State) {
   switch (state.current_agent) {
-    case "process_agent":
-      return state.processDecision || "quality_review_agent"
-    case "visualization_agent":
-    case "searcher_agent":
-    case "code_agent":
-    case "report_agent":
-      return "quality_review_agent"
-    case "quality_review_agent":
-      return state.needsRevision ? state.sender : "note_agent"
-    case "note_agent":
-      return "process_agent"
-    default:
+    case "router":
+      return state.processDecision
+    case "outline_agent":
+    case "content_agent":
+    case "review_agent":
+      return "router"
+    case "finalize_agent":
       return END
+    default:
+      return "router"
   }
 }
 
-// Update the function that calls the model for each agent
-async function callModel(state: typeof StateAnnotation.State) {
-  let prompt: ChatPromptTemplate
-  let input: Record<string, any> = {}
-  let newState: Partial<typeof StateAnnotation.State> = {}
+// Function to call the appropriate agent
+async function callAgent(state: typeof StateAnnotation.State) {
+  let prompt: any
+  let input: any = {}
+  const newState = { ...state }
 
   switch (state.current_agent) {
-    case "process_agent":
-      prompt = processAgentPrompt
-      input = { protocol: state.protocol, userPrompt: state.userPrompt }
+    case "router":
+      prompt = routerPrompt
+      input = { messages: state.messages }
       break
-    case "visualization_agent":
-      prompt = visualizationAgentPrompt
-      input = { dataFiles: state.dataFiles }
-      break
-    case "searcher_agent":
-      prompt = searcherAgentPrompt
+    case "outline_agent":
+      prompt = outlineAgentPrompt
       input = {
-        papers: state.searcherAgentInput?.papers || "No papers provided",
-        reportOutline:
-          state.searcherAgentInput?.reportOutline || "No outline available"
+        protocol: state.protocol,
+        papers: state.papers,
+        dataFiles: state.dataFiles,
+        userPrompt: state.userPrompt
       }
       break
-    case "code_agent":
-      prompt = codeAgentPrompt
-      input = { input: state.codeAgentInput }
+    case "content_agent":
+      prompt = contentAgentPrompt
+      input = {
+        reportOutline: state.reportOutline,
+        protocol: state.protocol,
+        papers: state.papers,
+        dataFiles: state.dataFiles
+      }
       break
-    case "report_agent":
-      prompt = reportAgentPrompt
-      input = { input: state.reportAgentInput }
+    case "review_agent":
+      prompt = reviewAgentPrompt
+      input = { reportContent: state.reportContent }
       break
-    case "quality_review_agent":
-      prompt = qualityReviewAgentPrompt
-      input = { input: state.qualityReviewAgentInput }
+    case "finalize_agent":
+      prompt = finalizeAgentPrompt
+      input = {
+        qualityReview: state.qualityReview,
+        reportContent: state.reportContent
+      }
       break
     default:
       throw new Error("Invalid agent")
-  }
-
-  // Truncate input if necessary
-  const maxTokens = 120000 // Leave some room for the model's response
-  for (const key in input) {
-    if (typeof input[key] === "string") {
-      input[key] = truncateInput(input[key], maxTokens)
-    } else if (Array.isArray(input[key])) {
-      input[key] = input[key].map((item: string) =>
-        truncateInput(item, maxTokens / input[key].length)
-      )
-    }
   }
 
   const response = await model.invoke(
@@ -196,102 +165,57 @@ async function callModel(state: typeof StateAnnotation.State) {
     })
   )
 
-  newState.messages = (state.messages || []).concat([response])
-  newState.sender = state.current_agent
+  newState.messages = [...(state.messages || []), response]
 
-  // Helper function to safely extract string content
-  const getStringContent = (content: MessageContent): string => {
-    if (typeof content === "string") {
-      return content
-    } else if (Array.isArray(content)) {
-      return content
-        .map(item => (typeof item === "string" ? item : JSON.stringify(item)))
-        .join(" ")
-    }
-    return JSON.stringify(content)
-  }
-
-  const stringContent = getStringContent(response.content)
+  const content =
+    typeof response.content === "string"
+      ? response.content
+      : JSON.stringify(response.content)
 
   switch (state.current_agent) {
-    case "process_agent":
-      newState.reportOutline = stringContent
-      newState.processDecision = extractProcessDecision(stringContent)
-      newState.current_agent = newState.processDecision
+    case "router":
+      newState.processDecision = content.toLowerCase().includes("outline")
+        ? "outline_agent"
+        : content.toLowerCase().includes("content")
+          ? "content_agent"
+          : content.toLowerCase().includes("review")
+            ? "review_agent"
+            : "finalize_agent"
       break
-    case "visualization_agent":
-      newState.visualizationState = stringContent
-      newState.current_agent = "quality_review_agent"
+    case "outline_agent":
+      newState.reportOutline = content
       break
-    case "searcher_agent":
-      newState.searcherState = stringContent
-      newState.current_agent = "quality_review_agent"
+    case "content_agent":
+      newState.reportContent = content
       break
-    case "code_agent":
-      newState.codeState = stringContent
-      newState.current_agent = "quality_review_agent"
+    case "review_agent":
+      newState.qualityReview = content
+      newState.needsRevision = content
+        .toLowerCase()
+        .includes("revision needed") as boolean
       break
-    case "report_agent":
-      newState.reportOutline = stringContent
-      newState.current_agent = "quality_review_agent"
-      break
-    case "quality_review_agent":
-      newState.qualityReview = stringContent
-      newState.needsRevision = stringContent.toLowerCase().includes("revision")
-      newState.current_agent = newState.needsRevision
-        ? state.sender
-        : "process_agent"
-      break
-    default:
-      newState.current_agent = END
+    case "finalize_agent":
+      newState.reportContent = content
       break
   }
 
+  newState.current_agent = "router"
   return newState
 }
 
-// Function to extract process decision from process_agent's response
-function extractProcessDecision(content: string): string {
-  // Implement logic to extract the next agent from the content
-  if (content.includes("visualization")) {
-    return "visualization_agent"
-  } else if (content.includes("code")) {
-    return "code_agent"
-  } else if (content.includes("searcher")) {
-    return "searcher_agent"
-  } else if (content.includes("report")) {
-    return "report_agent"
-  } else {
-    return "quality_review_agent"
-  }
-}
-
-// Function to truncate input if it's too long
-function truncateInput(input: string, maxTokens: number): string {
-  const tokens = encode(input)
-  if (tokens.length <= maxTokens) {
-    return input
-  }
-  return decode(tokens.slice(0, maxTokens))
-}
-
-// Update the workflow
+// Create the workflow
 const workflow = new StateGraph(StateAnnotation)
-  .addNode("process_agent", callModel)
-  .addNode("visualization_agent", callModel)
-  .addNode("searcher_agent", callModel)
-  .addNode("code_agent", callModel)
-  .addNode("report_agent", callModel)
-  .addNode("quality_review_agent", callModel)
-  .addNode("note_agent", callModel)
-  .addEdge("__start__", "process_agent")
-  .addConditionalEdges("process_agent", shouldContinue)
-  .addConditionalEdges("visualization_agent", shouldContinue)
-  .addConditionalEdges("searcher_agent", shouldContinue)
-  .addConditionalEdges("code_agent", shouldContinue)
-  .addConditionalEdges("report_agent", shouldContinue)
-  .addConditionalEdges("quality_review_agent", shouldContinue)
-  .addConditionalEdges("note_agent", shouldContinue)
+  .addNode("router", callAgent)
+  .addNode("outline_agent", callAgent)
+  .addNode("content_agent", callAgent)
+  .addNode("review_agent", callAgent)
+  .addNode("finalize_agent", callAgent)
+  .addEdge("__start__", "router")
+  .addEdge("router", routeNext as any)
+  .addEdge("outline_agent", routeNext as any)
+  .addEdge("content_agent", routeNext as any)
+  .addEdge("review_agent", routeNext as any)
+  .addEdge("finalize_agent", routeNext as any)
 
 // Initialize memory to persist state between graph runs
 const checkpointer = new MemorySaver()
@@ -299,48 +223,51 @@ const checkpointer = new MemorySaver()
 // Compile the graph
 const app = workflow.compile({ checkpointer })
 
+// POST function for the new route
 export async function POST(request: Request) {
   try {
-    const profile = await getServerProfile()
-    checkApiKey(profile.openai_api_key, "OpenAI")
-
     const body = await request.json()
     console.log("Received request body:", body)
 
-    const { userPrompt, protocol, papers, dataFiles } = body
+    let { userPrompt, protocol, papers, dataFiles } = body as {
+      userPrompt: string
+      protocol: string
+      papers: string[]
+      dataFiles: string[]
+    }
 
     if (!userPrompt || !protocol) {
       throw new Error("Missing required fields: userPrompt or protocol")
     }
 
-    const initialState: typeof StateAnnotation.State = {
-      messages: [],
-      userPrompt,
-      protocol,
-      papers,
-      dataFiles,
-      visualizationAgentInput: dataFiles,
-      searcherAgentInput: {
-        papers: papers || [],
-        reportOutline: ""
-      },
-      codeAgentInput: "",
-      reportAgentInput: "",
-      qualityReviewAgentInput: "",
-      reportOutline: "",
-      qualityReview: "",
-      needsRevision: false,
-      sender: "",
-      processAgentInput: "",
-      processDecision: "",
-      visualizationState: "",
-      searcherState: "",
-      codeState: "",
-      current_agent: "process_agent"
+    console.log("File IDs:", { protocol, papers, dataFiles })
+
+    // Retrieve and summarize relevant content
+    const retrieveAndSummarize = async (ids: string[], maxTokens: number) => {
+      const chunks = await retrieveRelevantContent(userPrompt, ids, "openai", 3)
+      const content = chunks.map(chunk => chunk.content).join("\n")
+      return content
     }
 
-    // Generate a unique thread_id for this request
-    const thread_id = `report_outline_${Date.now()}`
+    const summarizedProtocol = await retrieveAndSummarize([protocol], 1000)
+    const summarizedPapers = await retrieveAndSummarize(papers, 1000)
+    const summarizedDataFiles = await retrieveAndSummarize(dataFiles, 1000)
+
+    const initialState: typeof StateAnnotation.State = {
+      messages: [] as any,
+      userPrompt: userPrompt as any,
+      protocol: summarizedProtocol as any,
+      papers: [summarizedPapers] as any,
+      dataFiles: [summarizedDataFiles] as any,
+      reportOutline: "" as any,
+      reportContent: "" as any,
+      qualityReview: "" as any,
+      needsRevision: false as any,
+      current_agent: "router" as any,
+      processDecision: "" as any
+    }
+
+    const thread_id = `report_generate_${Date.now()}`
 
     console.log("Invoking app with initial state:", initialState)
     const finalState = await app.invoke(initialState, {
@@ -348,9 +275,9 @@ export async function POST(request: Request) {
     })
     console.log("Final state:", finalState)
 
-    if (finalState.reportOutline) {
+    if (finalState.reportContent) {
       return new Response(
-        JSON.stringify({ outline: finalState.reportOutline }),
+        JSON.stringify({ report: finalState.reportContent }),
         {
           status: 200,
           headers: { "Content-Type": "application/json" }
@@ -359,14 +286,14 @@ export async function POST(request: Request) {
     }
 
     return new Response(
-      JSON.stringify({ message: "Failed to generate report outline" }),
+      JSON.stringify({ message: "Failed to generate report" }),
       {
         status: 500,
         headers: { "Content-Type": "application/json" }
       }
     )
   } catch (error: any) {
-    console.error("Error in POST /api/report/outline:", error)
+    console.error("Error in POST /api/report/generate:", error)
     let errorMessage = error.message || "An unexpected error occurred"
     const errorCode = error.status || 500
 
