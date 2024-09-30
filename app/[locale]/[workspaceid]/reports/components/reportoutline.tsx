@@ -59,9 +59,7 @@ export function ReportOutlineComponent({
 
     if (
       selectedData.userPrompt &&
-      selectedData.protocol &&
-      selectedData.papers &&
-      selectedData.dataFiles
+      (selectedData.protocol || selectedData.papers || selectedData.dataFiles)
     ) {
       generateOutline()
     }
