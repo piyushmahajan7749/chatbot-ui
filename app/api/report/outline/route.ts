@@ -84,18 +84,31 @@ async function callAgent(
   agent: ChatPromptTemplate,
   input: Record<string, any>
 ) {
-  const formattedMessages = await agent.formatMessages(input)
-  const messages = formattedMessages.map((msg: BaseMessage) => {
-    if (msg instanceof HumanMessage) {
-      return { role: "human", content: msg.content }
-    } else if (msg instanceof AIMessage) {
-      return { role: "ai", content: msg.content }
-    } else {
-      return { role: "system", content: msg.content }
-    }
-  })
-  const response = await llm.invoke(messages.toString())
-  return response.content
+  try {
+    const formattedMessages = await agent.formatMessages(input)
+    console.log("Formatted messages:", formattedMessages)
+
+    const messages = formattedMessages.map((msg: BaseMessage) => {
+      if (msg instanceof HumanMessage) {
+        return { role: "human", content: msg.content }
+      } else if (msg instanceof AIMessage) {
+        return { role: "ai", content: msg.content }
+      } else {
+        return { role: "system", content: msg.content }
+      }
+    })
+
+    console.log("Mapped messages:", messages)
+    const response = await llm.invoke(
+      messages.map(msg => msg.content.toString())
+    )
+    console.log("LLM response:", response)
+
+    return response.content
+  } catch (error) {
+    console.error("Error in callAgent:", error)
+    throw error
+  }
 }
 
 async function finalValidatorAgent(
@@ -164,19 +177,29 @@ const workflow = new StateGraph<ReportState>({
   }
 })
   .addNode("reportOutlineAgent", async (state: ReportState) => {
-    const content = await callAgent(state, reportOutlineAgent, {
-      protocol: state.protocol
-    })
-    return { ...state, reportOutline: content }
+    try {
+      const content = await callAgent(state, reportOutlineAgent, {
+        protocol: state.protocol
+      })
+      return { ...state, reportOutline: content }
+    } catch (error) {
+      console.error("Error in reportOutlineAgent:", error)
+      throw error
+    }
   })
   .addNode("reportWriterAgent", async (state: ReportState) => {
-    const content = await callAgent(state, reportWriterAgent, {
-      dataFiles: state.dataFileSummary,
-      papers: state.paperSummary || "",
-      reportOutline: state.reportOutline
-    })
+    try {
+      const content = await callAgent(state, reportWriterAgent, {
+        dataFiles: state.dataFileSummary,
+        papers: state.paperSummary || "",
+        reportOutline: state.reportOutline
+      })
 
-    return { ...state, reportDraft: content }
+      return { ...state, reportDraft: content }
+    } catch (error) {
+      console.error("Error in reportWriterAgent:", error)
+      throw error
+    }
   })
   .addEdge(START, "reportOutlineAgent")
   .addEdge("reportOutlineAgent", "reportWriterAgent")
@@ -187,11 +210,11 @@ const workflow = new StateGraph<ReportState>({
 export async function POST(req: Request) {
   try {
     const { protocol, papers, dataFiles, prompt } = await req.json()
-    console.log("Received request:", {
-      protocol,
-      papers,
-      dataFiles
-    })
+    // console.log("Received request:", {
+    //   protocol,
+    //   papers,
+    //   dataFiles
+    // })
 
     // if (!elevatorPitch || !habitStories || !jobStories) {
     //   return new NextResponse("Missing required fields", { status: 400 })
@@ -201,9 +224,9 @@ export async function POST(req: Request) {
 
     const dataFileContent = await retrieveFileContent([dataFiles])
 
-    console.log("Paper content:", paperContent)
-    console.log("Data file content:", dataFileContent)
-    console.log("Protocol content:", protocolContent)
+    // console.log("Paper content:", paperContent)
+    // console.log("Data file content:", dataFileContent)
+    // console.log("Protocol content:", protocolContent)
 
     const initialState: ReportState = {
       reportOutline: "",
@@ -219,13 +242,16 @@ export async function POST(req: Request) {
     for await (const event of await app.stream(initialState)) {
       for (const [key, value] of Object.entries(event)) {
         finalState = value as ReportState
-        console.log(`Updated state for ${key}:`, finalState)
+        // console.log(`Updated state for ${key}:`, finalState)
       }
     }
 
     if (finalState) {
-      console.log("Final state:", finalState)
-      return NextResponse.json(finalState.finalOutput)
+      // console.log("Final state:", finalState)
+      return NextResponse.json({
+        reportOutline: finalState.reportOutline,
+        reportDraft: finalState.reportDraft
+      })
     }
 
     return new NextResponse("Failed to generate report", { status: 500 })
