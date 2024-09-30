@@ -5,7 +5,13 @@ import { z } from "zod"
 import { zodResponseFormat } from "openai/helpers/zod"
 import { ChatPromptTemplate } from "@langchain/core/prompts"
 import { NextResponse } from "next/server"
-import { AIMessage, BaseMessage, HumanMessage } from "@langchain/core/messages"
+import {
+  AIMessage,
+  BaseMessage,
+  HumanMessage,
+  MessageContent
+} from "@langchain/core/messages"
+import { retrieveFileContent, retrieveRelevantContent } from "./retrieval"
 
 // Initialize language models
 const minillm = new ChatOpenAI({
@@ -33,8 +39,8 @@ const ReportOutput = z.object({
 // Define interfaces
 interface ReportState {
   protocol: string
-  papers: string[]
-  dataFiles: string[]
+  paperSummary?: string
+  dataFileSummary?: string
   reportDraft: string
   reportOutline: string
   finalOutput: ReportOutputType
@@ -69,11 +75,20 @@ const reportWriterAgent = ChatPromptTemplate.fromTemplate(
   `You are an experienced scientific report writer. Given the table of contents for the report, add detailed content for each section.
 
   To generate the content for each section, use the following -
-  - Papers: {papers}
   - Data Files: {dataFiles}
+  - Papers: {papers}
   - Report Outline: {reportOutline}
 
   The report should be written in a way that is easy to understand and follow.
+`
+)
+
+const summarizationAgent = ChatPromptTemplate.fromTemplate(
+  `You are a helpful assistant that can summarize content.
+
+Please provide a concise summary of the following content:
+
+{content}
 `
 )
 
@@ -142,15 +157,16 @@ const workflow = new StateGraph<ReportState>({
       value: (left?: string, right?: string) => right ?? left ?? ""
     },
     protocol: {
-      value: (left?: string, right?: string) => right ?? left ?? ""
+      value: (left?: string, right?: string) => right ?? left ?? "",
+      default: () => ""
     },
-    papers: {
-      value: (left?: string[], right?: string[]) => right ?? left ?? [],
-      default: () => []
+    paperSummary: {
+      value: (left?: string, right?: string) => right ?? left ?? "",
+      default: () => ""
     },
-    dataFiles: {
-      value: (left?: string[], right?: string[]) => right ?? left ?? [],
-      default: () => []
+    dataFileSummary: {
+      value: (left?: string, right?: string) => right ?? left ?? "",
+      default: () => ""
     },
     finalOutput: {
       value: (left?: ReportOutputType, right?: ReportOutputType) =>
@@ -167,8 +183,8 @@ const workflow = new StateGraph<ReportState>({
   })
   .addNode("reportWriterAgent", async (state: ReportState) => {
     const content = await callAgent(state, reportWriterAgent, {
-      papers: state.papers.join("\n"),
-      dataFiles: state.dataFiles.join("\n"),
+      dataFiles: state.dataFileSummary,
+      papers: state.paperSummary || "",
       reportOutline: state.reportOutline
     })
 
@@ -184,11 +200,10 @@ const workflow = new StateGraph<ReportState>({
   .addEdge("validateReport", END)
 
 // Compile the graph
-const app = workflow.compile()
 
 export async function POST(req: Request) {
   try {
-    const { protocol, papers, dataFiles } = await req.json()
+    const { protocol, papers, dataFiles, prompt } = await req.json()
     console.log("Received request:", {
       protocol,
       papers,
@@ -198,13 +213,21 @@ export async function POST(req: Request) {
     // if (!elevatorPitch || !habitStories || !jobStories) {
     //   return new NextResponse("Missing required fields", { status: 400 })
     // }
+    const protocolContent = await retrieveFileContent([protocol])
+    const paperContent = await retrieveFileContent([papers])
+
+    const dataFileContent = await retrieveFileContent([dataFiles])
+
+    console.log("Paper content:", paperContent)
+    console.log("Data file content:", dataFileContent)
+    console.log("Protocol content:", protocolContent)
 
     const initialState: ReportState = {
       reportOutline: "",
       reportDraft: "",
-      protocol: "",
-      papers: [],
-      dataFiles: [],
+      protocol: protocolContent[0].content,
+      paperSummary: paperContent[0]?.content || "",
+      dataFileSummary: dataFileContent[0]?.content || "",
       finalOutput: {} as ReportOutputType
     }
 
@@ -228,6 +251,8 @@ export async function POST(req: Request) {
     return new NextResponse("Internal Error", { status: 500 })
   }
 }
+
+const app = workflow.compile()
 
 export const config = {
   api: {

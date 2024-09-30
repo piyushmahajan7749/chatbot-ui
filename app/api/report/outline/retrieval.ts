@@ -90,3 +90,48 @@ export async function retrieveRelevantContent(
     throw error
   }
 }
+
+export async function retrieveFileContent(fileIds: string[]) {
+  const uniqueFileIds = [...new Set(fileIds)]
+
+  try {
+    const supabaseAdmin = createClient<Database>(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!
+    )
+
+    const { data: fileItems, error } = await supabaseAdmin
+      .from("file_items")
+      .select("*")
+      .in("file_id", uniqueFileIds)
+
+    if (error) {
+      throw error
+    }
+
+    // Group file items by file_id
+    const groupedFileItems = fileItems.reduce(
+      (acc, item) => {
+        if (!acc[item.file_id]) {
+          acc[item.file_id] = []
+        }
+        acc[item.file_id].push(item)
+        return acc
+      },
+      {} as Record<string, typeof fileItems>
+    )
+
+    // Combine content for each file
+    const fileContents = Object.entries(groupedFileItems).map(
+      ([fileId, items]) => ({
+        fileId,
+        content: items.map(item => item.content).join("\n")
+      })
+    )
+
+    return fileContents
+  } catch (error: any) {
+    console.error("Error in retrieveFileContent:", error)
+    throw error
+  }
+}

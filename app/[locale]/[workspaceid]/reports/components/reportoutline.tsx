@@ -42,9 +42,9 @@ export function ReportOutlineComponent({
         }
         const data = await response.json()
         console.log("Received data from API:", data)
-        if (data.outline) {
-          setGeneratedOutline(data.outline)
-          setReportOutline(data.outline)
+        if (data.reportOutline) {
+          setGeneratedOutline(data.reportOutline)
+          setReportOutline(data.reportOutline)
         } else {
           throw new Error("No outline data received")
         }
