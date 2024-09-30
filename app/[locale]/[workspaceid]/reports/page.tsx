@@ -49,19 +49,6 @@ const ReportView: FC<ReportViewProps> = ({ defaultTab }) => {
       )
     },
     {
-      title: "Report Outline",
-      dataId: "reportOutline",
-      imageId: "reportOutlineImage",
-      icon: <Edit className="size-5" />,
-      component: (
-        <ReportOutlineComponent
-          onCancel={() => setTransitionEffect(false)}
-          onSave={handleSave}
-          colorId="report"
-        />
-      )
-    },
-    {
       title: "Review & Download",
       dataId: "conclusionList",
       imageId: "conclusionImage",

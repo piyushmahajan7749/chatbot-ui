@@ -5,12 +5,7 @@ import { z } from "zod"
 import { zodResponseFormat } from "openai/helpers/zod"
 import { ChatPromptTemplate } from "@langchain/core/prompts"
 import { NextResponse } from "next/server"
-import {
-  AIMessage,
-  BaseMessage,
-  HumanMessage,
-  MessageContent
-} from "@langchain/core/messages"
+import { AIMessage, BaseMessage, HumanMessage } from "@langchain/core/messages"
 import { retrieveFileContent, retrieveRelevantContent } from "./retrieval"
 
 // Initialize language models
@@ -66,7 +61,8 @@ const reportOutlineAgent = ChatPromptTemplate.fromTemplate(
   11. Next Steps
   12. References
 
-depending on the protocol, you may need to add or remove sections.
+depending on the protocol, you may need to add or remove sections. Only add the titles of the sections, no need for content.
+Return the list of sections as a list. Do not add any special characters.
 
 Protocol: {protocol}
 `
@@ -80,15 +76,6 @@ const reportWriterAgent = ChatPromptTemplate.fromTemplate(
   - Report Outline: {reportOutline}
 
   The report should be written in a way that is easy to understand and follow.
-`
-)
-
-const summarizationAgent = ChatPromptTemplate.fromTemplate(
-  `You are a helpful assistant that can summarize content.
-
-Please provide a concise summary of the following content:
-
-{content}
 `
 )
 
@@ -120,7 +107,6 @@ async function finalValidatorAgent(
   For the following protocol -
   ${state.protocol}
 
-
   verify that:
   1. All report sections are filled and flow logically from one to the next.
   2. The entire report is well-represented across all phases
@@ -151,10 +137,12 @@ async function finalValidatorAgent(
 const workflow = new StateGraph<ReportState>({
   channels: {
     reportOutline: {
-      value: (left?: string, right?: string) => right ?? left ?? ""
+      value: (left?: string, right?: string) => right ?? left ?? "",
+      default: () => ""
     },
     reportDraft: {
-      value: (left?: string, right?: string) => right ?? left ?? ""
+      value: (left?: string, right?: string) => right ?? left ?? "",
+      default: () => ""
     },
     protocol: {
       value: (left?: string, right?: string) => right ?? left ?? "",
@@ -190,14 +178,9 @@ const workflow = new StateGraph<ReportState>({
 
     return { ...state, reportDraft: content }
   })
-  .addNode("validateReport", async (state: ReportState) => {
-    const result = await finalValidatorAgent(state)
-    return { ...state, finalOutput: result }
-  })
   .addEdge(START, "reportOutlineAgent")
   .addEdge("reportOutlineAgent", "reportWriterAgent")
-  .addEdge("reportWriterAgent", "validateReport")
-  .addEdge("validateReport", END)
+  .addEdge("reportWriterAgent", END)
 
 // Compile the graph
 
