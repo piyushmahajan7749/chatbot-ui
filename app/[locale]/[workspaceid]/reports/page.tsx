@@ -6,7 +6,6 @@ import { Label } from "@radix-ui/react-label"
 import { ReportDraftComponent } from "./components/reportdraft"
 import { Card } from "@/components/ui/card"
 import AddDataComponent from "./components/adddata"
-import ReportOutlineComponent from "./components/reportoutline"
 import { ReportProvider } from "@/context/reportcontext"
 
 interface ReportViewProps {
