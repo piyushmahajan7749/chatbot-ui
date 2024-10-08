@@ -31,11 +31,12 @@ export function ReportDraftComponent({
 }: ReportDraftProps) {
   const [isLoading, setLoading] = useState(false)
   const { selectedData } = useReportContext()
-  const [generatedDraft, setGeneratedDraft] = useState<string>("")
   const [generatedOutline, setGeneratedOutline] = useState<string[]>([])
   const [activeSection, setActiveSection] = useState<number | null>(null)
-  const [sectionContents, setSectionContents] = useState<string[]>([])
-
+  const [sectionContents, setSectionContents] = useState<
+    Record<string, string>
+  >({})
+  const [chartImage, setChartImage] = useState<string | null>(null)
   const [question, setQuestion] = useState("")
 
   useEffect(() => {
@@ -50,8 +51,9 @@ export function ReportDraftComponent({
         const data = await response.json()
         console.log("Received data from API:", data)
         if (data.reportOutline && data.reportDraft) {
-          setGeneratedDraft(data.reportDraft)
-          setGeneratedOutline(data.reportOutline.split("\n"))
+          setGeneratedOutline(data.reportOutline)
+          setSectionContents(data.reportDraft)
+          setChartImage(data.chartImage)
         } else {
           throw new Error("No outline or draft data received")
         }
@@ -68,9 +70,6 @@ export function ReportDraftComponent({
     ) {
       generateDraft()
     }
-    if (generatedDraft) {
-      setSectionContents(generatedDraft.split("\n"))
-    }
   }, [selectedData])
 
   const handleSave = async () => {
@@ -79,7 +78,7 @@ export function ReportDraftComponent({
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          draft: sectionContents.join("\n"),
+          draft: sectionContents,
           outline: generatedOutline
           // Include any other necessary data
         })
@@ -125,28 +124,37 @@ export function ReportDraftComponent({
             <h2 className="mb-4 text-xl font-bold">Report Draft</h2>
             {activeSection !== null ? (
               <div>
-                <h3 className="font-bold">{generatedOutline[activeSection]}</h3>
+                <h3 className="font-bold">{activeSection}</h3>
                 <ReactQuill
                   theme="snow"
-                  value={sectionContents[activeSection]}
+                  value={sectionContents[activeSection] || ""}
                   onChange={value => {
-                    const newContents = [...sectionContents]
-                    newContents[activeSection] = value
-                    setSectionContents(newContents)
+                    setSectionContents(prev => ({
+                      ...prev,
+                      [activeSection]: value
+                    }))
                   }}
                 />
               </div>
             ) : (
-              sectionContents.map((item, index) => (
+              generatedOutline.map((section, index) => (
                 <div key={index} className="mb-4">
                   <h3 className="font-bold">{generatedOutline[index]}</h3>
+                  {chartImage && index === 0 && (
+                    <img
+                      src={chartImage}
+                      alt="Chart"
+                      className="mt-2 w-full max-w-md"
+                    />
+                  )}
                   <ReactQuill
                     theme="snow"
-                    value={item}
+                    value={sectionContents[section] || ""}
                     onChange={value => {
-                      const newContents = [...sectionContents]
-                      newContents[index] = value
-                      setSectionContents(newContents)
+                      setSectionContents(prev => ({
+                        ...prev,
+                        [section]: value
+                      }))
                     }}
                   />
                 </div>
