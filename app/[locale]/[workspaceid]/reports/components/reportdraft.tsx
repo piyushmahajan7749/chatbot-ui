@@ -32,12 +32,24 @@ export function ReportDraftComponent({
   const [isLoading, setLoading] = useState(false)
   const { selectedData } = useReportContext()
   const [generatedOutline, setGeneratedOutline] = useState<string[]>([])
-  const [activeSection, setActiveSection] = useState<number | null>(null)
+  const [activeSection, setActiveSection] = useState<number | null>(0)
   const [sectionContents, setSectionContents] = useState<
     Record<string, string>
   >({})
   const [chartImage, setChartImage] = useState<string | null>(null)
-  const [question, setQuestion] = useState("")
+
+  // Add this new function to get the section content
+  const getActiveSectionContent = () => {
+    if (
+      activeSection !== null &&
+      activeSection >= 0 &&
+      activeSection < generatedOutline.length
+    ) {
+      const sectionTitle = generatedOutline[activeSection]
+      return sectionContents[sectionTitle] || ""
+    }
+    return ""
+  }
 
   useEffect(() => {
     const generateDraft = async () => {
@@ -124,14 +136,14 @@ export function ReportDraftComponent({
             <h2 className="mb-4 text-xl font-bold">Report Draft</h2>
             {activeSection !== null ? (
               <div>
-                <h3 className="font-bold">{activeSection}</h3>
+                <h3 className="font-bold">{generatedOutline[activeSection]}</h3>
                 <ReactQuill
                   theme="snow"
-                  value={sectionContents[activeSection] || ""}
+                  value={getActiveSectionContent()}
                   onChange={value => {
                     setSectionContents(prev => ({
                       ...prev,
-                      [activeSection]: value
+                      [generatedOutline[activeSection]]: value
                     }))
                   }}
                 />
