@@ -134,44 +134,21 @@ export function ReportDraftComponent({
           </div>
           <div className="w-3/4 p-4">
             <h2 className="mb-4 text-xl font-bold">Report Draft</h2>
-            {activeSection !== null ? (
-              <div>
-                <h3 className="font-bold">{generatedOutline[activeSection]}</h3>
-                <ReactQuill
-                  theme="snow"
-                  value={getActiveSectionContent()}
-                  onChange={value => {
-                    setSectionContents(prev => ({
-                      ...prev,
-                      [generatedOutline[activeSection]]: value
-                    }))
-                  }}
-                />
-              </div>
-            ) : (
-              generatedOutline.map((section, index) => (
-                <div key={index} className="mb-4">
-                  <h3 className="font-bold">{generatedOutline[index]}</h3>
-                  {chartImage && index === 0 && (
-                    <img
-                      src={chartImage}
-                      alt="Chart"
-                      className="mt-2 w-full max-w-md"
-                    />
-                  )}
-                  <ReactQuill
-                    theme="snow"
-                    value={sectionContents[section] || ""}
-                    onChange={value => {
-                      setSectionContents(prev => ({
-                        ...prev,
-                        [section]: value
-                      }))
-                    }}
-                  />
-                </div>
-              ))
-            )}
+            <div>
+              <h3 className="font-bold">
+                {generatedOutline[activeSection ?? 0]}
+              </h3>
+              <ReactQuill
+                theme="snow"
+                value={getActiveSectionContent()}
+                onChange={value => {
+                  setSectionContents(prev => ({
+                    ...prev,
+                    [generatedOutline[activeSection ?? 0]]: value
+                  }))
+                }}
+              />
+            </div>
             <Button onClick={handleSave} className="mt-4">
               Save Draft
             </Button>
