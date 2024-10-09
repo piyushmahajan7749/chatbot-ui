@@ -8,6 +8,7 @@ import { ReportProvider } from "@/context/reportcontext"
 import { InfoComponent } from "./components/infocomponent"
 import TableOfContents from "./components/tableofcontents"
 import ReportReview, { ReportReviewComponent } from "./components/report-review"
+import ReportGeneratorNew from "./components/adddatanew"
 
 interface ReportViewProps {
   defaultTab: string
@@ -37,18 +38,7 @@ const ReportView: FC<ReportViewProps> = ({ defaultTab }) => {
       dataId: "aimList",
       imageId: "aimImage",
       icon: <Edit className="size-5" />,
-      component: (
-        <InfoComponent
-          title="Data"
-          component={
-            <AddDataComponent
-              onCancel={() => setTransitionEffect()}
-              onSave={handleSave}
-              colorId="report"
-            />
-          }
-        />
-      )
+      component: <ReportGeneratorNew onSave={handleSave} />
     },
     {
       title: "Review & Download",
@@ -59,7 +49,7 @@ const ReportView: FC<ReportViewProps> = ({ defaultTab }) => {
         <InfoComponent
           title="Review & Download"
           component={
-            <ReportDraftComponent
+            <ReportReviewComponent
               onCancel={() => setTransitionEffect()}
               onSave={handleSave}
               colorId="report"
@@ -89,17 +79,11 @@ const ReportView: FC<ReportViewProps> = ({ defaultTab }) => {
 
   return (
     <ReportProvider>
-      <div className="container mx-auto flex h-screen flex-col p-4">
+      <div className="container mx-auto flex h-full flex-col p-4">
         <h1 className="text-primary mb-6 text-center text-4xl font-bold">
           Report Generator
         </h1>
-        <div className="grow">
-          <ReportReviewComponent
-            onCancel={() => {}}
-            onSave={() => {}}
-            colorId="report"
-          />
-        </div>
+        <div className="grow">{currentComponent}</div>
       </div>
     </ReportProvider>
   )

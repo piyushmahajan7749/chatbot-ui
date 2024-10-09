@@ -14,8 +14,9 @@ import {
   RefreshCcw,
   CopyIcon,
   ChevronUp,
-  ChevronDown,
-  Sparkles
+  Sparkles,
+  Download,
+  DownloadIcon
 } from "lucide-react"
 
 // Mock data
@@ -116,19 +117,27 @@ export function ReportReviewComponent({
     setQuestion("")
   }
 
+  const handleDownload = () => {
+    // Simulate asking a question
+    console.log("Asking question:", question)
+    // Here you would typically make an API call to get the answer
+    // For now, we'll just clear the input
+    setQuestion("")
+  }
+
   const toggleQuestionSection = () => {
     setIsQuestionSectionVisible(!isQuestionSectionVisible)
   }
 
   return (
-    <div className="bg-foreground flex max-h-[calc(100vh-8rem)] overflow-hidden rounded-lg shadow-lg">
+    <div className="bg-foreground flex max-h-[calc(100vh-6rem)] overflow-hidden rounded-lg shadow-lg">
       {isLoading ? (
         <div className="my-48 w-full text-center">
           <Loader text="Generating report draft" />
         </div>
       ) : (
         <>
-          <div className="bg-background flex w-1/3 flex-col">
+          <div className="bg-secondary flex w-1/3 flex-col pt-4">
             <ScrollArea className="grow">
               <div className="space-y-2 p-4">
                 {generatedOutline.map((item, index) => (
@@ -159,7 +168,7 @@ export function ReportReviewComponent({
                 <h3 className="mb-2 text-lg font-semibold">
                   Would you like to change anything?
                 </h3>
-                <div className="mt-4 flex w-3/5 items-center">
+                <div className="mt-4 flex w-full items-center">
                   <Input
                     type="text"
                     placeholder="Type your prompt here..."
@@ -167,7 +176,18 @@ export function ReportReviewComponent({
                     onChange={e => setQuestion(e.target.value)}
                     className="mr-4 h-12 grow"
                   />
-                  <Button onClick={handleAskQuestion}>Go</Button>
+                  <Button
+                    onClick={handleAskQuestion}
+                    className="bg-foreground text-background"
+                  >
+                    Go <Sparkles className="ml-2 size-4" />
+                  </Button>
+                  <Button
+                    onClick={handleDownload}
+                    className="text-background ml-4 bg-blue-500"
+                  >
+                    Download Report <DownloadIcon className="ml-2 size-4" />
+                  </Button>
                 </div>
               </div>
               <Separator className="bg-foreground my-4" />
@@ -177,22 +197,6 @@ export function ReportReviewComponent({
                 {generatedOutline[activeSection]}
               </h2>
               <div className="flex items-center space-x-2">
-                <Button
-                  variant="outline"
-                  size="icon"
-                  onClick={toggleQuestionSection}
-                  title={
-                    isQuestionSectionVisible
-                      ? "Hide question section"
-                      : "Show question section"
-                  }
-                >
-                  {isQuestionSectionVisible ? (
-                    <ChevronUp className="size-4" />
-                  ) : (
-                    <Sparkles className="size-4" />
-                  )}
-                </Button>
                 {!isEditing && (
                   <>
                     <Button variant="outline" size="icon" onClick={handleEdit}>
@@ -213,6 +217,22 @@ export function ReportReviewComponent({
                       onClick={handleEdit}
                     >
                       <CopyIcon className="size-4" />
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      onClick={toggleQuestionSection}
+                      title={
+                        isQuestionSectionVisible
+                          ? "Hide question section"
+                          : "Show question section"
+                      }
+                    >
+                      {isQuestionSectionVisible ? (
+                        <ChevronUp className="size-4" />
+                      ) : (
+                        <Sparkles className="size-4" />
+                      )}
                     </Button>
                   </>
                 )}
