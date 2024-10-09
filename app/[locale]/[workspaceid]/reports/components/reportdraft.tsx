@@ -3,26 +3,19 @@
 import { useState, useEffect } from "react"
 import { useReportContext } from "@/context/reportcontext"
 
-import { Label } from "@radix-ui/react-label"
 import { Loader } from "../../../../../components/ui/loader"
 import { Button } from "../../../../../components/ui/button"
 import ReactQuill from "react-quill"
 import "react-quill/dist/quill.snow.css"
+import { InfoComponent } from "./infocomponent"
+import { InfoBox } from "./infobox"
+import { IconList } from "@tabler/icons-react"
 
 interface ReportDraftProps {
   onSave: () => void
   onCancel: () => void
   colorId: string
 }
-
-// What I need to fix or change here
-// 1. The generated draft is not being saved to the database
-// 2. The generated outline is not being saved to the database
-// 3. The outline should be unordered list
-// 4. The content in each section should be bigger
-// 5. The table of contents UI is not good
-// 6. The sections should be editable
-// 7. Add visualization charts and tables for the report.
 
 export function ReportDraftComponent({
   onCancel,
@@ -77,8 +70,9 @@ export function ReportDraftComponent({
     }
 
     if (
-      selectedData.userPrompt &&
-      (selectedData.protocol || selectedData.papers || selectedData.dataFiles)
+      selectedData.protocol ||
+      selectedData.papers ||
+      selectedData.dataFiles
     ) {
       generateDraft()
     }
@@ -116,10 +110,13 @@ export function ReportDraftComponent({
         </div>
       ) : (
         <div className="flex w-full">
-          <div className="sticky top-0 h-screen w-1/4 overflow-y-auto bg-gray-50 p-4">
-            <h2 className="mb-4 text-lg font-bold text-zinc-800">
-              Table of Contents
-            </h2>
+          <div className="mb-12  h-[calc(100vh-140px)] w-1/4 overflow-y-auto rounded-lg border border-gray-200 bg-gray-50 p-4">
+            <div className="mb-8 flex items-center">
+              <IconList className="mr-2 size-5 text-zinc-800" />
+              <h2 className="text-lg font-semibold text-zinc-800">
+                Table of Contents
+              </h2>
+            </div>
             <ul className="space-y-2">
               {generatedOutline.map((item, index) => (
                 <li
@@ -132,21 +129,25 @@ export function ReportDraftComponent({
               ))}
             </ul>
           </div>
-          <div className="w-3/4 p-4">
-            <h2 className="mb-4 text-xl font-bold">Report Draft</h2>
+          <div className="ml-8 h-[calc(100vh-140px)] w-3/4 overflow-y-auto rounded-lg border border-gray-200 bg-gray-50 p-4 shadow-md">
+            <h2 className="my-4 text-center text-2xl font-bold text-zinc-800">
+              Report Draft
+            </h2>
             <div>
-              <h3 className="font-bold">
+              <h3 className="mb-4 text-lg font-bold text-zinc-800">
                 {generatedOutline[activeSection ?? 0]}
               </h3>
-              <ReactQuill
-                theme="snow"
-                value={getActiveSectionContent()}
-                onChange={value => {
+              <InfoBox
+                key="infoBox"
+                onEdit={(value: any) => {
                   setSectionContents(prev => ({
                     ...prev,
                     [generatedOutline[activeSection ?? 0]]: value
                   }))
                 }}
+                title={generatedOutline[activeSection ?? 0]}
+                description={getActiveSectionContent()}
+                colorId="habit"
               />
             </div>
             <Button onClick={handleSave} className="mt-4">

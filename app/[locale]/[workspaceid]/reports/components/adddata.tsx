@@ -1,15 +1,15 @@
 "use client"
 
-import { useState, useContext, useEffect } from "react"
+import { useState, useEffect } from "react"
 import { Button } from "../../../../../components/ui/button"
 import { ArrowRightIcon, Plus, X } from "lucide-react"
-import { ChatbotUIContext } from "@/context/context"
 import { FilePicker } from "@/components/chat/file-picker"
 import { Tables } from "@/supabase/types"
 import { Badge } from "@/components/ui/badge"
 import { useReportContext } from "@/context/reportcontext"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { IconPlus } from "@tabler/icons-react"
 
 interface AddDataProps {
   onSave: () => void
@@ -24,7 +24,6 @@ interface SelectedItem {
 }
 
 export function AddDataComponent({ onCancel, onSave, colorId }: AddDataProps) {
-  const { files, collections } = useContext(ChatbotUIContext)
   const [isLoading, setLoading] = useState(false)
   const [showFilePicker, setShowFilePicker] = useState(false)
   const [selectedFileType, setSelectedFileType] = useState("")
@@ -118,7 +117,10 @@ export function AddDataComponent({ onCancel, onSave, colorId }: AddDataProps) {
     label: string
     onRemove: () => void
   }) => (
-    <Badge variant="secondary" className="flex max-w-full items-center gap-1">
+    <Badge
+      variant="secondary"
+      className="my-2 flex max-w-full items-center gap-1 px-4 py-2"
+    >
       <span className="truncate">{label}</span>
       <Button
         variant="ghost"
@@ -133,19 +135,19 @@ export function AddDataComponent({ onCancel, onSave, colorId }: AddDataProps) {
 
   return (
     <div className="flex h-full flex-col">
-      <div className="mb-4">
-        <Label htmlFor="userPrompt">User Prompt</Label>
-        <Input
-          id="userPrompt"
-          value={userPrompt}
-          onChange={e => setUserPrompt(e.target.value)}
-          placeholder="Enter your research question or prompt"
-        />
+      <div className="ml-4 flex flex-col">
+        <Label className="mb-2 text-2xl font-bold text-gray-800">
+          Report Generator
+        </Label>
+        <Label className="text-md my-2 italic text-gray-400">
+          Add data to generate report. You can add protocol, papers, experiment
+          data, and other files.
+        </Label>
       </div>
       <div className="mb-8 grid w-full max-w-5xl grow grid-cols-4 gap-8">
         {cardData.map((card, index) => (
           <div key={index} className="flex h-full flex-col">
-            <div className="m-4 mb-8 min-h-[280px] grow overflow-y-auto rounded-lg border border-gray-200 p-4">
+            <div className="m-4 max-h-[220px] min-h-[220px] overflow-y-auto rounded-lg border border-gray-200 p-4">
               {selectedItems[card.title].length > 0 ? (
                 selectedItems[card.title].map(item => (
                   <Chip
@@ -161,42 +163,40 @@ export function AddDataComponent({ onCancel, onSave, colorId }: AddDataProps) {
               )}
             </div>
             <Button
-              variant="secondary"
+              variant="ghost"
               size="lg"
-              className="ml-2 w-[220px]"
+              className="ml-6 w-[180px] bg-black text-white"
               onClick={() => {
                 setSelectedFileType(card.title)
                 setShowFilePicker(true)
               }}
             >
-              <Plus className="mr-2 size-4" />
-              {card.title === "Protocol"
-                ? "Upload Protocol"
-                : `Add ${card.title}`}
+              <IconPlus className="mr-2 size-4" />
+              {card.title}
             </Button>
           </div>
         ))}
       </div>
       {showFilePicker && (
-        <FilePicker
-          isOpen={showFilePicker}
-          onOpenChange={setShowFilePicker}
-          isFocused={true}
-          onSelectFile={handleFileSelect}
-          onSelectCollection={handleCollectionSelect}
-          selectedFileIds={[]}
-          selectedCollectionIds={[]}
-          searchQuery=""
-        />
+        <div className="absolute left-0 top-0 flex size-full items-center justify-center bg-black bg-opacity-50">
+          <FilePicker
+            isOpen={showFilePicker}
+            onOpenChange={setShowFilePicker}
+            isFocused={true}
+            onSelectFile={handleFileSelect}
+            onSelectCollection={handleCollectionSelect}
+            selectedFileIds={[]}
+            selectedCollectionIds={[]}
+            searchQuery=""
+          />
+        </div>
       )}
       <div className="my-8 flex justify-center">
         <Button
+          className="flex h-[36px] w-1/6 bg-black text-white hover:bg-black hover:text-white"
           onClick={handleSave}
-          className="w-1/6"
-          style={{ backgroundColor: "link" }}
         >
-          Next
-          <ArrowRightIcon className="ml-2 size-4" />
+          Next <ArrowRightIcon className="ml-2 size-4" />
         </Button>
       </div>
     </div>
