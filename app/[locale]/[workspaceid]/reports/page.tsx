@@ -2,13 +2,9 @@
 
 import { FC, useState, useEffect } from "react"
 import { Edit } from "lucide-react"
-import { ReportDraftComponent } from "./components/reportdraft"
-import AddDataComponent from "./components/adddata"
 import { ReportProvider } from "@/context/reportcontext"
-import { InfoComponent } from "./components/infocomponent"
-import TableOfContents from "./components/tableofcontents"
-import ReportReview, { ReportReviewComponent } from "./components/report-review"
-import ReportGeneratorNew from "./components/adddatanew"
+import { ReportReviewComponent } from "./components/report-review"
+import AddDataComponent from "./components/adddata"
 
 interface ReportViewProps {
   defaultTab: string
@@ -16,14 +12,6 @@ interface ReportViewProps {
 
 const ReportView: FC<ReportViewProps> = ({ defaultTab }) => {
   const [selectedTab, setSelectedTab] = useState("aimList")
-  const [isTransitioning, setTransitioning] = useState(false)
-
-  const setTransitionEffect = () => {
-    setTransitioning(true)
-    setTimeout(() => {
-      setTransitioning(false)
-    }, 500)
-  }
 
   const handleSave = () => {
     const currentIndex = sections.findIndex(s => s.dataId === selectedTab)
@@ -38,7 +26,7 @@ const ReportView: FC<ReportViewProps> = ({ defaultTab }) => {
       dataId: "aimList",
       imageId: "aimImage",
       icon: <Edit className="size-5" />,
-      component: <ReportGeneratorNew onSave={handleSave} />
+      component: <AddDataComponent onSave={handleSave} />
     },
     {
       title: "Review & Download",
@@ -46,15 +34,10 @@ const ReportView: FC<ReportViewProps> = ({ defaultTab }) => {
       imageId: "conclusionImage",
       icon: <Edit className="size-5" />,
       component: (
-        <InfoComponent
-          title="Review & Download"
-          component={
-            <ReportReviewComponent
-              onCancel={() => setTransitionEffect()}
-              onSave={handleSave}
-              colorId="report"
-            />
-          }
+        <ReportReviewComponent
+          onCancel={() => {}}
+          onSave={handleSave}
+          colorId="report"
         />
       )
     }
@@ -69,18 +52,14 @@ const ReportView: FC<ReportViewProps> = ({ defaultTab }) => {
 
   useEffect(() => {
     if (selectedTab) {
-      setTransitioning(true)
-      setTimeout(() => {
-        setCurrentComponent(getComponent())
-        setTransitioning(false)
-      }, 500)
+      setCurrentComponent(getComponent())
     }
   }, [selectedTab])
 
   return (
     <ReportProvider>
       <div className="container mx-auto flex h-full flex-col p-4">
-        <h1 className="text-primary mb-6 text-center text-4xl font-bold">
+        <h1 className="text-primary mb-6 text-center text-3xl font-bold">
           Report Generator
         </h1>
         <div className="grow">{currentComponent}</div>
