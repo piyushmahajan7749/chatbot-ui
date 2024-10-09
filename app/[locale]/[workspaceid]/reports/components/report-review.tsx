@@ -18,34 +18,7 @@ import {
   Download,
   DownloadIcon
 } from "lucide-react"
-
-// Mock data
-const mockData = {
-  reportOutline: [
-    "Overview",
-    "Research Questions",
-    "Founders",
-    "Competing/Related Companies",
-    "Funding Data",
-    "Glassdoor Reviews",
-    "Decision Makers",
-    "News Articles",
-    "Funding Stages",
-    "Web Traffic",
-    "Twitter Follower Count",
-    "Team Growth",
-    "Organic and PPC Spend, Traffic, and Keywords",
-    "Organic Keywords",
-    "Tech Products"
-  ],
-  reportDraft: {
-    Overview:
-      "Agent.ai is a cutting-edge platform that provides AI-powered tools and services...",
-    "Research Questions":
-      "• What is the lowest price they offer and for which product?\nThe lowest price offered by OpenAI is $0.15 per 1M tokens for the GPT-4a mini model. This model is their most cost-efficient small model with vision capabilities and an October 2023 knowledge cutoff.\n\n• What is the highest priced they offer and for which product?\nThe highest priced product offered by OpenAI is GPT-4a, with a price of $25.00 per 1M tokens for fine-tuning over the daily complimentary limit.\n\n• Do they sell a subscription product?\nYes, OpenAI sells a subscription product called ChatGPT Plus, which is priced at a flat rate of $20/month.\n\n• Where are their offices located?\nOpenAI is headquartered in San Francisco, California."
-    // ... (other sections)
-  }
-}
+import { useReportContext } from "@/context/reportcontext"
 
 interface ReportReviewProps {
   onSave: () => void
@@ -67,18 +40,43 @@ export function ReportReviewComponent({
   const [question, setQuestion] = useState("")
   const [isEditing, setIsEditing] = useState(false)
   const [editedContent, setEditedContent] = useState("")
+  const { selectedData } = useReportContext()
+  const [chartImage, setChartImage] = useState<string | null>(null)
   const [isQuestionSectionVisible, setIsQuestionSectionVisible] = useState(true)
 
   useEffect(() => {
-    // Simulate API call with setTimeout
-    const timer = setTimeout(() => {
-      setGeneratedOutline(mockData.reportOutline)
-      setSectionContents(mockData.reportDraft)
-      setLoading(false)
-    }, 1500)
+    const generateDraft = async () => {
+      setLoading(true)
+      try {
+        const response = await fetch("/api/report/outline", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(selectedData)
+        })
+        const data = await response.json()
+        console.log("Received data from API:", data)
+        if (data.reportOutline && data.reportDraft) {
+          setGeneratedOutline(data.reportOutline)
+          setSectionContents(data.reportDraft)
+          setChartImage(data.chartImage)
+        } else {
+          throw new Error("No outline or draft data received")
+        }
+      } catch (error) {
+        console.error("Error generating draft:", error)
+      } finally {
+        setLoading(false)
+      }
+    }
 
-    return () => clearTimeout(timer)
-  }, [])
+    if (
+      selectedData.protocol ||
+      selectedData.papers ||
+      selectedData.dataFiles
+    ) {
+      generateDraft()
+    }
+  }, [selectedData])
 
   const handleSave = () => {
     // Simulate saving data

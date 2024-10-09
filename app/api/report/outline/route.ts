@@ -33,8 +33,7 @@ const minillm = new ChatOpenAI({
   apiKey: process.env.OPENAI_KEY
 })
 const llm = new ChatOpenAI({
-  modelName: "gpt-4o-2024-08-06",
-  temperature: 0.7,
+  modelName: "o1-preview",
   apiKey: process.env.OPENAI_KEY
 })
 
@@ -75,10 +74,7 @@ const reportOutlineAgent = ChatPromptTemplate.fromTemplate(
   6. Procedure
   7. Data Analysis
   8. Results
-  9. Discussion
   10. Conclusion
-  11. Next Steps
-  12. References
 
 depending on the protocol, you may need to add or remove sections. Only add the titles of the sections, no need for content.
 Return the list of sections as a list. Do not add any special characters.
@@ -87,7 +83,7 @@ Protocol: {protocol}
 `
 )
 const reportWriterAgent = ChatPromptTemplate.fromTemplate(
-  `You are an experienced scientific writer tasked with drafting comprehensive research reports. Your primary duties include:
+  `You are an experienced scientific writer tasked with writing comprehensive research reports. Your primary duties include:
 
     1. Clearly stating the research hypothesis and objectives in the introduction.
     2. Detailing the methodology used, including data collection and analysis techniques.
@@ -118,6 +114,7 @@ async function finalValidatorAgent(
     4. Ensuring that all sections are well-integrated and support the primary research hypothesis.
     5. Condensing redundant or repetitive content while preserving essential details.
     6. Enhancing the overall readability, ensuring the report is engaging and impactful.
+    7. Extend each sections content to make it longer and more informative.
 
     Refinement Guidelines:
     - Maintain the scientific accuracy and integrity of the original content.
@@ -258,15 +255,6 @@ const chartTool = tool(
     })
   }
 )
-
-const tools = [chartTool]
-const toolNode = new ToolNode(tools)
-
-const model = new ChatAnthropic({
-  model: "claude-3-5-sonnet-20240620",
-  temperature: 0,
-  apiKey: process.env.ANTHROPIC_KEY
-}).bindTools(tools)
 
 const visualizationAgent = ChatPromptTemplate.fromTemplate(
   `You are a data visualization expert tasked with creating insightful visual representations of data. Your primary responsibilities include:
