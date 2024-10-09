@@ -1,0 +1,7 @@
+{
+  "functions": {
+    "app/api/report/outline/route.ts": {
+      "maxDuration": 240
+    }
+  }
+}
