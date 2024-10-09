@@ -2,36 +2,16 @@ import { StateGraph, END, START } from "@langchain/langgraph"
 import { ChatOpenAI } from "@langchain/openai"
 import OpenAI from "openai"
 import { z } from "zod"
-import { zodResponseFormat } from "openai/helpers/zod"
-import { ChatAnthropic } from "@langchain/anthropic"
 import * as d3 from "d3"
 import { createCanvas, Canvas } from "canvas"
 
-import {
-  ChatPromptTemplate,
-  MessagesPlaceholder
-} from "@langchain/core/prompts"
-import { StructuredTool, tool } from "@langchain/core/tools"
-import { convertToOpenAITool } from "@langchain/core/utils/function_calling"
-import { Runnable } from "@langchain/core/runnables"
+import { ChatPromptTemplate } from "@langchain/core/prompts"
+import { tool } from "@langchain/core/tools"
 import { NextResponse } from "next/server"
 import { AIMessage, BaseMessage, HumanMessage } from "@langchain/core/messages"
 import { retrieveFileContent, retrieveRelevantContent } from "./retrieval"
-import { ToolNode } from "@langchain/langgraph/prebuilt"
-
-// 2. use o1 to generate the report in one shot and use another agent to create the visuation charts and tables.
-// 2.1. Use gpt-4o to generate the visulization charts and tables.
-// 2.2. Use o1-mini to extract the outline from the report.
-// 2.3. Use o1-mini to extract the report draft sections and exapnd them into full fledged sections.
-// 2.4. Use o1-mini to extract the final output in the desired format.
-// Can we finetune a model like gpt4o with the reports input and output to improve the quality and shorten the prompts?
 
 // Initialize language models
-const minillm = new ChatOpenAI({
-  modelName: "gpt-4o-mini-2024-07-18",
-  temperature: 0.7,
-  apiKey: process.env.OPENAI_KEY
-})
 const llm = new ChatOpenAI({
   modelName: "o1-preview",
   apiKey: process.env.OPENAI_KEY
