@@ -12,7 +12,10 @@ import {
   X,
   Check,
   RefreshCcw,
-  CopyIcon
+  CopyIcon,
+  ChevronUp,
+  ChevronDown,
+  Sparkles
 } from "lucide-react"
 
 // Mock data
@@ -63,6 +66,7 @@ export function ReportReviewComponent({
   const [question, setQuestion] = useState("")
   const [isEditing, setIsEditing] = useState(false)
   const [editedContent, setEditedContent] = useState("")
+  const [isQuestionSectionVisible, setIsQuestionSectionVisible] = useState(true)
 
   useEffect(() => {
     // Simulate API call with setTimeout
@@ -112,6 +116,10 @@ export function ReportReviewComponent({
     setQuestion("")
   }
 
+  const toggleQuestionSection = () => {
+    setIsQuestionSectionVisible(!isQuestionSectionVisible)
+  }
+
   return (
     <div className="bg-foreground flex max-h-[calc(100vh-8rem)] overflow-hidden rounded-lg shadow-lg">
       {isLoading ? (
@@ -144,60 +152,77 @@ export function ReportReviewComponent({
           </div>
           <Separator orientation="vertical" />
           <div className="bg-secondary flex w-2/3 flex-col">
-            <div className="p-6">
-              <h3 className="my-4 ml-2 text-lg font-semibold">
-                Would you like to change anything?
-              </h3>
-              <div className="flex w-3/5 items-center">
-                <Input
-                  type="text"
-                  placeholder="Type your prompt here..."
-                  value={question}
-                  onChange={e => setQuestion(e.target.value)}
-                  className="border-foreground mr-4 h-12 grow border-solid"
-                />
-                <Button onClick={handleAskQuestion}>Go</Button>
+            <div
+              className={`transition-all duration-300 ease-in-out ${isQuestionSectionVisible ? "max-h-40" : "max-h-0 overflow-hidden"}`}
+            >
+              <div className="p-6">
+                <h3 className="mb-2 text-lg font-semibold">
+                  Would you like to change anything?
+                </h3>
+                <div className="mt-4 flex w-3/5 items-center">
+                  <Input
+                    type="text"
+                    placeholder="Type your prompt here..."
+                    value={question}
+                    onChange={e => setQuestion(e.target.value)}
+                    className="mr-4 h-12 grow"
+                  />
+                  <Button onClick={handleAskQuestion}>Go</Button>
+                </div>
               </div>
+              <Separator className="bg-foreground my-4" />
             </div>
-            <Separator className="bg-foreground my-6" />
-            <div className="flex items-center justify-between px-6">
+            <div className="mt-6 flex items-center justify-between px-6">
               <h2 className="text-primary text-3xl font-bold">
                 {generatedOutline[activeSection]}
               </h2>
-              <div className="flex items-center space-x-4">
+              <div className="flex items-center space-x-2">
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={toggleQuestionSection}
+                  title={
+                    isQuestionSectionVisible
+                      ? "Hide question section"
+                      : "Show question section"
+                  }
+                >
+                  {isQuestionSectionVisible ? (
+                    <ChevronUp className="size-4" />
+                  ) : (
+                    <Sparkles className="size-4" />
+                  )}
+                </Button>
                 {!isEditing && (
-                  <Button
-                    title="Edit"
-                    variant="outline"
-                    size="icon"
-                    onClick={handleEdit}
-                  >
-                    <Edit className="size-4" />
-                  </Button>
+                  <>
+                    <Button variant="outline" size="icon" onClick={handleEdit}>
+                      <Edit className="size-4" />
+                    </Button>
+                    <Button
+                      title="Regenerate"
+                      variant="outline"
+                      size="icon"
+                      onClick={handleEdit}
+                    >
+                      <RefreshCcw className="size-4" />
+                    </Button>
+                    <Button
+                      title="Copy to clipboard"
+                      variant="outline"
+                      size="icon"
+                      onClick={handleEdit}
+                    >
+                      <CopyIcon className="size-4" />
+                    </Button>
+                  </>
                 )}
-                <Button
-                  title="Regenerate"
-                  variant="outline"
-                  size="icon"
-                  onClick={handleEdit}
-                >
-                  <RefreshCcw className="size-4" />
-                </Button>
-                <Button
-                  title="Copy to clipboard"
-                  variant="outline"
-                  size="icon"
-                  onClick={handleEdit}
-                >
-                  <CopyIcon className="size-4" />
-                </Button>
               </div>
             </div>
             <ScrollArea className="mt-6 grow px-6">
               <div className="prose dark:prose-invert max-w-none">
                 {isEditing ? (
                   <textarea
-                    className="h-[calc(100vh-24rem)] w-full rounded border p-2"
+                    className="h-[calc(100vh-20rem)] w-full rounded border p-2"
                     value={editedContent}
                     onChange={e => setEditedContent(e.target.value)}
                   />
@@ -209,12 +234,15 @@ export function ReportReviewComponent({
               </div>
             </ScrollArea>
             {isEditing && (
-              <div className="bg-secondary mt-auto flex justify-end space-x-2 p-4">
-                <Button variant="outline" onClick={handleCancel}>
+              <div className="bg-secondary mt-auto flex justify-center space-x-4 p-4">
+                <Button
+                  className="bg-foreground h-10 w-28 opacity-70"
+                  onClick={handleCancel}
+                >
                   <X className="mr-2 size-4" />
                   Cancel
                 </Button>
-                <Button onClick={handleSave}>
+                <Button className="h-10 w-28" onClick={handleSave}>
                   <Check className="mr-2 size-4" />
                   Save
                 </Button>
