@@ -1,15 +1,39 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { useReportContext } from "@/context/reportcontext"
-
-import { Loader } from "../../../../../components/ui/loader"
-import { Button } from "../../../../../components/ui/button"
-import ReactQuill from "react-quill"
-import "react-quill/dist/quill.snow.css"
-import { InfoComponent } from "./infocomponent"
-import { InfoBox } from "./infobox"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Loader } from "@/components/ui/loader"
 import { IconList } from "@tabler/icons-react"
+import { InfoBox } from "./infobox"
+
+// Mock data
+const mockData = {
+  reportOutline: [
+    "Overview",
+    "Research Questions",
+    "Founders",
+    "Competing/Related Companies",
+    "Funding Data",
+    "Glassdoor Reviews",
+    "Decision Makers",
+    "News Articles",
+    "Funding Stages",
+    "Web Traffic",
+    "Twitter Follower Count",
+    "Team Growth",
+    "Organic and PPC Spend, Traffic, and Keywords",
+    "Organic Keywords",
+    "Tech Products"
+  ],
+  reportDraft: {
+    Overview:
+      "Agent.ai is a cutting-edge platform that provides AI-powered tools and services...",
+    "Research Questions":
+      "• What is the lowest price they offer and for which product?\nThe lowest price offered by OpenAI is $0.15 per 1M tokens for the GPT-4a mini model. This model is their most cost-efficient small model with vision capabilities and an October 2023 knowledge cutoff.\n\n• What is the highest priced they offer and for which product?\nThe highest priced product offered by OpenAI is GPT-4a, with a price of $25.00 per 1M tokens for fine-tuning over the daily complimentary limit.\n\n• Do they sell a subscription product?\nYes, OpenAI sells a subscription product called ChatGPT Plus, which is priced at a flat rate of $20/month.\n\n• Where are their offices located?\nOpenAI is headquartered in San Francisco, California."
+    // ... (other sections)
+  }
+}
 
 interface ReportDraftProps {
   onSave: () => void
@@ -22,84 +46,48 @@ export function ReportDraftComponent({
   onSave,
   colorId
 }: ReportDraftProps) {
-  const [isLoading, setLoading] = useState(false)
-  const { selectedData } = useReportContext()
+  const [isLoading, setLoading] = useState(true)
   const [generatedOutline, setGeneratedOutline] = useState<string[]>([])
-  const [activeSection, setActiveSection] = useState<number | null>(0)
+  const [activeSection, setActiveSection] = useState<number>(0)
   const [sectionContents, setSectionContents] = useState<
     Record<string, string>
   >({})
-  const [chartImage, setChartImage] = useState<string | null>(null)
-
-  // Add this new function to get the section content
-  const getActiveSectionContent = () => {
-    if (
-      activeSection !== null &&
-      activeSection >= 0 &&
-      activeSection < generatedOutline.length
-    ) {
-      const sectionTitle = generatedOutline[activeSection]
-      return sectionContents[sectionTitle] || ""
-    }
-    return ""
-  }
+  const [question, setQuestion] = useState("")
 
   useEffect(() => {
-    const generateDraft = async () => {
-      setLoading(true)
-      try {
-        const response = await fetch("/api/report/outline", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(selectedData)
-        })
-        const data = await response.json()
-        console.log("Received data from API:", data)
-        if (data.reportOutline && data.reportDraft) {
-          setGeneratedOutline(data.reportOutline)
-          setSectionContents(data.reportDraft)
-          setChartImage(data.chartImage)
-        } else {
-          throw new Error("No outline or draft data received")
-        }
-      } catch (error) {
-        console.error("Error generating draft:", error)
-      } finally {
-        setLoading(false)
-      }
-    }
+    // Simulate API call with setTimeout
+    const timer = setTimeout(() => {
+      setGeneratedOutline(mockData.reportOutline)
+      setSectionContents(mockData.reportDraft)
+      setLoading(false)
+    }, 1500)
 
-    if (
-      selectedData.protocol ||
-      selectedData.papers ||
-      selectedData.dataFiles
-    ) {
-      generateDraft()
-    }
-  }, [selectedData])
+    return () => clearTimeout(timer)
+  }, [])
 
-  const handleSave = async () => {
-    try {
-      const response = await fetch("/api/report/save", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          draft: sectionContents,
-          outline: generatedOutline
-          // Include any other necessary data
-        })
-      })
-      if (!response.ok) {
-        throw new Error("Failed to save draft")
-      }
-      onSave()
-    } catch (error) {
-      console.error("Error saving draft:", error)
-    }
+  const handleSave = () => {
+    // Simulate saving data
+    console.log("Saving draft:", sectionContents)
+    onSave()
   }
 
   const handleSectionClick = (index: number) => {
     setActiveSection(index)
+  }
+
+  const handleEdit = (value: string) => {
+    setSectionContents(prev => ({
+      ...prev,
+      [generatedOutline[activeSection]]: value
+    }))
+  }
+
+  const handleAskQuestion = () => {
+    // Simulate asking a question
+    console.log("Asking question:", question)
+    // Here you would typically make an API call to get the answer
+    // For now, we'll just clear the input
+    setQuestion("")
   }
 
   return (
@@ -110,7 +98,7 @@ export function ReportDraftComponent({
         </div>
       ) : (
         <div className="flex w-full">
-          <div className="mb-12  h-[calc(100vh-140px)] w-1/4 overflow-y-auto rounded-lg border border-gray-200 bg-gray-50 p-4">
+          <div className="mb-12 h-[calc(100vh-140px)] w-1/4 overflow-y-auto rounded-lg border border-gray-200 bg-gray-50 p-4">
             <div className="mb-8 flex items-center">
               <IconList className="mr-2 size-5 text-zinc-800" />
               <h2 className="text-lg font-semibold text-zinc-800">
@@ -121,7 +109,11 @@ export function ReportDraftComponent({
               {generatedOutline.map((item, index) => (
                 <li
                   key={index}
-                  className="cursor-pointer text-blue-600 hover:underline"
+                  className={`cursor-pointer ${
+                    activeSection === index
+                      ? "font-bold text-blue-600"
+                      : "text-blue-600 hover:underline"
+                  }`}
                   onClick={() => handleSectionClick(index)}
                 >
                   {item}
@@ -133,21 +125,31 @@ export function ReportDraftComponent({
             <h2 className="my-4 text-center text-2xl font-bold text-zinc-800">
               Report Draft
             </h2>
+            <div className="mb-6">
+              <h3 className="mb-2 text-lg font-semibold">Ask a question</h3>
+              <div className="flex items-center">
+                <Input
+                  type="text"
+                  placeholder="Type your question here..."
+                  value={question}
+                  onChange={e => setQuestion(e.target.value)}
+                  className="mr-2 grow"
+                />
+                <Button onClick={handleAskQuestion}>Go</Button>
+              </div>
+            </div>
             <div>
               <h3 className="mb-4 text-lg font-bold text-zinc-800">
-                {generatedOutline[activeSection ?? 0]}
+                {generatedOutline[activeSection]}
               </h3>
               <InfoBox
-                key="infoBox"
-                onEdit={(value: any) => {
-                  setSectionContents(prev => ({
-                    ...prev,
-                    [generatedOutline[activeSection ?? 0]]: value
-                  }))
-                }}
-                title={generatedOutline[activeSection ?? 0]}
-                description={getActiveSectionContent()}
-                colorId="habit"
+                key={`infoBox-${activeSection}`}
+                onEdit={handleEdit}
+                title={generatedOutline[activeSection]}
+                description={
+                  sectionContents[generatedOutline[activeSection]] || ""
+                }
+                colorId={colorId}
               />
             </div>
             <Button onClick={handleSave} className="mt-4">

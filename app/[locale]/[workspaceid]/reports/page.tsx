@@ -6,6 +6,8 @@ import { ReportDraftComponent } from "./components/reportdraft"
 import AddDataComponent from "./components/adddata"
 import { ReportProvider } from "@/context/reportcontext"
 import { InfoComponent } from "./components/infocomponent"
+import TableOfContents from "./components/tableofcontents"
+import ReportReview, { ReportReviewComponent } from "./components/report-review"
 
 interface ReportViewProps {
   defaultTab: string
@@ -87,13 +89,16 @@ const ReportView: FC<ReportViewProps> = ({ defaultTab }) => {
 
   return (
     <ReportProvider>
-      <div className="flex h-full flex-col">
-        <div
-          className={`w-7/8 m-24 transition-all duration-500 ease-in-out ${
-            isTransitioning ? "scale-95 opacity-0" : "scale-100 opacity-100"
-          }`}
-        >
-          {currentComponent}
+      <div className="container mx-auto flex h-screen flex-col p-4">
+        <h1 className="text-primary mb-6 text-center text-4xl font-bold">
+          Report Generator
+        </h1>
+        <div className="grow">
+          <ReportReviewComponent
+            onCancel={() => {}}
+            onSave={() => {}}
+            colorId="report"
+          />
         </div>
       </div>
     </ReportProvider>
