@@ -109,10 +109,10 @@ export const CreateAssistant: FC<CreateAssistantProps> = ({
       contentType="assistants"
       createState={
         {
-          image: selectedImage,
           user_id: profile.user_id,
           name,
           description,
+          image: selectedImage,
           include_profile_context: assistantChatSettings.includeProfileContext,
           include_workspace_instructions:
             assistantChatSettings.includeWorkspaceInstructions,

@@ -1,6 +1,6 @@
 import { ChatbotUIContext } from "../../context/context"
 import { FC, useContext } from "react"
-import { ReportItem } from "./report-item"
+import { ReportItem } from "../sidebar/items/reports/report-item"
 
 export const ReportsList: FC = () => {
   const { reports } = useContext(ChatbotUIContext)

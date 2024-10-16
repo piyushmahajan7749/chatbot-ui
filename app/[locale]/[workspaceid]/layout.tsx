@@ -19,6 +19,7 @@ import { LLMID } from "@/types"
 import { useParams, useRouter, useSearchParams } from "next/navigation"
 import { ReactNode, useContext, useEffect, useState } from "react"
 import Loading from "../loading"
+import { getReportWorkspacesByWorkspaceId } from "@/db/reports"
 
 interface WorkspaceLayoutProps {
   children: ReactNode
@@ -41,6 +42,7 @@ export default function WorkspaceLayout({ children }: WorkspaceLayoutProps) {
     setFiles,
     setPresets,
     setPrompts,
+    setReports,
     setTools,
     setModels,
     selectedWorkspace,
@@ -85,6 +87,7 @@ export default function WorkspaceLayout({ children }: WorkspaceLayoutProps) {
     setChatImages([])
     setNewMessageFiles([])
     setNewMessageImages([])
+    setReports([])
     setShowFilesDisplay(false)
   }, [workspaceId])
 
@@ -95,8 +98,9 @@ export default function WorkspaceLayout({ children }: WorkspaceLayoutProps) {
     setSelectedWorkspace(workspace)
 
     const assistantData = await getAssistantWorkspacesByWorkspaceId(workspaceId)
+    const reportData = await getReportWorkspacesByWorkspaceId(workspaceId)
     setAssistants(assistantData.assistants)
-
+    setReports(reportData.reports)
     for (const assistant of assistantData.assistants) {
       let url = ""
 

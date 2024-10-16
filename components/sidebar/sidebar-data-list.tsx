@@ -14,6 +14,7 @@ import { CollectionItem } from "./items/collections/collection-item"
 import { FileItem } from "./items/files/file-item"
 import { Folder } from "./items/folders/folder-item"
 import { updateReport } from "@/db/reports"
+import { ReportItem } from "./items/reports/report-item"
 
 // Add this type definition at the top of the file
 type ValidContentType =
@@ -68,6 +69,8 @@ export const SidebarDataList: FC<SidebarDataListProps> = ({
             assistant={item as Tables<"assistants">}
           />
         )
+      case "reports":
+        return <ReportItem key={item.id} report={item as Tables<"reports">} />
 
       default:
         return null

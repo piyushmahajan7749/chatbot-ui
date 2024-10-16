@@ -13,26 +13,20 @@ import { CreateReport } from "../reports/create-report"
 interface SidebarCreateButtonsProps {
   contentType: ContentType
   hasData: boolean
-  createReport: React.ReactNode
 }
 
 export const SidebarCreateButtons: FC<SidebarCreateButtonsProps> = ({
   contentType,
-  hasData,
-  createReport
+  hasData
 }) => {
   const { profile, selectedWorkspace, folders, setFolders } =
     useContext(ChatbotUIContext)
   const { handleNewChat } = useChatHandler()
 
-  const [isCreatingPrompt, setIsCreatingPrompt] = useState(false)
-  const [isCreatingPreset, setIsCreatingPreset] = useState(false)
   const [isCreatingFile, setIsCreatingFile] = useState(false)
   const [isCreatingCollection, setIsCreatingCollection] = useState(false)
   const [isCreatingAssistant, setIsCreatingAssistant] = useState(false)
   const [isCreatingReport, setIsCreatingReport] = useState(false)
-  const [isCreatingTool, setIsCreatingTool] = useState(false)
-  const [isCreatingModel, setIsCreatingModel] = useState(false)
 
   const handleCreateFolder = async () => {
     if (!profile) return

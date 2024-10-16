@@ -41,31 +41,31 @@ interface ReportState {
 
 // Define agents
 const reportOutlineAgent = ChatPromptTemplate.fromTemplate(
-  `You are an experienced scientific report writer. Write a table of contents for the research report based on the provided protocol.
+  `You are an experienced scientific report writer. Write a table of contents for the research report based on the provided protocol, prompt, and files upploaded by the user.
 
   The key sections in a report are these -
   1. Aim
   2. Introduction
   3. Principle
   4. Calculations
-  3. Material needed
-  4. Preparation
-  5. Setup
-  6. Procedure
-  7. Data Analysis
-  8. Results
-  10. Conclusion
+  5. Material needed
+  6. Preparation
+  7. Setup
+  8. Procedure
+  9. Data Analysis
+  10. Results
+  11. Conclusion
 
-depending on the protocol, you may need to add or remove sections. Only add the titles of the sections, no need for content.
+depending on the files uploaded, you may need to add or remove sections. Only add the titles of the sections, no need for content.
 Return the list of sections as a list. Do not add any special characters.
 
-Protocol: {protocol}
+Files uploaded: {files}
 `
 )
 const reportWriterAgent = ChatPromptTemplate.fromTemplate(
   `You are an experienced scientific writer tasked with writing comprehensive research reports. Your primary duties include:
 
-    1. Clearly stating the research hypothesis and objectives in the introduction.
+    1. Clearly stating the research Aim and objectives in the introduction.
     2. Detailing the methodology used, including data collection and analysis techniques.
     3. Structuring the report into coherent sections (e.g. Aim, Introduction, Principle, Calculations, Material Needed, Preparation, Setup, Procedure, Data Analysis, Results, Discussion, Conclusion).
     4. Synthesizing information from various sources into a unified narrative.

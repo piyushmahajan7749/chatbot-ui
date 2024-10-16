@@ -49,7 +49,6 @@ export const CreateReport: FC<CreateReportProps> = ({
           user_id: profile.user_id,
           name,
           description,
-          workspace_id: selectedWorkspace.id,
           files: selectedReportRetrievalItems.filter(item =>
             item.hasOwnProperty("type")
           ) as Tables<"files">[],

@@ -57,6 +57,25 @@ export const deleteReport = async (id: string) => {
   }
 }
 
+export const getReportWorkspacesByWorkspaceId = async (workspaceId: string) => {
+  const { data: reportWorkspaces, error } = await supabase
+    .from("report_workspaces")
+    .select("reports(*)")
+    .eq("workspace_id", workspaceId)
+
+  if (error) {
+    throw new Error(error.message)
+  }
+  const reports = reportWorkspaces
+    .map(item => item.reports)
+    .sort(
+      (a, b) =>
+        new Date(b!.created_at).getTime() - new Date(a!.created_at).getTime()
+    )
+
+  return { reports: reports as Tables<"reports">[] }
+}
+
 export const getReportsByWorkspaceId = async (workspaceId: string) => {
   const { data: reports, error } = await supabase
     .from("report_workspaces")
