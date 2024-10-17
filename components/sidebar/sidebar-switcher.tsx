@@ -7,9 +7,11 @@ import {
   IconMessage,
   IconPencil,
   IconRobotFace,
-  IconSparkles
+  IconSparkles,
+  IconBrain,
+  IconFlask
 } from "@tabler/icons-react"
-import { FC } from "react"
+import { FC, useState } from "react"
 import { TabsList } from "../ui/tabs"
 import { WithTooltip } from "../ui/with-tooltip"
 import { ProfileSettings } from "../utility/profile-settings"
@@ -24,33 +26,56 @@ interface SidebarSwitcherProps {
 export const SidebarSwitcher: FC<SidebarSwitcherProps> = ({
   onContentTypeChange
 }) => {
+  const [showKnowledgeMenu, setShowKnowledgeMenu] = useState(false)
+
   return (
     <div className="flex flex-col justify-between border-r-2 pb-5">
       <TabsList className="bg-background grid h-[440px] grid-rows-7">
-        <SidebarSwitchItem
-          icon={<IconMessage size={SIDEBAR_ICON_SIZE} />}
-          contentType="chats"
-          onContentTypeChange={onContentTypeChange}
-        />
-        <SidebarSwitchItem
-          icon={<IconRobotFace size={SIDEBAR_ICON_SIZE} />}
-          contentType="assistants"
-          onContentTypeChange={onContentTypeChange}
-        />
-
-        <SidebarSwitchItem
-          icon={<IconFile size={SIDEBAR_ICON_SIZE} />}
-          contentType="files"
-          onContentTypeChange={onContentTypeChange}
+        <WithTooltip
+          display={<div>Knowledge Management</div>}
+          trigger={
+            <div
+              className="cursor-pointer p-2"
+              onClick={() => setShowKnowledgeMenu(!showKnowledgeMenu)}
+            >
+              <IconBrain size={SIDEBAR_ICON_SIZE} />
+            </div>
+          }
         />
 
-        <SidebarSwitchItem
-          icon={<IconBooks size={SIDEBAR_ICON_SIZE} />}
-          contentType="collections"
-          onContentTypeChange={onContentTypeChange}
-        />
+        {showKnowledgeMenu && (
+          <>
+            <SidebarSwitchItem
+              icon={<IconMessage size={SIDEBAR_ICON_SIZE - 4} />}
+              contentType="chats"
+              onContentTypeChange={onContentTypeChange}
+            />
+            <SidebarSwitchItem
+              icon={<IconRobotFace size={SIDEBAR_ICON_SIZE - 4} />}
+              contentType="assistants"
+              onContentTypeChange={onContentTypeChange}
+            />
+            <SidebarSwitchItem
+              icon={<IconFile size={SIDEBAR_ICON_SIZE - 4} />}
+              contentType="files"
+              onContentTypeChange={onContentTypeChange}
+            />
+            <SidebarSwitchItem
+              icon={<IconBooks size={SIDEBAR_ICON_SIZE - 4} />}
+              contentType="collections"
+              onContentTypeChange={onContentTypeChange}
+            />
+          </>
+        )}
+
         <SidebarSwitchItem
           icon={<IconSparkles size={SIDEBAR_ICON_SIZE} />}
+          contentType="reports"
+          onContentTypeChange={onContentTypeChange}
+        />
+
+        <SidebarSwitchItem
+          icon={<IconFlask size={SIDEBAR_ICON_SIZE} />}
           contentType="reports"
           onContentTypeChange={onContentTypeChange}
         />
