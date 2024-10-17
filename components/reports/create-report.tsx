@@ -4,8 +4,7 @@ import { Label } from "../ui/label"
 import { ChatbotUIContext } from "../../context/context"
 import { FC, useContext, useState } from "react"
 import { Tables, TablesInsert } from "@/supabase/types"
-import { ASSISTANT_DESCRIPTION_MAX } from "@/db/limits"
-import { AssistantRetrievalSelect } from "../sidebar/items/assistants/assistant-retrieval-select"
+import { REPORT_DESCRIPTION_MAX } from "@/db/limits"
 
 interface CreateReportProps {
   isOpen: boolean
@@ -24,22 +23,6 @@ export const CreateReport: FC<CreateReportProps> = ({
     useState<Tables<"files">[] | Tables<"collections">[]>([])
 
   if (!profile || !selectedWorkspace) return null
-
-  const handleRetrievalItemSelect = (
-    item: Tables<"files"> | Tables<"collections">
-  ) => {
-    setSelectedReportRetrievalItems(prevState => {
-      const isItemAlreadySelected = prevState.find(
-        selectedItem => selectedItem.id === item.id
-      )
-
-      if (isItemAlreadySelected) {
-        return prevState.filter(selectedItem => selectedItem.id !== item.id)
-      } else {
-        return [...prevState, item]
-      }
-    })
-  }
 
   return (
     <SidebarCreateItem
@@ -75,15 +58,7 @@ export const CreateReport: FC<CreateReportProps> = ({
               placeholder="Report description..."
               value={description}
               onChange={e => setDescription(e.target.value)}
-              maxLength={ASSISTANT_DESCRIPTION_MAX}
-            />
-          </div>
-          <div className="space-y-1 pt-2">
-            <Label>Files & Collections</Label>
-
-            <AssistantRetrievalSelect
-              selectedAssistantRetrievalItems={selectedReportRetrievalItems}
-              onAssistantRetrievalItemsSelect={handleRetrievalItemSelect}
+              maxLength={REPORT_DESCRIPTION_MAX}
             />
           </div>
         </>
