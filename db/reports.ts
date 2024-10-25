@@ -36,18 +36,21 @@ export const createReport = async (
 }
 
 export const updateReport = async (
-  id: string,
+  reportId: string,
   updates: Partial<Tables<"reports">>
 ) => {
-  const { data, error } = await supabase
+  const { data: report, error } = await supabase
     .from("reports")
     .update(updates)
-    .eq("id", id)
+    .eq("id", reportId)
+    .select()
     .single()
+
   if (error) {
-    throw error
+    throw new Error(error.message)
   }
-  return data as Tables<"reports">
+
+  return report
 }
 
 export const deleteReport = async (id: string) => {

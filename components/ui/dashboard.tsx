@@ -68,15 +68,6 @@ export const Dashboard: FC<DashboardProps> = ({ children }) => {
     localStorage.setItem("showSidebar", String(!showSidebar))
   }
 
-  const renderContent = () => {
-    switch (contentType) {
-      case "reports":
-        return <ReportsPage />
-      default:
-        return children
-    }
-  }
-
   return (
     <div className="flex size-full">
       <CommandK />
@@ -120,7 +111,7 @@ export const Dashboard: FC<DashboardProps> = ({ children }) => {
             drop file here
           </div>
         ) : (
-          renderContent()
+          children
         )}
 
         <Button

@@ -2,7 +2,6 @@
 
 import { FC, useState, useEffect } from "react"
 import { Edit } from "lucide-react"
-import { ReportProvider } from "@/context/reportcontext"
 import { ReportReviewComponent } from "./components/report-review"
 import AddDataComponent from "./components/adddata"
 
@@ -57,14 +56,12 @@ const ReportView: FC<ReportViewProps> = ({ defaultTab }) => {
   }, [selectedTab])
 
   return (
-    <ReportProvider>
-      <div className="container mx-auto flex h-full flex-col p-4">
-        <h1 className="text-primary mb-6 text-center text-3xl font-bold">
-          Report Generator
-        </h1>
-        <div className="grow">{currentComponent}</div>
-      </div>
-    </ReportProvider>
+    <div className="container mx-auto flex h-full flex-col p-4">
+      <h1 className="text-primary mb-6 text-center text-3xl font-bold">
+        Report Generator
+      </h1>
+      <div className="grow">{currentComponent}</div>
+    </div>
   )
 }
 

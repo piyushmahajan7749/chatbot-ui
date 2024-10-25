@@ -1,11 +1,8 @@
 import { ContentType } from "@/types"
 import {
-  IconAdjustmentsHorizontal,
-  IconBolt,
   IconBooks,
   IconFile,
   IconMessage,
-  IconPencil,
   IconRobotFace,
   IconSparkles,
   IconBrain,
@@ -82,12 +79,6 @@ export const SidebarSwitcher: FC<SidebarSwitcherProps> = ({
       </TabsList>
 
       <div className="flex flex-col items-center space-y-4">
-        {/* TODO */}
-        {/* <WithTooltip display={<div>Import</div>} trigger={<Import />} /> */}
-
-        {/* TODO */}
-        {/* <Alerts /> */}
-
         <WithTooltip
           display={<div>Profile Settings</div>}
           trigger={<ProfileSettings />}
