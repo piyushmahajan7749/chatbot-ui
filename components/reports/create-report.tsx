@@ -5,6 +5,7 @@ import { ChatbotUIContext } from "../../context/context"
 import { FC, useContext, useState } from "react"
 import { Tables, TablesInsert } from "@/supabase/types"
 import { REPORT_DESCRIPTION_MAX } from "@/db/limits"
+import { ReportRetrievalSelect } from "./report-retrieval-select"
 
 interface CreateReportProps {
   isOpen: boolean
@@ -19,27 +20,38 @@ export const CreateReport: FC<CreateReportProps> = ({
 
   const [name, setName] = useState("")
   const [description, setDescription] = useState("")
-  const [selectedReportRetrievalItems, setSelectedReportRetrievalItems] =
-    useState<Tables<"files">[] | Tables<"collections">[]>([])
+  const [selectedFiles, setSelectedFiles] = useState<Tables<"files">[]>([])
+
+  // Simplified handler for file selection
+  const handleFileSelect = (item: Tables<"files"> | Tables<"collections">) => {
+    if ("file_path" in item) {
+      // Check if item is a file
+      setSelectedFiles(prevState => {
+        const isItemAlreadySelected = prevState.find(
+          selectedItem => selectedItem.id === item.id
+        )
+
+        if (isItemAlreadySelected) {
+          return prevState.filter(selectedItem => selectedItem.id !== item.id)
+        }
+        return [...prevState, item as Tables<"files">]
+      })
+    }
+  }
 
   if (!profile || !selectedWorkspace) return null
 
   return (
     <SidebarCreateItem
       contentType="reports"
-      createState={
-        {
-          user_id: profile.user_id,
-          name,
-          description,
-          files: selectedReportRetrievalItems.filter(item =>
-            item.hasOwnProperty("type")
-          ) as Tables<"files">[],
-          collections: selectedReportRetrievalItems.filter(
-            item => !item.hasOwnProperty("type")
-          ) as Tables<"collections">[]
-        } as unknown as TablesInsert<"reports">
-      }
+      isTyping={false}
+      createState={{
+        user_id: profile.user_id,
+        name,
+        description,
+        sharing: "private",
+        workspace_id: selectedWorkspace.id
+      }}
       isOpen={isOpen}
       onOpenChange={onOpenChange}
       renderInputs={() => (
@@ -52,7 +64,8 @@ export const CreateReport: FC<CreateReportProps> = ({
               onChange={e => setName(e.target.value)}
             />
           </div>
-          <div className="space-y-1">
+
+          <div className="space-y-1 pt-2">
             <Label>Description</Label>
             <Input
               placeholder="Report description..."
@@ -63,7 +76,6 @@ export const CreateReport: FC<CreateReportProps> = ({
           </div>
         </>
       )}
-      isTyping={false}
     />
   )
 }

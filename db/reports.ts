@@ -1,5 +1,6 @@
 import { supabase } from "../lib/supabase/browser-client"
-import { Tables, TablesInsert, TablesUpdate } from "../supabase/types"
+import { Tables, TablesInsert } from "../supabase/types"
+import { createReportFiles } from "./report-files"
 
 export const getReports = async (userId: string) => {
   const { data, error } = await supabase
@@ -13,12 +14,21 @@ export const getReports = async (userId: string) => {
 }
 
 export const createReport = async (
-  report: TablesInsert<"reports">,
+  report: Omit<TablesInsert<"reports">, "workspace_id">,
   workspace_id: string
 ) => {
+  // Create the report
   const { data: createdReport, error } = await supabase
     .from("reports")
-    .insert([report])
+    .insert([
+      {
+        user_id: report.user_id,
+        name: report.name,
+        description: report.description,
+        sharing: report.sharing || "private",
+        folder_id: report.folder_id || null
+      }
+    ])
     .select("*")
     .single()
 
@@ -26,12 +36,20 @@ export const createReport = async (
     throw new Error(error.message)
   }
 
-  await createReportWorkspace({
-    user_id: createdReport.user_id,
-    report_id: createdReport.id,
-    workspace_id
-  })
+  const { error: workspaceError } = await supabase
+    .from("report_workspaces")
+    .insert([
+      {
+        user_id: report.user_id,
+        report_id: createdReport.id,
+        workspace_id: workspace_id
+      }
+    ])
 
+  if (workspaceError) {
+    console.error("Error creating report workspace:", workspaceError)
+    throw new Error(workspaceError.message)
+  }
   return createdReport
 }
 

@@ -20,7 +20,7 @@ import { createPreset } from "@/db/presets"
 import { createPrompt } from "@/db/prompts"
 import { createReportCollections } from "@/db/report-collections"
 import { createReportFiles } from "@/db/report-files"
-import { createReport, updateReport } from "@/db/reports"
+import { createReport } from "@/db/reports"
 import {
   getAssistantImageFromStorage,
   uploadAssistantImage
@@ -64,9 +64,7 @@ export const SidebarCreateItem: FC<SidebarCreateItemProps> = ({
   } = useContext(ChatbotUIContext)
 
   const buttonRef = useRef<HTMLButtonElement>(null)
-
   const [creating, setCreating] = useState(false)
-
   const createFunctions = {
     chats: createChat,
     presets: createPreset,
@@ -77,16 +75,13 @@ export const SidebarCreateItem: FC<SidebarCreateItemProps> = ({
       workspaceId: string
     ) => {
       if (!selectedWorkspace) return
-
       const { file, ...rest } = createState
-
       const createdFile = await createFileBasedOnExtension(
         file,
         rest,
         workspaceId,
         selectedWorkspace.embeddings_provider as "openai" | "local"
       )
-
       return createdFile
     },
     collections: async (
@@ -178,31 +173,32 @@ export const SidebarCreateItem: FC<SidebarCreateItemProps> = ({
       createState: {
         files: Tables<"files">[]
         collections: Tables<"collections">[]
-      } & Tables<"reports">,
+      } & Omit<Tables<"reports">, "workspace_id">,
       workspaceId: string
     ) => {
-      const { files, collections, ...rest } = createState
+      const { files, collections, ...reportData } = createState
 
-      const createdReport = await createReport(rest, workspaceId)
+      const createdReport = await createReport(reportData, workspaceId)
 
-      let updatedReport = createdReport
+      if (files?.length) {
+        const reportFiles = files.map(file => ({
+          user_id: reportData.user_id,
+          report_id: createdReport.id,
+          file_id: file.id
+        }))
+        await createReportFiles(reportFiles)
+      }
 
-      const reportFiles = files.map(file => ({
-        user_id: rest.user_id,
-        report_id: createdReport.id,
-        file_id: file.id
-      }))
+      if (collections?.length) {
+        const reportCollections = collections.map(collection => ({
+          user_id: reportData.user_id,
+          report_id: createdReport.id,
+          collection_id: collection.id
+        }))
+        await createReportCollections(reportCollections)
+      }
 
-      const reportCollections = collections.map(collection => ({
-        user_id: rest.user_id,
-        report_id: createdReport.id,
-        collection_id: collection.id
-      }))
-
-      await createReportFiles(reportFiles)
-      await createReportCollections(reportCollections)
-
-      return updatedReport
+      return createdReport
     },
     tools: createTool,
     models: createModel
@@ -243,14 +239,12 @@ export const SidebarCreateItem: FC<SidebarCreateItemProps> = ({
       setCreating(false)
     }
   }
-
   const handleKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
     if (!isTyping && e.key === "Enter" && !e.shiftKey) {
       e.preventDefault()
       buttonRef.current?.click()
     }
   }
-
   return (
     <Sheet open={isOpen} onOpenChange={onOpenChange}>
       <SheetContent
@@ -268,7 +262,6 @@ export const SidebarCreateItem: FC<SidebarCreateItemProps> = ({
 
           <div className="mt-4 space-y-3">{renderInputs()}</div>
         </div>
-
         <SheetFooter className="mt-2 flex justify-between">
           <div className="flex grow justify-end space-x-2">
             <Button
@@ -278,7 +271,6 @@ export const SidebarCreateItem: FC<SidebarCreateItemProps> = ({
             >
               Cancel
             </Button>
-
             <Button disabled={creating} ref={buttonRef} onClick={handleCreate}>
               {creating ? "Creating..." : "Create"}
             </Button>

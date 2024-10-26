@@ -1438,7 +1438,6 @@ export type Database = {
           sharing: string
           updated_at: string | null
           user_id: string
-          workspace_id: string
         }
         Insert: {
           created_at?: string
@@ -1449,7 +1448,6 @@ export type Database = {
           sharing?: string
           updated_at?: string | null
           user_id: string
-          workspace_id: string
         }
         Update: {
           created_at?: string
@@ -1460,7 +1458,6 @@ export type Database = {
           sharing?: string
           updated_at?: string | null
           user_id?: string
-          workspace_id?: string
         }
         Relationships: [
           {
