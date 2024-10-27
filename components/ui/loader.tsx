@@ -10,7 +10,7 @@ export const Loader: React.FC<LoaderProps> = ({ text }) => {
       <div className="relative size-8 animate-spin">
         <Image alt="Logo" src="/LIGHT_BRAND_LOGO.png" fill />
       </div>
-      <p className="text-muted-foreground text-sm font-semibold">{text}</p>
+      <p className="text-foreground text-sm font-semibold">{text}</p>
     </div>
   )
 }

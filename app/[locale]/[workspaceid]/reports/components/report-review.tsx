@@ -67,8 +67,6 @@ export function ReportReviewComponent({
         await fetchReportFiles()
       } catch (error) {
         console.error("Error loading report files:", error)
-      } finally {
-        setLoading(false)
       }
     }
 
@@ -171,14 +169,14 @@ export function ReportReviewComponent({
   }
 
   return (
-    <div className="bg-foreground flex h-full max-h-[calc(100vh-1rem)] max-w-[calc(100vw-1rem)] overflow-hidden rounded-lg shadow-lg">
+    <div className="bg-foreground flex size-full max-h-[calc(100vh-1rem)] max-w-[calc(100vw-1rem)] overflow-hidden rounded-lg shadow-lg">
       {loading ? (
         <div className="my-48 w-full text-center">
           <Loader text="Generating report draft" />
         </div>
       ) : (
         <>
-          <div className="bg-secondary flex w-1/3 flex-col pt-4">
+          <div className="bg-secondary flex w-1/4 flex-col pt-4">
             <div className="px-4 py-2 text-sm text-gray-500"></div>
             <ScrollArea className="grow">
               <div className="space-y-2 p-4">
@@ -201,8 +199,8 @@ export function ReportReviewComponent({
               </div>
             </ScrollArea>
           </div>
-          <Separator orientation="vertical" />
-          <div className="bg-secondary flex w-2/3 flex-col">
+          <Separator orientation="vertical" className="bg-white" />
+          <div className="bg-secondary flex w-3/4 min-w-0 flex-col">
             <div
               className={`transition-all duration-300 ease-in-out ${isQuestionSectionVisible ? "max-h-40" : "max-h-0 overflow-hidden"}`}
             >
@@ -281,7 +279,7 @@ export function ReportReviewComponent({
               </div>
             </div>
             <ScrollArea className="mt-6 grow px-6">
-              <div className="prose dark:prose-invert max-w-none">
+              <div className="prose dark:prose-invert max-w-none overflow-x-hidden break-words pb-4">
                 {isEditing ? (
                   <textarea
                     className="h-[calc(100vh-20rem)] w-full rounded border p-2"
@@ -289,7 +287,7 @@ export function ReportReviewComponent({
                     onChange={e => setEditedContent(e.target.value)}
                   />
                 ) : (
-                  <div className="whitespace-pre-wrap">
+                  <div className="whitespace-pre-wrap break-words">
                     {sectionContents[generatedOutline[activeSection]] || ""}
                   </div>
                 )}
