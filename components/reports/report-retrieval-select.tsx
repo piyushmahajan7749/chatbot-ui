@@ -7,32 +7,26 @@ import {
 import { Input } from "@/components/ui/input"
 import { ChatbotUIContext } from "@/context/context"
 import { Tables } from "@/supabase/types"
-import {
-  IconBooks,
-  IconChevronDown,
-  IconCircleCheckFilled
-} from "@tabler/icons-react"
+import { IconChevronDown, IconCircleCheckFilled } from "@tabler/icons-react"
 import { FileIcon } from "lucide-react"
 import { FC, useContext, useEffect, useRef, useState } from "react"
 
 interface ReportRetrievalSelectProps {
-  selectedReportRetrievalItems: Tables<"files">[] | Tables<"collections">[]
-  onReportRetrievalItemsSelect: (
-    item: Tables<"files"> | Tables<"collections">
-  ) => void
+  selectedRetrievalItems: Tables<"files">[]
+  onRetrievalItemSelect: (item: Tables<"files">) => void
+  fileType: "protocol" | "papers" | "dataFiles"
 }
 
 export const ReportRetrievalSelect: FC<ReportRetrievalSelectProps> = ({
-  selectedReportRetrievalItems,
-  onReportRetrievalItemsSelect
+  selectedRetrievalItems,
+  onRetrievalItemSelect,
+  fileType
 }) => {
-  const { files, collections } = useContext(ChatbotUIContext)
-
-  const inputRef = useRef<HTMLInputElement>(null)
-  const triggerRef = useRef<HTMLButtonElement>(null)
-
+  const { files } = useContext(ChatbotUIContext)
   const [isOpen, setIsOpen] = useState(false)
   const [search, setSearch] = useState("")
+  const inputRef = useRef<HTMLInputElement>(null)
+  const triggerRef = useRef<HTMLButtonElement>(null)
 
   useEffect(() => {
     if (isOpen) {
@@ -42,11 +36,11 @@ export const ReportRetrievalSelect: FC<ReportRetrievalSelectProps> = ({
     }
   }, [isOpen])
 
-  const handleItemSelect = (item: Tables<"files"> | Tables<"collections">) => {
-    onReportRetrievalItemsSelect(item)
-  }
+  if (!files) return null
 
-  if (!files && !collections) return null
+  const filteredFiles = files.filter(file =>
+    file.name.toLowerCase().includes(search.toLowerCase())
+  )
 
   return (
     <DropdownMenu
@@ -56,21 +50,17 @@ export const ReportRetrievalSelect: FC<ReportRetrievalSelectProps> = ({
         setSearch("")
       }}
     >
-      <DropdownMenuTrigger
-        className="bg-background w-full justify-start border-2 px-3 py-5"
-        asChild
-      >
+      <DropdownMenuTrigger className="w-full" asChild>
         <Button
           ref={triggerRef}
-          className="flex items-center justify-between"
-          variant="ghost"
+          className="flex w-full items-center justify-between"
+          variant="outline"
         >
           <div className="flex items-center">
-            <div className="ml-2 flex items-center">
-              {selectedReportRetrievalItems.length} files selected
+            <div className="ml-2">
+              {selectedRetrievalItems.length} files selected
             </div>
           </div>
-
           <IconChevronDown />
         </Button>
       </DropdownMenuTrigger>
@@ -88,110 +78,24 @@ export const ReportRetrievalSelect: FC<ReportRetrievalSelectProps> = ({
           onKeyDown={e => e.stopPropagation()}
         />
 
-        {selectedReportRetrievalItems
-          .filter(item =>
-            item.name.toLowerCase().includes(search.toLowerCase())
-          )
-          .map(item => (
-            <ReportRetrievalItemOption
-              key={item.id}
-              contentType={
-                item.hasOwnProperty("type") ? "files" : "collections"
-              }
-              item={item as Tables<"files"> | Tables<"collections">}
-              selected={selectedReportRetrievalItems.some(
-                selectedReportRetrieval =>
-                  selectedReportRetrieval.id === item.id
-              )}
-              onSelect={handleItemSelect}
-            />
-          ))}
-
-        {files
-          .filter(
-            file =>
-              !selectedReportRetrievalItems.some(
-                selectedReportRetrieval =>
-                  selectedReportRetrieval.id === file.id
-              ) && file.name.toLowerCase().includes(search.toLowerCase())
-          )
-          .map(file => (
-            <ReportRetrievalItemOption
+        <div className="max-h-[200px] overflow-auto">
+          {filteredFiles.map(file => (
+            <div
               key={file.id}
-              item={file}
-              contentType="files"
-              selected={selectedReportRetrievalItems.some(
-                selectedReportRetrieval =>
-                  selectedReportRetrieval.id === file.id
-              )}
-              onSelect={handleItemSelect}
-            />
+              className="hover:bg-accent flex cursor-pointer items-center justify-between rounded p-2"
+              onClick={() => onRetrievalItemSelect(file)}
+            >
+              <div className="flex items-center">
+                <FileIcon className="mr-2" size={20} />
+                <span className="truncate">{file.name}</span>
+              </div>
+              {selectedRetrievalItems.some(
+                selected => selected.id === file.id
+              ) && <IconCircleCheckFilled size={20} />}
+            </div>
           ))}
-
-        {collections
-          .filter(
-            collection =>
-              !selectedReportRetrievalItems.some(
-                selectedReportRetrieval =>
-                  selectedReportRetrieval.id === collection.id
-              ) && collection.name.toLowerCase().includes(search.toLowerCase())
-          )
-          .map(collection => (
-            <ReportRetrievalItemOption
-              key={collection.id}
-              contentType="collections"
-              item={collection}
-              selected={selectedReportRetrievalItems.some(
-                selectedReportRetrieval =>
-                  selectedReportRetrieval.id === collection.id
-              )}
-              onSelect={handleItemSelect}
-            />
-          ))}
+        </div>
       </DropdownMenuContent>
     </DropdownMenu>
-  )
-}
-
-interface ReportRetrievalOptionItemProps {
-  contentType: "files" | "collections"
-  item: Tables<"files"> | Tables<"collections">
-  selected: boolean
-  onSelect: (item: Tables<"files"> | Tables<"collections">) => void
-}
-
-const ReportRetrievalItemOption: FC<ReportRetrievalOptionItemProps> = ({
-  contentType,
-  item,
-  selected,
-  onSelect
-}) => {
-  const handleSelect = () => {
-    onSelect(item)
-  }
-
-  return (
-    <div
-      className="flex cursor-pointer items-center justify-between py-0.5 hover:opacity-50"
-      onClick={handleSelect}
-    >
-      <div className="flex grow items-center truncate">
-        {contentType === "files" ? (
-          <div className="mr-2 min-w-[24px]">
-            <FileIcon type={(item as Tables<"files">).type} size={24} />
-          </div>
-        ) : (
-          <div className="mr-2 min-w-[24px]">
-            <IconBooks size={24} />
-          </div>
-        )}
-
-        <div className="truncate">{item.name}</div>
-      </div>
-
-      {selected && (
-        <IconCircleCheckFilled size={20} className="min-w-[30px] flex-none" />
-      )}
-    </div>
   )
 }

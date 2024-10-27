@@ -6,6 +6,7 @@ import { FC, useContext, useState } from "react"
 import { Tables, TablesInsert } from "@/supabase/types"
 import { REPORT_DESCRIPTION_MAX } from "@/db/limits"
 import { ReportRetrievalSelect } from "./report-retrieval-select"
+import { useReportContext } from "@/context/reportcontext"
 
 interface CreateReportProps {
   isOpen: boolean
@@ -20,23 +21,40 @@ export const CreateReport: FC<CreateReportProps> = ({
 
   const [name, setName] = useState("")
   const [description, setDescription] = useState("")
-  const [selectedFiles, setSelectedFiles] = useState<Tables<"files">[]>([])
+  const [selectedFiles, setSelectedFiles] = useState<{
+    protocol: Tables<"files">[]
+    papers: Tables<"files">[]
+    dataFiles: Tables<"files">[]
+  }>({
+    protocol: [],
+    papers: [],
+    dataFiles: []
+  })
 
-  // Simplified handler for file selection
-  const handleFileSelect = (item: Tables<"files"> | Tables<"collections">) => {
-    if ("file_path" in item) {
-      // Check if item is a file
-      setSelectedFiles(prevState => {
-        const isItemAlreadySelected = prevState.find(
-          selectedItem => selectedItem.id === item.id
-        )
-
-        if (isItemAlreadySelected) {
-          return prevState.filter(selectedItem => selectedItem.id !== item.id)
+  const handleFileSelect = (
+    fileType: "protocol" | "papers" | "dataFiles",
+    item: Tables<"files">
+  ) => {
+    setSelectedFiles(prev => {
+      // For protocol, only allow one file
+      if (fileType === "protocol") {
+        return {
+          ...prev,
+          [fileType]: [item]
         }
-        return [...prevState, item as Tables<"files">]
-      })
-    }
+      }
+
+      // For other types, allow multiple files
+      const currentFiles = prev[fileType]
+      const isItemSelected = currentFiles.find(file => file.id === item.id)
+
+      return {
+        ...prev,
+        [fileType]: isItemSelected
+          ? currentFiles.filter(file => file.id !== item.id)
+          : [...currentFiles, item]
+      }
+    })
   }
 
   if (!profile || !selectedWorkspace) return null
@@ -50,7 +68,8 @@ export const CreateReport: FC<CreateReportProps> = ({
         name,
         description,
         sharing: "private",
-        workspace_id: selectedWorkspace.id
+        workspace_id: selectedWorkspace.id,
+        files: selectedFiles
       }}
       isOpen={isOpen}
       onOpenChange={onOpenChange}
@@ -71,7 +90,39 @@ export const CreateReport: FC<CreateReportProps> = ({
               placeholder="Report description..."
               value={description}
               onChange={e => setDescription(e.target.value)}
-              maxLength={REPORT_DESCRIPTION_MAX}
+            />
+          </div>
+
+          <div className="space-y-1 pt-2">
+            <Label>Protocol</Label>
+            <ReportRetrievalSelect
+              selectedRetrievalItems={selectedFiles.protocol}
+              onRetrievalItemSelect={item =>
+                handleFileSelect("protocol", item as Tables<"files">)
+              }
+              fileType="protocol"
+            />
+          </div>
+
+          <div className="space-y-1 pt-2">
+            <Label>Papers</Label>
+            <ReportRetrievalSelect
+              selectedRetrievalItems={selectedFiles.papers}
+              onRetrievalItemSelect={item =>
+                handleFileSelect("papers", item as Tables<"files">)
+              }
+              fileType="papers"
+            />
+          </div>
+
+          <div className="space-y-1 pt-2">
+            <Label>Data Files</Label>
+            <ReportRetrievalSelect
+              selectedRetrievalItems={selectedFiles.dataFiles}
+              onRetrievalItemSelect={item =>
+                handleFileSelect("dataFiles", item as Tables<"files">)
+              }
+              fileType="dataFiles"
             />
           </div>
         </>

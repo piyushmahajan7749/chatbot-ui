@@ -58,6 +58,7 @@ CREATE TABLE IF NOT EXISTS report_files (
     user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
     report_id UUID NOT NULL REFERENCES reports(id) ON DELETE CASCADE,
     file_id UUID NOT NULL REFERENCES files(id) ON DELETE CASCADE,
+    file_type TEXT NOT NULL CHECK (file_type IN ('protocol', 'papers', 'dataFiles')),
 
     PRIMARY KEY(report_id, file_id),
 

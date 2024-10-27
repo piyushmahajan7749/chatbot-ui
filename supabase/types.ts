@@ -1340,6 +1340,7 @@ export type Database = {
         Row: {
           created_at: string
           file_id: string
+          file_type: string
           report_id: string
           updated_at: string | null
           user_id: string
@@ -1347,6 +1348,7 @@ export type Database = {
         Insert: {
           created_at?: string
           file_id: string
+          file_type: string
           report_id: string
           updated_at?: string | null
           user_id: string
@@ -1354,6 +1356,7 @@ export type Database = {
         Update: {
           created_at?: string
           file_id?: string
+          file_type?: string
           report_id?: string
           updated_at?: string | null
           user_id?: string

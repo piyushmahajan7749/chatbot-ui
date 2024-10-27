@@ -71,6 +71,20 @@ interface ReportContextType {
   >
   showFilesDisplay: boolean
   setShowFilesDisplay: Dispatch<SetStateAction<boolean>>
+
+  // Selected Files Store
+  selectedFiles: {
+    protocol: Tables<"files">[]
+    papers: Tables<"files">[]
+    dataFiles: Tables<"files">[]
+  }
+  setSelectedFiles: Dispatch<
+    SetStateAction<{
+      protocol: Tables<"files">[]
+      papers: Tables<"files">[]
+      dataFiles: Tables<"files">[]
+    }>
+  >
 }
 
 export const ReportContext = createContext<ReportContextType>({
@@ -115,7 +129,15 @@ export const ReportContext = createContext<ReportContextType>({
   reportFiles: [],
   setReportFiles: () => {},
   showFilesDisplay: false,
-  setShowFilesDisplay: () => {}
+  setShowFilesDisplay: () => {},
+
+  // Selected Files Store
+  selectedFiles: {
+    protocol: [],
+    papers: [],
+    dataFiles: []
+  },
+  setSelectedFiles: () => {}
 })
 
 export const useReportContext = () => useContext(ReportContext)

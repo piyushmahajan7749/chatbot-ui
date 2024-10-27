@@ -15,9 +15,14 @@ export const getReports = async (userId: string) => {
 
 export const createReport = async (
   report: Omit<TablesInsert<"reports">, "workspace_id">,
-  workspace_id: string
+  workspace_id: string,
+  selectedFiles: {
+    protocol: Tables<"files">[]
+    papers: Tables<"files">[]
+    dataFiles: Tables<"files">[]
+  }
 ) => {
-  // Create the report
+  // First create the report without workspace_id
   const { data: createdReport, error } = await supabase
     .from("reports")
     .insert([
@@ -36,20 +41,42 @@ export const createReport = async (
     throw new Error(error.message)
   }
 
-  const { error: workspaceError } = await supabase
-    .from("report_workspaces")
-    .insert([
-      {
-        user_id: report.user_id,
-        report_id: createdReport.id,
-        workspace_id: workspace_id
-      }
-    ])
+  // Create the workspace association
+  await createReportWorkspace({
+    user_id: report.user_id,
+    report_id: createdReport.id,
+    workspace_id: workspace_id
+  })
 
-  if (workspaceError) {
-    console.error("Error creating report workspace:", workspaceError)
-    throw new Error(workspaceError.message)
+  // Create report files associations
+  // Use a Set to track unique file IDs
+  const processedFileIds = new Set<string>()
+  const reportFiles: TablesInsert<"report_files">[] = []
+
+  // Helper function to add files while avoiding duplicates
+  const addFiles = (files: Tables<"files">[], fileType: string) => {
+    files.forEach(file => {
+      if (!processedFileIds.has(file.id)) {
+        processedFileIds.add(file.id)
+        reportFiles.push({
+          user_id: report.user_id,
+          report_id: createdReport.id,
+          file_id: file.id,
+          file_type: fileType
+        })
+      }
+    })
   }
+
+  // Process files in order of priority
+  addFiles(selectedFiles.protocol, "protocol")
+  addFiles(selectedFiles.papers, "papers")
+  addFiles(selectedFiles.dataFiles, "dataFiles")
+
+  if (reportFiles.length > 0) {
+    await createReportFiles(reportFiles)
+  }
+
   return createdReport
 }
 

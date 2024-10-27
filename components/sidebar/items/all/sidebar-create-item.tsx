@@ -171,23 +171,22 @@ export const SidebarCreateItem: FC<SidebarCreateItemProps> = ({
     },
     reports: async (
       createState: {
-        files: Tables<"files">[]
+        files: {
+          protocol: Tables<"files">[]
+          papers: Tables<"files">[]
+          dataFiles: Tables<"files">[]
+        }
         collections: Tables<"collections">[]
       } & Omit<Tables<"reports">, "workspace_id">,
       workspaceId: string
     ) => {
       const { files, collections, ...reportData } = createState
 
-      const createdReport = await createReport(reportData, workspaceId)
-
-      if (files?.length) {
-        const reportFiles = files.map(file => ({
-          user_id: reportData.user_id,
-          report_id: createdReport.id,
-          file_id: file.id
-        }))
-        await createReportFiles(reportFiles)
-      }
+      const createdReport = await createReport(reportData, workspaceId, {
+        protocol: files.protocol || [],
+        papers: files.papers || [],
+        dataFiles: files.dataFiles || []
+      })
 
       if (collections?.length) {
         const reportCollections = collections.map(collection => ({
