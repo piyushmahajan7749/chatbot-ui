@@ -171,7 +171,7 @@ export function ReportReviewComponent({
   }
 
   return (
-    <div className="bg-foreground flex max-h-[calc(100vh-6rem)] overflow-hidden rounded-lg shadow-lg">
+    <div className="bg-foreground flex h-full max-h-[calc(100vh-1rem)] max-w-[calc(100vw-1rem)] overflow-hidden rounded-lg shadow-lg">
       {loading ? (
         <div className="my-48 w-full text-center">
           <Loader text="Generating report draft" />
