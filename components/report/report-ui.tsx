@@ -3,7 +3,7 @@ import { useReportContext } from "@/context/reportcontext"
 import { ReportInput } from "./report-input"
 
 export const ReportUI: FC = () => {
-  const { reportDraft, selectedData } = useReportContext()
+  const { reportDraft } = useReportContext()
 
   return (
     <div className="flex h-full flex-col">
@@ -12,7 +12,6 @@ export const ReportUI: FC = () => {
         {/* Data section */}
         <div className="rounded-lg border p-4">
           <h2 className="mb-2 text-lg font-semibold">Input Data</h2>
-          <pre>{JSON.stringify(selectedData, null, 2)}</pre>
         </div>
 
         {/* Report draft */}

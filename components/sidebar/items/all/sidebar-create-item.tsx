@@ -7,6 +7,7 @@ import {
   SheetTitle
 } from "@/components/ui/sheet"
 import { ChatbotUIContext } from "@/context/context"
+import { useReportContext } from "@/context/reportcontext"
 import { createAssistantCollections } from "@/db/assistant-collections"
 import { createAssistantFiles } from "@/db/assistant-files"
 import { createAssistantTools } from "@/db/assistant-tools"
@@ -19,7 +20,6 @@ import { createModel } from "@/db/models"
 import { createPreset } from "@/db/presets"
 import { createPrompt } from "@/db/prompts"
 import { createReportCollections } from "@/db/report-collections"
-import { createReportFiles } from "@/db/report-files"
 import { createReport } from "@/db/reports"
 import {
   getAssistantImageFromStorage,

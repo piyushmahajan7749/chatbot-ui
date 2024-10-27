@@ -52,8 +52,6 @@ export function AddDataComponent({ onSave }: AddDataProps) {
 
   const [userPrompt, setUserPrompt] = useState("")
 
-  const { setSelectedData } = useReportContext()
-
   const { toast } = useToast()
 
   const handleSave = async () => {
@@ -67,7 +65,6 @@ export function AddDataComponent({ onSave }: AddDataProps) {
           ...selectedItems["Other files"].map(item => item.id)
         ]
       }
-      setSelectedData(formattedData)
       onSave()
     } catch (error) {
       console.error(error)

@@ -5,6 +5,7 @@ import { useParams, useRouter } from "next/navigation"
 import { cn } from "@/lib/utils"
 import { UpdateReport } from "./update-report"
 import { DeleteReport } from "./delete-report"
+import { useReportContext } from "@/context/reportcontext"
 
 interface ReportItemProps {
   report: Tables<"reports">
@@ -12,6 +13,7 @@ interface ReportItemProps {
 
 export const ReportItem: FC<ReportItemProps> = ({ report }) => {
   const { selectedWorkspace } = useContext(ChatbotUIContext)
+  const { setSelectedReport } = useReportContext()
 
   const router = useRouter()
   const params = useParams()
@@ -19,6 +21,7 @@ export const ReportItem: FC<ReportItemProps> = ({ report }) => {
 
   const handleClick = () => {
     if (!selectedWorkspace) return
+    setSelectedReport(report)
     return router.push(`/${selectedWorkspace.id}/report/${report.id}`)
   }
 

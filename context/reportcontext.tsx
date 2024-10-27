@@ -22,22 +22,6 @@ interface ReportContextType {
   selectedReport: Tables<"reports"> | null
   setSelectedReport: Dispatch<SetStateAction<Tables<"reports"> | null>>
 
-  // REPORT DATA STORE
-  selectedData: {
-    userPrompt: string
-    protocol: string
-    papers: string[]
-    dataFiles: string[]
-  }
-  setSelectedData: Dispatch<
-    SetStateAction<{
-      userPrompt: string
-      protocol: string
-      papers: string[]
-      dataFiles: string[]
-    }>
-  >
-
   // REPORT CONTENT STORE
   reportOutline: string
   setReportOutline: Dispatch<SetStateAction<string>>
@@ -101,15 +85,6 @@ export const ReportContext = createContext<ReportContextType>({
   setReports: () => {},
   selectedReport: null,
   setSelectedReport: () => {},
-
-  // REPORT DATA STORE
-  selectedData: {
-    userPrompt: "",
-    protocol: "",
-    papers: [],
-    dataFiles: []
-  },
-  setSelectedData: () => {},
 
   // REPORT CONTENT STORE
   reportOutline: "",

@@ -13,7 +13,7 @@ import { retrieveFileContent, retrieveRelevantContent } from "./retrieval"
 
 // Initialize language models
 const llm = new ChatOpenAI({
-  modelName: "o1-preview",
+  modelName: "gpt-4o-2024-08-06",
   apiKey: process.env.OPENAI_KEY
 })
 
@@ -407,23 +407,10 @@ function parseDataFromSummary(
 
 export async function POST(req: Request) {
   try {
-    const { protocol, papers, dataFiles, prompt } = await req.json()
-    // console.log("Received request:", {
-    //   protocol,
-    //   papers,
-    //   dataFiles
-    // })
-
-    // if (!elevatorPitch || !habitStories || !jobStories) {
-    //   return new NextResponse("Missing required fields", { status: 400 })
-    // }
-    const protocolContent = await retrieveFileContent([protocol])
-    const paperContent = await retrieveFileContent([papers])
-    const dataFileContent = await retrieveFileContent([dataFiles])
-
-    // console.log("Paper content:", paperContent)
-    // console.log("Data file content:", dataFileContent)
-    // console.log("Protocol content:", protocolContent)
+    const { protocol, papers, dataFiles } = await req.json()
+    const protocolContent = await retrieveFileContent(protocol)
+    const paperContent = await retrieveFileContent(papers)
+    const dataFileContent = await retrieveFileContent(dataFiles)
 
     const initialState: ReportState = {
       reportOutline: "",

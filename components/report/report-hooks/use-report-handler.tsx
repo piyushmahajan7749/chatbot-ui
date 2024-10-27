@@ -6,24 +6,14 @@ export const useReportHandler = () => {
   const router = useRouter()
   const reportInputRef = useRef<HTMLTextAreaElement>(null)
 
-  const {
-    selectedWorkspace,
-    setSelectedReport,
-    setReportDraft,
-    setSelectedData
-  } = useReportContext()
+  const { selectedWorkspace, setSelectedReport, setReportDraft } =
+    useReportContext()
 
   const handleNewReport = async () => {
     if (!selectedWorkspace) return
 
     setSelectedReport(null)
     setReportDraft("")
-    setSelectedData({
-      userPrompt: "",
-      protocol: "",
-      papers: [],
-      dataFiles: []
-    })
 
     return router.push(`/${selectedWorkspace.id}/report`)
   }

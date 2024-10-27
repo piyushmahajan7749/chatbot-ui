@@ -105,6 +105,16 @@ export const deleteReport = async (id: string) => {
   }
 }
 
+export const getReportById = async (reportId: string) => {
+  const { data: report } = await supabase
+    .from("reports")
+    .select("*")
+    .eq("id", reportId)
+    .maybeSingle()
+
+  return report
+}
+
 export const getReportWorkspacesByWorkspaceId = async (workspaceId: string) => {
   const { data: reportWorkspaces, error } = await supabase
     .from("report_workspaces")

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useContext } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Loader } from "@/components/ui/loader"
@@ -15,10 +15,17 @@ import {
   CopyIcon,
   ChevronUp,
   Sparkles,
-  Download,
   DownloadIcon
 } from "lucide-react"
 import { useReportContext } from "@/context/reportcontext"
+import { useParams } from "next/navigation"
+import { getReportById } from "@/db/reports"
+import {
+  getReportFilesByReportId,
+  getReportFilesWithDetails
+} from "@/db/report-files"
+import Loading from "@/app/[locale]/loading"
+import { Tables } from "@/supabase/types"
 
 interface ReportReviewProps {
   onSave: () => void
@@ -26,12 +33,22 @@ interface ReportReviewProps {
   colorId: string
 }
 
+interface ReportFileWithDetails {
+  id: string
+  report_id: string
+  file_id: string
+  file_type: "protocol" | "papers" | "dataFiles"
+  files: Tables<"files"> | null
+}
+
 export function ReportReviewComponent({
   onCancel,
   onSave,
   colorId
 }: ReportReviewProps) {
-  const [isLoading, setLoading] = useState(true)
+  const params = useParams()
+  const { setSelectedFiles, setSelectedReport } = useReportContext()
+  const [loading, setLoading] = useState(true)
   const [generatedOutline, setGeneratedOutline] = useState<string[]>([])
   const [activeSection, setActiveSection] = useState<number>(0)
   const [sectionContents, setSectionContents] = useState<
@@ -40,43 +57,69 @@ export function ReportReviewComponent({
   const [question, setQuestion] = useState("")
   const [isEditing, setIsEditing] = useState(false)
   const [editedContent, setEditedContent] = useState("")
-  const { selectedData } = useReportContext()
   const [chartImage, setChartImage] = useState<string | null>(null)
   const [isQuestionSectionVisible, setIsQuestionSectionVisible] = useState(true)
 
   useEffect(() => {
-    const generateDraft = async () => {
+    const loadReportData = async () => {
       setLoading(true)
       try {
-        const response = await fetch("/api/report/outline", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(selectedData)
-        })
-        const data = await response.json()
-        console.log("Received data from API:", data)
-        if (data.reportOutline && data.reportDraft) {
-          setGeneratedOutline(data.reportOutline)
-          setSectionContents(data.reportDraft)
-          setChartImage(data.chartImage)
-        } else {
-          throw new Error("No outline or draft data received")
-        }
+        await fetchReportFiles()
       } catch (error) {
-        console.error("Error generating draft:", error)
+        console.error("Error loading report files:", error)
       } finally {
         setLoading(false)
       }
     }
 
-    if (
-      selectedData.protocol ||
-      selectedData.papers ||
-      selectedData.dataFiles
-    ) {
-      generateDraft()
+    loadReportData()
+  }, [params.reportid])
+
+  const fetchReportFiles = async () => {
+    if (!params.reportid) return
+
+    try {
+      const groupedFiles = await getReportFilesByReportId(
+        params.reportid as string
+      )
+      if (Object.values(groupedFiles).some(files => files.length > 0)) {
+        generateDraft(groupedFiles)
+      }
+    } catch (error) {
+      console.error("Error fetching report files:", error)
     }
-  }, [selectedData])
+  }
+
+  const generateDraft = async (files: any) => {
+    setLoading(true)
+    try {
+      const response = await fetch("/api/report/outline", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          protocol: files.protocol.map((file: any) => file.id),
+          papers: files.papers.map((file: any) => file.id),
+          dataFiles: files.dataFiles.map((file: any) => file.id)
+        })
+      })
+      const data = await response.json()
+      if (data.reportOutline && data.reportDraft) {
+        setGeneratedOutline(data.reportOutline)
+        setSectionContents(data.reportDraft)
+        setChartImage(data.chartImage)
+      } else {
+        throw new Error("No outline or draft data received")
+      }
+    } catch (error) {
+      console.error("Error generating draft:", error)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  if (loading) {
+    return <Loading />
+  }
 
   const handleSave = () => {
     // Simulate saving data
@@ -129,13 +172,14 @@ export function ReportReviewComponent({
 
   return (
     <div className="bg-foreground flex max-h-[calc(100vh-6rem)] overflow-hidden rounded-lg shadow-lg">
-      {isLoading ? (
+      {loading ? (
         <div className="my-48 w-full text-center">
           <Loader text="Generating report draft" />
         </div>
       ) : (
         <>
           <div className="bg-secondary flex w-1/3 flex-col pt-4">
+            <div className="px-4 py-2 text-sm text-gray-500"></div>
             <ScrollArea className="grow">
               <div className="space-y-2 p-4">
                 {generatedOutline.map((item, index) => (
