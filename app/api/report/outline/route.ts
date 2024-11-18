@@ -60,6 +60,7 @@ Protocol: {protocol}
 Data Files: {dataFiles}
 `
 )
+
 const reportWriterAgent = ChatPromptTemplate.fromTemplate(
   `You are an experienced senior scientist with expertise in scientific report writing, tasked with writing a comprehensive research report documenting the lab work performed. Your primary duties include:
 Clearly stating the research Aim and Objectives in the Introduction, based on the user defined objective and uploaded files.

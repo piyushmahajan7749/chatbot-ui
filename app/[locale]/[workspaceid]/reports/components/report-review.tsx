@@ -200,7 +200,10 @@ export function ReportReviewComponent({
             </ScrollArea>
           </div>
           <Separator orientation="vertical" className="bg-white" />
-          <div className="bg-secondary flex w-3/4 min-w-0 flex-col">
+          <div
+            style={{ maxWidth: "61%" }}
+            className="bg-secondary flex w-3/4 min-w-0 flex-col"
+          >
             <div
               className={`transition-all duration-300 ease-in-out ${isQuestionSectionVisible ? "max-h-40" : "max-h-0 overflow-hidden"}`}
             >
