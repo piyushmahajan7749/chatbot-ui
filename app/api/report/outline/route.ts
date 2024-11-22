@@ -3,13 +3,13 @@ import { ChatOpenAI } from "@langchain/openai"
 import OpenAI from "openai"
 import { z } from "zod"
 import * as d3 from "d3"
-import { createCanvas, Canvas } from "canvas"
+import { createCanvas } from "canvas"
 
 import { ChatPromptTemplate } from "@langchain/core/prompts"
 import { tool } from "@langchain/core/tools"
 import { NextResponse } from "next/server"
 import { AIMessage, BaseMessage, HumanMessage } from "@langchain/core/messages"
-import { retrieveFileContent, retrieveRelevantContent } from "./retrieval"
+import { retrieveFileContent } from "./retrieval"
 
 // Initialize language models
 const llm = new ChatOpenAI({
@@ -42,42 +42,204 @@ interface ReportState {
 
 // Define agents
 const reportOutlineAgent = ChatPromptTemplate.fromTemplate(
-  `You are an experienced senior scientist with expertise in designing research reports, tasked with preparing a comprehensive report outline for a biopharma experiment. Your primary duties include:
-Reviewing the research protocol, data files, and other relevant documents uploaded by the user.
-Identifying key sections necessary for a scientific report (e.g., Aim, Introduction, Principle, Material Needed, Preparation, Calculations, Setup, Procedure, Data Analysis, Results, Discussion, Conclusion).
-Structuring the report outline logically, ensuring all sections are relevant to the files provided by the user.
-Ensuring that the outline covers all aspects necessary for reproducibility of the experiment.
+  `You are a senior scientist specializing in creating structured research report outlines for biopharma experiments, ensuring comprehensive documentation for reproducibility.
 
-Constraints:
-Focus solely on preparing the outline; do not write content for the report or interpret data.
-Maintain a logical and comprehensive structure to guide further report development.
-Include placeholder sub-sections where additional details might be necessary (e.g., "Additional sections based on experiment type”).
+The essential elements in a scientific report outline are:
+1. Aim: This section concisely states the purpose of running the experiment. This is based on the user-provided objective.
+2. Background/Introduction: This part focuses on providing context and relevance, giving scientific background information on the technique necessary to understand the experiment.
+3. Principle: This section provides the scientific foundation of the experiment, explaining the underlying theories, mechanisms, and key concepts that drive the methodology.
+4. Materials and Preparation: Outline all materials needed and preparation steps required, including details of equipment, reagents, and conditions for setup of the experiment.
+5. Experiment Setup and Layout: This includes an overview of the sample setup and experiment layout, detailing any specific configurations.
+6. Procedure: This details the experiment's step-by-step methodology and any specific points necessary for experimental accuracy.
+7. Data Analysis: This part summarize key parameters and criteria for data analysis, identifying any statistical or analytical techniques to be used.
+8. Results and Discussion: Include sections for documenting observed results, interpreting them, and relating findings to the original objectives.
+9. Conclusion and Future Steps: Provide a closing section for conclusions drawn from the results and potential next steps or recommendations based on findings.
 
-To generate the report outline, use the following:
 
+Given the following experiment objective, protocol, and data, create a structured outline for the report:
 Experiment Objective: {experimentObjective}
 Protocol: {protocol}
 Data Files: {dataFiles}
+
+Constraints:
+Focus solely on preparing the report outline; do not write content for the report or analyze data.
+Ensure a logical structure with a realistic flow, guiding further report development with clarity and relevance.
+Include placeholder sub-sections for details that might be required depending on experiment specifics (e.g., "Additional sections based on experiment type").
 `
 )
 
-const reportWriterAgent = ChatPromptTemplate.fromTemplate(
-  `You are an experienced senior scientist with expertise in scientific report writing, tasked with writing a comprehensive research report documenting the lab work performed. Your primary duties include:
-Clearly stating the research Aim and Objectives in the Introduction, based on the user defined objective and uploaded files.
-Detailing the experimental methodology used, including preparation, setup, data collection, and analysis techniques, ensuring sufficient detail for replication.
-Structuring the report into coherent sections such as Aim, Introduction, Principle, Material Needed, Preparation, Calculations, Setup, Procedure, Data Analysis, Results, Discussion, Conclusion, next steps if needed and any other relevant sections based on the provided outline and files.
-Synthesizing information from the uploaded files into a unified, scientifically rigorous narrative.
-Integrating any provided data visualizations, ensuring they are appropriately referenced and explained in relation to the findings.
+const reportWriterTheoryAgent = ChatPromptTemplate.fromTemplate(
+  `You are an experienced senior scientist specializing in scientific theory and context writing, tasked with creating the theoretical foundation for a comprehensive research report in biopharma. Your role is to document the experiment’s Aim, Introduction, and Principle in a scientifically rigorous and clear manner, providing essential context for reproducibility. Your report should be well-formatted, accurate, and convey the purpose, background, and fundamental scientific principles underpinning the experiment.Your primary tasks include writing :AimIntroductionPrincipleGuidelines for Writing these sections:
+###
+Aim (approx. 40-100 words):
+Clearly state the research aim, addressing what the experiment seeks to achieve and its importance, based on the user given objective. Outline the main objectives of the experiment and link them back to the user-provided context.Example Aim Statement: “The aim of this experiment is to evaluate the viscosity of a high-concentration antibody {antibody name} solution under different formulation conditions to identify optimal parameters for manufacturing and administration.
+
+Introduction (approx. 100-300 words):
+Provide background information, summarizing the scientific context and rationale, referencing any user-provided protocols. Address the significance of the experiment within the field of biopharma research.Example Introduction Statement: "High viscosity in high-concentration antibody formulations poses significant challenges for drug delivery, particularly for subcutaneous injections, where high viscosity can impede syringeability and injectability, affecting patient comfort and dosing precision. As biopharmaceuticals increasingly move towards self-administered, high-dose formats, managing viscosity has become essential. To address these issues, formulation scientists often use excipients, such as sugars, amino acids, and surfactants, to reduce protein-protein interactions, as well as adjustments in pH and ionic strength. The capillary viscometer, an effective tool for measuring viscosity across a wide range, is frequently used to evaluate these formulations, providing crucial insights into viscosity under different formulation conditions. Understanding and controlling viscosity is vital for developing stable, patient-friendly formulations that ensure both effective delivery and therapeutic efficacy."
+
+Principle (approx. 100-150 words):
+Explain the fundamental principles behind the experiment and technique used. Describe the scientific theory and mechanisms that underpin the methodology, connecting them with the research objectives. Use this information from the protocol given by the user. Attach image if available in the protocol.Example Principle Statement: Principle of the Malvern Capillary Viscometer.
+The capillary viscometer measures the viscosity of fluids by assessing the flow rate through a thin capillary tube under a controlled pressure difference. This method relies on Poiseuille’s law, which describes the relationship between flow rate, pressure, and viscosity for Newtonian fluids. According to Poiseuille’s equation:
+η=ΔP⋅r4/8⋅Q⋅L
+
+where:
+η is the viscosity,
+ΔP is the pressure drop across the capillary,
+r is the radius of the capillary,
+Q is the volumetric flow rate, and
+L is the length of the capillary.
+In practice, the instrument applies a known pressure, and the time taken for a specific volume of fluid to pass through the capillary is recorded. The viscometer automatically adjusts parameters to accommodate a wide viscosity range, allowing accurate viscosity measurements across various formulation conditions. This precision and adaptability make the capillary viscometer a reliable choice for analyzing high-viscosity biopharmaceutical formulations, enabling researchers to optimize conditions for stability and usability.
+###
 Constraints:
-Focus solely on writing the report; do not perform data analysis or create new visualizations.
-Maintain an objective, scientific tone throughout the report, ensuring clarity and precision.
-Ensure all procedures and sections are detailed enough for other researchers to replicate the experiment.
-Cite all relevant sources using APA style where applicable.
-
-
+Focus solely on theory-based sections; do not include procedural details, materials, or data analysis.
+Maintain a scientific, objective tone throughout.
+Ensure each section is concise or elaborate as guided in indvidual sections, accurate, and aligned with the provided objective.
+###
 To generate the report, use the following:
-Data Files: {dataFiles}
+Objective: {experimentObjective}
 Protocol: {protocol}
+Report Outline: {reportOutline}
+`
+)
+const reportWriterExecutorAgent = ChatPromptTemplate.fromTemplate(
+  `You are a seasoned scientist with expertise in experimental design and execution, tasked with documenting the practical aspects of a an experiment in a comprehensive research report. Your focus is on Materials Needed, Preparation, Procedure, Experiment Setup and Layout for a biopharma experiment, ensuring clarity, detailed description of every step and reproducibility for hands-on execution. Write the sections in past tense, as how things were done to run the experiment.Your primary tasks include writing :
+1. Material needed
+2. Preparation
+3. Procedure
+4. Setup and layout
+
+Guidelines for Writing these sections:
+
+1. Material needed (approx. 150-200 words)List all materials used in the experiment, including consumables, equipment, and reagents, buffers, controls and standard solutions along with their specifications. Find this information from the protocol - material needed section attached by the user and refer to the preparation files uploaded by the user to find any specific information on the amount of material used.Example Materials Statement: Materials Required
+Consumables
+Sample Vials: 1.5 mL sterile vials 
+Pipette Tips: Low-retention tips (10 µL, 100 µL, and 1000 µL) 
+Syringe Filters: 0.22 µm filters for sample filtration to remove particulate matter.
+Equipment
+Malvern Capillary Viscometer 
+Thermostatic Water Bath
+Analytical Balance
+
+Reagents, Buffers, and Standards
+Antibody Solution: High-concentration antibody solution at varying test concentrations (e.g., 50 mg/mL, 100 mg/mL, 200 mg/mL).
+Buffer Solution: Phosphate-buffered saline (PBS) at pH 7.4, used for diluting the antibody solution.
+Viscosity Standard Solution: glycerol solution at 10%, 30%, 50%, 70% (v/v) for instrument calibration.
+IPA - Isopropyl alcohol - for cleaning 
+DI water - for cleaning
+
+
+2. Preparation- (approx. 200-600 words)
+Detail any preparation instructions or steps required before starting the experiment - including instrument setup, solution, buffer, reagent preparation along with calculations, needed for accuracy.Use this information from the preparation files given by the user. It should include how much of the solutions were prepared and how. Use protocol (materials and preparation section) for finding any background information on the materials and preparation, if you need further help in writing it.
+
+Example Preparation statement:
+Instrument Setup
+Calibrate the Viscometer: Use the viscosity standard solution to verify instrument accuracy at the target temperature. Run a cleaning cycle with IPA and deionized water before measurements.
+Buffer Preparation 
+Phosphate-Buffered Saline (PBS), pH 7.4:
+Prepare 1 L of PBS by dissolving 8 g of NaCl, 0.2 g of KCl, 1.44 g of Na₂HPO₄, and 0.24 g of KH₂PO₄ in deionized water.
+Adjust the pH to 7.4 with NaOH or HCl if needed.
+Dilute to a final volume of 1 L with deionized water and mix thoroughly.
+
+
+3. Procedure (approx. 300-1000 words)
+Provide step-by-step instructions for running the experiment. Ensure that all the steps are captured (big or small) and each step is detailed to allow for reproducibility by reading this section. Refer to the protocol procedure section for this and also check for any relevant additional information provided in the other documents uploaded. Write it as how it was performed, Example Procedure Statement: - Prepare the Instrument
+Turn on the Malvern Capillary Viscometer and allow it to initialize. Check that all components, including the capillary and sample holder, are clean and dry.
+
+Installation of Capillary -
+Select the Appropriate Capillary
+Choose a capillary tube suitable for the expected viscosity range of the samples. As per the user manual, capillary XX1232, 15.6 cm long was used for high-concentration antibody solutions.
+Inspect the Capillary
+Before installation, inspect the capillary tube for any visible defects, such as cracks or clogs. Ensure the capillary is clean and free of any residual material from previous use. If necessary, clean the capillary with isopropyl alcohol (IPA) followed by a rinse with deionized water, then allow it to dry completely.
+Install the Capillary in the Viscometer
+Carefully insert the capillary tube into the designated holder within the viscometer. Align the tube to prevent bending or damage. Secure it in place according to the viscometer’s specifications, ensuring that it is properly seated and locked.…..
+
+4. Setup and Layout (approx. 50-300 words)
+Describe the experimental layout, including sample arrangements, vial positioning, sample or solution labeling and any specific configurations necessary for accurate data labeling, analysis and results. Check for this information from preparation document and  in other documents uploaded, if any. Add a diagram if available in the uploaded preparation file.
+
+
+Constraints:
+Focus exclusively on practical, preparatioin  and procedural details; do not provide theoretical context or interpret data.
+Ensure clear, detailed instructions that support reproducibility.
+Organize the information logically and with attention to accuracy.
+
+To generate the content, refer to the following:
+Objective: {experimentObjective}
+Protocol: {protocol}
+Preparation Files: {preparationFiles}
+`
+)
+
+const dataAnalystAgent = ChatPromptTemplate.fromTemplate(
+  `You are an expert data analyst and senior scientist tasked with documenting data-driven sections for a comprehensive biopharma research report. Your role is to interpret the data files based on the defined objective and present the Data Analysis, Visualizations, Results, Discussion, Conclusions, and Next Steps based on the experiment findings, offering clear insights and actionable recommendations.
+Your primary tasks include writing (as per individual instructions):
+Data analysis
+Results
+Discussion
+Conclusion
+Next steps
+and adding visualization after data analysis section - from the visualization agent 
+
+1. Data Analysis (approx. 100-1000 words)Summarize the approach to analyzing data, including any specific parameters, controls, and statistical tests.
+Reference any software or tools used for data analysis. Extract this information from the data analysis section of protocol and also go through the data files uploaded by the user to look at the final processed data to include the final data in this section.
+Present the final data in a well-formatted form that is easy to understand. Add any images from the data files, if present.
+Add the visualizations prepared by visualization agent and add here after the text data.
+
+Example Analysis Statement: 
+Data Analysis
+The viscosity of each sample was analyzed using the Malvern Viscosizer software, which calculated viscosity values based on flow rates through the capillary under controlled conditions. Key analysis parameters included temperature control at 25°C and flow consistency across all samples. Statistical comparisons were conducted to evaluate the impact of antibody concentration on viscosity.
+Parameters and Controls
+Temperature: 25°C, controlled via the built-in thermostat.
+Control Sample: Phosphate-Buffered Saline (PBS) served as the baseline control for comparison.
+Software: Malvern Viscosizer software, version 2.1,
+
+Summary
+The final processed data for each sample, including the viscosity values (in mPa·s) at 25°C, are presented in the table below. Each measurement was averaged from three replicate readings.
+
+Data Interpretation
+The analysis shows a progressive increase in viscosity with higher antibody concentrations. The PBS buffer served as a baseline control, showing minimal viscosity under experimental conditions.
+
+2. Visualization of data (from the visualization agent)
+3. Results (approx. 50-150 words, plus visuals)Present key findings, referencing visualizations (given by the visualization agent) where appropriate. Summarize data trends and major observations without interpretation (interpretation will be in the Discussion section).Example Results Statement: Results
+The viscosity measurements for antibody formulations at varying concentrations were collected at 25°C. Key findings are summarized in the table and visualization below. The results show a clear trend of increasing viscosity with higher antibody concentrations. The PBS buffer, serving as a control, maintained a low baseline viscosity (1.10 mPa·s), while antibody solutions at 50 mg/mL, 100 mg/mL, and 200 mg/mL exhibited viscosities of 1.85, 3.60, and 6.45 mPa·s, respectively. This progression indicates a concentration-dependent rise in viscosity, with the highest concentration (200 mg/mL) showing a significantly elevated viscosity.
+Refer to Figure 1 for a graphical representation of viscosity values across all concentrations, with error bars indicating standard deviations.
+4. Discussion (approx. 50-100 words)Interpret the findings in relation to the experiment objectives. Discuss potential implications, limitations, and relevance to the field.
+Example Discussion Statement: The results indicate a clear increase in viscosity with rising antibody concentrations, highlighting challenges in formulating high-dose, injectable biologics. This concentration-dependent viscosity likely results from intensified protein-protein interactions, which can complicate syringeability for subcutaneous administration. These findings suggest the need for strategies, such as excipient addition or buffer optimization, to manage viscosity and improve patient compliance.
+While valuable, this study is limited to specific antibody concentrations and buffer conditions; future work could expand to test additional excipients and pH levels. Overall, this research emphasizes the importance of viscosity control in developing patient-friendly, high-concentration antibody therapies.
+5. Conclusion (approx. 30-70 words)Summarize the main findings of the presented study in concise clear language.Example Conclusion Statement:This study demonstrates a concentration-dependent increase in viscosity for high-concentration antibody formulations, underscoring challenges in injectable biologics. 
+
+6. Next Steps (approx. 50-100 words)
+Suggest next steps for further research or applications based on the research findings and study objectives.
+Example Next steps Statement:
+Future research should explore excipient options and alternative buffers to mitigate viscosity, enhancing formulation stability and patient usability for high-dose therapeutics.
+
+Constraints:
+Focus solely on data analysis, interpretation and conclusion; do not add theory or procedural details.
+Maintain scientific rigor, ensuring that findings are presented clearly, concisely, and without bias.
+Ensure each section directly addresses the experiment’s objectives and supports actionable insights.
+To generate the content, refer to the following:
+Objective: {experimentObjective}
+Data Files: {dataFiles}
+Visualizations: {visualizations}
+Protocol: {protocol}
+`
+)
+
+const dataVisualizationAgent = ChatPromptTemplate.fromTemplate(
+  `You are a skilled data visualization expert specializing in biopharma research, responsible for creating accurate and insightful visualizations that illustrate key findings from experimental data. Your primary tasks include:
+Reviewing the provided data files to identify relevant trends, patterns, and results that directly address the experiment’s objectives.
+Generating clear, scientifically rigorous visualizations (e.g., graphs, charts, plots) that present experimental results and any statistical analysis necessary to support data interpretation.
+Ensuring that each visualization directly supports the narrative of the report, aligning with research objectives and helping readers understand key findings.
+Labeling all visualizations with descriptive titles, axis labels, units of measurement, and necessary legends to ensure clarity and precision.
+Writing captions for each visualization, explaining its significance and how it relates to the findings in the report.
+Constraints:
+Focus solely on generating and describing visualizations; do not write the report or perform in-depth statistical analysis unless required for visualizations.
+Ensure that the visualizations are clear, accurate, and easy to interpret by scientists.
+Ensure all data visualizations are designed with scientific rigor, avoiding over-complication.
+Provide the visualizations to report writing agent to be added to data analysis section of the report.
+
+To generate the visualizations, use the following:
+Objective: {experimentObjective}
+Data Files: {dataFiles}
 Report Outline: {reportOutline}
 `
 )
@@ -86,19 +248,25 @@ async function finalValidatorAgent(
   state: ReportState
 ): Promise<ReportOutputType> {
   const prompt = `You are an experienced senior scientist with expertise in scientific report writing review, tasked with reviewing and refining a comprehensive research report for biopharma experiments. Your primary duties include:
-Reviewing the entire report for scientific accuracy, clarity, and logical flow across all sections (e.g., Aim, Introduction, Methodology, Data Analysis, Results, Discussion, Conclusion).
-Ensuring that all sections are comprehensive, well-organized, and follow a logical progression that would allow another scientist to replicate the experiment.
-Checking for consistency between the narrative, data presented, and the visualizations, ensuring that all findings are supported by evidence.
-Identifying any missing information or areas that require further elaboration and suggesting appropriate revisions.
-Ensuring the report maintains an objective, scientific tone and is free from grammatical errors, typos, or formatting issues.
-Verifying that all sources are cited appropriately using APA style and that any visualizations are correctly referenced and explained in the report.
+1. Reviewing the entire report for scientific accuracy, clarity, and logical flow across all sections (e.g., Aim, Introduction, Methodology, Data Analysis, Results, Discussion, Conclusion).
+2. Ensuring that all sections are comprehensive, well-organized, and follow a logical progression that would allow another scientist to replicate the experiment.
+3. Make sure that all the necessary steps (whether big or small) are all included in the procedure section step by step.
+3. Checking for consistency between the narrative, data presented, and the visualizations, ensuring that all findings are supported by evidence.
+4. Identifying any missing information or areas that require further elaboration and suggesting appropriate revisions.
+5. Ensuring the report maintains an objective, scientific tone and is free from grammatical errors, typos, or formatting issues.
+6. Verifying that all sources are cited appropriately using APA style and that any visualizations are correctly referenced and explained in the report.
 
 Constraints:
 Focus solely on reviewing and refining the report; do not generate new content or perform any data analysis.
 Maintain a neutral, scientific tone throughout the feedback and ensure that revisions are focused on enhancing clarity and reproducibility.
 Ensure that the report is polished, professional, and ready for submission.
 To review and refine the report, use the following:
+
+Experiment Objective: {experimentObjective}
+Report Outline: {reportOutline}
 Report Draft: {reportDraft}
+Visualizations: {visualizations}
+Protocol: {protocol} (for cross-referencing if needed)
 Data Files: {dataFiles} (for cross-referencing if needed)
 
   Please return the refined report in the following JSON format:
@@ -231,40 +399,6 @@ const chartTool = tool(
   }
 )
 
-const visualizationAgent = ChatPromptTemplate.fromTemplate(
-  `You are an experienced data visualization specialist in the field of biopharma research, tasked with analyzing experimental data and generating visualizations for a comprehensive research report. Your primary duties include:
-Reviewing the data files and identifying key trends, patterns, and results relevant to the research objective.
-Creating visualizations (e.g., graphs, charts, plots) that clearly present the experimental results and any statistical analysis where applicable.
-Ensuring that each visualization directly supports the narrative of the report and aligns with the experiment’s objectives.
-Labeling each visualization appropriately, including descriptive titles, axis labels, units of measurement, and any necessary legends or notes to ensure clarity.
-Providing captions for each visualization, explaining its significance and how it relates to the findings in the report.
-Constraints:
-Focus solely on generating and describing visualizations; do not write the report or perform in-depth statistical analysis unless required for visualizations.
-Ensure that the visualizations are clear, accurate, and easy to interpret by scientists.
-Ensure all data visualizations are designed with scientific rigor, avoiding over-complication.
-
-To generate the visualizations, use the following:
-Data Files: {dataFiles}
-Experiment Objective: {experimentObjective}
-Report Outline: {reportOutline}
-  `
-)
-
-const codeAgent = ChatPromptTemplate.fromTemplate(
-  `You are an expert Python programmer specializing in data processing and analysis. Your main responsibilities include:
-
-  1. Writing clean, efficient Python code for data manipulation, cleaning, and transformation.
-  2. Implementing statistical methods and machine learning algorithms as needed.
-  3. Debugging and optimizing existing code for performance improvements.
-  4. Adhering to PEP 8 standards and ensuring code readability with meaningful variable and function names.
-
-  Constraints:
-  - Focus solely on data processing tasks; do not generate visualizations or write non-Python code.
-  - Provide only valid, executable Python code, including necessary comments for complex logic.
-  - Avoid unnecessary complexity; prioritize readability and efficiency.
-  `
-)
-
 async function callAgent(
   state: ReportState,
   agent: ChatPromptTemplate,
@@ -345,10 +479,11 @@ const workflow = new StateGraph<ReportState>({
       throw error
     }
   })
-  .addNode("reportWriterAgent", async (state: ReportState) => {
+
+  .addNode("reportWriterTheoryAgent", async (state: ReportState) => {
     try {
-      const content = await callAgent(state, reportWriterAgent, {
-        dataFiles: state.dataFileSummary,
+      const content = await callAgent(state, reportWriterTheoryAgent, {
+        experimentObjective: state.experimentObjective,
         protocol: state.protocol || "",
         reportOutline: state.reportOutline
       })
@@ -356,6 +491,48 @@ const workflow = new StateGraph<ReportState>({
       return { ...state, reportDraft: content }
     } catch (error) {
       console.error("Error in reportWriterAgent:", error)
+      throw error
+    }
+  })
+  .addNode("reportWriterExecutorAgent", async (state: ReportState) => {
+    try {
+      const content = await callAgent(state, reportWriterExecutorAgent, {
+        experimentObjective: state.experimentObjective,
+        protocol: state.protocol || "",
+        reportOutline: state.reportOutline
+      })
+
+      return { ...state, reportDraft: content }
+    } catch (error) {
+      console.error("Error in reportWriterAgent:", error)
+      throw error
+    }
+  })
+  .addNode("dataVisualizationAgent", async (state: ReportState) => {
+    try {
+      const content = await callAgent(state, dataVisualizationAgent, {
+        experimentObjective: state.experimentObjective,
+        protocol: state.protocol || "",
+        reportOutline: state.reportOutline
+      })
+
+      return { ...state, chartImage: content }
+    } catch (error) {
+      console.error("Error in dataVisualizationAgent:", error)
+      throw error
+    }
+  })
+  .addNode("dataAnalystAgent", async (state: ReportState) => {
+    try {
+      const content = await callAgent(state, dataAnalystAgent, {
+        experimentObjective: state.experimentObjective,
+        protocol: state.protocol || "",
+        reportOutline: state.reportOutline
+      })
+
+      return { ...state, reportDraft: content }
+    } catch (error) {
+      console.error("Error in dataAnalystAgent:", error)
       throw error
     }
   })
@@ -380,8 +557,11 @@ const workflow = new StateGraph<ReportState>({
     }
   })
   .addEdge(START, "reportOutlineAgent")
-  .addEdge("reportOutlineAgent", "reportWriterAgent")
-  .addEdge("reportWriterAgent", "generateChart")
+  .addEdge("reportOutlineAgent", "reportWriterTheoryAgent")
+  .addEdge("reportWriterTheoryAgent", "reportWriterExecutorAgent")
+  .addEdge("reportWriterExecutorAgent", "dataVisualizationAgent")
+  .addEdge("dataVisualizationAgent", "dataAnalystAgent")
+  .addEdge("dataAnalystAgent", "generateChart")
   .addEdge("generateChart", "finalValidatorAgent")
   .addEdge("finalValidatorAgent", END)
 
