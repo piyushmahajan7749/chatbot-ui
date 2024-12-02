@@ -20,6 +20,8 @@ import {
 import { getReportFilesByReportId } from "@/db/report-files"
 import Loading from "@/app/[locale]/loading"
 import ReactMarkdown from "react-markdown"
+import PptxGenJS from "pptxgenjs"
+import { getContentSlide, getIntroSlide } from "./utils"
 
 interface ReportReviewProps {
   onSave: () => void
@@ -151,10 +153,22 @@ export function ReportReviewComponent({ onSave, reportId }: ReportReviewProps) {
   }
 
   const handleDownload = () => {
-    // Simulate asking a question
-    console.log("Asking question:", question)
-    // Here you would typically make an API call to get the answer
-    // For now, we'll just clear the input
+    setLoading(true)
+    let pptx = new PptxGenJS()
+    getIntroSlide(pptx, "Report")
+    // playtestSelected
+    // Iterate through all sections and create content slides
+    generatedOutline.forEach((section, index) => {
+      const content = sectionContents[section] || ""
+      const title = outlineMapping[section] || section
+
+      // Assuming getContentSlide is a function similar to getIntroSlide
+      getContentSlide(pptx, title, content)
+    })
+
+    pptx.writeFile({ fileName: "Report Draft.pptx" }).then(() => {
+      setLoading(false)
+    })
     setQuestion("")
   }
 
@@ -229,10 +243,10 @@ export function ReportReviewComponent({ onSave, reportId }: ReportReviewProps) {
               </div>
               <Separator className="bg-foreground my-4" />
             </div>
-            <div className="mt-6 flex items-center justify-between px-6">
-              <h2 className="text-primary text-3xl font-bold">
+            <div className="mt-6 flex items-center justify-end px-6">
+              {/* <h2 className="text-primary text-3xl font-bold">
                 {outlineMapping[generatedOutline[activeSection]]}
-              </h2>
+              </h2> */}
               <div className="flex items-center space-x-2">
                 {!isEditing && (
                   <>
@@ -276,7 +290,7 @@ export function ReportReviewComponent({ onSave, reportId }: ReportReviewProps) {
               </div>
             </div>
             <ScrollArea className="mt-6 grow px-6">
-              <div className="prose dark:prose-invert max-w-none overflow-x-hidden break-words pb-4">
+              <div className="prose dark:prose-invert max-w-none overflow-x-hidden break-words pb-4 [&>*:first-child]:mt-0 [&_li]:my-0 [&_ol]:my-1 [&_p]:my-1 [&_ul]:my-1">
                 {isEditing ? (
                   <textarea
                     className="h-[calc(100vh-20rem)] w-full rounded border p-2"
@@ -284,9 +298,11 @@ export function ReportReviewComponent({ onSave, reportId }: ReportReviewProps) {
                     onChange={e => setEditedContent(e.target.value)}
                   />
                 ) : (
-                  <div className="h-[calc(100vh-20rem)] whitespace-pre-wrap break-words">
-                    {sectionContents[generatedOutline[activeSection]] || ""}
-                  </div>
+                  <ReactMarkdown className="whitespace-pre-wrap break-words">
+                    {(sectionContents[generatedOutline[activeSection]] || "")
+                      .trim()
+                      .replace(/\n{3,}/g, "\n\n")}
+                  </ReactMarkdown>
                 )}
               </div>
             </ScrollArea>
