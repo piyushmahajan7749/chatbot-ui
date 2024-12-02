@@ -12,7 +12,6 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation"
 import { FC, useState } from "react"
 import { useSelectFileHandler } from "../chat/chat-hooks/use-select-file-handler"
 import { CommandK } from "../utility/command-k"
-import ReportsPage from "@/app/[locale]/[workspaceid]/reports/page"
 
 export const SIDEBAR_WIDTH = 350
 

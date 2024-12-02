@@ -1,7 +1,22 @@
 "use client"
 
-import ReportsPage from "../../reports/page"
+import { useParams } from "next/navigation"
+import { ReportReviewComponent } from "../components/report-review"
 
 export default function ReportIDPage() {
-  return <ReportsPage />
+  const params = useParams()
+
+  return (
+    <div className="container mx-auto flex h-full flex-col p-4">
+      <h1 className="text-primary mb-6 text-center text-3xl font-semibold">
+        Report
+      </h1>
+      <div className="grow">
+        <ReportReviewComponent
+          reportId={params.reportid as string}
+          onSave={() => {}}
+        />
+      </div>
+    </div>
+  )
 }

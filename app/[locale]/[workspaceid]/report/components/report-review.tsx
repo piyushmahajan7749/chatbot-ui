@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useContext } from "react"
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Loader } from "@/components/ui/loader"
@@ -17,37 +17,16 @@ import {
   Sparkles,
   DownloadIcon
 } from "lucide-react"
-import { useReportContext } from "@/context/reportcontext"
-import { useParams } from "next/navigation"
-import { getReportById } from "@/db/reports"
-import {
-  getReportFilesByReportId,
-  getReportFilesWithDetails
-} from "@/db/report-files"
+import { getReportFilesByReportId } from "@/db/report-files"
 import Loading from "@/app/[locale]/loading"
-import { Tables } from "@/supabase/types"
+import ReactMarkdown from "react-markdown"
 
 interface ReportReviewProps {
   onSave: () => void
-  onCancel: () => void
-  colorId: string
+  reportId: string
 }
 
-interface ReportFileWithDetails {
-  id: string
-  report_id: string
-  file_id: string
-  file_type: "protocol" | "papers" | "dataFiles"
-  files: Tables<"files"> | null
-}
-
-export function ReportReviewComponent({
-  onCancel,
-  onSave,
-  colorId
-}: ReportReviewProps) {
-  const params = useParams()
-  const { setSelectedFiles, setSelectedReport } = useReportContext()
+export function ReportReviewComponent({ onSave, reportId }: ReportReviewProps) {
   const [loading, setLoading] = useState(true)
   const [generatedOutline, setGeneratedOutline] = useState<string[]>([])
   const [activeSection, setActiveSection] = useState<number>(0)
@@ -60,6 +39,21 @@ export function ReportReviewComponent({
   const [chartImage, setChartImage] = useState<string | null>(null)
   const [isQuestionSectionVisible, setIsQuestionSectionVisible] = useState(true)
 
+  const outlineMapping: Record<string, string> = {
+    aim: "Aim",
+    introduction: "Introduction",
+    principle: "Principle",
+    material: "Materials Needed",
+    preparation: "Preparation",
+    procedure: "Procedure",
+    setup: "Setup and Layout",
+    dataAnalysis: "Data Analysis",
+    results: "Results",
+    discussion: "Discussion",
+    conclusion: "Conclusion",
+    nextSteps: "Next Steps"
+  }
+
   useEffect(() => {
     const loadReportData = async () => {
       setLoading(true)
@@ -71,15 +65,13 @@ export function ReportReviewComponent({
     }
 
     loadReportData()
-  }, [params.reportid])
+  }, [reportId])
 
   const fetchReportFiles = async () => {
-    if (!params.reportid) return
+    if (!reportId) return
 
     try {
-      const groupedFiles = await getReportFilesByReportId(
-        params.reportid as string
-      )
+      const groupedFiles = await getReportFilesByReportId(reportId)
       if (Object.values(groupedFiles).some(files => files.length > 0)) {
         generateDraft(groupedFiles)
       }
@@ -95,6 +87,7 @@ export function ReportReviewComponent({
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          experimentObjective: "",
           protocol: files.protocol.map((file: any) => file.id),
           papers: files.papers.map((file: any) => file.id),
           dataFiles: files.dataFiles.map((file: any) => file.id)
@@ -102,6 +95,7 @@ export function ReportReviewComponent({
       })
       const data = await response.json()
       if (data.reportOutline && data.reportDraft) {
+        console.log("report draft: " + data.reportDraft)
         setGeneratedOutline(data.reportOutline)
         setSectionContents(data.reportDraft)
         setChartImage(data.chartImage)
@@ -190,7 +184,7 @@ export function ReportReviewComponent({
                     }`}
                     onClick={() => setActiveSection(index)}
                   >
-                    <span>{item}</span>
+                    <span>{outlineMapping[item] || item}</span>
                     {activeSection === index && (
                       <ChevronRight className="ml-auto" />
                     )}
@@ -201,7 +195,7 @@ export function ReportReviewComponent({
           </div>
           <Separator orientation="vertical" className="bg-white" />
           <div
-            style={{ maxWidth: "61%" }}
+            style={{ maxWidth: "100%" }}
             className="bg-secondary flex w-3/4 min-w-0 flex-col"
           >
             <div
@@ -237,7 +231,7 @@ export function ReportReviewComponent({
             </div>
             <div className="mt-6 flex items-center justify-between px-6">
               <h2 className="text-primary text-3xl font-bold">
-                {generatedOutline[activeSection]}
+                {outlineMapping[generatedOutline[activeSection]]}
               </h2>
               <div className="flex items-center space-x-2">
                 {!isEditing && (
@@ -290,7 +284,7 @@ export function ReportReviewComponent({
                     onChange={e => setEditedContent(e.target.value)}
                   />
                 ) : (
-                  <div className="whitespace-pre-wrap break-words">
+                  <div className="h-[calc(100vh-20rem)] whitespace-pre-wrap break-words">
                     {sectionContents[generatedOutline[activeSection]] || ""}
                   </div>
                 )}
