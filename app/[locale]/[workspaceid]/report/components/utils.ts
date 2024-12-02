@@ -24,9 +24,9 @@ export function getContentSlide(
   content: string
 ) {
   let slide = pptx.addSlide()
-
+  slide.background = { color: "f0d3dc" }
   slide.addText(title, {
-    x: 0,
+    x: 0.2,
     y: 0.2,
     h: 1,
     w: "100%",
@@ -37,12 +37,12 @@ export function getContentSlide(
     valign: pptx.AlignV.top
   })
 
-  slide.addText(title, {
+  slide.addText(content, {
     x: 0.2,
-    y: 0.4,
+    y: 0.8,
     h: 1,
-    w: "60%",
-    fontSize: 18,
+    w: "90%",
+    fontSize: 16,
     color: "000000",
     fontFace: "Calibri",
     align: pptx.AlignH.left,
