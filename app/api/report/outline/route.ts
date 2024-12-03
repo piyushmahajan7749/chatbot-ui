@@ -640,6 +640,9 @@ export async function POST(req: Request) {
     const paperContent = await retrieveFileContent(papers)
     const dataFileContent = await retrieveFileContent(dataFiles)
 
+    console.log("protocolContent : " + protocolContent)
+    console.log("dataFileContent: " + dataFileContent)
+
     const initialState: ReportState = {
       aim: "",
       introduction: "",

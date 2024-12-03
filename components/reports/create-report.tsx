@@ -105,7 +105,7 @@ export const CreateReport: FC<CreateReportProps> = ({
           </div>
 
           <div className="space-y-1 pt-2">
-            <Label>Papers</Label>
+            <Label>Preparation Files</Label>
             <ReportRetrievalSelect
               selectedRetrievalItems={selectedFiles.papers}
               onRetrievalItemSelect={item =>
