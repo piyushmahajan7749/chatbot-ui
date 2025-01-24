@@ -31,6 +31,7 @@ interface ReportReviewProps {
 
 export function ReportReviewComponent({ onSave, reportId }: ReportReviewProps) {
   const [loading, setLoading] = useState(true)
+  const [isRegenerateLoading, setRegenerateLoading] = useState(false)
   const [generatedOutline, setGeneratedOutline] = useState<string[]>([])
   const [activeSection, setActiveSection] = useState<number>(0)
   const [sectionContents, setSectionContents] = useState<
@@ -146,12 +147,49 @@ export function ReportReviewComponent({ onSave, reportId }: ReportReviewProps) {
     setEditedContent("")
   }
 
-  const handleAskQuestion = () => {
-    // Simulate asking a question
-    console.log("Asking question:", question)
-    // Here you would typically make an API call to get the answer
-    // For now, we'll just clear the input
-    setQuestion("")
+  const handleRegenerateSection = async () => {
+    try {
+      setRegenerateLoading(true)
+      const currentSectionName = generatedOutline[activeSection]
+      const currentContent = sectionContents[currentSectionName]
+
+      if (!currentSectionName || !currentContent || !question) {
+        console.error("Missing required fields:", {
+          currentSectionName,
+          currentContent,
+          question
+        })
+        throw new Error("Missing required fields for regeneration")
+      }
+
+      const response = await fetch("/api/report/regenerate", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          sectionName: currentSectionName,
+          currentContent: currentContent,
+          userFeedback: question
+        })
+      })
+
+      const result = await response.json()
+      if (result.success) {
+        setSectionContents(prev => ({
+          ...prev,
+          [generatedOutline[activeSection]]: result.regeneratedContent
+        }))
+      } else {
+        throw new Error("Failed to regenerate content")
+      }
+    } catch (error) {
+      console.error("Error regenerating content:", error)
+      // You might want to add error handling UI here
+    } finally {
+      setQuestion("")
+      setRegenerateLoading(false)
+    }
   }
 
   const handleDownload = () => {
@@ -230,7 +268,7 @@ export function ReportReviewComponent({ onSave, reportId }: ReportReviewProps) {
                     className="mr-4 h-12 grow"
                   />
                   <Button
-                    onClick={handleAskQuestion}
+                    onClick={handleRegenerateSection}
                     className="bg-foreground text-background"
                   >
                     Go <Sparkles className="ml-2 size-4" />
@@ -254,14 +292,6 @@ export function ReportReviewComponent({ onSave, reportId }: ReportReviewProps) {
                   <>
                     <Button variant="outline" size="icon" onClick={handleEdit}>
                       <Edit className="size-4" />
-                    </Button>
-                    <Button
-                      title="Regenerate"
-                      variant="outline"
-                      size="icon"
-                      onClick={handleEdit}
-                    >
-                      <RefreshCcw className="size-4" />
                     </Button>
                     <Button
                       title="Copy to clipboard"
@@ -304,7 +334,9 @@ export function ReportReviewComponent({ onSave, reportId }: ReportReviewProps) {
                 </div>
               ) : (
                 <div className="prose dark:prose-invert max-w-none overflow-x-hidden break-words pb-4 [&>*:first-child]:mt-0 [&_li]:my-0 [&_ol]:my-1 [&_p]:my-1 [&_ul]:my-1">
-                  {isEditing ? (
+                  {isRegenerateLoading ? (
+                    <Loader text="Regenerating content" />
+                  ) : isEditing ? (
                     <textarea
                       className="h-[calc(100vh-20rem)] w-full rounded border p-2"
                       value={editedContent}
