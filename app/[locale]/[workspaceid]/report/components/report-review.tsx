@@ -22,7 +22,6 @@ import Loading from "@/app/[locale]/loading"
 import ReactMarkdown from "react-markdown"
 import PptxGenJS from "pptxgenjs"
 import { getContentSlide, getIntroSlide } from "./utils"
-import { Tables } from "@/supabase/types"
 import { getReportWithDetails } from "@/db/reports"
 
 interface ReportReviewProps {
@@ -293,21 +292,33 @@ export function ReportReviewComponent({ onSave, reportId }: ReportReviewProps) {
               </div>
             </div>
             <ScrollArea className="mt-6 grow px-6">
-              <div className="prose dark:prose-invert max-w-none overflow-x-hidden break-words pb-4 [&>*:first-child]:mt-0 [&_li]:my-0 [&_ol]:my-1 [&_p]:my-1 [&_ul]:my-1">
-                {isEditing ? (
-                  <textarea
-                    className="h-[calc(100vh-20rem)] w-full rounded border p-2"
-                    value={editedContent}
-                    onChange={e => setEditedContent(e.target.value)}
-                  />
-                ) : (
-                  <ReactMarkdown className="whitespace-pre-wrap break-words">
-                    {(sectionContents[generatedOutline[activeSection]] || "")
-                      .trim()
-                      .replace(/\n{3,}/g, "\n\n")}
-                  </ReactMarkdown>
-                )}
-              </div>
+              {generatedOutline[activeSection] === "charts" ? (
+                <div className="prose dark:prose-invert max-w-none overflow-x-hidden break-words pb-4 [&>*:first-child]:mt-0 [&_li]:my-0 [&_ol]:my-1 [&_p]:my-1 [&_ul]:my-1">
+                  {chartImage && (
+                    <img
+                      src={chartImage}
+                      alt="Data visualization chart"
+                      className="h-auto max-w-full rounded-lg shadow-lg"
+                    />
+                  )}
+                </div>
+              ) : (
+                <div className="prose dark:prose-invert max-w-none overflow-x-hidden break-words pb-4 [&>*:first-child]:mt-0 [&_li]:my-0 [&_ol]:my-1 [&_p]:my-1 [&_ul]:my-1">
+                  {isEditing ? (
+                    <textarea
+                      className="h-[calc(100vh-20rem)] w-full rounded border p-2"
+                      value={editedContent}
+                      onChange={e => setEditedContent(e.target.value)}
+                    />
+                  ) : (
+                    <ReactMarkdown className="whitespace-pre-wrap break-words">
+                      {(sectionContents[generatedOutline[activeSection]] || "")
+                        .trim()
+                        .replace(/\n{3,}/g, "\n\n")}
+                    </ReactMarkdown>
+                  )}
+                </div>
+              )}
             </ScrollArea>
             {isEditing && (
               <div className="bg-secondary mt-auto flex justify-center space-x-4 p-4">

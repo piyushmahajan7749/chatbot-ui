@@ -34,6 +34,16 @@ const ReportTheorySchema = z
   })
   .required()
 
+const VisualizationSchema = z.object({
+  data: z.array(
+    z.object({
+      label: z.string(),
+      value: z.number()
+    })
+  )
+})
+
+type VisualizationType = z.infer<typeof VisualizationSchema>
 type ReportExecutorType = z.infer<typeof ReportExecutorSchema>
 
 const ReportExecutorSchema = z
@@ -84,6 +94,7 @@ interface ReportState {
   experimentObjective?: string
   finalOutput: ReportOutputType
   chartImage?: string
+  chartData: VisualizationType["data"]
   aim: string
   introduction: string
   principle: string
@@ -98,25 +109,51 @@ interface ReportState {
   nextSteps: string
 }
 
-const dataVisualizationAgent = ChatPromptTemplate.fromTemplate(
-  `You are a skilled data visualization expert specializing in biopharma research, responsible for creating accurate and insightful visualizations that illustrate key findings from experimental data. Your primary tasks include:
+async function callDataVisualizationAgent(
+  state: ReportState
+): Promise<VisualizationType["data"]> {
+  const systemPrompt = `You are a skilled data visualization expert specializing in biopharma research, responsible for creating accurate and insightful visualization that illustrate key findings from experimental data. Your primary tasks include:
 Reviewing the provided data files to identify relevant trends, patterns, and results that directly address the experiment’s objectives.
-Generating clear, scientifically rigorous visualizations (e.g., graphs, charts, plots) that present experimental results and any statistical analysis necessary to support data interpretation.
-Ensuring that each visualization directly supports the narrative of the report, aligning with research objectives and helping readers understand key findings.
-Labeling all visualizations with descriptive titles, axis labels, units of measurement, and necessary legends to ensure clarity and precision.
-Writing captions for each visualization, explaining its significance and how it relates to the findings in the report.
-Constraints:
-Focus solely on generating and describing visualizations; do not write the report or perform in-depth statistical analysis unless required for visualizations.
-Ensure that the visualizations are clear, accurate, and easy to interpret by scientists.
-Ensure all data visualizations are designed with scientific rigor, avoiding over-complication.
-Provide the visualizations to report writing agent to be added to data analysis section of the report.
+Generating clear, scientifically rigorous visualization that present experimental results and any statistical analysis necessary to support data interpretation.
+Ensuring that the visualization directly supports the narrative of the report, aligning with research objectives and helping readers understand key findings.
 
-To generate the visualizations, use the following:
-Objective: {experimentObjective}
-Data Files: {dataFiles}
-Report Outline: {reportOutline}
+Constraints:
+Provide the visualization data to be used to generate a chart.
 `
-)
+
+  const userPrompt = `Generate the data in this format:
+[
+    { label: "Category 1", value: 25 },
+    { label: "Category 2", value: 35 },
+    { label: "Category 3", value: 45 }
+] 
+    
+use the following context:
+
+Objective: ${state.experimentObjective}
+Protocol: ${state.protocol}
+Data files: ${state.dataFileSummary}`
+
+  try {
+    const completion = await openai.beta.chat.completions.parse({
+      model: "gpt-4o-2024-08-06",
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: userPrompt }
+      ],
+      response_format: zodResponseFormat(
+        VisualizationSchema,
+        "visualizationSchema"
+      )
+    })
+    const vizData = completion.choices[0].message.parsed!.data
+
+    return vizData
+  } catch (error) {
+    console.error("Error in callDataVisualizationAgent:", error)
+    throw error
+  }
+}
 
 async function finalValidatorAgent(
   state: ReportState
@@ -530,6 +567,13 @@ const workflow = new StateGraph<ReportState>({
         right ?? left ?? ({} as ReportOutputType),
       default: () => ({}) as ReportOutputType
     },
+    chartData: {
+      value: (
+        left?: VisualizationType["data"],
+        right?: VisualizationType["data"]
+      ) => right ?? left ?? ({} as VisualizationType["data"]),
+      default: () => ({}) as VisualizationType["data"]
+    },
     chartImage: {
       // Added chartImage channel
       value: (left?: string, right?: string) => right ?? left ?? "",
@@ -567,20 +611,16 @@ const workflow = new StateGraph<ReportState>({
       throw error
     }
   })
-  // .addNode("dataVisualizationAgent", async (state: ReportState) => {
-  //   try {
-  //     const content = await callAgent(state, dataVisualizationAgent, {
-  //       experimentObjective: state.experimentObjective,
-  //       protocol: state.protocol || "",
-  //       reportOutline: state.reportOutline
-  //     })
+  .addNode("dataVisualizationAgent", async (state: ReportState) => {
+    try {
+      const content = await callDataVisualizationAgent(state)
 
-  //     return { ...state, chartImage: content }
-  //   } catch (error) {
-  //     console.error("Error in dataVisualizationAgent:", error)
-  //     throw error
-  //   }
-  // })
+      return { ...state, chartData: content }
+    } catch (error) {
+      console.error("Error in dataVisualizationAgent:", error)
+      throw error
+    }
+  })
 
   .addNode("dataAnalystAgent", async (state: ReportState) => {
     try {
@@ -598,17 +638,17 @@ const workflow = new StateGraph<ReportState>({
       throw error
     }
   })
-  // .addNode("generateChart", async (state: ReportState) => {
-  //   try {
-  //     // Parse data from dataFileSummary
-  //     const parsedData = parseDataFromSummary(state.dataFileSummary || "")
-  //     const chartImage = await chartTool.func({ data: parsedData })
-  //     return { ...state, chartImage }
-  //   } catch (error) {
-  //     console.error("Error in generateChart:", error)
-  //     throw error
-  //   }
-  // })
+  .addNode("generateChart", async (state: ReportState) => {
+    try {
+      // Parse data from dataFileSummary
+      const parsedData = state.chartData
+      const chartImage = await chartTool.func({ data: parsedData })
+      return { ...state, chartImage }
+    } catch (error) {
+      console.error("Error in generateChart:", error)
+      throw error
+    }
+  })
   // .addNode("finalValidatorAgent", async (state: ReportState) => {
   //   try {
   //     const finalOutput = await finalValidatorAgent(state)
@@ -620,8 +660,10 @@ const workflow = new StateGraph<ReportState>({
   // })
   .addEdge(START, "reportWriterTheoryAgent")
   .addEdge("reportWriterTheoryAgent", "reportWriterExecutorAgent")
-  .addEdge("reportWriterExecutorAgent", "dataAnalystAgent")
-  .addEdge("dataAnalystAgent", END)
+  .addEdge("reportWriterExecutorAgent", "dataVisualizationAgent") // Add this edge
+  .addEdge("dataVisualizationAgent", "dataAnalystAgent") // Add this edge
+  .addEdge("dataAnalystAgent", "generateChart")
+  .addEdge("generateChart", END)
 
 // Helper function to parse data
 function parseDataFromSummary(
@@ -668,6 +710,7 @@ export async function POST(req: Request) {
       paperSummary: paperContent[0]?.content || "",
       dataFileSummary: dataFileContent[0]?.content || "",
       finalOutput: {} as ReportOutputType,
+      chartData: [] as VisualizationType["data"],
       chartImage: "" // Initialize chartImage
     }
 
@@ -692,6 +735,7 @@ export async function POST(req: Request) {
           "procedure",
           "setup",
           "dataAnalysis",
+          "charts",
           "results",
           "discussion",
           "conclusion",
@@ -706,6 +750,7 @@ export async function POST(req: Request) {
           procedure: finalState.procedure,
           setup: finalState.setup,
           dataAnalysis: finalState.dataAnalysis,
+          charts: finalState.chartImage,
           results: finalState.results,
           discussion: finalState.discussion,
           conclusion: finalState.conclusion,
