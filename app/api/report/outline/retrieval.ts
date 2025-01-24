@@ -94,11 +94,26 @@ export async function retrieveRelevantContent(
 export async function retrieveFileContent(fileIds: string[]) {
   const uniqueFileIds = [...new Set(fileIds)]
 
+  console.log("file ids: " + fileIds)
+
   try {
     const supabaseAdmin = createClient<Database>(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.SUPABASE_SERVICE_ROLE_KEY!
     )
+
+    // Direct query to check if file_ids exist in the table
+    const { data: existingFileIds, error: checkError } = await supabaseAdmin
+      .from("file_items")
+      .select("file_id")
+      .in("file_id", uniqueFileIds)
+
+    if (checkError) {
+      console.error("Error checking file ids:", checkError)
+      throw checkError
+    }
+
+    console.log("existing file ids: " + JSON.stringify(existingFileIds)) // Add this log
 
     const { data: fileItems, error } = await supabaseAdmin
       .from("file_items")
@@ -106,7 +121,16 @@ export async function retrieveFileContent(fileIds: string[]) {
       .in("file_id", uniqueFileIds)
 
     if (error) {
+      console.error("Error in retrieveFileContent:", error)
       throw error
+    }
+
+    console.log("Supabase query executed successfully") // Add this log
+    // console.log("file items: " + JSON.stringify(fileItems)) // Add this log
+
+    // Check if fileItems is empty
+    if (!fileItems || fileItems.length === 0) {
+      console.warn("No file items found for the given file ids") // Add this log
     }
 
     // Group file items by file_id
@@ -128,6 +152,8 @@ export async function retrieveFileContent(fileIds: string[]) {
         content: items.map(item => item.content).join("\n")
       })
     )
+
+    // console.log("file contents: " + JSON.stringify(fileContents)) // Add this log
 
     return fileContents
   } catch (error: any) {

@@ -10,11 +10,14 @@ import { ChatPromptTemplate } from "@langchain/core/prompts"
 import { tool } from "@langchain/core/tools"
 import { NextResponse } from "next/server"
 import { retrieveFileContent } from "./retrieval"
+import { ChatGoogleGenerativeAI } from "@langchain/google-genai"
 
-// Initialize language models
-const llm = new ChatOpenAI({
-  modelName: "gpt-4o-2024-08-06",
-  apiKey: process.env.OPENAI_KEY
+const llm = new ChatGoogleGenerativeAI({
+  model: "gemini-1.5-pro",
+  temperature: 0,
+  maxRetries: 2,
+  apiKey: process.env.GOOGLE_GEMINI_API_KEY
+  // other params...
 })
 
 const openai = new OpenAI({
@@ -272,9 +275,11 @@ Ensure each section is concise or elaborate as guided in indvidual sections, acc
 
   const userPrompt = `Generate aim, introduction, and principle using the following:
 
-Objective: {experimentObjective}
-Protocol: {protocol}
-Report Outline: {reportOutline}`
+Objective: ${state.experimentObjective}
+Protocol: ${state.protocol}
+Data files: ${state.dataFileSummary}`
+
+  console.log("userPrompt: " + userPrompt)
 
   try {
     const completion = await openai.beta.chat.completions.parse({
@@ -346,9 +351,9 @@ Ensure each section directly addresses the experiment’s objectives and support
 `
 
   const userPrompt = `To generate the content, refer to the following:
-Objective: {experimentObjective}
-Data Files: {dataFiles}
-Protocol: {protocol}`
+Objective: ${state.experimentObjective}
+Data Files: ${state.dataFileSummary}
+Protocol: ${state.protocol}`
 
   try {
     const completion = await openai.beta.chat.completions.parse({
@@ -434,9 +439,9 @@ Organize the information logically and with attention to accuracy.
 `
 
   const userPrompt = `Generate material, preparation, procedure, and setup using the following:
-Objective: {experimentObjective}
-Protocol: {protocol}
-Data Files: {dataFilesSummary}
+Objective: ${state.experimentObjective}
+Protocol: ${state.protocol}
+Data Files: ${state.dataFileSummary}
 `
 
   try {
@@ -635,13 +640,15 @@ function parseDataFromSummary(
 
 export async function POST(req: Request) {
   try {
-    const { protocol, papers, dataFiles } = await req.json()
+    const { protocol, papers, dataFiles, experimentObjective } =
+      await req.json()
     const protocolContent = await retrieveFileContent(protocol)
     const paperContent = await retrieveFileContent(papers)
     const dataFileContent = await retrieveFileContent(dataFiles)
 
-    console.log("protocolContent : " + protocolContent)
-    console.log("dataFileContent: " + dataFileContent)
+    console.log("protocolContent: " + JSON.stringify(protocolContent)) // Add this log
+    console.log("paperContent: " + JSON.stringify(paperContent)) // Add this log
+    console.log("dataFileContent: " + JSON.stringify(dataFileContent)) // Add this log
 
     const initialState: ReportState = {
       aim: "",
@@ -656,7 +663,7 @@ export async function POST(req: Request) {
       discussion: "",
       conclusion: "",
       nextSteps: "",
-      experimentObjective: "",
+      experimentObjective: experimentObjective || "",
       protocol: protocolContent[0]?.content || "",
       paperSummary: paperContent[0]?.content || "",
       dataFileSummary: dataFileContent[0]?.content || "",

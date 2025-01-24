@@ -22,6 +22,8 @@ import Loading from "@/app/[locale]/loading"
 import ReactMarkdown from "react-markdown"
 import PptxGenJS from "pptxgenjs"
 import { getContentSlide, getIntroSlide } from "./utils"
+import { Tables } from "@/supabase/types"
+import { getReportWithDetails } from "@/db/reports"
 
 interface ReportReviewProps {
   onSave: () => void
@@ -74,22 +76,23 @@ export function ReportReviewComponent({ onSave, reportId }: ReportReviewProps) {
 
     try {
       const groupedFiles = await getReportFilesByReportId(reportId)
+      const report = await getReportWithDetails(reportId)
       if (Object.values(groupedFiles).some(files => files.length > 0)) {
-        generateDraft(groupedFiles)
+        generateDraft(groupedFiles, report.description)
       }
     } catch (error) {
       console.error("Error fetching report files:", error)
     }
   }
 
-  const generateDraft = async (files: any) => {
+  const generateDraft = async (files: any, reportObjective: string) => {
     setLoading(true)
     try {
       const response = await fetch("/api/report/outline", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          experimentObjective: "",
+          experimentObjective: reportObjective,
           protocol: files.protocol.map((file: any) => file.id),
           papers: files.papers.map((file: any) => file.id),
           dataFiles: files.dataFiles.map((file: any) => file.id)

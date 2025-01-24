@@ -85,9 +85,9 @@ export const CreateReport: FC<CreateReportProps> = ({
           </div>
 
           <div className="space-y-1 pt-2">
-            <Label>Description</Label>
+            <Label>Objective</Label>
             <Input
-              placeholder="Report description..."
+              placeholder="Experiment objective..."
               value={description}
               onChange={e => setDescription(e.target.value)}
             />
