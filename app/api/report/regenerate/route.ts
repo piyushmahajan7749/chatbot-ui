@@ -1,12 +1,10 @@
-import { ChatGoogleGenerativeAI } from "@langchain/google-genai"
+import { ChatOpenAI } from "@langchain/openai"
 import { NextResponse } from "next/server"
 import { z } from "zod"
 
-const llm = new ChatGoogleGenerativeAI({
-  model: "gemini-1.5-pro",
-  temperature: 0,
-  maxRetries: 2,
-  apiKey: process.env.GOOGLE_GEMINI_API_KEY
+const llm = new ChatOpenAI({
+  modelName: "gpt-4o-2024-08-06",
+  apiKey: `${process.env.OPENAI_KEY}`
 })
 
 // Schema for the regeneration request

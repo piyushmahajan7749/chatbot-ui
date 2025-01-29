@@ -2,21 +2,9 @@ import { StateGraph, END, START } from "@langchain/langgraph"
 import OpenAI from "openai"
 import { zodResponseFormat } from "openai/helpers/zod"
 import { z } from "zod"
-import * as d3 from "d3"
-import { createCanvas } from "canvas"
 import { SERPGoogleScholarAPITool } from "@langchain/community/tools/google_scholar"
 
-import { tool } from "@langchain/core/tools"
 import { NextResponse } from "next/server"
-import { ChatGoogleGenerativeAI } from "@langchain/google-genai"
-
-const llm = new ChatGoogleGenerativeAI({
-  model: "gemini-1.5-pro",
-  temperature: 0,
-  maxRetries: 2,
-  apiKey: process.env.GOOGLE_GEMINI_API_KEY
-  // other params...
-})
 
 process.env.GOOGLE_SCHOLAR_API_KEY = process.env.SERPAPI_API_KEY
 

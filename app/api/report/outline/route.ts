@@ -6,19 +6,9 @@ import { z } from "zod"
 import * as d3 from "d3"
 import { createCanvas } from "canvas"
 
-import { ChatPromptTemplate } from "@langchain/core/prompts"
 import { tool } from "@langchain/core/tools"
 import { NextResponse } from "next/server"
 import { retrieveFileContent } from "./retrieval"
-import { ChatGoogleGenerativeAI } from "@langchain/google-genai"
-
-const llm = new ChatGoogleGenerativeAI({
-  model: "gemini-1.5-pro",
-  temperature: 0,
-  maxRetries: 2,
-  apiKey: process.env.GOOGLE_GEMINI_API_KEY
-  // other params...
-})
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_KEY
