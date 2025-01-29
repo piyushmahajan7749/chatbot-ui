@@ -14,17 +14,19 @@ interface SidebarProps {
 }
 
 export const Sidebar: FC<SidebarProps> = ({ contentType, showSidebar }) => {
-  const { folders, chats, files, collections, assistants, reports } =
+  const { folders, chats, files, collections, assistants, reports, designs } =
     useContext(ChatbotUIContext)
 
-  const chatFolders = folders.filter(folder => folder.type === "chats")
   const filesFolders = folders.filter(folder => folder.type === "files")
-  const collectionFolders = folders.filter(
+  const chatsFolders = folders.filter(folder => folder.type === "chats")
+  const collectionsFolders = folders.filter(
     folder => folder.type === "collections"
   )
-  const assistantFolders = folders.filter(
+  const assistantsFolders = folders.filter(
     folder => folder.type === "assistants"
   )
+  const reportsFolders = folders.filter(folder => folder.type === "reports")
+  const designsFolders = folders.filter(folder => folder.type === "designs")
 
   const renderSidebarContent = (
     contentType: ContentType,
@@ -57,7 +59,7 @@ export const Sidebar: FC<SidebarProps> = ({ contentType, showSidebar }) => {
         {(() => {
           switch (contentType) {
             case "chats":
-              return renderSidebarContent("chats", chats, chatFolders)
+              return renderSidebarContent("chats", chats, chatsFolders)
 
             case "files":
               return renderSidebarContent("files", files, filesFolders)
@@ -66,17 +68,20 @@ export const Sidebar: FC<SidebarProps> = ({ contentType, showSidebar }) => {
               return renderSidebarContent(
                 "collections",
                 collections,
-                collectionFolders
+                collectionsFolders
               )
 
             case "assistants":
               return renderSidebarContent(
                 "assistants",
                 assistants,
-                assistantFolders
+                assistantsFolders
               )
             case "reports":
-              return renderSidebarContent("reports", reports, filesFolders)
+              return renderSidebarContent("reports", reports, reportsFolders)
+
+            case "designs":
+              return renderSidebarContent("designs", designs, designsFolders)
 
             default:
               return null

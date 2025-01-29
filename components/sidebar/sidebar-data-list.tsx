@@ -15,6 +15,8 @@ import { FileItem } from "./items/files/file-item"
 import { Folder } from "./items/folders/folder-item"
 import { updateReport } from "@/db/reports"
 import { ReportItem } from "./items/reports/report-item"
+import { updateDesign } from "@/db/designs"
+import { DesignItem } from "./items/designs/design-item"
 
 // Add this type definition at the top of the file
 type ValidContentType =
@@ -23,6 +25,7 @@ type ValidContentType =
   | "assistants"
   | "collections"
   | "reports"
+  | "designs"
 
 interface SidebarDataListProps {
   contentType: ValidContentType
@@ -35,8 +38,14 @@ export const SidebarDataList: FC<SidebarDataListProps> = ({
   data,
   folders
 }) => {
-  const { setChats, setFiles, setCollections, setAssistants, setReports } =
-    useContext(ChatbotUIContext)
+  const {
+    setChats,
+    setFiles,
+    setCollections,
+    setAssistants,
+    setReports,
+    setDesigns
+  } = useContext(ChatbotUIContext)
 
   const divRef = useRef<HTMLDivElement>(null)
 
@@ -71,6 +80,9 @@ export const SidebarDataList: FC<SidebarDataListProps> = ({
         )
       case "reports":
         return <ReportItem key={item.id} report={item as Tables<"reports">} />
+
+      case "designs":
+        return <DesignItem key={item.id} design={item as Tables<"designs">} />
 
       default:
         return null
@@ -121,8 +133,8 @@ export const SidebarDataList: FC<SidebarDataListProps> = ({
     files: updateFile,
     assistants: updateAssistant,
     reports: updateReport,
-
-    collections: updateCollection
+    collections: updateCollection,
+    designs: updateDesign
   }
 
   const stateUpdateFunctions = {
@@ -130,7 +142,8 @@ export const SidebarDataList: FC<SidebarDataListProps> = ({
     files: setFiles,
     assistants: setAssistants,
     reports: setReports,
-    collections: setCollections
+    collections: setCollections,
+    designs: setDesigns
   }
 
   const updateFolder = async (itemId: string, folderId: string | null) => {
@@ -145,6 +158,7 @@ export const SidebarDataList: FC<SidebarDataListProps> = ({
     if (!updateFunction || !setStateFunction) return
 
     const updatedItem = await updateFunction(item.id, {
+      ...item,
       folder_id: folderId
     })
 

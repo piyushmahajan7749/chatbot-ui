@@ -124,10 +124,6 @@ export function ReportReviewComponent({ onSave, reportId }: ReportReviewProps) {
     onSave()
   }
 
-  const handleSectionClick = (index: number) => {
-    setActiveSection(index)
-  }
-
   const handleEdit = () => {
     setIsEditing(true)
     setEditedContent(sectionContents[generatedOutline[activeSection]] || "")

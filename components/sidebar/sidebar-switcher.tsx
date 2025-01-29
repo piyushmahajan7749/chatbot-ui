@@ -73,7 +73,7 @@ export const SidebarSwitcher: FC<SidebarSwitcherProps> = ({
 
         <SidebarSwitchItem
           icon={<IconFlask size={SIDEBAR_ICON_SIZE} />}
-          contentType="reports"
+          contentType="designs"
           onContentTypeChange={onContentTypeChange}
         />
       </TabsList>

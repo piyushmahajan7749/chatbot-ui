@@ -19,3 +19,5 @@ export type DataItemType =
   | Tables<"assistants">
   | Tables<"tools">
   | Tables<"models">
+  | Tables<"reports">
+  | Tables<"designs">

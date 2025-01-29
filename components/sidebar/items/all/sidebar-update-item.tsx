@@ -85,6 +85,7 @@ import profile from "react-syntax-highlighter/dist/esm/languages/hljs/profile"
 import { toast } from "sonner"
 import { SidebarDeleteItem } from "./sidebar-delete-item"
 import { updateReport } from "@/db/reports"
+import { updateDesign } from "@/db/designs"
 
 interface SidebarUpdateItemProps {
   isTyping: boolean
@@ -115,6 +116,7 @@ export const SidebarUpdateItem: FC<SidebarUpdateItemProps> = ({
     setTools,
     setModels,
     setReports,
+    setDesigns,
     setAssistantImages
   } = useContext(ChatbotUIContext)
 
@@ -178,6 +180,7 @@ export const SidebarUpdateItem: FC<SidebarUpdateItemProps> = ({
     prompts: null,
     files: null,
     reports: null,
+    designs: null,
     collections: {
       startingCollectionFiles,
       setStartingCollectionFiles,
@@ -229,6 +232,7 @@ export const SidebarUpdateItem: FC<SidebarUpdateItemProps> = ({
       setSelectedAssistantTools([])
     },
     reports: null,
+    designs: null,
     tools: null,
     models: null
   }
@@ -236,6 +240,7 @@ export const SidebarUpdateItem: FC<SidebarUpdateItemProps> = ({
   const fetchWorkpaceFunctions = {
     chats: null,
     reports: null,
+    designs: null,
     presets: async (presetId: string) => {
       const item = await getPresetWorkspacesByPresetId(presetId)
       return item.workspaces
@@ -334,6 +339,7 @@ export const SidebarUpdateItem: FC<SidebarUpdateItemProps> = ({
   const updateFunctions = {
     chats: updateChat,
     reports: updateReport,
+    designs: updateDesign,
     presets: async (presetId: string, updateState: TablesUpdate<"presets">) => {
       const updatedPreset = await updatePreset(presetId, updateState)
 
@@ -587,7 +593,8 @@ export const SidebarUpdateItem: FC<SidebarUpdateItemProps> = ({
     assistants: setAssistants,
     tools: setTools,
     models: setModels,
-    reports: setReports
+    reports: setReports,
+    designs: setDesigns
   }
 
   const handleUpdate = async () => {

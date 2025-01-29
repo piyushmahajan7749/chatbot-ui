@@ -4,3 +4,4 @@ export type ContentType =
   | "collections"
   | "assistants"
   | "reports"
+  | "designs"

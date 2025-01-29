@@ -51,6 +51,7 @@ export const GlobalState: FC<GlobalStateProps> = ({ children }) => {
   const [tools, setTools] = useState<Tables<"tools">[]>([])
   const [workspaces, setWorkspaces] = useState<Tables<"workspaces">[]>([])
   const [reports, setReports] = useState<Tables<"reports">[]>([])
+  const [designs, setDesigns] = useState<Tables<"designs">[]>([])
   // MODELS STORE
   const [envKeyMap, setEnvKeyMap] = useState<Record<string, VALID_ENV_KEYS>>({})
   const [availableHostedModels, setAvailableHostedModels] = useState<LLM[]>([])
@@ -220,6 +221,8 @@ export const GlobalState: FC<GlobalStateProps> = ({ children }) => {
         setAssistants,
         collections,
         setCollections,
+        designs,
+        setDesigns,
         chats,
         setChats,
         files,

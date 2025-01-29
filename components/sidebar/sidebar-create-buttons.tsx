@@ -1,14 +1,15 @@
+import { IconFolderPlus, IconPlus } from "@tabler/icons-react"
 import { useChatHandler } from "@/components/chat/chat-hooks/use-chat-handler"
 import { ChatbotUIContext } from "@/context/context"
 import { createFolder } from "@/db/folders"
 import { ContentType } from "@/types"
-import { IconFolderPlus, IconPlus } from "@tabler/icons-react"
 import { FC, useContext, useState } from "react"
 import { Button } from "../ui/button"
 import { CreateAssistant } from "./items/assistants/create-assistant"
 import { CreateCollection } from "./items/collections/create-collection"
 import { CreateFile } from "./items/files/create-file"
 import { CreateReport } from "../reports/create-report"
+import { CreateDesign } from "../designs/create-design"
 
 interface SidebarCreateButtonsProps {
   contentType: ContentType
@@ -27,6 +28,7 @@ export const SidebarCreateButtons: FC<SidebarCreateButtonsProps> = ({
   const [isCreatingCollection, setIsCreatingCollection] = useState(false)
   const [isCreatingAssistant, setIsCreatingAssistant] = useState(false)
   const [isCreatingReport, setIsCreatingReport] = useState(false)
+  const [isCreatingDesign, setIsCreatingDesign] = useState(false)
 
   const handleCreateFolder = async () => {
     if (!profile) return
@@ -66,6 +68,10 @@ export const SidebarCreateButtons: FC<SidebarCreateButtonsProps> = ({
       case "reports":
         return async () => {
           setIsCreatingReport(true)
+        }
+      case "designs":
+        return async () => {
+          setIsCreatingDesign(true)
         }
 
       default:
@@ -110,6 +116,13 @@ export const SidebarCreateButtons: FC<SidebarCreateButtonsProps> = ({
         <CreateReport
           isOpen={isCreatingReport}
           onOpenChange={setIsCreatingReport}
+        />
+      )}
+
+      {isCreatingDesign && (
+        <CreateDesign
+          isOpen={isCreatingDesign}
+          onOpenChange={setIsCreatingDesign}
         />
       )}
     </div>

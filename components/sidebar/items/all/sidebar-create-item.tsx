@@ -15,6 +15,7 @@ import { createAssistant, updateAssistant } from "@/db/assistants"
 import { createChat } from "@/db/chats"
 import { createCollectionFiles } from "@/db/collection-files"
 import { createCollection } from "@/db/collections"
+import { createDesign } from "@/db/designs"
 import { createFileBasedOnExtension } from "@/db/files"
 import { createModel } from "@/db/models"
 import { createPreset } from "@/db/presets"
@@ -60,7 +61,8 @@ export const SidebarCreateItem: FC<SidebarCreateItemProps> = ({
     setAssistantImages,
     setTools,
     setModels,
-    setReports
+    setReports,
+    setDesigns
   } = useContext(ChatbotUIContext)
 
   const buttonRef = useRef<HTMLButtonElement>(null)
@@ -199,6 +201,16 @@ export const SidebarCreateItem: FC<SidebarCreateItemProps> = ({
 
       return createdReport
     },
+    designs: async (
+      createState: {} & Omit<Tables<"designs">, "workspace_id">,
+      workspaceId: string
+    ) => {
+      const { ...designData } = createState
+
+      const createdDesign = await createDesign(designData, workspaceId)
+
+      return createdDesign
+    },
     tools: createTool,
     models: createModel
   }
@@ -212,7 +224,8 @@ export const SidebarCreateItem: FC<SidebarCreateItemProps> = ({
     assistants: setAssistants,
     tools: setTools,
     models: setModels,
-    reports: setReports
+    reports: setReports,
+    designs: setDesigns
   }
 
   const handleCreate = async () => {

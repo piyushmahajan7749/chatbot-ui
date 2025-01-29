@@ -38,6 +38,10 @@ export const ASSISTANT_PROMPT_MAX = 100000
 export const REPORT_NAME_MAX = 100
 export const REPORT_DESCRIPTION_MAX = 500
 
+// Designs
+export const DESIGN_NAME_MAX = 100
+export const DESIGN_DESCRIPTION_MAX = 500
+
 // Tools
 export const TOOL_NAME_MAX = 100
 export const TOOL_DESCRIPTION_MAX = 500

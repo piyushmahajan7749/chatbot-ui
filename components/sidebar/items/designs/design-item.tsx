@@ -1,28 +1,28 @@
-import { FC, useContext, useRef, useState } from "react"
-import { Tables } from "../../../../supabase/types"
 import { ChatbotUIContext } from "@/context/context"
+import { Tables } from "@/supabase/types"
+import { FC, useContext } from "react"
+import { useDesignContext } from "@/context/designcontext"
 import { useParams, useRouter } from "next/navigation"
 import { cn } from "@/lib/utils"
-import { UpdateReport } from "./update-report"
-import { DeleteReport } from "./delete-report"
-import { useReportContext } from "@/context/reportcontext"
+import { UpdateDesign } from "./update-design"
+import { DeleteDesign } from "./delete-design"
 
-interface ReportItemProps {
-  report: Tables<"reports">
+interface DesignItemProps {
+  design: Tables<"designs">
 }
 
-export const ReportItem: FC<ReportItemProps> = ({ report }) => {
+export const DesignItem: FC<DesignItemProps> = ({ design }) => {
   const { selectedWorkspace } = useContext(ChatbotUIContext)
-  const { setSelectedReport } = useReportContext()
+  const { setSelectedDesign } = useDesignContext()
 
   const router = useRouter()
   const params = useParams()
-  const isActive = params.reportid === report.id
+  const isActive = params.designid === design.id
 
   const handleClick = () => {
     if (!selectedWorkspace) return
-    setSelectedReport(report)
-    return router.push(`/${selectedWorkspace.id}/report/${report.id}`)
+    setSelectedDesign(design)
+    return router.push(`/${selectedWorkspace.id}/design/${design.id}`)
   }
 
   if (!selectedWorkspace) return null
@@ -36,7 +36,7 @@ export const ReportItem: FC<ReportItemProps> = ({ report }) => {
       onClick={handleClick}
     >
       <div className="ml-3 flex-1 truncate text-sm font-semibold">
-        {report.name}
+        {design.problem}
       </div>
 
       <div
@@ -46,8 +46,8 @@ export const ReportItem: FC<ReportItemProps> = ({ report }) => {
         }}
         className={`ml-2 flex space-x-2 ${!isActive && "w-11 opacity-0 group-hover:opacity-100"}`}
       >
-        <UpdateReport report={report} />
-        <DeleteReport report={report} />
+        <UpdateDesign design={design} />
+        <DeleteDesign design={design} />
       </div>
     </div>
   )
