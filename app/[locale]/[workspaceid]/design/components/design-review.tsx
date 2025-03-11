@@ -573,32 +573,32 @@ export const DesignReviewComponent: FC<DesignReviewProps> = ({ designId }) => {
                 <h3 className="mb-2 text-lg font-semibold">
                   Would you like to change anything?
                 </h3>
-                <div className="mt-2 flex w-full flex-wrap items-center gap-2">
-                  <Input
-                    type="text"
-                    placeholder="Type your prompt here..."
-                    value={question}
-                    onChange={e => setQuestion(e.target.value)}
-                    className="mb-2 h-9 w-full grow"
-                  />
-                  <div className="flex w-full gap-2 sm:w-auto">
-                    <Button
-                      onClick={handleRegenerateSection}
-                      disabled={isRegenerateLoading}
-                      size="sm"
-                      className="bg-foreground text-background h-9 flex-1 whitespace-nowrap sm:flex-none"
-                    >
-                      {isRegenerateLoading ? "Regenerating..." : "Go"}
-                      <Sparkles className="ml-2 size-4" />
-                    </Button>
-                    <Button
-                      onClick={handleDownload}
-                      size="sm"
-                      className="text-background h-9 flex-1 whitespace-nowrap bg-blue-500 sm:flex-none"
-                    >
-                      Download <DownloadIcon className="ml-2 size-4" />
-                    </Button>
+                <div className="mt-2 flex items-center gap-2">
+                  <div className="relative min-w-0 flex-1">
+                    <Input
+                      type="text"
+                      placeholder="Type your prompt here..."
+                      value={question}
+                      onChange={e => setQuestion(e.target.value)}
+                      className="h-9 w-full"
+                    />
                   </div>
+                  <Button
+                    onClick={handleRegenerateSection}
+                    disabled={isRegenerateLoading}
+                    size="sm"
+                    className="bg-foreground text-background h-9 shrink-0 whitespace-nowrap"
+                  >
+                    {isRegenerateLoading ? "Regenerating..." : "Go"}
+                    <Sparkles className="ml-2 size-4" />
+                  </Button>
+                  <Button
+                    onClick={handleDownload}
+                    size="sm"
+                    className="text-background h-9 shrink-0 whitespace-nowrap bg-blue-500"
+                  >
+                    Download <DownloadIcon className="ml-2 size-4" />
+                  </Button>
                 </div>
               </div>
             </div>
