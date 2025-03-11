@@ -8,15 +8,73 @@ import { Tables } from "@/supabase/types"
 import { FC, useContext, useEffect, useState } from "react"
 import { Input } from "@/components/ui/input"
 import { Separator } from "@/components/ui/separator"
-import { Edit, Sparkles, ChevronUp, X, Check } from "lucide-react"
+import {
+  Edit,
+  Sparkles,
+  ChevronUp,
+  X,
+  Check,
+  ChevronRight,
+  CopyIcon,
+  DownloadIcon
+} from "lucide-react"
 import Loading from "@/app/[locale]/loading"
 import ReactMarkdown from "react-markdown"
+import { ScrollArea } from "@/components/ui/scroll-area"
+import { Loader } from "@/components/ui/loader"
+import PptxGenJS from "pptxgenjs"
 
 // Add this type at the top of the file, after imports
 type DesignWithProblem = Tables<"designs"> & { problem?: string }
 
 interface DesignReviewProps {
   designId: string
+}
+
+// Helper functions for PPT generation
+function getIntroSlide(pptx: PptxGenJS, title: string) {
+  let slide = pptx.addSlide()
+  slide.background = { color: "0070C0" }
+  // Add a title
+  slide.addText(title, {
+    x: 0, // Center horizontally
+    y: 2.16667, // Center vertically
+    w: "100%", // Width of the text box to span the entire slide width
+    h: 1,
+    fontSize: 72,
+    color: "ffffff",
+    fontFace: "Calibri",
+    align: "center",
+    valign: "middle"
+  })
+}
+
+function getContentSlide(pptx: PptxGenJS, title: string, content: string) {
+  let slide = pptx.addSlide()
+  slide.background = { color: "f0d3dc" }
+  slide.addText(title, {
+    x: 0.2,
+    y: 0.2,
+    h: 1,
+    w: "100%",
+    fontSize: 24,
+    color: "000000",
+    fontFace: "Calibri",
+    align: pptx.AlignH.left,
+    valign: pptx.AlignV.top
+  })
+
+  slide.addText(content, {
+    x: 0.2,
+    y: 0.8,
+    h: 1,
+    w: "90%",
+    fontSize: 16,
+    color: "000000",
+    fontFace: "Calibri",
+    align: pptx.AlignH.left,
+    valign: pptx.AlignV.top
+  })
 }
 
 export const DesignReviewComponent: FC<DesignReviewProps> = ({ designId }) => {
@@ -33,10 +91,21 @@ export const DesignReviewComponent: FC<DesignReviewProps> = ({ designId }) => {
   >({})
   const [editedContent, setEditedContent] = useState("")
   const [question, setQuestion] = useState("")
-  const [isQuestionSectionVisible, setIsQuestionSectionVisible] =
-    useState(false)
+  const [isQuestionSectionVisible, setIsQuestionSectionVisible] = useState(true)
   const [isRegenerateLoading, setRegenerateLoading] = useState(false)
   const [localDesign, setLocalDesign] = useState<DesignWithProblem | null>(null)
+
+  // Mapping for nicer display of section names
+  const outlineMapping: Record<string, string> = {
+    introduction: "Introduction",
+    literatureSummary: "Literature Summary",
+    dataInsights: "Data Insights",
+    hypothesis: "Hypothesis",
+    designOfExperiments: "Design of Experiments",
+    statisticalAnalysis: "Statistical Analysis",
+    recommendations: "Recommendations",
+    content: "Content"
+  }
 
   useEffect(() => {
     // Call fetchDesign on component mount
@@ -287,10 +356,15 @@ export const DesignReviewComponent: FC<DesignReviewProps> = ({ designId }) => {
   }
 
   const handleEdit = () => {
-    if (!selectedDesign) return
+    console.log("Edit button clicked, setting isEditing to true")
+    console.log("Current active section:", generatedOutline[activeSection])
+    console.log(
+      "Current section content:",
+      sectionContents[generatedOutline[activeSection]]
+    )
 
     setIsEditing(true)
-    setEditedContent(selectedDesign.description || "")
+    setEditedContent(sectionContents[generatedOutline[activeSection]] || "")
   }
 
   const handleCancel = () => {
@@ -299,15 +373,17 @@ export const DesignReviewComponent: FC<DesignReviewProps> = ({ designId }) => {
   }
 
   const handleSave = () => {
-    // TODO: Implement save functionality
-    setSelectedDesign((prev: Tables<"designs"> | null) =>
-      prev
-        ? {
-            ...prev,
-            description: editedContent
-          }
-        : null
-    )
+    console.log("Save button clicked, saving edited content")
+    console.log("Section being updated:", generatedOutline[activeSection])
+    console.log("New content:", editedContent)
+
+    // console.log("Saving section:", generatedOutline[activeSection], "with content:", editedContent)
+    setSectionContents(prev => ({
+      ...prev,
+      [generatedOutline[activeSection]]: editedContent
+    }))
+
+    console.log("Updated section contents:", sectionContents)
     setIsEditing(false)
     setEditedContent("")
   }
@@ -317,27 +393,31 @@ export const DesignReviewComponent: FC<DesignReviewProps> = ({ designId }) => {
 
     try {
       setRegenerateLoading(true)
-      // TODO: Implement regenerate API call
+      const currentSectionName = generatedOutline[activeSection]
+      const currentContent = sectionContents[currentSectionName]
+
+      if (!currentSectionName || !currentContent || !question) {
+        console.error("Missing required fields for regeneration")
+        return
+      }
+
       const response = await fetch("/api/design/regenerate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           designId,
-          currentContent: selectedDesign.description,
+          sectionName: currentSectionName,
+          currentContent: currentContent,
           userFeedback: question
         })
       })
 
       const result = await response.json()
       if (result.success) {
-        setSelectedDesign((prev: Tables<"designs"> | null) =>
-          prev
-            ? {
-                ...prev,
-                description: result.regeneratedContent
-              }
-            : null
-        )
+        setSectionContents(prev => ({
+          ...prev,
+          [currentSectionName]: result.regeneratedContent
+        }))
       }
     } catch (error) {
       console.error("Error regenerating content:", error)
@@ -349,6 +429,27 @@ export const DesignReviewComponent: FC<DesignReviewProps> = ({ designId }) => {
 
   const toggleQuestionSection = () => {
     setIsQuestionSectionVisible(!isQuestionSectionVisible)
+  }
+
+  const handleDownload = () => {
+    setLoading(true)
+    let pptx = new PptxGenJS()
+
+    // Create intro slide
+    getIntroSlide(pptx, "Design Document")
+
+    // Iterate through all sections and create content slides
+    generatedOutline.forEach(section => {
+      const content = sectionContents[section] || ""
+      const title =
+        outlineMapping[section] || section.replace(/([A-Z])/g, " $1").trim()
+
+      getContentSlide(pptx, title, content)
+    })
+
+    pptx.writeFile({ fileName: "Design Document.pptx" }).then(() => {
+      setLoading(false)
+    })
   }
 
   // Add a useEffect to log and handle state changes
@@ -394,35 +495,13 @@ export const DesignReviewComponent: FC<DesignReviewProps> = ({ designId }) => {
     profile
   ])
 
-  // Add a useEffect to force a re-render when activeSection changes
-  useEffect(() => {
-    console.log("Active section changed to:", activeSection)
-    // This is just to force a re-render
-  }, [activeSection])
-
   if (loading) {
     return <Loading />
-  }
-
-  // Show loading indicator when content is being loaded
-  if (contentLoading) {
-    return (
-      <div className="flex size-full items-center justify-center">
-        <div className="flex flex-col items-center space-y-4">
-          <div className="border-primary size-8 animate-spin rounded-full border-y-2"></div>
-          <p className="text-lg font-medium">Generating design content...</p>
-          <p className="text-muted-foreground text-sm">
-            This may take a minute or two
-          </p>
-        </div>
-      </div>
-    )
   }
 
   // Only render content when both design and content are loaded
   const designToUse = selectedDesign || localDesign
   if (!designToUse) {
-    console.log("No selected design available")
     return (
       <div className="flex size-full items-center justify-center">
         <p className="text-lg font-medium">No design available</p>
@@ -430,23 +509,11 @@ export const DesignReviewComponent: FC<DesignReviewProps> = ({ designId }) => {
     )
   }
 
-  // Debug current state
-  console.log("Current state:", {
-    selectedDesign: designToUse,
-    generatedOutline,
-    sectionContentsKeys: Object.keys(sectionContents),
-    activeSection,
-    currentSectionContent: generatedOutline[activeSection]
-      ? sectionContents[generatedOutline[activeSection]]
-      : null
-  })
-
   // Check if we have content to display
   if (
     generatedOutline.length === 0 ||
     Object.keys(sectionContents).length === 0
   ) {
-    console.log("No content available")
     return (
       <div className="flex size-full items-center justify-center">
         <p className="text-lg font-medium">No design content available</p>
@@ -455,148 +522,164 @@ export const DesignReviewComponent: FC<DesignReviewProps> = ({ designId }) => {
   }
 
   return (
-    <div className="space-y-4">
-      <div
-        className={`transition-all duration-300 ease-in-out ${
-          isQuestionSectionVisible ? "max-h-40" : "max-h-0 overflow-hidden"
-        }`}
-      >
-        <div className="p-6">
-          <h3 className="mb-2 text-lg font-semibold">
-            Would you like to change anything?
-          </h3>
-          <div className="mt-4 flex w-full items-center">
-            <Input
-              type="text"
-              placeholder="Type your prompt here..."
-              value={question}
-              onChange={e => setQuestion(e.target.value)}
-              className="mr-4 h-12 grow"
-            />
-            <Button
-              onClick={handleRegenerateSection}
-              className="bg-foreground text-background"
-              disabled={isRegenerateLoading}
-            >
-              {isRegenerateLoading ? "Regenerating..." : "Go"}
-              <Sparkles className="ml-2 size-4" />
-            </Button>
-          </div>
+    <div className="absolute inset-0 flex min-w-0 overflow-hidden rounded-lg shadow-lg">
+      {contentLoading ? (
+        <div className="my-48 w-full text-center">
+          <Loader text="Generating design content" />
         </div>
-        <Separator className="bg-foreground my-4" />
-      </div>
-
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold">
-            {designToUse
-              ? (designToUse as DesignWithProblem).problem || designToUse.name
-              : "Loading..."}
-          </h1>
-          {isEditing ? (
-            <textarea
-              className="mt-2 h-32 w-full rounded border p-2"
-              value={editedContent}
-              onChange={e => setEditedContent(e.target.value)}
-            />
-          ) : (
-            designToUse &&
-            designToUse.description && (
-              <p className="text-muted-foreground">{designToUse.description}</p>
-            )
-          )}
-        </div>
-
-        <div className="flex items-center space-x-2">
-          {!isEditing ? (
-            <>
-              <Button variant="outline" size="icon" onClick={handleEdit}>
-                <Edit className="size-4" />
-              </Button>
-              <Button
-                variant="outline"
-                size="icon"
-                onClick={toggleQuestionSection}
-                title={
-                  isQuestionSectionVisible
-                    ? "Hide question section"
-                    : "Show question section"
-                }
-              >
-                {isQuestionSectionVisible ? (
-                  <ChevronUp className="size-4" />
-                ) : (
-                  <Sparkles className="size-4" />
-                )}
-              </Button>
-            </>
-          ) : (
-            <>
-              <Button onClick={handleCancel} variant="outline">
-                <X className="mr-2 size-4" />
-                Cancel
-              </Button>
-              <Button onClick={handleSave}>
-                <Check className="mr-2 size-4" />
-                Save
-              </Button>
-            </>
-          )}
-        </div>
-      </div>
-
-      {/* Section Navigation */}
-      {generatedOutline.length > 0 && (
-        <div className="mt-4 flex flex-wrap gap-2">
-          {generatedOutline.map((section, index) => (
-            <Button
-              key={section}
-              variant={activeSection === index ? "default" : "outline"}
-              onClick={() => setActiveSection(index)}
-              className="capitalize"
-            >
-              {section.replace(/([A-Z])/g, " $1").trim()}
-            </Button>
-          ))}
-        </div>
-      )}
-
-      <div className="mt-6 grow px-6">
-        {isRegenerateLoading ? (
-          <div className="flex size-full items-center justify-center">
-            <div className="flex flex-col items-center space-y-4">
-              <div className="border-primary size-8 animate-spin rounded-full border-y-2"></div>
-              <p className="text-lg font-medium">Regenerating content...</p>
+      ) : (
+        <>
+          <div className="bg-secondary flex w-[180px] shrink-0 flex-col border-r sm:w-[200px] md:w-[220px]">
+            <div className="px-4 py-2">
+              <h2 className="text-lg font-bold">
+                {(designToUse as DesignWithProblem).problem || designToUse.name}
+              </h2>
+              {designToUse.description && (
+                <p className="text-muted-foreground mt-1 line-clamp-2 pr-2 text-xs">
+                  {designToUse.description}
+                </p>
+              )}
             </div>
+            <ScrollArea className="grow">
+              <div className="space-y-2 p-4">
+                {generatedOutline.map((item, index) => (
+                  <button
+                    key={index}
+                    className={`flex w-full items-center space-x-1 rounded-md px-3 py-2 text-left text-sm transition-colors ${
+                      activeSection === index
+                        ? "bg-primary text-primary-foreground"
+                        : "hover:bg-primary/10"
+                    }`}
+                    onClick={() => setActiveSection(index)}
+                  >
+                    <span className="truncate text-xs sm:text-sm">
+                      {outlineMapping[item] ||
+                        item.replace(/([A-Z])/g, " $1").trim()}
+                    </span>
+                    {activeSection === index && (
+                      <ChevronRight className="ml-auto shrink-0" />
+                    )}
+                  </button>
+                ))}
+              </div>
+            </ScrollArea>
           </div>
-        ) : isEditing ? (
-          <textarea
-            className="h-[calc(100vh-20rem)] w-full rounded border p-2"
-            value={editedContent}
-            onChange={e => setEditedContent(e.target.value)}
-          />
-        ) : (
-          <div className="prose dark:prose-invert max-w-none overflow-x-hidden break-words pb-4 [&>*:first-child]:mt-0 [&_li]:my-0 [&_ol]:my-1 [&_p]:my-1 [&_ul]:my-1">
-            {generatedOutline.length > 0 &&
-            activeSection < generatedOutline.length &&
-            sectionContents[generatedOutline[activeSection]] ? (
-              <ReactMarkdown className="whitespace-pre-wrap break-words">
-                {sectionContents[generatedOutline[activeSection]]
-                  .trim()
-                  .replace(/\n{3,}/g, "\n\n")}
-              </ReactMarkdown>
-            ) : (
-              <div className="flex flex-col space-y-4">
-                <div className="h-4 w-3/4 animate-pulse rounded bg-gray-200 dark:bg-gray-700"></div>
-                <div className="h-4 w-full animate-pulse rounded bg-gray-200 dark:bg-gray-700"></div>
-                <div className="h-4 w-5/6 animate-pulse rounded bg-gray-200 dark:bg-gray-700"></div>
-                <div className="h-4 w-full animate-pulse rounded bg-gray-200 dark:bg-gray-700"></div>
-                <div className="h-4 w-2/3 animate-pulse rounded bg-gray-200 dark:bg-gray-700"></div>
+          <Separator orientation="vertical" className="bg-white" />
+          <div className="bg-secondary flex flex-1 flex-col overflow-hidden">
+            <div
+              className={`transition-all duration-300 ease-in-out ${isQuestionSectionVisible ? "max-h-[200px]" : "max-h-0 overflow-hidden"} bg-secondary border-b`}
+            >
+              <div className="p-3 lg:p-4">
+                <h3 className="mb-2 text-lg font-semibold">
+                  Would you like to change anything?
+                </h3>
+                <div className="mt-2 flex w-full flex-wrap items-center gap-2">
+                  <Input
+                    type="text"
+                    placeholder="Type your prompt here..."
+                    value={question}
+                    onChange={e => setQuestion(e.target.value)}
+                    className="mb-2 h-9 w-full grow"
+                  />
+                  <div className="flex w-full gap-2 sm:w-auto">
+                    <Button
+                      onClick={handleRegenerateSection}
+                      disabled={isRegenerateLoading}
+                      size="sm"
+                      className="bg-foreground text-background h-9 flex-1 whitespace-nowrap sm:flex-none"
+                    >
+                      {isRegenerateLoading ? "Regenerating..." : "Go"}
+                      <Sparkles className="ml-2 size-4" />
+                    </Button>
+                    <Button
+                      onClick={handleDownload}
+                      size="sm"
+                      className="text-background h-9 flex-1 whitespace-nowrap bg-blue-500 sm:flex-none"
+                    >
+                      Download <DownloadIcon className="ml-2 size-4" />
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div className="mt-2 flex items-center justify-end px-4 md:mt-4 lg:px-6">
+              <div className="flex items-center space-x-2">
+                {!isEditing && (
+                  <>
+                    <Button variant="outline" size="icon" onClick={handleEdit}>
+                      <Edit className="size-4" />
+                    </Button>
+                    <Button
+                      title="Copy to clipboard"
+                      variant="outline"
+                      size="icon"
+                      onClick={() => {
+                        const content =
+                          sectionContents[generatedOutline[activeSection]] || ""
+                        navigator.clipboard.writeText(content)
+                        // Show a temporary toast or feedback (optional)
+                        alert("Content copied to clipboard!")
+                      }}
+                    >
+                      <CopyIcon className="size-4" />
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="icon"
+                      onClick={toggleQuestionSection}
+                      title={
+                        isQuestionSectionVisible
+                          ? "Hide question section"
+                          : "Show question section"
+                      }
+                    >
+                      {isQuestionSectionVisible ? (
+                        <ChevronUp className="size-4" />
+                      ) : (
+                        <Sparkles className="size-4" />
+                      )}
+                    </Button>
+                  </>
+                )}
+              </div>
+            </div>
+            <ScrollArea className="mt-2 h-full px-4 pb-16 md:mt-4 lg:px-6">
+              <div className="prose dark:prose-invert w-full max-w-none overflow-x-hidden break-words pb-4 [&>*:first-child]:mt-0 [&_li]:my-0 [&_ol]:my-1 [&_p]:my-1 [&_ul]:my-1">
+                {isRegenerateLoading ? (
+                  <Loader text="Regenerating content" />
+                ) : isEditing ? (
+                  <textarea
+                    className="h-[calc(100vh-16rem)] min-h-[300px] w-full rounded border p-2"
+                    value={editedContent}
+                    onChange={e => setEditedContent(e.target.value)}
+                  />
+                ) : (
+                  <ReactMarkdown className="whitespace-pre-wrap break-words">
+                    {(sectionContents[generatedOutline[activeSection]] || "")
+                      .trim()
+                      .replace(/\n{3,}/g, "\n\n")}
+                  </ReactMarkdown>
+                )}
+              </div>
+            </ScrollArea>
+            {isEditing && (
+              <div className="bg-secondary fixed inset-x-0 bottom-0 flex justify-center space-x-4 p-4 shadow-md">
+                <Button
+                  className="bg-foreground h-10 w-28 opacity-70"
+                  onClick={handleCancel}
+                >
+                  <X className="mr-2 size-4" />
+                  Cancel
+                </Button>
+                <Button className="h-10 w-28" onClick={handleSave}>
+                  <Check className="mr-2 size-4" />
+                  Save
+                </Button>
               </div>
             )}
           </div>
-        )}
-      </div>
+        </>
+      )}
     </div>
   )
 }
