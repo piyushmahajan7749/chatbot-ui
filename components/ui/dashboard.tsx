@@ -1,6 +1,6 @@
 "use client"
 
-import { Sidebar } from "@/components/sidebar/sidebar"
+import { Sidebar, SIDEBAR_SWITCHER_WIDTH } from "@/components/sidebar/sidebar"
 import { SidebarSwitcher } from "@/components/sidebar/sidebar-switcher"
 import { Button } from "@/components/ui/button"
 import { Tabs } from "@/components/ui/tabs"
@@ -13,7 +13,7 @@ import { FC, useState } from "react"
 import { useSelectFileHandler } from "../chat/chat-hooks/use-select-file-handler"
 import { CommandK } from "../utility/command-k"
 
-export const SIDEBAR_WIDTH = 350
+export const SIDEBAR_WIDTH = 450
 
 interface DashboardProps {
   children: React.ReactNode

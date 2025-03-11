@@ -36,7 +36,7 @@ export const DesignItem: FC<DesignItemProps> = ({ design }) => {
       onClick={handleClick}
     >
       <div className="ml-3 flex-1 truncate text-sm font-semibold">
-        {design.problem}
+        {design.description}
       </div>
 
       <div

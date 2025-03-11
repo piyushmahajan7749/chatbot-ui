@@ -39,12 +39,11 @@ export default async function Login({
       .select("*")
       .eq("user_id", session.user.id)
       .eq("is_home", true)
-      .single()
+      .maybeSingle()
 
     if (!homeWorkspace) {
-      throw new Error(error.message)
+      throw new Error(error?.message)
     }
-
     return redirect(`/${homeWorkspace.id}/chat`)
   }
 

@@ -27,15 +27,16 @@ export const SidebarSwitcher: FC<SidebarSwitcherProps> = ({
 
   return (
     <div className="flex flex-col justify-between border-r-2 pb-5">
-      <TabsList className="bg-background grid h-[440px] grid-rows-7">
+      <TabsList className="bg-background grid w-[180px] auto-rows-auto">
         <WithTooltip
           display={<div>Knowledge Management</div>}
           trigger={
             <div
-              className="cursor-pointer p-2"
+              className="flex cursor-pointer items-center gap-2 p-2 px-3"
               onClick={() => setShowKnowledgeMenu(!showKnowledgeMenu)}
             >
               <IconBrain size={SIDEBAR_ICON_SIZE} />
+              <span className="text-sm font-medium">Knowledge</span>
             </div>
           }
         />
@@ -78,7 +79,7 @@ export const SidebarSwitcher: FC<SidebarSwitcherProps> = ({
         />
       </TabsList>
 
-      <div className="flex flex-col items-center space-y-4">
+      <div className="flex flex-col items-center space-y-4 px-3 py-2">
         <WithTooltip
           display={<div>Profile Settings</div>}
           trigger={<ProfileSettings />}

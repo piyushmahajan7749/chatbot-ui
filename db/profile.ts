@@ -6,10 +6,10 @@ export const getProfileByUserId = async (userId: string) => {
     .from("profiles")
     .select("*")
     .eq("user_id", userId)
-    .single()
+    .maybeSingle()
 
   if (!profile) {
-    throw new Error(error.message)
+    throw new Error(error?.message)
   }
 
   return profile

@@ -32,6 +32,7 @@ import { Tables, TablesInsert } from "@/supabase/types"
 import { ContentType } from "@/types"
 import { FC, useContext, useRef, useState } from "react"
 import { toast } from "sonner"
+import { useRouter } from "next/navigation"
 
 interface SidebarCreateItemProps {
   isOpen: boolean
@@ -67,6 +68,8 @@ export const SidebarCreateItem: FC<SidebarCreateItemProps> = ({
 
   const buttonRef = useRef<HTMLButtonElement>(null)
   const [creating, setCreating] = useState(false)
+  const router = useRouter()
+
   const createFunctions = {
     chats: createChat,
     presets: createPreset,
@@ -233,12 +236,84 @@ export const SidebarCreateItem: FC<SidebarCreateItemProps> = ({
       if (!selectedWorkspace) return
       if (isTyping) return // Prevent creation while typing
 
+      setCreating(true)
+
+      // Special handling for designs to call the AI model first
+      if (contentType === "designs") {
+        // Create a valid design state for API
+        const designState = {
+          problem: createState.problem || createState.name,
+          description: createState.description,
+          objectives: createState.objectives || [],
+          variables: createState.variables || [],
+          specialConsiderations: createState.specialConsiderations || []
+        }
+
+        try {
+          // First create the design in the database
+          const newDesign = await createDesign(
+            createState,
+            selectedWorkspace.id
+          )
+
+          // Update the designs list
+          setDesigns((prevItems: any) => [...prevItems, newDesign])
+
+          // Generate a design URL to navigate to after creation
+          const designURL = `/${selectedWorkspace.id}/design/${newDesign.id}`
+
+          // Close the modal first
+          onOpenChange(false)
+
+          // Show a toast that design is being generated
+          toast.success("Design created! Generating content...")
+
+          // Then call the AI model endpoint to generate the design content
+          fetch("/api/design/draft", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(designState)
+          })
+            .then(response => {
+              if (!response.ok) {
+                throw new Error(
+                  `Error generating design draft: ${response.status}`
+                )
+              }
+              return response.json()
+            })
+            .then(() => {
+              // Show success message after generation completes
+              toast.success("Design content generated successfully!")
+
+              // Navigate to the new design
+              router.push(designURL)
+            })
+            .catch(error => {
+              console.error("Error in design generation:", error)
+              toast.error(`Error generating design content: ${error.message}`)
+
+              // Still navigate to the design even if generation fails
+              router.push(designURL)
+            })
+            .finally(() => {
+              setCreating(false)
+            })
+
+          return
+        } catch (error) {
+          console.error("Error in design creation:", error)
+          toast.error(`Error creating design: ${error}`)
+          setCreating(false)
+          onOpenChange(false)
+          return
+        }
+      }
+
       const createFunction = createFunctions[contentType]
       const setStateFunction = stateUpdateFunctions[contentType]
 
       if (!createFunction || !setStateFunction) return
-
-      setCreating(true)
 
       const newItem = await createFunction(createState, selectedWorkspace.id)
 

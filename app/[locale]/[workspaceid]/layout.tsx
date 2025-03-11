@@ -5,6 +5,7 @@ import { ChatbotUIContext } from "@/context/context"
 import { getAssistantWorkspacesByWorkspaceId } from "@/db/assistants"
 import { getChatsByWorkspaceId } from "@/db/chats"
 import { getCollectionWorkspacesByWorkspaceId } from "@/db/collections"
+import { getDesignWorkspacesByWorkspaceId } from "@/db/designs"
 import { getFileWorkspacesByWorkspaceId } from "@/db/files"
 import { getFoldersByWorkspaceId } from "@/db/folders"
 import { getModelWorkspacesByWorkspaceId } from "@/db/models"
@@ -38,6 +39,7 @@ export default function WorkspaceLayout({ children }: WorkspaceLayoutProps) {
     setAssistantImages,
     setChats,
     setCollections,
+    setDesigns,
     setFolders,
     setFiles,
     setPresets,
@@ -99,8 +101,11 @@ export default function WorkspaceLayout({ children }: WorkspaceLayoutProps) {
 
     const assistantData = await getAssistantWorkspacesByWorkspaceId(workspaceId)
     const reportData = await getReportWorkspacesByWorkspaceId(workspaceId)
+    const designData = await getDesignWorkspacesByWorkspaceId(workspaceId)
+
     setAssistants(assistantData.assistants)
     setReports(reportData.reports)
+    setDesigns(designData.designs)
     for (const assistant of assistantData.assistants) {
       let url = ""
 

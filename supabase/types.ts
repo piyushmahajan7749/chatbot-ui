@@ -614,7 +614,7 @@ export type Database = {
           description: string
           folder_id: string | null
           id: string
-          problem: string
+          name: string
           sharing: string
           updated_at: string | null
           user_id: string
@@ -624,7 +624,7 @@ export type Database = {
           description: string
           folder_id?: string | null
           id?: string
-          problem: string
+          name: string
           sharing?: string
           updated_at?: string | null
           user_id: string
@@ -634,7 +634,7 @@ export type Database = {
           description?: string
           folder_id?: string | null
           id?: string
-          problem?: string
+          name?: string
           sharing?: string
           updated_at?: string | null
           user_id?: string

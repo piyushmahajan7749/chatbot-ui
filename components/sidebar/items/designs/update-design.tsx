@@ -17,7 +17,7 @@ import { toast } from "sonner"
 import { Pencil } from "lucide-react"
 
 interface UpdateDesignProps {
-  design: Tables<"designs">
+  design: Tables<"designs"> & { problem?: string }
 }
 
 export const UpdateDesign: FC<UpdateDesignProps> = ({ design }) => {
@@ -27,12 +27,12 @@ export const UpdateDesign: FC<UpdateDesignProps> = ({ design }) => {
 
   const [showUpdateDialog, setShowUpdateDialog] = useState(false)
   const [updating, setUpdating] = useState(false)
-  const [problem, setProblem] = useState(design.problem)
+  const [problem, setProblem] = useState(design.problem || design.name)
   const [description, setDescription] = useState(design.description || "")
 
   useEffect(() => {
     if (showUpdateDialog) {
-      setProblem(design.problem)
+      setProblem(design.problem || design.name)
       setDescription(design.description || "")
     }
   }, [showUpdateDialog, design])
@@ -46,6 +46,7 @@ export const UpdateDesign: FC<UpdateDesignProps> = ({ design }) => {
 
       const updatedDesign = await updateDesign(design.id, {
         problem,
+        name: problem,
         description,
         user_id: design.user_id
       })

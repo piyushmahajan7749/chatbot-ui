@@ -104,7 +104,7 @@ export const SidebarItem: FC<SidebarItemProps> = ({
         {icon}
 
         <div className="ml-3 flex-1 truncate text-sm font-semibold">
-          {item.created_at}
+          {item.name}
         </div>
 
         {/* TODO */}

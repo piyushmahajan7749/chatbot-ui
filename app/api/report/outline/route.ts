@@ -103,7 +103,7 @@ async function callDataVisualizationAgent(
   state: ReportState
 ): Promise<VisualizationType["data"]> {
   const systemPrompt = `You are a skilled data visualization expert specializing in biopharma research, responsible for creating accurate and insightful visualization that illustrate key findings from experimental data. Your primary tasks include:
-Reviewing the provided data files to identify relevant trends, patterns, and results that directly address the experiment’s objectives.
+Reviewing the provided data files to identify relevant trends, patterns, and results that directly address the experiment's objectives.
 Generating clear, scientifically rigorous visualization that present experimental results and any statistical analysis necessary to support data interpretation.
 Ensuring that the visualization directly supports the narrative of the report, aligning with research objectives and helping readers understand key findings.
 
@@ -175,23 +175,27 @@ Data Analysis Draft: {dataAnalysisDraft}
 
 const chartTool = tool(
   async ({ data }) => {
-    const width = 500
+    const width = 800 // Increased width for better spacing
     const height = 500
-    const margin = { top: 20, right: 30, bottom: 30, left: 40 }
+    const margin = { top: 30, right: 50, bottom: 120, left: 60 } // Increased bottom margin for rotated labels
 
     // Create a canvas
     const canvas = createCanvas(width, height)
     const ctx = canvas.getContext("2d")
 
+    // Fill the background
+    ctx.fillStyle = "#f8f9fa"
+    ctx.fillRect(0, 0, width, height)
+
     const x = d3
       .scaleBand()
       .domain(data.map(d => d.label))
       .range([margin.left, width - margin.right])
-      .padding(0.1)
+      .padding(0.3) // Increased padding between bars
 
     const y = d3
       .scaleLinear()
-      .domain([0, d3.max(data, (d: any) => d.value) ?? 0])
+      .domain([0, (d3.max(data, (d: any) => d.value) || 0) * 1.1])
       .nice()
       .range([height - margin.bottom, margin.top])
 
@@ -208,44 +212,113 @@ const chartTool = tool(
       "#fabebe"
     ]
 
+    // Draw title
+    ctx.font = "bold 16px Arial"
+    ctx.textAlign = "center"
+    ctx.fillStyle = "#333"
+    ctx.fillText("Data Visualization", width / 2, margin.top / 2)
+
+    // Draw bars with slight shadow for depth
     data.forEach((d, idx) => {
       ctx.fillStyle = colorPalette[idx % colorPalette.length]
+
+      // Add shadow effect
+      ctx.shadowColor = "rgba(0, 0, 0, 0.2)"
+      ctx.shadowBlur = 5
+      ctx.shadowOffsetX = 2
+      ctx.shadowOffsetY = 2
+
       ctx.fillRect(
         x(d.label) ?? 0,
         y(d.value),
         x.bandwidth(),
         height - margin.bottom - y(d.value)
       )
+
+      // Reset shadow
+      ctx.shadowColor = "transparent"
+      ctx.shadowBlur = 0
+      ctx.shadowOffsetX = 0
+      ctx.shadowOffsetY = 0
+
+      // Add value label on top of each bar
+      ctx.fillStyle = "#333"
+      ctx.font = "12px Arial"
+      ctx.textAlign = "center"
+      ctx.fillText(
+        d.value.toString(),
+        (x(d.label) ?? 0) + x.bandwidth() / 2,
+        y(d.value) - 5
+      )
     })
 
+    // Draw x-axis line
     ctx.beginPath()
-    ctx.strokeStyle = "black"
+    ctx.strokeStyle = "#666"
+    ctx.lineWidth = 1
     ctx.moveTo(margin.left, height - margin.bottom)
     ctx.lineTo(width - margin.right, height - margin.bottom)
     ctx.stroke()
 
-    ctx.textAlign = "center"
-    ctx.textBaseline = "top"
+    // Draw x-axis labels (rotated to prevent overlap)
+    ctx.save()
+    ctx.textAlign = "right"
+    ctx.textBaseline = "middle"
+    ctx.font = "12px Arial"
+    ctx.fillStyle = "#333"
+
     x.domain().forEach((d: any) => {
       const xCoord = (x(d) ?? 0) + x.bandwidth() / 2
-      ctx.fillText(d, xCoord, height - margin.bottom + 6)
+      ctx.save()
+      ctx.translate(xCoord, height - margin.bottom + 10)
+      ctx.rotate(Math.PI / 4) // Rotate text 45 degrees
+      ctx.fillText(d, 0, 0)
+      ctx.restore()
     })
 
+    ctx.restore()
+
+    // Draw y-axis line
     ctx.beginPath()
-    ctx.moveTo(margin.left, height - margin.top)
+    ctx.strokeStyle = "#666"
+    ctx.lineWidth = 1
+    ctx.moveTo(margin.left, margin.top)
     ctx.lineTo(margin.left, height - margin.bottom)
     ctx.stroke()
 
+    // Draw y-axis labels and grid lines
     ctx.textAlign = "right"
     ctx.textBaseline = "middle"
-    const ticks = y.ticks()
+    ctx.font = "12px Arial"
+    ctx.fillStyle = "#333"
+
+    const ticks = y.ticks(10) // More ticks for better readability
     ticks.forEach((d: any) => {
-      const yCoord = y(d) // height - margin.bottom - y(d);
+      const yCoord = y(d)
+
+      // Draw tick
+      ctx.beginPath()
       ctx.moveTo(margin.left, yCoord)
       ctx.lineTo(margin.left - 6, yCoord)
       ctx.stroke()
-      ctx.fillText(d.toString(), margin.left - 8, yCoord)
+
+      // Draw label
+      ctx.fillText(d.toString(), margin.left - 10, yCoord)
+
+      // Draw grid line
+      ctx.beginPath()
+      ctx.strokeStyle = "#e0e0e0"
+      ctx.setLineDash([2, 2])
+      ctx.moveTo(margin.left, yCoord)
+      ctx.lineTo(width - margin.right, yCoord)
+      ctx.stroke()
+      ctx.setLineDash([])
     })
+
+    // Add a light border around the chart
+    ctx.strokeStyle = "#ddd"
+    ctx.lineWidth = 1
+    ctx.strokeRect(0, 0, width, height)
 
     // Convert canvas to a buffer containing a PNG image
     const buffer = canvas.toBuffer("image/png")
@@ -272,17 +345,17 @@ const chartTool = tool(
 )
 
 async function callTheoryAgent(state: ReportState): Promise<ReportTheoryType> {
-  const systemPrompt = `You are an experienced senior scientist specializing in scientific theory and context writing, tasked with creating the theoretical foundation for a comprehensive research report in biopharma. Your role is to document the experiment’s Aim, Introduction, and Principle in a scientifically rigorous and clear manner, providing essential context for reproducibility. Your report should be well-formatted, accurate, and convey the purpose, background, and fundamental scientific principles underpinning the experiment.Your primary tasks include writing :AimIntroductionPrincipleGuidelines for Writing these sections:
+  const systemPrompt = `You are an experienced senior scientist specializing in scientific theory and context writing, tasked with creating the theoretical foundation for a comprehensive research report in biopharma. Your role is to document the experiment's Aim, Introduction, and Principle in a scientifically rigorous and clear manner, providing essential context for reproducibility. Your report should be well-formatted, accurate, and convey the purpose, background, and fundamental scientific principles underpinning the experiment.Your primary tasks include writing :AimIntroductionPrincipleGuidelines for Writing these sections:
 ###
 1. Aim (approx. 40-100 words):
-Clearly state the research aim, addressing what the experiment seeks to achieve and its importance, based on the user given objective. Outline the main objectives of the experiment and link them back to the user-provided context.Example Aim Statement: “The aim of this experiment is to evaluate the viscosity of a high-concentration antibody (antibody name) solution under different formulation conditions to identify optimal parameters for manufacturing and administration.
+Clearly state the research aim, addressing what the experiment seeks to achieve and its importance, based on the user given objective. Outline the main objectives of the experiment and link them back to the user-provided context.Example Aim Statement: "The aim of this experiment is to evaluate the viscosity of a high-concentration antibody (antibody name) solution under different formulation conditions to identify optimal parameters for manufacturing and administration.
 
 2. Introduction (approx. 100-300 words):
 Provide background information, summarizing the scientific context and rationale, referencing any user-provided protocols. Address the significance of the experiment within the field of biopharma research.Example Introduction Statement: "High viscosity in high-concentration antibody formulations poses significant challenges for drug delivery, particularly for subcutaneous injections, where high viscosity can impede syringeability and injectability, affecting patient comfort and dosing precision. As biopharmaceuticals increasingly move towards self-administered, high-dose formats, managing viscosity has become essential. To address these issues, formulation scientists often use excipients, such as sugars, amino acids, and surfactants, to reduce protein-protein interactions, as well as adjustments in pH and ionic strength. The capillary viscometer, an effective tool for measuring viscosity across a wide range, is frequently used to evaluate these formulations, providing crucial insights into viscosity under different formulation conditions. Understanding and controlling viscosity is vital for developing stable, patient-friendly formulations that ensure both effective delivery and therapeutic efficacy."
 
 3. Principle (approx. 100-150 words):
 Explain the fundamental principles behind the experiment and technique used. Describe the scientific theory and mechanisms that underpin the methodology, connecting them with the research objectives. Use this information from the protocol given by the user. Attach image if available in the protocol.Example Principle Statement: Principle of the Malvern Capillary Viscometer.
-The capillary viscometer measures the viscosity of fluids by assessing the flow rate through a thin capillary tube under a controlled pressure difference. This method relies on Poiseuille’s law, which describes the relationship between flow rate, pressure, and viscosity for Newtonian fluids. According to Poiseuille’s equation:
+The capillary viscometer measures the viscosity of fluids by assessing the flow rate through a thin capillary tube under a controlled pressure difference. This method relies on Poiseuille's law, which describes the relationship between flow rate, pressure, and viscosity for Newtonian fluids. According to Poiseuille's equation:
 η=ΔP⋅r4/8⋅Q⋅L
 
 where:
@@ -374,7 +447,7 @@ Future research should explore excipient options and alternative buffers to miti
 Constraints:
 Focus solely on data analysis, interpretation and conclusion; do not add theory or procedural details.
 Maintain scientific rigor, ensuring that findings are presented clearly, concisely, and without bias.
-Ensure each section directly addresses the experiment’s objectives and supports actionable insights.
+Ensure each section directly addresses the experiment's objectives and supports actionable insights.
 `
 
   const userPrompt = `To generate the content, refer to the following:
@@ -453,7 +526,7 @@ Choose a capillary tube suitable for the expected viscosity range of the samples
 Inspect the Capillary
 Before installation, inspect the capillary tube for any visible defects, such as cracks or clogs. Ensure the capillary is clean and free of any residual material from previous use. If necessary, clean the capillary with isopropyl alcohol (IPA) followed by a rinse with deionized water, then allow it to dry completely.
 Install the Capillary in the Viscometer
-Carefully insert the capillary tube into the designated holder within the viscometer. Align the tube to prevent bending or damage. Secure it in place according to the viscometer’s specifications, ensuring that it is properly seated and locked.…..
+Carefully insert the capillary tube into the designated holder within the viscometer. Align the tube to prevent bending or damage. Secure it in place according to the viscometer's specifications, ensuring that it is properly seated and locked.…..
 
 4. Setup (approx. 50-300 words)
 Describe the experimental layout, including sample arrangements, vial positioning, sample or solution labeling and any specific configurations necessary for accurate data labeling, analysis and results. Check for this information from preparation document and  in other documents uploaded, if any. Add a diagram if available in the uploaded preparation file.
