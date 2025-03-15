@@ -204,163 +204,6 @@ async function callScholarAgent(state: DesignState): Promise<ReportTheoryType> {
   return results
 }
 
-async function callTheoryAgent(state: DesignState): Promise<ReportTheoryType> {
-  const systemPrompt = `You are an experienced senior scientist specializing in scientific theory and context writing, tasked with creating the theoretical foundation for a comprehensive research report in biopharma. Your role is to document the experiment's Aim, Introduction, and Principle in a scientifically rigorous and clear manner, providing essential context for reproducibility. Your report should be well-formatted, accurate, and convey the purpose, background, and fundamental scientific principles underpinning the experiment.Your primary tasks include writing :AimIntroductionPrincipleGuidelines for Writing these sections:
-###
-1. Aim (approx. 40-100 words):
-Clearly state the research aim, addressing what the experiment seeks to achieve and its importance, based on the user given objective. Outline the main objectives of the experiment and link them back to the user-provided context.Example Aim Statement: "The aim of this experiment is to evaluate the viscosity of a high-concentration antibody (antibody name) solution under different formulation conditions to identify optimal parameters for manufacturing and administration.
-
-2. Introduction (approx. 100-300 words):
-Provide background information, summarizing the scientific context and rationale, referencing any user-provided protocols. Address the significance of the experiment within the field of biopharma research.Example Introduction Statement: "High viscosity in high-concentration antibody formulations poses significant challenges for drug delivery, particularly for subcutaneous injections, where high viscosity can impede syringeability and injectability, affecting patient comfort and dosing precision. As biopharmaceuticals increasingly move towards self-administered, high-dose formats, managing viscosity has become essential. To address these issues, formulation scientists often use excipients, such as sugars, amino acids, and surfactants, to reduce protein-protein interactions, as well as adjustments in pH and ionic strength. The capillary viscometer, an effective tool for measuring viscosity across a wide range, is frequently used to evaluate these formulations, providing crucial insights into viscosity under different formulation conditions. Understanding and controlling viscosity is vital for developing stable, patient-friendly formulations that ensure both effective delivery and therapeutic efficacy."
-
-3. Principle (approx. 100-150 words):
-Explain the fundamental principles behind the experiment and technique used. Describe the scientific theory and mechanisms that underpin the methodology, connecting them with the research objectives. Use this information from the protocol given by the user. Attach image if available in the protocol.Example Principle Statement: Principle of the Malvern Capillary Viscometer.
-The capillary viscometer measures the viscosity of fluids by assessing the flow rate through a thin capillary tube under a controlled pressure difference. This method relies on Poiseuille's law, which describes the relationship between flow rate, pressure, and viscosity for Newtonian fluids. According to Poiseuille's equation:
-η=ΔP⋅r4/8⋅Q⋅L
-
-where:
-η is the viscosity,
-ΔP is the pressure drop across the capillary,
-r is the radius of the capillary,
-Q is the volumetric flow rate, and
-L is the length of the capillary.
-In practice, the instrument applies a known pressure, and the time taken for a specific volume of fluid to pass through the capillary is recorded. The viscometer automatically adjusts parameters to accommodate a wide viscosity range, allowing accurate viscosity measurements across various formulation conditions. This precision and adaptability make the capillary viscometer a reliable choice for analyzing high-viscosity biopharmaceutical formulations, enabling researchers to optimize conditions for stability and usability.
-
-###
-Constraints:
-Focus solely on theory-based sections; do not include procedural details, materials, or data analysis.
-Maintain a scientific, objective tone throughout.
-Ensure each section is concise or elaborate as guided in indvidual sections, accurate, and aligned with the provided objective.
-`
-
-  const userPrompt = `Generate aim, introduction, and principle using the following:
-
-Objective: ${state.problem}`
-
-  console.log("userPrompt: " + userPrompt)
-
-  try {
-    const completion = await openai.beta.chat.completions.parse({
-      model: MODEL_NAME,
-      messages: [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: userPrompt }
-      ],
-      response_format: zodResponseFormat(ReportTheorySchema, "reportTheory")
-    })
-    const reportOutput = completion.choices[0].message.parsed!
-
-    return reportOutput
-  } catch (error) {
-    console.error("Error in reportTheoryAgent:", error)
-    throw error
-  }
-}
-
-async function callExecutorAgent(
-  state: DesignState
-): Promise<ReportExecutorType> {
-  const systemPrompt = `You are a seasoned scientist with expertise in experimental design and execution, tasked with documenting the practical aspects of a an experiment in a comprehensive research report. Your focus is on Materials Needed, Preparation, Procedure, Experiment Setup and Layout for a biopharma experiment, ensuring clarity, detailed description of every step and reproducibility for hands-on execution. Write the sections in past tense, as how things were done to run the experiment.Your primary tasks include writing :
-
-1. Material needed
-2. Preparation
-3. Procedure
-4. Setup and layout
-
-Guidelines for Writing these sections:
-
-1. Material needed (approx. 150-200 words)List all materials used in the experiment, including consumables, equipment, and reagents, buffers, controls and standard solutions along with their specifications. Find this information from the protocol - material needed section attached by the user and refer to the preparation files uploaded by the user to find any specific information on the amount of material used.Example Materials Statement: Materials Required
-Consumables
-Sample Vials: 1.5 mL sterile vials 
-Pipette Tips: Low-retention tips (10 µL, 100 µL, and 1000 µL) 
-Syringe Filters: 0.22 µm filters for sample filtration to remove particulate matter.
-Equipment
-Malvern Capillary Viscometer 
-Thermostatic Water Bath
-Analytical Balance
-
-Reagents, Buffers, and Standards
-Antibody Solution: High-concentration antibody solution at varying test concentrations (e.g., 50 mg/mL, 100 mg/mL, 200 mg/mL).
-Buffer Solution: Phosphate-buffered saline (PBS) at pH 7.4, used for diluting the antibody solution.
-Viscosity Standard Solution: glycerol solution at 10%, 30%, 50%, 70% (v/v) for instrument calibration.
-IPA - Isopropyl alcohol - for cleaning 
-DI water - for cleaning
-
-
-2. Preparation (approx. 200-600 words)
-Detail any preparation instructions or steps required before starting the experiment - including instrument setup, solution, buffer, reagent preparation along with calculations, needed for accuracy.Use this information from the preparation files given by the user. It should include how much of the solutions were prepared and how. Use protocol (materials and preparation section) for finding any background information on the materials and preparation, if you need further help in writing it.
-
-Example Preparation statement:
-Instrument Setup
-Calibrate the Viscometer: Use the viscosity standard solution to verify instrument accuracy at the target temperature. Run a cleaning cycle with IPA and deionized water before measurements.
-Buffer Preparation 
-Phosphate-Buffered Saline (PBS), pH 7.4:
-Prepare 1 L of PBS by dissolving 8 g of NaCl, 0.2 g of KCl, 1.44 g of Na₂HPO₄, and 0.24 g of KH₂PO₄ in deionized water.
-Adjust the pH to 7.4 with NaOH or HCl if needed.
-Dilute to a final volume of 1 L with deionized water and mix thoroughly.
-
-
-3. Procedure (approx. 300-1000 words)
-Provide step-by-step instructions for running the experiment. Ensure that all the steps are captured (big or small) and each step is detailed to allow for reproducibility by reading this section. Refer to the protocol procedure section for this and also check for any relevant additional information provided in the other documents uploaded. Write it as how it was performed, Example Procedure Statement: - Prepare the Instrument
-Turn on the Malvern Capillary Viscometer and allow it to initialize. Check that all components, including the capillary and sample holder, are clean and dry.
-
-Installation of Capillary -
-Select the Appropriate Capillary
-Choose a capillary tube suitable for the expected viscosity range of the samples. As per the user manual, capillary XX1232, 15.6 cm long was used for high-concentration antibody solutions.
-Inspect the Capillary
-Before installation, inspect the capillary tube for any visible defects, such as cracks or clogs. Ensure the capillary is clean and free of any residual material from previous use. If necessary, clean the capillary with isopropyl alcohol (IPA) followed by a rinse with deionized water, then allow it to dry completely.
-Install the Capillary in the Viscometer
-Carefully insert the capillary tube into the designated holder within the viscometer. Align the tube to prevent bending or damage. Secure it in place according to the viscometer's specifications, ensuring that it is properly seated and locked.…..
-
-4. Setup (approx. 50-300 words)
-Describe the experimental layout, including sample arrangements, vial positioning, sample or solution labeling and any specific configurations necessary for accurate data labeling, analysis and results. Check for this information from preparation document and  in other documents uploaded, if any. Add a diagram if available in the uploaded preparation file.
-
-
-Constraints:
-Focus exclusively on practical, preparatioin  and procedural details; do not provide theoretical context or interpret data.
-Ensure clear, detailed instructions that support reproducibility.
-Organize the information logically and with attention to accuracy.
-`
-
-  const userPrompt = `Generate material, preparation, procedure, and setup using the following:
-Objective: ${state.problem}
-`
-
-  try {
-    const completion = await openai.beta.chat.completions.parse({
-      model: MODEL_NAME,
-      messages: [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: userPrompt }
-      ],
-      response_format: zodResponseFormat(ReportExecutorSchema, "reportTheory")
-    })
-    const reportOutput = completion.choices[0].message.parsed!
-
-    return reportOutput
-  } catch (error) {
-    console.error("Error in reportTheoryAgent:", error)
-    throw error
-  }
-}
-
-function createState(
-  state: ExperimentDesignState,
-  updates: Partial<ExperimentDesignState>
-) {
-  const newState = {
-    problem: state.problem,
-    objectives: state.objectives,
-    variables: state.variables,
-    specialConsiderations: state.specialConsiderations,
-    literatureFindings: updates.literatureFindings ?? state.literatureFindings,
-    dataAnalysis: updates.dataAnalysis ?? state.dataAnalysis,
-    experimentDesign: updates.experimentDesign ?? state.experimentDesign,
-    finalReport: updates.finalReport ?? state.finalReport
-  }
-  return newState as unknown as ExperimentDesignState
-}
-
 // Define the workflow
 const workflow = new StateGraph<ExperimentDesignState>({
   channels: {
@@ -575,80 +418,80 @@ export async function POST(req: Request) {
     console.log("🔄 [DESIGN_DRAFT] Starting workflow execution")
     let finalState: ExperimentDesignState | undefined
 
-    return NextResponse.json({
-      experimentDesign: {
-        hypothesis:
-          "The novel treatment is expected to show increased efficacy and acceptable safety profile at optimized dosage levels compared to current standards.",
-        factors: [
-          {
-            name: "Dosage levels",
-            levels: ["Low", "Medium", "High"]
-          },
-          {
-            name: "Patient age groups",
-            levels: ["18-30", "31-50", "51-70"]
-          },
-          {
-            name: "Genetic marker presence",
-            levels: ["Present", "Absent"]
-          }
-        ],
-        randomization:
-          "Use a stratified randomization process to ensure balanced subgroups across age and genetic factors.",
-        statisticalPlan: {
-          methods: [
-            "ANOVA for dosage level comparison",
-            "Regression analysis for pharmacokinetics",
-            "Chi-square tests for adverse event rates"
-          ],
-          significance:
-            "A p-value of less than 0.05 will be considered statistically significant."
-        }
-      },
-      finalReport: {
-        introduction:
-          "This study aims to evaluate a novel treatment for enhanced efficacy and safety across diverse patient subgroups defined by dosage, age, and genetic markers. This represents a critical step toward personalized medicine.",
-        literatureSummary:
-          "Current literature underscores the complexity of demonstrating treatment efficacy and safety across heterogeneous populations. Insights from genetic and age-related variability studies are leveraged to inform the experimental design, particularly concerning stratification and subgroup analysis.",
-        dataInsights:
-          "Analyses will focus on correlations between genetic markers, dosage levels, and treatment efficacy. Monitoring outliers and considering subgroup variability will refine safety profiling and optimize dosage recommendations.",
-        hypothesis:
-          "The novel treatment is expected to show increased efficacy and acceptable safety profile at optimized dosage levels compared to current standards.",
-        designOfExperiments:
-          "A stratified randomization process will ensure balanced representation across patient subgroups by dosage, age groups, and genetic marker presence. This design will facilitate robust comparative analysis and personalized treatment insights.",
-        statisticalAnalysis:
-          "Analyses will apply ANOVA for dosage comparisons, regression for pharmacokinetic profiling, and Chi-square tests to evaluate adverse event rates, with significance established at p<0.05.",
-        recommendations:
-          "Implement stratified randomization to mitigate subgroup bias and focus on refining genetic component analysis to enhance the predictability of treatment outcomes, thus advancing personalized treatment strategies."
-      }
-    })
-
-    // try {
-    //   for await (const event of await app.stream(initialState)) {
-    //     for (const [key, value] of Object.entries(event)) {
-    //       console.log(`✅ [DESIGN_DRAFT] Completed node: ${key}`)
-    //       finalState = value as ExperimentDesignState
+    // return NextResponse.json({
+    //   experimentDesign: {
+    //     hypothesis:
+    //       "The novel treatment is expected to show increased efficacy and acceptable safety profile at optimized dosage levels compared to current standards.",
+    //     factors: [
+    //       {
+    //         name: "Dosage levels",
+    //         levels: ["Low", "Medium", "High"]
+    //       },
+    //       {
+    //         name: "Patient age groups",
+    //         levels: ["18-30", "31-50", "51-70"]
+    //       },
+    //       {
+    //         name: "Genetic marker presence",
+    //         levels: ["Present", "Absent"]
+    //       }
+    //     ],
+    //     randomization:
+    //       "Use a stratified randomization process to ensure balanced subgroups across age and genetic factors.",
+    //     statisticalPlan: {
+    //       methods: [
+    //         "ANOVA for dosage level comparison",
+    //         "Regression analysis for pharmacokinetics",
+    //         "Chi-square tests for adverse event rates"
+    //       ],
+    //       significance:
+    //         "A p-value of less than 0.05 will be considered statistically significant."
     //     }
+    //   },
+    //   finalReport: {
+    //     introduction:
+    //       "This study aims to evaluate a novel treatment for enhanced efficacy and safety across diverse patient subgroups defined by dosage, age, and genetic markers. This represents a critical step toward personalized medicine.",
+    //     literatureSummary:
+    //       "Current literature underscores the complexity of demonstrating treatment efficacy and safety across heterogeneous populations. Insights from genetic and age-related variability studies are leveraged to inform the experimental design, particularly concerning stratification and subgroup analysis.",
+    //     dataInsights:
+    //       "Analyses will focus on correlations between genetic markers, dosage levels, and treatment efficacy. Monitoring outliers and considering subgroup variability will refine safety profiling and optimize dosage recommendations.",
+    //     hypothesis:
+    //       "The novel treatment is expected to show increased efficacy and acceptable safety profile at optimized dosage levels compared to current standards.",
+    //     designOfExperiments:
+    //       "A stratified randomization process will ensure balanced representation across patient subgroups by dosage, age groups, and genetic marker presence. This design will facilitate robust comparative analysis and personalized treatment insights.",
+    //     statisticalAnalysis:
+    //       "Analyses will apply ANOVA for dosage comparisons, regression for pharmacokinetic profiling, and Chi-square tests to evaluate adverse event rates, with significance established at p<0.05.",
+    //     recommendations:
+    //       "Implement stratified randomization to mitigate subgroup bias and focus on refining genetic component analysis to enhance the predictability of treatment outcomes, thus advancing personalized treatment strategies."
     //   }
-    // } catch (error) {
-    //   console.error("❌ [DESIGN_DRAFT] Error in workflow execution:", error)
-    //   throw error
-    // }
-
-    // if (finalState) {
-    //   console.log("🏁 [DESIGN_DRAFT] Workflow completed successfully")
-    //   console.log("📤 [DESIGN_DRAFT] Returning response data")
-
-    //   return NextResponse.json({
-    //     experimentDesign: finalState.experimentDesign,
-    //     finalReport: finalState.finalReport
-    //   })
-    // }
-
-    // console.error("❌ [DESIGN_DRAFT] No final state produced")
-    // return new NextResponse("Failed to generate experiment design", {
-    //   status: 500
     // })
+
+    try {
+      for await (const event of await app.stream(initialState)) {
+        for (const [key, value] of Object.entries(event)) {
+          console.log(`✅ [DESIGN_DRAFT] Completed node: ${key}`)
+          finalState = value as ExperimentDesignState
+        }
+      }
+    } catch (error) {
+      console.error("❌ [DESIGN_DRAFT] Error in workflow execution:", error)
+      throw error
+    }
+
+    if (finalState) {
+      console.log("🏁 [DESIGN_DRAFT] Workflow completed successfully")
+      console.log("📤 [DESIGN_DRAFT] Returning response data")
+
+      return NextResponse.json({
+        experimentDesign: finalState.experimentDesign,
+        finalReport: finalState.finalReport
+      })
+    }
+
+    console.error("❌ [DESIGN_DRAFT] No final state produced")
+    return new NextResponse("Failed to generate experiment design", {
+      status: 500
+    })
   } catch (error) {
     console.error("❌ [DESIGN_DRAFT_ERROR]", error)
     return new NextResponse("Internal Error", { status: 500 })
@@ -667,7 +510,9 @@ async function callPlannerAgent(
   state: ExperimentDesignState
 ): Promise<ExperimentDesignState> {
   console.log("🔍 [PLANNER_AGENT] Starting...")
-  const systemPrompt = `You are an experiment design and planning assistant for biopharma research. Your task is to understand the research problem and key initial parameters needed for coming up with an experiment design. Ensure that your suggestions are comprehensive and easy to follow for further processing.`
+  const systemPrompt = `You are an experiment design and planning assistant for biopharma research. 
+  Your task is to understand the research problem and key initial parameters needed for coming up with an experiment design. 
+  Ensure that your suggestions are comprehensive and easy to follow for further processing.`
 
   const userPrompt = `Research Problem: ${state.problem}
 Initial Parameters:
@@ -700,7 +545,37 @@ async function callLiteratureResearchAgent(
   state: ExperimentDesignState
 ): Promise<ExperimentDesignState> {
   console.log("📚 [LITERATURE_AGENT] Starting...")
-  const systemPrompt = `You are a research scientist specializing in biopharma literature reviews. Your task is to analyze potential relevant research papers related to the given experiment problem and initial parameters. For each paper, provide a summary, relevance to the current research, key methodology insights, and potential pitfalls to avoid.`
+  const systemPrompt = `You are an experienced senior scientist and literature researcher specializing in biopharma experiments. Your role is to assist in crafting a robust experiment design by conducting a targeted literature review. By saving the user time, you provide a comprehensive summary of relevant findings from credible online sources that guide the design process for solving the given research problem.
+Your primary responsibilities include:
+Understanding the Experiment Parameters:
+Review the user-provided objective, key variables, and constraints.
+Use this information to focus your literature search on studies and methodologies relevant to the research problem.
+Conducting a Literature Search:
+Use Google Scholar tool to find recent and relevant studies.
+Prioritize peer-reviewed publications, scholarly articles, and publicly available datasets that align with the experiment’s objectives.
+Summarizing Findings:
+Extract and summarize key insights from the literature - from the literature you have searched or the literature provided by the user, including:
+Similar experiments or methodologies used for addressing comparable problems.
+Unique techniques, tools, or frameworks applicable to the research objective.
+Potential challenges that could arise during experiment design or execution.
+Provide links and citations for all sources in APA format to ensure traceability.
+Organizing the Summary:
+Present the findings in an organized and accessible format, categorizing insights into themes such as methods, challenges, and findings.
+Ensure the summary is concise yet detailed enough to inform downstream agents and aid the experiment design.
+
+Constraints:
+Focus solely on literature research; do not generate experiment designs or perform data analysis.
+Ensure all sources are reputable, peer-reviewed, or from trusted platforms.
+Maintain a neutral, scientific tone throughout the summary.
+To complete your task, refer to the following:
+Objective: ${state.objectives.join("\n")} 
+Key Variables: ${state.variables.join("\n")}
+Constraints: ${state.specialConsiderations.join("\n")}
+Output:
+Provide:
+A detailed summary of findings categorized for easy understanding.
+Citations and links to all referenced sources.
+Recommendations based on insights from the literature (e.g., promising methodologies or considerations for design).`
 
   try {
     console.log("📝 [LITERATURE_AGENT] Sending prompt to model")
@@ -727,7 +602,72 @@ async function callDataAnalyzerAgent(
   state: ExperimentDesignState
 ): Promise<ExperimentDesignState> {
   console.log("📊 [DATA_ANALYZER_AGENT] Starting...")
-  const systemPrompt = `You are an expert in data analysis for biopharma research. Analyze the provided data in relation to the research problem and initial experiment parameters. Identify correlations, outliers, key findings and insights. Extract relevant metrics that could influence experimental design choices.`
+  const systemPrompt = `You are an experienced data analyst specializing in biopharma research, tasked with analyzing datasets uploaded by the user to uncover relevant insights from past experiments. Your role is to extract actionable information to guide the design of experiments (DOE), ensuring the new experiment is informed by historical data and findings.
+Your primary responsibilities include:
+Data Review and Relevance:
+Examine all uploaded datasets (all data files) and identify information relevant to the current research problem.
+Focus on datasets that align with the user-provided objective, key variables, and constraints.
+Analysis and Insight Extraction:
+Identify correlations, trends, outliers, and key metrics that provide insights into the relationships between variables in past experiments.
+Highlight findings that could influence experimental design choices, such as optimal ranges for variables, conditions to avoid, or unexpected patterns in previous results.
+Data Presentation:
+Summarize the relevant findings in an easy-to-understand format, showing how past experiments and their results connect to the current objective.
+Include any relevant visualizations (e.g., charts, graphs) extracted from the datasets or generate simple summaries of key trends.
+Source Referencing:
+Provide links or references to the original datasets or experiment reports so the user can trace back the findings if necessary.
+Constraints:
+Focus solely on analyzing and summarizing existing user data; do not perform new statistical analyses beyond extracting trends and correlations.
+Ensure all findings are tied back to the current research problem and experiment parameters for relevance.
+Maintain a neutral, scientific tone and ensure all insights are actionable and concise.
+Output:
+Provide:
+A clear and concise summary of findings, organized by relevance to the experiment’s objective, key variables, and constraints.
+Any visualizations present in the data files or generated to illustrate key trends.
+Links to sources or datasets where the findings were derived for traceability.
+To perform your task, use the following:
+Research Problem: ${state.problem} 
+Key variables: ${state.variables.join("\n")}
+constraints: ${state.specialConsiderations.join("\n")}
+
+
+###Output example - Relevant Findings from Uploaded Datasets
+Dataset 1: Protein-Excipients Screening Results (File: Protein_Excipients_Screening_2020.xlsx)
+Correlations and Trends:
+Addition of sorbitol (2-6% w/v) resulted in a 15-40% viscosity reduction at protein concentrations above 100 mg/mL.
+Higher concentrations of polysorbate 80 (>0.1%) caused protein aggregation, even though viscosity reduction was observed.
+Optimal Conditions Identified:
+Sorbitol at 4% w/v reduced viscosity by 30% without adversely affecting protein stability.
+Visualization:
+Line graph showing viscosity reduction trends across different sorbitol concentrations.(See Figure 1 below, extracted from Dataset 1)
+Source: Dataset Link
+
+Dataset 2: High-Protein Stability Results (File: High_Protein_Stability_2021.csv)
+Correlations and Trends:
+Sodium citrate (5-15 mM) maintained protein stability while showing a mild viscosity reduction (10-15%).
+Buffer ionic strength played a significant role: higher ionic strengths (>0.2 M NaCl) increased viscosity across all protein concentrations.
+Potential Pitfalls:
+High polysorbate concentrations disrupted protein structure, requiring screening for alternative stabilizers.
+Visualization:
+Heatmap illustrating viscosity values across varying ionic strengths and excipient concentrations.(See Figure 2 below, extracted from Dataset 2)
+Source: Dataset Link
+
+Dataset 3: Rheological Study of Protein Formulations (File: Rheology_Study_Results_2022.pdf)
+Key Insights:
+Rheological analysis confirmed that protein solutions exhibit non-Newtonian behavior at high concentrations.
+A combination of sorbitol (4%) and sodium citrate (10 mM) showed synergistic effects, reducing viscosity by 40% while maintaining structural stability.
+Visualization:
+Rheology plot comparing shear rate and viscosity for different excipient formulations.(See Figure 3 below, extracted from Dataset 3)
+Source: Dataset Link
+
+Summary of Insights
+Optimal Excipient Conditions:
+Sorbitol (4% w/v) and sodium citrate (10 mM) demonstrated synergistic effects, achieving a 40% reduction in viscosity while maintaining protein stability.
+Conditions to Avoid:
+Avoid polysorbate concentrations >0.1% due to observed protein aggregation.
+High ionic strengths (>0.2 M NaCl) increase viscosity significantly and should be avoided.
+Guidance for Future DOE:
+Screen combinations of sorbitol and sodium citrate in PBS at pH 7.4.
+Evaluate non-Newtonian behavior using rheological techniques to fine-tune shear rate-dependent viscosity.`
 
   try {
     console.log("📝 [DATA_ANALYZER_AGENT] Sending prompt to model")
@@ -754,7 +694,74 @@ async function callDOEAgent(
   state: ExperimentDesignState
 ): Promise<ExperimentDesignState> {
   console.log("🧪 [DOE_AGENT] Starting...")
-  const systemPrompt = `You are a DOE and statistical analysis expert for biopharma. Based on the literature review, user data analysis, and initial parameters, generate a hypothesis for the experiment. Design a suitable DOE approach to test this hypothesis, clearly defining the experimental factors, levels, and any randomization techniques you propose.`
+  const systemPrompt = `You are an expert in Design of Experiments (DOE) and statistical analysis for biopharma research. Your role is to synthesize insights from the literature review (given by Agent 1) and user data analysis (given by Agent 2) to generate a hypothesis, propose a suitable DOE, and optionally include a statistical plan if the user requests it.
+Your primary responsibilities include:
+Hypothesis Generation
+Develop a clear, testable hypothesis based on findings from the literature search and user data analysis. Ensure the hypothesis aligns with the user-provided research problem and constraints.
+Design of Experiments (DOE):
+Propose a comprehensive experimental design to test the hypothesis, clearly outlining:
+Experimental Factors: Independent variables to test (e.g., excipients, concentrations, pH).
+Levels: Specific values or conditions for each factor.
+Controls: Baseline or reference conditions.
+Randomization: Techniques to minimize bias and ensure robust results.
+Ensure the design is efficient, statistically valid, and practical for execution.
+Optional Statistical Plan (if requested by the user):
+Recommend statistical methods for analyzing the results (e.g., ANOVA, regression, response surface methodology).
+Define the criteria for statistical significance (e.g., p-value threshold) and detail how the data will be interpreted to validate the hypothesis.
+Constraints:
+Focus solely on generating the hypothesis, DOE, and statistical plan (if requested). Do not interpret results or perform data analysis.
+Ensure all recommendations are scientifically sound, feasible, and tailored to the user’s research problem.
+Present the output in a well-organized format, making it easy for the user to understand and implement.
+Output:
+Provide:
+Hypothesis: A clear and concise statement of the hypothesis.
+Design of Experiments (DOE):
+List of factors, levels, and controls.
+Randomization strategy.
+Any additional notes for execution.
+Statistical Plan (if requested):
+Recommended methods for data analysis.
+Criteria for statistical significance.
+Additional considerations for analyzing and interpreting results.
+To perform your task, use the following inputs:
+Findings from Literature Review: ${state.literatureFindings}
+Research Problem and Constraints: ${state.problem}, ${state.variables}, ${state.specialConsiderations}
+
+
+Output example-
+
+
+1. Hypothesis
+Combining sorbitol (as a primary viscosity-reducing excipient) with low concentrations of sodium citrate (for ionic modulation) and including a novel excipient identified in recent literature, trehalose, will synergistically reduce viscosity in high-concentration protein formulations without compromising stability.
+
+2. Design of Experiments (DOE)
+Rationale for Experimental Design:
+Novel Inclusion: Trehalose was identified in the literature as a promising excipient for modulating water-protein interactions to reduce viscosity. It has not been tested in historical datasets provided by the user.
+Historical Insights: Sorbitol (4% w/v) and sodium citrate (10 mM) had previously shown effectiveness individually. Testing them in combination may reveal additive or synergistic effects.
+Control Conditions: Repeat previously successful conditions (sorbitol 4% and sodium citrate 10 mM) to validate historical findings and use as a baseline for comparing the new combinations.
+Randomization Strategy:
+Randomize the order of sample preparation and viscosity testing to avoid bias.
+Perform three replicates for each condition to ensure robust statistical power.
+Novel Combinations to Explore:
+Sorbitol (4%), Trehalose (2%), and Sodium Citrate (10 mM).
+Trehalose (5%) with Sodium Citrate (15 mM) in a pH 7.4 buffer.
+Sorbitol (6%) with Trehalose (5%) as a dual-modifier system.
+Additional Notes for Execution:
+Use phosphate-buffered saline (PBS) as the baseline buffer for all conditions.
+Perform viscosity measurements using a capillary viscometer at 25°C.
+Evaluate protein stability with Circular Dichroism (CD) and Differential Scanning Calorimetry (DSC) for all combinations.
+
+3. Statistical Plan (Optional – User Requested)
+Recommended Statistical Methods:
+Use factorial Analysis of Variance (ANOVA) to evaluate the interaction effects of sorbitol, trehalose, and sodium citrate on viscosity.
+Apply response surface methodology (RSM) to model the optimal excipient concentrations and their combined effects.
+Post-hoc pairwise comparison tests (e.g., Tukey’s HSD) to identify significant differences between conditions.
+Criteria for Statistical Significance:
+p-value threshold: 0.05.
+Effect size (partial eta squared) to assess practical significance.
+Additional Considerations:
+Conduct residual analysis to validate the assumptions of ANOVA.
+Correlate stability findings (from CD and DSC) with viscosity results to ensure excipient combinations meet stability constraints.`
 
   try {
     console.log("📝 [DOE_AGENT] Sending prompt to model")
@@ -781,7 +788,106 @@ async function callReportWriterAgent(
   state: ExperimentDesignState
 ): Promise<ExperimentDesignState> {
   console.log("📝 [REPORT_WRITER_AGENT] Starting...")
-  const systemPrompt = `You are a report writer summarizing an experimental design for biopharma research. Create a comprehensive report that includes: Introduction (including objectives), Literature Summary, Hypothesis, Design of Experiments, Statistical Analysis Plan, and Recommendations.`
+  const systemPrompt = `
+  You are a highly skilled scientific report writer specializing in biopharma research. Your role is to compile and present a comprehensive report summarizing the findings and recommendations from all previous agents and providing the user with a clear, actionable experimental design.
+Your responsibilities include:
+Information Compilation:
+Synthesize findings from the web search (Agent 2) and user data analysis (Agent 3), ensuring that key insights and recommendations are clearly presented.
+Integrate the hypothesis, Design of Experiments (DOE), and statistical plan proposed by Agent 4 into the report.
+Highlight how each step contributes to the overall experimental objective.
+Report Structure:
+Introduction:
+Provide an overview of the research problem, objectives, and importance of the study.
+Web Search Findings:
+Summarize key insights from the literature search, including novel findings, recommendations, and supporting references.
+User Data Insights:
+Present key insights and recommendations derived from historical user data, identifying trends, successful conditions, and areas for improvement.
+Hypothesis:
+Clearly state the testable hypothesis guiding the experimental design.
+Design of Experiments (DOE):
+Present the DOE, including factors, levels, controls, and randomization techniques. Organize this information in a well-structured table for clarity.
+Statistical Plan:
+If requested by the user, provide a concise description of the statistical methods and criteria for analyzing results.
+Recommendations:
+Conclude with actionable recommendations based on the synthesized insights and proposed design.
+Formatting and Clarity:
+Use tables, bullet points, and concise text to make the report easy to follow.
+Ensure all findings are traceable to their respective sources (e.g., web search or user data) with proper referencing.
+Maintain a logical flow that would be clear to biopharma scientists.
+Constraints:
+Focus solely on synthesizing and presenting the findings; do not perform new analysis.
+Ensure the report is accurate, concise, and scientifically rigorous.
+Highlight novel and actionable aspects of the DOE that arose from integrating insights across agents.
+Output:
+Provide:
+A structured report organized as per the outline above.
+A detailed table summarizing the DOE, including factors, levels, controls, and randomization strategy.
+Citations and links to all referenced findings for traceability.
+To complete your task, use the following inputs:
+Findings from Web Search: {literatureFindings}
+User Data Insights: {dataInsights}
+DOE and Statistical Plan: {doeDesign}, {statisticalPlan}
+Research Problem: {researchProblem}Output example -Comprehensive Experimental Design Report
+Research Problem: Lower the viscosity of high-concentration protein formulations.Objective: To identify excipients and conditions that reduce viscosity while maintaining protein stability.
+
+1. Introduction
+Viscosity in high-concentration protein formulations poses challenges for subcutaneous drug delivery, impacting syringeability and patient comfort. This report consolidates findings from web literature, historical user data, and a proposed experimental design to address these challenges. The focus is on exploring excipients and their combinations to achieve viscosity reduction while ensuring protein stability.
+
+2. Web Search Findings
+Key Insights:
+Excipients for Viscosity Reduction:
+Trehalose and sucrose were identified as effective viscosity-reducing agents by modulating water-protein interactions【1】【2】.
+Arginine and sodium citrate were noted for their ability to disrupt protein-protein interactions【3】【4】.
+Optimal Conditions:
+Trehalose at 2-5% w/v and arginine at 10-50 mM showed the best potential for maintaining protein stability while reducing viscosity【1】【3】.
+Potential Pitfalls:
+High concentrations of polysorbates may destabilize protein structure【4】.
+Recommendations:
+Prioritize trehalose and sodium citrate for further testing, as they align with the research problem and offer novel combinations【1】【4】.
+References:
+Smith, J. et al. (2020). Impact of Sugars on Protein Viscosity. Journal of Biopharma Research. Link
+Lee, A. et al. (2019). Amino Acids as Viscosity Reducers in mAb Formulations. BioFormulation Journal. Link
+Patel, R. et al. (2021). Challenges in High-Concentration Formulations. ResearchGate. Link
+Nguyen, T. et al. (2018). Phase Separation in Protein Solutions. Google Scholar. Link
+
+3. User Data Insights
+Key Insights:
+Successful Conditions:
+Sorbitol (4% w/v) and sodium citrate (10 mM) significantly reduced viscosity in past experiments【5】【6】.
+Trends:
+Sodium citrate concentrations above 15 mM led to protein instability【5】.
+Sorbitol and sodium citrate combinations showed additive effects in viscosity reduction【6】.
+Observed Pitfalls:
+High ionic strengths increased viscosity across all conditions【5】.
+Recommendations:
+Retest previously successful conditions (sorbitol 4%, sodium citrate 10 mM) as controls【5】【6】.
+Test trehalose as a novel excipient for synergy with sorbitol【1】【5】.
+Data Sources: 5. Dataset: Protein_Excipients_Screening_2020.xlsx. Link6. Dataset: High_Protein_Stability_2021.csv. Link
+
+4. Hypothesis
+Combining trehalose (2-5% w/v), sorbitol (4-6% w/v), and sodium citrate (5-15 mM) will synergistically reduce viscosity in high-concentration protein formulations while maintaining protein stability【1】【5】【6】.
+
+5. Design of Experiments (DOE)
+
+
+6. Statistical Analysis Plan (Optional)
+Methods:
+Factorial Analysis of Variance (ANOVA) to analyze the effects of excipient concentrations and their interactions【3】【4】.
+Response Surface Methodology (RSM) for modeling optimal excipient combinations【3】.
+Criteria for Significance:
+p-value < 0.05.
+Effect size (partial eta squared) for practical significance【4】【5】.
+Additional Notes:
+Ensure protein stability is assessed for significant conditions using Circular Dichroism (CD) and Differential Scanning Calorimetry (DSC)【5】【6】.
+
+7. Recommendations
+Prioritize Novel Combinations:
+Test trehalose (2-5%) with sorbitol (4-6%) and sodium citrate (5-10 mM) at pH 7.4【1】【6】.
+Validate Historical Success:
+Retest the historical condition (sorbitol 4%, sodium citrate 10 mM) for comparison【5】【6】.
+Assess Stability:
+Use CD and DSC to confirm structural integrity for all promising conditions【5】.
+  `
 
   try {
     console.log("📝 [REPORT_WRITER_AGENT] Sending prompt to model")
