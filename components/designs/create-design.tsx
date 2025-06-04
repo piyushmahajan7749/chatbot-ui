@@ -2,7 +2,7 @@ import { SidebarCreateItem } from "../sidebar/items/all/sidebar-create-item"
 import { Input } from "../ui/input"
 import { Label } from "../ui/label"
 import { ChatbotUIContext } from "@/context/context"
-import { FC, useContext, useRef, useState } from "react"
+import { FC, useContext, useRef, useState, useEffect } from "react"
 import { Tables } from "@/supabase/types"
 import { useDesignContext } from "@/context/designcontext"
 import { TextareaAutosize } from "../ui/textarea-autosize"
@@ -34,8 +34,19 @@ export const CreateDesign: FC<CreateDesignProps> = ({
   const problemInputRef = useRef<HTMLTextAreaElement>(null)
   const descInputRef = useRef<HTMLTextAreaElement>(null)
 
+  // Debug logging for state changes
+  useEffect(() => {
+    console.log("🔧 [CREATE_DESIGN] State updated:")
+    console.log("  Problem:", problem)
+    console.log("  Description:", description)
+    console.log("  Objectives:", objectives)
+    console.log("  Variables:", variables)
+    console.log("  Special Considerations:", specialConsiderations)
+  }, [problem, description, objectives, variables, specialConsiderations])
+
   const addObjective = () => {
     if (objective && !objectives.includes(objective)) {
+      console.log("➕ [CREATE_DESIGN] Adding objective:", objective)
       setObjectives([...objectives, objective])
       setObjective("")
     }
@@ -47,6 +58,7 @@ export const CreateDesign: FC<CreateDesignProps> = ({
 
   const addVariable = () => {
     if (variable && !variables.includes(variable)) {
+      console.log("➕ [CREATE_DESIGN] Adding variable:", variable)
       setVariables([...variables, variable])
       setVariable("")
     }
@@ -58,6 +70,7 @@ export const CreateDesign: FC<CreateDesignProps> = ({
 
   const addConsideration = () => {
     if (consideration && !specialConsiderations.includes(consideration)) {
+      console.log("➕ [CREATE_DESIGN] Adding consideration:", consideration)
       setSpecialConsiderations([...specialConsiderations, consideration])
       setConsideration("")
     }
@@ -69,22 +82,39 @@ export const CreateDesign: FC<CreateDesignProps> = ({
     )
   }
 
+  // Debug the createState before it's passed
+  const createState = {
+    user_id: profile?.user_id || "",
+    problem,
+    name: problem,
+    description,
+    sharing: "private" as const,
+    objectives,
+    variables,
+    specialConsiderations
+  }
+
+  // Log the createState when modal is open and values change
+  useEffect(() => {
+    if (isOpen) {
+      console.log("📝 [CREATE_DESIGN] Current createState:", createState)
+    }
+  }, [
+    isOpen,
+    problem,
+    description,
+    objectives,
+    variables,
+    specialConsiderations
+  ])
+
   if (!profile || !selectedWorkspace) return null
 
   return (
     <SidebarCreateItem
       contentType="designs"
       isTyping={false}
-      createState={{
-        user_id: profile.user_id,
-        problem,
-        name: problem,
-        description,
-        sharing: "private",
-        objectives,
-        variables,
-        specialConsiderations
-      }}
+      createState={createState}
       isOpen={isOpen}
       onOpenChange={onOpenChange}
       renderInputs={() => (

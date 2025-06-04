@@ -3,6 +3,8 @@ import OpenAI from "openai"
 import { zodResponseFormat } from "openai/helpers/zod"
 import { z } from "zod"
 import { SERPGoogleScholarAPITool } from "@langchain/community/tools/google_scholar"
+import { TavilySearchResults } from "@langchain/community/tools/tavily_search"
+import axios from "axios"
 
 import { NextResponse } from "next/server"
 
@@ -11,13 +13,672 @@ const MODEL_NAME = "gpt-4o-2024-08-06"
 
 process.env.GOOGLE_SCHOLAR_API_KEY = process.env.SERPAPI_API_KEY
 
+// Initialize enhanced search tools
 const scholarTool = new SERPGoogleScholarAPITool({
   apiKey: process.env.SERPAPI_API_KEY
 })
 
+// Initialize Tavily for comprehensive web search (if API key available)
+let tavilyTool: TavilySearchResults | null = null
+if (process.env.TAVILY_API_KEY) {
+  tavilyTool = new TavilySearchResults({
+    apiKey: process.env.TAVILY_API_KEY,
+    maxResults: 10
+  })
+}
+
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_KEY
 })
+
+// Enhanced search result interface with relevance scoring
+interface SearchResult {
+  title: string
+  authors: string[]
+  abstract: string
+  doi?: string
+  url: string
+  publishedDate: string
+  journal?: string
+  citationCount?: number
+  source: "pubmed" | "arxiv" | "scholar" | "semantic_scholar" | "tavily"
+  relevanceScore?: number
+  keywords?: string[]
+  fullText?: string
+}
+
+interface AggregatedSearchResults {
+  totalResults: number
+  sources: {
+    pubmed: SearchResult[]
+    arxiv: SearchResult[]
+    scholar: SearchResult[]
+    semanticScholar: SearchResult[]
+    tavily: SearchResult[]
+  }
+  synthesizedFindings: {
+    keyMethodologies: string[]
+    commonPitfalls: string[]
+    recommendedApproaches: string[]
+    novelInsights: string[]
+  }
+  searchMetrics: {
+    queryOptimization: string[]
+    relevanceScores: number[]
+    sourceWeights: Record<string, number>
+  }
+}
+
+// Enhanced rate limiting with backoff strategy
+class EnhancedRateLimiter {
+  private requests: { [key: string]: number[] } = {}
+  private backoffDelays: { [key: string]: number } = {}
+
+  async checkAndWait(
+    source: string,
+    maxRequestsPerMinute: number = 10
+  ): Promise<void> {
+    const now = Date.now()
+    const oneMinuteAgo = now - 60000
+
+    if (!this.requests[source]) {
+      this.requests[source] = []
+      this.backoffDelays[source] = 1000 // Start with 1 second
+    }
+
+    // Clean old requests
+    this.requests[source] = this.requests[source].filter(
+      time => time > oneMinuteAgo
+    )
+
+    if (this.requests[source].length >= maxRequestsPerMinute) {
+      const waitTime = this.backoffDelays[source]
+      console.log(`⏳ [RATE_LIMIT] Backing off ${waitTime}ms for ${source}`)
+      await new Promise(resolve => setTimeout(resolve, waitTime))
+
+      // Exponential backoff with max cap
+      this.backoffDelays[source] = Math.min(waitTime * 1.5, 30000)
+    } else {
+      // Reset backoff on successful request
+      this.backoffDelays[source] = 1000
+    }
+
+    this.requests[source].push(now)
+  }
+}
+
+const rateLimiter = new EnhancedRateLimiter()
+
+// Enhanced query optimization
+function optimizeSearchQuery(
+  problem: string,
+  objectives: string[],
+  variables: string[],
+  domain: "biomedical" | "technical" | "general" = "biomedical"
+): {
+  primaryQuery: string
+  alternativeQueries: string[]
+  keywords: string[]
+} {
+  const keywords = [
+    ...problem.split(/\s+/).filter(word => word.length > 3),
+    ...objectives.flatMap(obj =>
+      obj.split(/\s+/).filter(word => word.length > 3)
+    ),
+    ...variables.flatMap(variable =>
+      variable.split(/\s+/).filter(word => word.length > 3)
+    )
+  ]
+
+  // Domain-specific query enhancement
+  const domainTerms = {
+    biomedical: [
+      "clinical trial",
+      "experimental design",
+      "biomarker",
+      "therapeutic",
+      "efficacy",
+      "safety"
+    ],
+    technical: [
+      "methodology",
+      "algorithm",
+      "optimization",
+      "analysis",
+      "validation"
+    ],
+    general: ["research", "study", "analysis", "method", "approach"]
+  }
+
+  const enhancedKeywords = [...new Set([...keywords, ...domainTerms[domain]])]
+
+  const primaryQuery = `${problem} ${objectives.join(" ")} ${variables.join(" ")} experimental design`
+
+  const alternativeQueries = [
+    `"${problem}" methodology research design`,
+    `${enhancedKeywords.slice(0, 5).join(" ")} clinical study`,
+    `${variables.join(" ")} ${domainTerms[domain].slice(0, 3).join(" ")}`,
+    `experimental design ${problem.split(" ").slice(0, 3).join(" ")}`
+  ]
+
+  return {
+    primaryQuery: primaryQuery.trim(),
+    alternativeQueries,
+    keywords: enhancedKeywords
+  }
+}
+
+// Enhanced PubMed search with direct API calls
+async function searchPubMedEnhanced(
+  query: string,
+  maxResults: number = 10
+): Promise<SearchResult[]> {
+  try {
+    await rateLimiter.checkAndWait("pubmed", 3)
+    console.log(`🔍 [PUBMED_ENHANCED] Searching for: ${query}`)
+
+    // First, search for PMIDs
+    const searchResponse = await axios.get(
+      "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi",
+      {
+        params: {
+          db: "pubmed",
+          term: query,
+          retmax: maxResults,
+          retmode: "json",
+          tool: "chatbot-ui",
+          email: "research@example.com"
+        }
+      }
+    )
+
+    const pmids = searchResponse.data.esearchresult?.idlist || []
+    if (pmids.length === 0) return []
+
+    await rateLimiter.checkAndWait("pubmed", 3)
+
+    // Fetch detailed information
+    const detailsResponse = await axios.get(
+      "https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi",
+      {
+        params: {
+          db: "pubmed",
+          id: pmids.join(","),
+          rettype: "xml",
+          retmode: "xml",
+          tool: "chatbot-ui",
+          email: "research@example.com"
+        }
+      }
+    )
+
+    // Parse XML response (simplified - in production, use proper XML parser)
+    const results: SearchResult[] = []
+    const articles =
+      detailsResponse.data.match(/<PubmedArticle[\s\S]*?<\/PubmedArticle>/g) ||
+      []
+
+    articles.forEach((article: string, index: number) => {
+      try {
+        const title =
+          article.match(/<ArticleTitle>(.*?)<\/ArticleTitle>/)?.[1] ||
+          "No title"
+        const abstract =
+          article.match(/<AbstractText[^>]*>(.*?)<\/AbstractText>/)?.[1] ||
+          "No abstract"
+        const journal =
+          article.match(/<Title>(.*?)<\/Title>/)?.[1] || "Unknown journal"
+        const year =
+          article.match(/<Year>(\d{4})<\/Year>/)?.[1] || "Unknown year"
+        const authors =
+          article
+            .match(/<LastName>(.*?)<\/LastName>/g)
+            ?.map(m => m.replace(/<\/?LastName>/g, "")) || []
+
+        results.push({
+          title: title.replace(/<[^>]*>/g, ""),
+          authors,
+          abstract: abstract.replace(/<[^>]*>/g, ""),
+          publishedDate: year,
+          journal,
+          url: `https://pubmed.ncbi.nlm.nih.gov/${pmids[index]}/`,
+          source: "pubmed",
+          relevanceScore: 0.8 + index * -0.05, // Decreasing relevance
+          keywords: query.split(" ").filter(word => word.length > 3)
+        })
+      } catch (error) {
+        console.error("Error parsing PubMed article:", error)
+      }
+    })
+
+    console.log(`✅ [PUBMED_ENHANCED] Found ${results.length} results`)
+    return results
+  } catch (error) {
+    console.error("❌ [PUBMED_ENHANCED] Search error:", error)
+    return []
+  }
+}
+
+// Enhanced ArXiv search
+async function searchArXivEnhanced(
+  query: string,
+  maxResults: number = 10
+): Promise<SearchResult[]> {
+  try {
+    await rateLimiter.checkAndWait("arxiv", 3)
+    console.log(`🔍 [ARXIV_ENHANCED] Searching for: ${query}`)
+
+    const response = await axios.get("http://export.arxiv.org/api/query", {
+      params: {
+        search_query: `all:${query}`,
+        start: 0,
+        max_results: maxResults,
+        sortBy: "relevance",
+        sortOrder: "descending"
+      }
+    })
+
+    const results: SearchResult[] = []
+    const entries = response.data.match(/<entry>[\s\S]*?<\/entry>/g) || []
+
+    entries.forEach((entry: string, index: number) => {
+      try {
+        const title =
+          entry
+            .match(/<title>(.*?)<\/title>/)?.[1]
+            ?.replace(/\s+/g, " ")
+            .trim() || "No title"
+        const summary =
+          entry
+            .match(/<summary>(.*?)<\/summary>/)?.[1]
+            ?.replace(/\s+/g, " ")
+            .trim() || "No abstract"
+        const published =
+          entry.match(/<published>(.*?)<\/published>/)?.[1] || "Unknown date"
+        const id = entry.match(/<id>(.*?)<\/id>/)?.[1] || ""
+        const authors =
+          entry
+            .match(/<name>(.*?)<\/name>/g)
+            ?.map(m => m.replace(/<\/?name>/g, "")) || []
+
+        results.push({
+          title,
+          authors,
+          abstract: summary,
+          publishedDate: published.split("T")[0],
+          url: id,
+          source: "arxiv",
+          relevanceScore: 0.75 + index * -0.05,
+          keywords: query.split(" ").filter(word => word.length > 3)
+        })
+      } catch (error) {
+        console.error("Error parsing ArXiv entry:", error)
+      }
+    })
+
+    console.log(`✅ [ARXIV_ENHANCED] Found ${results.length} results`)
+    return results
+  } catch (error) {
+    console.error("❌ [ARXIV_ENHANCED] Search error:", error)
+    return []
+  }
+}
+
+// Enhanced Tavily search for comprehensive web coverage
+async function searchTavilyEnhanced(
+  query: string,
+  maxResults: number = 10
+): Promise<SearchResult[]> {
+  if (!tavilyTool) {
+    console.log("⚠️ [TAVILY] Tavily API key not configured, skipping...")
+    return []
+  }
+
+  try {
+    await rateLimiter.checkAndWait("tavily", 5)
+    console.log(`🔍 [TAVILY_ENHANCED] Searching for: ${query}`)
+
+    const searchResults = await tavilyTool.invoke({
+      query: `${query} research paper academic study`,
+      maxResults
+    })
+
+    const results: SearchResult[] = []
+
+    if (typeof searchResults === "string") {
+      try {
+        const parsed = JSON.parse(searchResults)
+        const webResults = parsed.results || []
+
+        webResults.forEach((result: any, index: number) => {
+          results.push({
+            title: result.title || `Tavily Result ${index + 1}`,
+            authors: [], // Tavily doesn't typically provide author info
+            abstract: result.content?.substring(0, 500) || result.snippet || "",
+            url: result.url || "",
+            publishedDate: "Recent", // Tavily focuses on recent/real-time
+            source: "tavily" as const,
+            relevanceScore: result.score || 0.7 + index * -0.05,
+            keywords: query.split(" ").filter(word => word.length > 3)
+          })
+        })
+      } catch (parseError) {
+        console.error("❌ [TAVILY] Parse error:", parseError)
+      }
+    }
+
+    console.log(`✅ [TAVILY_ENHANCED] Found ${results.length} results`)
+    return results
+  } catch (error) {
+    console.error("❌ [TAVILY_ENHANCED] Search error:", error)
+    return []
+  }
+}
+
+// Semantic Scholar search integration
+async function searchSemanticScholar(
+  query: string,
+  maxResults: number = 10
+): Promise<SearchResult[]> {
+  try {
+    await rateLimiter.checkAndWait("semantic_scholar", 2)
+
+    console.log(`🔍 [SEMANTIC_SCHOLAR] Searching for: ${query}`)
+
+    const response = await axios.get(
+      "https://api.semanticscholar.org/graph/v1/paper/search",
+      {
+        params: {
+          query,
+          limit: Math.min(maxResults, 5),
+          fields: "title,authors,abstract,year,url,citationCount,journal,doi"
+        },
+        headers: {
+          "User-Agent": "chatbot-ui (research@example.com)"
+        },
+        timeout: 10000
+      }
+    )
+
+    const results: SearchResult[] =
+      response.data.data?.map((paper: any) => ({
+        title: paper.title || "No title",
+        authors: paper.authors?.map((author: any) => author.name) || [],
+        abstract: paper.abstract || "No abstract",
+        publishedDate: paper.year?.toString() || "Unknown year",
+        journal: paper.journal?.name || "Unknown journal",
+        url:
+          paper.url || `https://www.semanticscholar.org/paper/${paper.paperId}`,
+        doi: paper.doi,
+        citationCount: paper.citationCount,
+        source: "semantic_scholar" as const
+      })) || []
+
+    console.log(`✅ [SEMANTIC_SCHOLAR] Found ${results.length} results`)
+    return results
+  } catch (error: any) {
+    if (error.response?.status === 429) {
+      console.warn("⚠️ [SEMANTIC_SCHOLAR] Rate limited (429), backing off...")
+      // Add extra delay for rate limiting
+      await new Promise(resolve => setTimeout(resolve, 60000)) // Wait 1 minute
+      return []
+    }
+    console.error("❌ [SEMANTIC_SCHOLAR] Search error:", error.message || error)
+    return []
+  }
+}
+
+// Enhanced Google Scholar search with better parsing
+async function searchGoogleScholar(
+  query: string,
+  maxResults: number = 10
+): Promise<SearchResult[]> {
+  try {
+    await rateLimiter.checkAndWait("scholar", 2)
+
+    console.log(`🔍 [SCHOLAR] Searching for: ${query}`)
+
+    const results = await scholarTool.invoke({
+      query,
+      num: maxResults
+    })
+
+    const parsedResults: SearchResult[] = []
+
+    if (results && typeof results === "string") {
+      try {
+        const data = JSON.parse(results)
+        const organicResults = data.organic_results || []
+
+        organicResults.forEach((result: any) => {
+          parsedResults.push({
+            title: result.title || "No title",
+            authors:
+              result.publication_info?.authors
+                ?.split(",")
+                .map((a: string) => a.trim()) || [],
+            abstract: result.snippet || "No abstract",
+            publishedDate:
+              result.publication_info?.summary?.match(/\d{4}/)?.[0] ||
+              "Unknown year",
+            journal: result.publication_info?.summary || "",
+            url: result.link || "",
+            citationCount: result.inline_links?.cited_by?.total || 0,
+            source: "scholar" as const
+          })
+        })
+      } catch (parseError) {
+        console.error("Error parsing Scholar results:", parseError)
+      }
+    }
+
+    console.log(`✅ [SCHOLAR] Found ${parsedResults.length} results`)
+    return parsedResults
+  } catch (error) {
+    console.error("❌ [SCHOLAR] Search error:", error)
+    return []
+  }
+}
+
+// Multi-source search aggregator with enhanced capabilities
+async function performMultiSourceSearch(
+  query: string,
+  maxResultsPerSource: number = 10
+): Promise<AggregatedSearchResults> {
+  console.log(`🚀 [MULTI_SEARCH] Starting comprehensive search for: ${query}`)
+
+  const searchPromises = [
+    searchPubMedEnhanced(query, maxResultsPerSource).catch(err => {
+      console.error("PubMed search failed:", err)
+      return []
+    }),
+    searchArXivEnhanced(query, maxResultsPerSource).catch(err => {
+      console.error("ArXiv search failed:", err)
+      return []
+    }),
+    searchSemanticScholar(query, maxResultsPerSource).catch(err => {
+      console.error("Semantic Scholar search failed:", err)
+      return []
+    }),
+    searchGoogleScholar(query, maxResultsPerSource).catch(err => {
+      console.error("Google Scholar search failed:", err)
+      return []
+    }),
+    searchTavilyEnhanced(query, maxResultsPerSource).catch(err => {
+      console.error("Tavily search failed:", err)
+      return []
+    })
+  ]
+
+  const [
+    pubmedResults,
+    arxivResults,
+    semanticScholarResults,
+    scholarResults,
+    tavilyResults
+  ] = await Promise.allSettled(searchPromises)
+
+  const aggregatedResults: AggregatedSearchResults = {
+    totalResults: 0,
+    sources: {
+      pubmed: pubmedResults.status === "fulfilled" ? pubmedResults.value : [],
+      arxiv: arxivResults.status === "fulfilled" ? arxivResults.value : [],
+      semanticScholar:
+        semanticScholarResults.status === "fulfilled"
+          ? semanticScholarResults.value
+          : [],
+      scholar:
+        scholarResults.status === "fulfilled" ? scholarResults.value : [],
+      tavily: tavilyResults.status === "fulfilled" ? tavilyResults.value : []
+    },
+    synthesizedFindings: {
+      keyMethodologies: [],
+      commonPitfalls: [],
+      recommendedApproaches: [],
+      novelInsights: []
+    },
+    searchMetrics: {
+      queryOptimization: [],
+      relevanceScores: [],
+      sourceWeights: {
+        pubmed: 0.9, // Highest weight for biomedical
+        arxiv: 0.8, // High for technical papers
+        semanticScholar: 0.85, // High for cross-disciplinary
+        scholar: 0.75, // Good general coverage
+        tavily: 0.7 // Recent/real-time content
+      }
+    }
+  }
+
+  aggregatedResults.totalResults =
+    aggregatedResults.sources.pubmed.length +
+    aggregatedResults.sources.arxiv.length +
+    aggregatedResults.sources.semanticScholar.length +
+    aggregatedResults.sources.scholar.length +
+    aggregatedResults.sources.tavily.length
+
+  console.log(
+    `✅ [MULTI_SEARCH] Completed. Total results: ${aggregatedResults.totalResults}`
+  )
+  console.log(
+    `📊 [MULTI_SEARCH] Distribution - PubMed: ${aggregatedResults.sources.pubmed.length}, ArXiv: ${aggregatedResults.sources.arxiv.length}, Semantic Scholar: ${aggregatedResults.sources.semanticScholar.length}, Scholar: ${aggregatedResults.sources.scholar.length}, Tavily: ${aggregatedResults.sources.tavily.length}`
+  )
+
+  return aggregatedResults
+}
+
+// AI-powered synthesis of search results
+async function synthesizeSearchResults(
+  searchResults: AggregatedSearchResults,
+  researchProblem: string
+): Promise<AggregatedSearchResults> {
+  console.log(
+    `🧠 [SYNTHESIS] Analyzing ${searchResults.totalResults} papers for insights`
+  )
+
+  const allResults = [
+    ...searchResults.sources.pubmed,
+    ...searchResults.sources.arxiv,
+    ...searchResults.sources.semanticScholar,
+    ...searchResults.sources.scholar
+  ]
+
+  if (allResults.length === 0) {
+    console.log(`⚠️ [SYNTHESIS] No results to synthesize`)
+    return searchResults
+  }
+
+  const synthesispapers = allResults.slice(0, 20) // Limit for token constraints
+
+  const synthesisPrompt = `You are an expert research analyst. Analyze the following research papers and extract key insights for the research problem: "${researchProblem}"
+
+Papers to analyze:
+${synthesispapers
+  .map(
+    (paper, idx) => `
+${idx + 1}. Title: ${paper.title}
+   Authors: ${paper.authors.join(", ")}
+   Abstract: ${paper.abstract.substring(0, 300)}...
+   Source: ${paper.source}
+   Year: ${paper.publishedDate}
+`
+  )
+  .join("\n")}
+
+Extract and categorize insights into:
+1. Key methodologies used across papers
+2. Common pitfalls mentioned or implied
+3. Recommended approaches based on successful studies
+4. Novel insights or emerging trends
+
+Provide specific, actionable insights relevant to experimental design.`
+
+  try {
+    const completion = await openai.chat.completions.create({
+      model: MODEL_NAME,
+      messages: [
+        {
+          role: "system",
+          content:
+            "You are an expert research analyst who extracts actionable insights from academic literature."
+        },
+        { role: "user", content: synthesisPrompt }
+      ],
+      temperature: 0.3
+    })
+
+    const response = completion.choices[0].message.content || ""
+
+    // Parse the response to extract categorized insights
+    const methodologies =
+      response
+        .match(
+          /methodologies?:?\s*(.*?)(?=pitfalls?|recommended|novel|$)/is
+        )?.[1]
+        ?.split(/[\n•-]/)
+        .filter(s => s.trim()) || []
+    const pitfalls =
+      response
+        .match(
+          /pitfalls?:?\s*(.*?)(?=methodologies?|recommended|novel|$)/is
+        )?.[1]
+        ?.split(/[\n•-]/)
+        .filter(s => s.trim()) || []
+    const approaches =
+      response
+        .match(
+          /recommended.*?approaches?:?\s*(.*?)(?=methodologies?|pitfalls?|novel|$)/is
+        )?.[1]
+        ?.split(/[\n•-]/)
+        .filter(s => s.trim()) || []
+    const insights =
+      response
+        .match(
+          /novel.*?insights?:?\s*(.*?)(?=methodologies?|pitfalls?|recommended|$)/is
+        )?.[1]
+        ?.split(/[\n•-]/)
+        .filter(s => s.trim()) || []
+
+    searchResults.synthesizedFindings = {
+      keyMethodologies: methodologies
+        .map(m => m.trim())
+        .filter(m => m.length > 10),
+      commonPitfalls: pitfalls.map(p => p.trim()).filter(p => p.length > 10),
+      recommendedApproaches: approaches
+        .map(a => a.trim())
+        .filter(a => a.length > 10),
+      novelInsights: insights.map(i => i.trim()).filter(i => i.length > 10)
+    }
+
+    console.log(
+      `✅ [SYNTHESIS] Extracted insights - Methodologies: ${searchResults.synthesizedFindings.keyMethodologies.length}, Pitfalls: ${searchResults.synthesizedFindings.commonPitfalls.length}, Approaches: ${searchResults.synthesizedFindings.recommendedApproaches.length}, Insights: ${searchResults.synthesizedFindings.novelInsights.length}`
+    )
+  } catch (error) {
+    console.error("❌ [SYNTHESIS] Error:", error)
+  }
+
+  return searchResults
+}
 
 type ReportTheoryType = z.infer<typeof ReportTheorySchema>
 
@@ -94,6 +755,13 @@ type ExperimentDesignState = {
       methodology: string
       pitfalls: string[]
     }>
+    searchResults?: AggregatedSearchResults
+    synthesizedInsights?: {
+      keyMethodologies: string[]
+      commonPitfalls: string[]
+      recommendedApproaches: string[]
+      novelInsights: string[]
+    }
   }
   dataAnalysis: {
     correlations: string[]
@@ -382,12 +1050,44 @@ export async function POST(req: Request) {
     const { problem, objectives, variables, specialConsiderations } =
       requestData
 
+    // Add detailed validation logging
+    console.log("🔍 [DESIGN_DRAFT] Extracted fields:")
+    console.log("  Problem:", problem)
+    console.log(
+      "  Objectives:",
+      Array.isArray(objectives) ? objectives : "Not an array",
+      objectives?.length || 0
+    )
+    console.log(
+      "  Variables:",
+      Array.isArray(variables) ? variables : "Not an array",
+      variables?.length || 0
+    )
+    console.log(
+      "  Special Considerations:",
+      Array.isArray(specialConsiderations)
+        ? specialConsiderations
+        : "Not an array",
+      specialConsiderations?.length || 0
+    )
+
+    // Validate that required data is present
+    if (!problem) {
+      console.error("❌ [DESIGN_DRAFT] No problem provided")
+      return NextResponse.json(
+        { success: false, error: "Problem is required" },
+        { status: 400 }
+      )
+    }
+
     console.log("🔧 [DESIGN_DRAFT] Creating initial state")
     const initialState: ExperimentDesignState = {
       problem: problem || "",
-      objectives: objectives || [],
-      variables: variables || [],
-      specialConsiderations: specialConsiderations || [],
+      objectives: Array.isArray(objectives) ? objectives : [],
+      variables: Array.isArray(variables) ? variables : [],
+      specialConsiderations: Array.isArray(specialConsiderations)
+        ? specialConsiderations
+        : [],
       literatureFindings: { papers: [] },
       dataAnalysis: {
         correlations: [],
@@ -414,6 +1114,14 @@ export async function POST(req: Request) {
         recommendations: ""
       }
     }
+
+    console.log("📋 [DESIGN_DRAFT] Initial state created:")
+    console.log("  State objectives:", initialState.objectives?.length || 0)
+    console.log("  State variables:", initialState.variables?.length || 0)
+    console.log(
+      "  State special considerations:",
+      initialState.specialConsiderations?.length || 0
+    )
 
     console.log("🔄 [DESIGN_DRAFT] Starting workflow execution")
     let finalState: ExperimentDesignState | undefined
@@ -480,12 +1188,9 @@ export async function POST(req: Request) {
 
     if (finalState) {
       console.log("🏁 [DESIGN_DRAFT] Workflow completed successfully")
-      console.log("📤 [DESIGN_DRAFT] Returning response data")
+      console.log("📤 [DESIGN_DRAFT] Returning complete design state")
 
-      return NextResponse.json({
-        experimentDesign: finalState.experimentDesign,
-        finalReport: finalState.finalReport
-      })
+      return NextResponse.json(finalState)
     }
 
     console.error("❌ [DESIGN_DRAFT] No final state produced")
@@ -544,57 +1249,362 @@ Initial Parameters:
 async function callLiteratureResearchAgent(
   state: ExperimentDesignState
 ): Promise<ExperimentDesignState> {
-  console.log("📚 [LITERATURE_AGENT] Starting...")
-  const systemPrompt = `You are an experienced senior scientist and literature researcher specializing in biopharma experiments. Your role is to assist in crafting a robust experiment design by conducting a targeted literature review. By saving the user time, you provide a comprehensive summary of relevant findings from credible online sources that guide the design process for solving the given research problem.
-Your primary responsibilities include:
-Understanding the Experiment Parameters:
-Review the user-provided objective, key variables, and constraints.
-Use this information to focus your literature search on studies and methodologies relevant to the research problem.
-Conducting a Literature Search:
-Use Google Scholar tool to find recent and relevant studies.
-Prioritize peer-reviewed publications, scholarly articles, and publicly available datasets that align with the experiment’s objectives.
-Summarizing Findings:
-Extract and summarize key insights from the literature - from the literature you have searched or the literature provided by the user, including:
-Similar experiments or methodologies used for addressing comparable problems.
-Unique techniques, tools, or frameworks applicable to the research objective.
-Potential challenges that could arise during experiment design or execution.
-Provide links and citations for all sources in APA format to ensure traceability.
-Organizing the Summary:
-Present the findings in an organized and accessible format, categorizing insights into themes such as methods, challenges, and findings.
-Ensure the summary is concise yet detailed enough to inform downstream agents and aid the experiment design.
+  console.log(
+    "📚 [LITERATURE_AGENT] Starting enhanced comprehensive literature search..."
+  )
 
-Constraints:
-Focus solely on literature research; do not generate experiment designs or perform data analysis.
-Ensure all sources are reputable, peer-reviewed, or from trusted platforms.
-Maintain a neutral, scientific tone throughout the summary.
-To complete your task, refer to the following:
-Objective: ${state.objectives.join("\n")} 
-Key Variables: ${state.variables.join("\n")}
-Constraints: ${state.specialConsiderations.join("\n")}
-Output:
-Provide:
-A detailed summary of findings categorized for easy understanding.
-Citations and links to all referenced sources.
-Recommendations based on insights from the literature (e.g., promising methodologies or considerations for design).`
+  // Enhanced query optimization using the new function
+  const queryData = optimizeSearchQuery(
+    state.problem,
+    state.objectives,
+    state.variables,
+    "biomedical"
+  )
+
+  console.log(`🎯 [LITERATURE_AGENT] Primary query: ${queryData.primaryQuery}`)
+  console.log(
+    `🔄 [LITERATURE_AGENT] Alternative queries: ${queryData.alternativeQueries.length}`
+  )
+  console.log(
+    `📝 [LITERATURE_AGENT] Enhanced keywords: ${queryData.keywords.slice(0, 10).join(", ")}`
+  )
 
   try {
-    console.log("📝 [LITERATURE_AGENT] Sending prompt to model")
+    // Perform multi-query search for better coverage
+    console.log(
+      "🚀 [LITERATURE_AGENT] Executing multi-query search strategy..."
+    )
+
+    const searchPromises = [
+      // Primary query with highest weight
+      performMultiSourceSearch(queryData.primaryQuery, 8),
+      // Alternative queries with reduced results
+      ...queryData.alternativeQueries
+        .slice(0, 2)
+        .map(altQuery => performMultiSourceSearch(altQuery, 4))
+    ]
+
+    const allSearchResults = await Promise.allSettled(searchPromises)
+
+    // Aggregate results from all queries
+    const consolidatedResults: AggregatedSearchResults = {
+      totalResults: 0,
+      sources: {
+        pubmed: [],
+        arxiv: [],
+        semanticScholar: [],
+        scholar: [],
+        tavily: []
+      },
+      synthesizedFindings: {
+        keyMethodologies: [],
+        commonPitfalls: [],
+        recommendedApproaches: [],
+        novelInsights: []
+      },
+      searchMetrics: {
+        queryOptimization: queryData.alternativeQueries,
+        relevanceScores: [],
+        sourceWeights: {
+          pubmed: 0.9,
+          arxiv: 0.8,
+          semanticScholar: 0.85,
+          scholar: 0.75,
+          tavily: 0.7
+        }
+      }
+    }
+
+    // Merge results with deduplication by URL
+    const seenUrls = new Set<string>()
+
+    allSearchResults.forEach(result => {
+      if (result.status === "fulfilled") {
+        const searchResult = result.value
+
+        Object.keys(searchResult.sources).forEach(sourceKey => {
+          const source = sourceKey as keyof typeof searchResult.sources
+          searchResult.sources[source].forEach(paper => {
+            if (!seenUrls.has(paper.url) && paper.url) {
+              seenUrls.add(paper.url)
+              consolidatedResults.sources[source].push({
+                ...paper,
+                // Boost relevance score for papers matching multiple queries
+                relevanceScore: (paper.relevanceScore || 0) + 0.1
+              })
+            }
+          })
+        })
+      }
+    })
+
+    // Sort results by relevance within each source
+    Object.keys(consolidatedResults.sources).forEach(sourceKey => {
+      const source = sourceKey as keyof typeof consolidatedResults.sources
+      consolidatedResults.sources[source].sort(
+        (a, b) => (b.relevanceScore || 0) - (a.relevanceScore || 0)
+      )
+      // Keep top results per source
+      consolidatedResults.sources[source] = consolidatedResults.sources[
+        source
+      ].slice(0, 12)
+    })
+
+    consolidatedResults.totalResults =
+      consolidatedResults.sources.pubmed.length +
+      consolidatedResults.sources.arxiv.length +
+      consolidatedResults.sources.semanticScholar.length +
+      consolidatedResults.sources.scholar.length +
+      consolidatedResults.sources.tavily.length
+
+    console.log(
+      `📊 [LITERATURE_AGENT] Consolidated ${consolidatedResults.totalResults} unique papers`
+    )
+
+    // Enhanced AI synthesis with domain expertise
+    console.log("🧠 [LITERATURE_AGENT] Performing AI-powered synthesis...")
+    const synthesizedResults = await synthesizeSearchResults(
+      consolidatedResults,
+      state.problem
+    )
+
+    // Store the search results in the state
+    const updatedState = {
+      ...state,
+      literatureFindings: {
+        ...state.literatureFindings,
+        searchResults: synthesizedResults,
+        synthesizedInsights: synthesizedResults.synthesizedFindings,
+        papers: [] // Will be populated by AI analysis below
+      }
+    }
+
+    // Enhanced system prompt with comprehensive search insights
+    const systemPrompt = `You are an expert senior scientist and literature researcher specializing in biopharma experiments. You have completed a state-of-the-art multi-source literature search using optimized queries and advanced search strategies.
+
+ENHANCED SEARCH OVERVIEW:
+- Total unique papers analyzed: ${synthesizedResults.totalResults}
+- Search strategy: Multi-query approach with ${queryData.alternativeQueries.length + 1} optimized queries
+- Primary query: "${queryData.primaryQuery}"
+- Enhanced keywords: ${queryData.keywords.slice(0, 15).join(", ")}
+
+SOURCE DISTRIBUTION & WEIGHTS:
+- PubMed (biomedical, weight: 0.9): ${synthesizedResults.sources.pubmed.length} papers
+- ArXiv (technical preprints, weight: 0.8): ${synthesizedResults.sources.arxiv.length} papers  
+- Semantic Scholar (cross-disciplinary, weight: 0.85): ${synthesizedResults.sources.semanticScholar.length} papers
+- Google Scholar (comprehensive, weight: 0.75): ${synthesizedResults.sources.scholar.length} papers
+- Tavily (recent/real-time, weight: 0.7): ${synthesizedResults.sources.tavily.length} papers
+
+AI-SYNTHESIZED INSIGHTS:
+Key Methodologies: ${synthesizedResults.synthesizedFindings.keyMethodologies.join("; ")}
+Common Pitfalls: ${synthesizedResults.synthesizedFindings.commonPitfalls.join("; ")}
+Recommended Approaches: ${synthesizedResults.synthesizedFindings.recommendedApproaches.join("; ")}
+Novel Insights: ${synthesizedResults.synthesizedFindings.novelInsights.join("; ")}
+
+TOP PAPERS BY RELEVANCE (Multi-Source):
+
+PubMed Results (Biomedical Literature):
+${synthesizedResults.sources.pubmed
+  .slice(0, 5)
+  .map(
+    (paper, idx) => `
+${idx + 1}. ${paper.title} (Relevance: ${paper.relevanceScore?.toFixed(2)})
+   Authors: ${paper.authors.join(", ")}
+   Journal: ${paper.journal} | Year: ${paper.publishedDate}
+   URL: ${paper.url}
+   Abstract: ${paper.abstract.substring(0, 400)}...
+`
+  )
+  .join("\n")}
+
+ArXiv Results (Technical Preprints):
+${synthesizedResults.sources.arxiv
+  .slice(0, 3)
+  .map(
+    (paper, idx) => `
+${idx + 1}. ${paper.title} (Relevance: ${paper.relevanceScore?.toFixed(2)})
+   Authors: ${paper.authors.join(", ")}
+   Year: ${paper.publishedDate}
+   URL: ${paper.url}
+   Abstract: ${paper.abstract.substring(0, 400)}...
+`
+  )
+  .join("\n")}
+
+Semantic Scholar Results (Cross-disciplinary):
+${synthesizedResults.sources.semanticScholar
+  .slice(0, 3)
+  .map(
+    (paper, idx) => `
+${idx + 1}. ${paper.title} (Relevance: ${paper.relevanceScore?.toFixed(2)})
+   Authors: ${paper.authors.join(", ")}
+   Journal: ${paper.journal} | Year: ${paper.publishedDate}
+   Citations: ${paper.citationCount || "N/A"}
+   DOI: ${paper.doi || "N/A"}
+   URL: ${paper.url}
+   Abstract: ${paper.abstract.substring(0, 400)}...
+`
+  )
+  .join("\n")}
+
+Google Scholar Results (Comprehensive Coverage):
+${synthesizedResults.sources.scholar
+  .slice(0, 3)
+  .map(
+    (paper, idx) => `
+${idx + 1}. ${paper.title} (Relevance: ${paper.relevanceScore?.toFixed(2)})
+   Authors: ${paper.authors.join(", ")}
+   Year: ${paper.publishedDate}
+   Citations: ${paper.citationCount || "N/A"}
+   URL: ${paper.url}
+   Abstract: ${paper.abstract.substring(0, 400)}...
+`
+  )
+  .join("\n")}
+
+Tavily Results (Recent Developments):
+${synthesizedResults.sources.tavily
+  .slice(0, 2)
+  .map(
+    (paper, idx) => `
+${idx + 1}. ${paper.title} (Relevance: ${paper.relevanceScore?.toFixed(2)})
+   URL: ${paper.url}
+   Content: ${paper.abstract.substring(0, 400)}...
+`
+  )
+  .join("\n")}
+
+Your expert task is to:
+1. Analyze ALL search results from multiple sources with their relevance scores
+2. Prioritize high-impact, recent, and highly-cited papers
+3. Extract cutting-edge methodologies and latest developments
+4. Identify cross-disciplinary insights and novel approaches
+5. Provide evidence-based recommendations for experimental design
+6. Synthesize findings across different academic sources
+
+Research Context:
+- Problem: ${state.problem}
+- Objectives: ${state.objectives.join("; ")}
+- Variables: ${state.variables.join("; ")}
+- Special Considerations: ${state.specialConsiderations.join("; ")}
+
+Requirements:
+- Prioritize papers with highest relevance scores and citation counts
+- Focus on experimental design methodologies relevant to biomedical research
+- Highlight methodological innovations and recent breakthroughs
+- Identify potential challenges based on latest research findings
+- Provide specific citations with URLs for full traceability
+- Consider both established practices and emerging approaches
+- Maintain scientific rigor while incorporating diverse perspectives
+
+Format your response to include:
+1. Executive summary of most impactful findings
+2. Evidence-based methodological recommendations
+3. Critical analysis of potential pitfalls with mitigation strategies
+4. Novel insights and emerging trends
+5. Comprehensive bibliography with relevance scoring`
+
+    console.log(
+      "📝 [LITERATURE_AGENT] Sending enhanced analysis to AI model..."
+    )
     const completion = await openai.beta.chat.completions.parse({
       model: MODEL_NAME,
       messages: [
         { role: "system", content: systemPrompt },
-        { role: "user", content: JSON.stringify(state) }
+        {
+          role: "user",
+          content: `Please analyze these ${synthesizedResults.totalResults} research papers from ${Object.keys(synthesizedResults.sources).length} sources and provide comprehensive insights for experimental design. Focus on evidence-based methodologies and cutting-edge approaches.`
+        }
       ],
       response_format: zodResponseFormat(
         ExperimentDesignSchema,
         "experimentDesign"
       )
     })
-    console.log("✅ [LITERATURE_AGENT] Successfully received response")
-    return completion.choices[0].message.parsed!
+
+    const aiAnalysis = completion.choices[0].message.parsed!
+    console.log(
+      "✅ [LITERATURE_AGENT] Enhanced AI analysis completed successfully"
+    )
+
+    // Merge the AI analysis with our enhanced search results
+    const finalState = {
+      ...aiAnalysis,
+      literatureFindings: {
+        ...aiAnalysis.literatureFindings,
+        searchResults: synthesizedResults,
+        synthesizedInsights: synthesizedResults.synthesizedFindings
+      }
+    }
+
+    console.log(
+      `📊 [LITERATURE_AGENT] Enhanced Summary - Papers: ${synthesizedResults.totalResults}, Queries: ${queryData.alternativeQueries.length + 1}, Methodologies: ${synthesizedResults.synthesizedFindings.keyMethodologies.length}, Pitfalls: ${synthesizedResults.synthesizedFindings.commonPitfalls.length}`
+    )
+
+    return finalState
   } catch (error) {
-    console.error("❌ [LITERATURE_AGENT] Error:", error)
-    throw error
+    console.error(
+      "❌ [LITERATURE_AGENT] Error during enhanced search and analysis:",
+      error
+    )
+
+    // Enhanced fallback with query optimization
+    console.log(
+      "🔄 [LITERATURE_AGENT] Falling back to optimized single-query search..."
+    )
+    try {
+      const fallbackResults = await performMultiSourceSearch(
+        queryData.primaryQuery,
+        10
+      )
+
+      const fallbackPrompt = `You are an experienced senior scientist and literature researcher. Based on the following optimized search results, provide comprehensive insights for experimental design.
+
+Enhanced Search Query: ${queryData.primaryQuery}
+Keywords: ${queryData.keywords.slice(0, 10).join(", ")}
+
+Search Results Summary:
+- Total papers: ${fallbackResults.totalResults}
+- PubMed: ${fallbackResults.sources.pubmed.length}
+- ArXiv: ${fallbackResults.sources.arxiv.length}
+- Semantic Scholar: ${fallbackResults.sources.semanticScholar.length}
+- Google Scholar: ${fallbackResults.sources.scholar.length}
+- Tavily: ${fallbackResults.sources.tavily.length}
+
+Research Problem: ${state.problem}
+Objectives: ${state.objectives.join("; ")}
+Variables: ${state.variables.join("; ")}
+Constraints: ${state.specialConsiderations.join("; ")}
+
+Provide actionable insights for experimental design including evidence-based methodologies, potential pitfalls, and cutting-edge recommendations.`
+
+      const fallbackCompletion = await openai.beta.chat.completions.parse({
+        model: MODEL_NAME,
+        messages: [
+          { role: "system", content: fallbackPrompt },
+          { role: "user", content: JSON.stringify(state) }
+        ],
+        response_format: zodResponseFormat(
+          ExperimentDesignSchema,
+          "experimentDesign"
+        )
+      })
+
+      console.log("✅ [LITERATURE_AGENT] Enhanced fallback analysis completed")
+      return {
+        ...fallbackCompletion.choices[0].message.parsed!,
+        literatureFindings: {
+          ...fallbackCompletion.choices[0].message.parsed!.literatureFindings,
+          searchResults: fallbackResults
+        }
+      }
+    } catch (fallbackError) {
+      console.error(
+        "❌ [LITERATURE_AGENT] Enhanced fallback also failed:",
+        fallbackError
+      )
+      throw fallbackError
+    }
   }
 }
 
@@ -621,7 +1631,7 @@ Ensure all findings are tied back to the current research problem and experiment
 Maintain a neutral, scientific tone and ensure all insights are actionable and concise.
 Output:
 Provide:
-A clear and concise summary of findings, organized by relevance to the experiment’s objective, key variables, and constraints.
+A clear and concise summary of findings, organized by relevance to the experiment's objective, key variables, and constraints.
 Any visualizations present in the data files or generated to illustrate key trends.
 Links to sources or datasets where the findings were derived for traceability.
 To perform your task, use the following:
@@ -710,7 +1720,7 @@ Recommend statistical methods for analyzing the results (e.g., ANOVA, regression
 Define the criteria for statistical significance (e.g., p-value threshold) and detail how the data will be interpreted to validate the hypothesis.
 Constraints:
 Focus solely on generating the hypothesis, DOE, and statistical plan (if requested). Do not interpret results or perform data analysis.
-Ensure all recommendations are scientifically sound, feasible, and tailored to the user’s research problem.
+Ensure all recommendations are scientifically sound, feasible, and tailored to the user's research problem.
 Present the output in a well-organized format, making it easy for the user to understand and implement.
 Output:
 Provide:
@@ -752,13 +1762,13 @@ Perform viscosity measurements using a capillary viscometer at 25°C.
 Evaluate protein stability with Circular Dichroism (CD) and Differential Scanning Calorimetry (DSC) for all combinations.
 
 3. Statistical Plan (Optional – User Requested)
-Recommended Statistical Methods:
-Use factorial Analysis of Variance (ANOVA) to evaluate the interaction effects of sorbitol, trehalose, and sodium citrate on viscosity.
+Methods:
+Factorial Analysis of Variance (ANOVA) to evaluate the interaction effects of sorbitol, trehalose, and sodium citrate on viscosity.
 Apply response surface methodology (RSM) to model the optimal excipient concentrations and their combined effects.
-Post-hoc pairwise comparison tests (e.g., Tukey’s HSD) to identify significant differences between conditions.
+Post-hoc pairwise comparison tests (e.g., Tukey's HSD) to identify significant differences between conditions.
 Criteria for Statistical Significance:
-p-value threshold: 0.05.
-Effect size (partial eta squared) to assess practical significance.
+p-value < 0.05.
+Effect size (partial eta squared) for practical significance.
 Additional Considerations:
 Conduct residual analysis to validate the assumptions of ANOVA.
 Correlate stability findings (from CD and DSC) with viscosity results to ensure excipient combinations meet stability constraints.`

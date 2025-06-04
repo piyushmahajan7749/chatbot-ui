@@ -150,8 +150,8 @@ CREATE OR REPLACE FUNCTION public.delete_storage_object(bucket text, object text
  SECURITY DEFINER
 AS $function$
 DECLARE
-  project_url TEXT := 'https://qqhsngqxabvxtelowcli.supabase.co';
-  service_role_key TEXT := 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFxaHNuZ3F4YWJ2eHRlbG93Y2xpIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTcyODUwMjQzNiwiZXhwIjoyMDQ0MDc4NDM2fQ.gY5-OriAflk_Oz455mxRcMS0WGYnNfl0xmgTHL8YZiE'; -- full access needed for http request to storage
+  project_url TEXT := 'https://qcimhigugrhkabavqfgz.supabase.co';
+  service_role_key TEXT := 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFjaW1oaWd1Z3Joa2FiYXZxZmd6Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc0OTA3MDM0OSwiZXhwIjoyMDY0NjQ2MzQ5fQ.PYBkksLTZ-Orwod-fuZMCuzoJWSZKXCkpepTfaNMM1A';
   url TEXT := project_url || '/storage/v1/object/' || bucket || '/' || object;
 BEGIN
   SELECT

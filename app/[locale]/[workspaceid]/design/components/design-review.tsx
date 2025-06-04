@@ -3,32 +3,122 @@
 import { Button } from "@/components/ui/button"
 import { ChatbotUIContext } from "@/context/context"
 import { useDesignContext } from "@/context/designcontext"
-import { getDesigns } from "@/db/designs"
+
 import { Tables } from "@/supabase/types"
-import { FC, useContext, useEffect, useState } from "react"
-import { Input } from "@/components/ui/input"
-import { Separator } from "@/components/ui/separator"
+import { useContext, useEffect, useState } from "react"
 import {
-  Edit,
-  Sparkles,
   ChevronUp,
-  X,
-  Check,
-  ChevronRight,
-  CopyIcon,
-  DownloadIcon
+  ExternalLink,
+  Search,
+  BookOpen,
+  TrendingUp,
+  AlertTriangle,
+  Lightbulb,
+  Database,
+  FileText,
+  BarChart3,
+  Globe,
+  ChevronDown
 } from "lucide-react"
 import Loading from "@/app/[locale]/loading"
 import ReactMarkdown from "react-markdown"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { Loader } from "@/components/ui/loader"
 import PptxGenJS from "pptxgenjs"
+import { toast } from "sonner"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Badge } from "@/components/ui/badge"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Progress } from "@/components/ui/progress"
 
 // Add this type at the top of the file, after imports
 type DesignWithProblem = Tables<"designs"> & { problem?: string }
 
+interface SearchResult {
+  title: string
+  authors: string[]
+  abstract: string
+  doi?: string
+  url: string
+  publishedDate: string
+  journal?: string
+  citationCount?: number
+  source: "pubmed" | "arxiv" | "scholar" | "semantic_scholar" | "tavily"
+  relevanceScore?: number
+}
+
+interface AggregatedSearchResults {
+  totalResults: number
+  sources: {
+    pubmed: SearchResult[]
+    arxiv: SearchResult[]
+    scholar: SearchResult[]
+    semanticScholar: SearchResult[]
+    tavily: SearchResult[]
+  }
+  synthesizedFindings: {
+    keyMethodologies: string[]
+    commonPitfalls: string[]
+    recommendedApproaches: string[]
+    novelInsights: string[]
+  }
+}
+
 interface DesignReviewProps {
-  designId: string
+  designData: {
+    problem: string
+    objectives: string[]
+    variables: string[]
+    specialConsiderations: string[]
+    literatureFindings: {
+      papers: Array<{
+        title: string
+        summary: string
+        relevance: string
+        methodology: string
+        pitfalls: string[]
+      }>
+      searchResults?: AggregatedSearchResults
+      synthesizedInsights?: {
+        keyMethodologies: string[]
+        commonPitfalls: string[]
+        recommendedApproaches: string[]
+        novelInsights: string[]
+      }
+    }
+    dataAnalysis: {
+      correlations: string[]
+      outliers: string[]
+      keyFindings: string[]
+      metrics: string[]
+    }
+    experimentDesign: {
+      hypothesis: string
+      factors: Array<{
+        name: string
+        levels: string[]
+      }>
+      randomization: string
+      statisticalPlan: {
+        methods: string[]
+        significance: string
+      }
+    }
+    finalReport: {
+      introduction: string
+      literatureSummary: string
+      dataInsights: string
+      hypothesis: string
+      designOfExperiments: string
+      statisticalAnalysis: string
+      recommendations: string
+    }
+  }
+  onApprove?: () => void
+  onRegenerate?: (feedback: string) => void
+  isRegenerating?: boolean
+  skipApiCalls?: boolean
+  dataSource?: "generated" | "database" | null
 }
 
 // Helper functions for PPT generation
@@ -77,11 +167,18 @@ function getContentSlide(pptx: PptxGenJS, title: string, content: string) {
   })
 }
 
-export const DesignReviewComponent: FC<DesignReviewProps> = ({ designId }) => {
+export function DesignReview({
+  designData,
+  onApprove,
+  onRegenerate,
+  isRegenerating,
+  skipApiCalls,
+  dataSource
+}: DesignReviewProps) {
   const { profile } = useContext(ChatbotUIContext)
   const { selectedDesign, setSelectedDesign } = useDesignContext()
 
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading] = useState(false)
   const [contentLoading, setContentLoading] = useState(true)
   const [isEditing, setIsEditing] = useState(false)
   const [generatedOutline, setGeneratedOutline] = useState<string[]>([])
@@ -94,6 +191,12 @@ export const DesignReviewComponent: FC<DesignReviewProps> = ({ designId }) => {
   const [isQuestionSectionVisible, setIsQuestionSectionVisible] = useState(true)
   const [isRegenerateLoading, setRegenerateLoading] = useState(false)
   const [localDesign, setLocalDesign] = useState<DesignWithProblem | null>(null)
+  const [expandedSections, setExpandedSections] = useState<
+    Record<string, boolean>
+  >({})
+  const [feedback, setFeedback] = useState("")
+  const [selectedSource, setSelectedSource] = useState<string>("overview")
+  const [searchProgress, setSearchProgress] = useState(0)
 
   // Mapping for nicer display of section names
   const outlineMapping: Record<string, string> = {
@@ -108,20 +211,78 @@ export const DesignReviewComponent: FC<DesignReviewProps> = ({ designId }) => {
   }
 
   useEffect(() => {
-    // Call fetchDesign on component mount
-    if (designId) {
+    // Skip API calls if data is already provided
+    if (skipApiCalls && designData.problem) {
+      console.log("🚫 [DESIGN_REVIEW] Skipping API calls, using provided data")
+      console.log("📊 [DESIGN_REVIEW] Data source:", dataSource)
+
+      // Set up the design data directly without API calls
+      const designWithProblem: DesignWithProblem = {
+        id: designData.problem,
+        user_id: profile?.id || "",
+        name: designData.problem,
+        description: "Design loaded from " + (dataSource || "unknown source"),
+        problem: designData.problem,
+        sharing: "private",
+        created_at: new Date().toISOString(),
+        updated_at: null,
+        folder_id: null,
+        objectives: designData.objectives || null,
+        special_considerations: designData.specialConsiderations || null,
+        variables: designData.variables || null
+      } as DesignWithProblem
+
+      setSelectedDesign(designWithProblem)
+      setLocalDesign(designWithProblem)
+
+      // Set up content from the provided design data
+      const designContent: Record<string, string> = {}
+
+      if (designData.finalReport.introduction)
+        designContent.introduction = designData.finalReport.introduction
+      if (designData.finalReport.literatureSummary)
+        designContent.literatureSummary =
+          designData.finalReport.literatureSummary
+      if (designData.finalReport.dataInsights)
+        designContent.dataInsights = designData.finalReport.dataInsights
+      if (designData.finalReport.hypothesis)
+        designContent.hypothesis = designData.finalReport.hypothesis
+      if (designData.finalReport.designOfExperiments)
+        designContent.designOfExperiments =
+          designData.finalReport.designOfExperiments
+      if (designData.finalReport.statisticalAnalysis)
+        designContent.statisticalAnalysis =
+          designData.finalReport.statisticalAnalysis
+      if (designData.finalReport.recommendations)
+        designContent.recommendations = designData.finalReport.recommendations
+
+      // Set the outline and section contents
+      const outlineKeys = Object.keys(designContent)
+      setGeneratedOutline(outlineKeys)
+      setSectionContents(designContent)
+      setContentLoading(false)
+      setActiveSection(0)
+
+      console.log(
+        "✅ [DESIGN_REVIEW] Successfully set up design from provided data"
+      )
+      return
+    }
+
+    // Original API-based logic
+    if (designData.problem) {
       fetchDesign()
     } else {
       // If no designId, generate a new draft
-      generateDraft("New Design", "Initial design description")
+      // generateDraft("New Design", "Initial design description")
     }
-  }, [designId])
+  }, [designData.problem, skipApiCalls, dataSource])
 
   const fetchDesign = async () => {
     try {
       setLoading(true)
       setContentLoading(true)
-      const response = await fetch(`/api/design/${designId}`)
+      const response = await fetch(`/api/design/${designData.problem}`)
 
       if (!response.ok) {
         throw new Error(`Error fetching design: ${response.status}`)
@@ -216,19 +377,22 @@ export const DesignReviewComponent: FC<DesignReviewProps> = ({ designId }) => {
         if (!selectedDesign) {
           console.log("No selectedDesign found, creating a new one")
           // Create a basic design if none exists
-          const newDesign: DesignWithProblem = {
-            id: designId || Date.now().toString(),
+          const fallbackDesign: DesignWithProblem = {
+            id: designData.problem || Date.now().toString(),
             user_id: profile?.id || "",
-            name: design.name,
-            description: design.description,
-            problem: design.problem || design.name,
+            name: "Design Draft",
+            description: "Generated design",
+            problem: "Design Draft",
             sharing: "private",
             created_at: new Date().toISOString(),
             updated_at: null,
-            folder_id: null
-          }
-          setSelectedDesign(newDesign)
-          setLocalDesign(newDesign)
+            folder_id: null,
+            objectives: null,
+            special_considerations: null,
+            variables: null
+          } as DesignWithProblem
+          setSelectedDesign(fallbackDesign)
+          setLocalDesign(fallbackDesign)
         } else {
           console.log("Selected design exists:", selectedDesign)
           setLocalDesign(selectedDesign)
@@ -320,7 +484,7 @@ export const DesignReviewComponent: FC<DesignReviewProps> = ({ designId }) => {
 
         // Create a design object with the generated data
         const designWithProblem: DesignWithProblem = {
-          id: designId || Date.now().toString(),
+          id: designData.problem || Date.now().toString(),
           user_id: "",
           name: problem,
           description: description,
@@ -328,8 +492,11 @@ export const DesignReviewComponent: FC<DesignReviewProps> = ({ designId }) => {
           created_at: new Date().toISOString(),
           updated_at: null,
           folder_id: null,
-          problem: problem
-        }
+          problem: problem,
+          objectives: null,
+          special_considerations: null,
+          variables: null
+        } as DesignWithProblem
 
         setSelectedDesign(designWithProblem)
         setLocalDesign(designWithProblem)
@@ -405,7 +572,7 @@ export const DesignReviewComponent: FC<DesignReviewProps> = ({ designId }) => {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          designId,
+          designId: designData.problem,
           sectionName: currentSectionName,
           currentContent: currentContent,
           userFeedback: question
@@ -472,7 +639,7 @@ export const DesignReviewComponent: FC<DesignReviewProps> = ({ designId }) => {
           "Creating fallback design because content exists but no design is selected"
         )
         const fallbackDesign: DesignWithProblem = {
-          id: designId || Date.now().toString(),
+          id: designData.problem || Date.now().toString(),
           user_id: profile?.id || "",
           name: "Design Draft",
           description: "Generated design",
@@ -480,8 +647,11 @@ export const DesignReviewComponent: FC<DesignReviewProps> = ({ designId }) => {
           sharing: "private",
           created_at: new Date().toISOString(),
           updated_at: null,
-          folder_id: null
-        }
+          folder_id: null,
+          objectives: null,
+          special_considerations: null,
+          variables: null
+        } as DesignWithProblem
         setSelectedDesign(fallbackDesign)
         setLocalDesign(fallbackDesign)
       }
@@ -491,9 +661,392 @@ export const DesignReviewComponent: FC<DesignReviewProps> = ({ designId }) => {
     sectionContents,
     selectedDesign,
     localDesign,
-    designId,
+    designData.problem,
     profile
   ])
+
+  // Calculate search progress based on available results
+  useEffect(() => {
+    if (designData.literatureFindings?.searchResults) {
+      const { sources } = designData.literatureFindings.searchResults
+      const totalSources = 4
+      const sourcesWithResults = [
+        sources?.pubmed?.length > 0,
+        sources?.arxiv?.length > 0,
+        sources?.scholar?.length > 0,
+        sources?.semanticScholar?.length > 0
+      ].filter(Boolean).length
+
+      setSearchProgress((sourcesWithResults / totalSources) * 100)
+    }
+  }, [designData.literatureFindings?.searchResults])
+
+  const getSourceIcon = (source: string) => {
+    switch (source) {
+      case "pubmed":
+        return <Database className="size-4" />
+      case "arxiv":
+        return <FileText className="size-4" />
+      case "scholar":
+        return <Globe className="size-4" />
+      case "semantic_scholar":
+        return <BarChart3 className="size-4" />
+      case "tavily":
+        return <Search className="size-4" />
+      default:
+        return <BookOpen className="size-4" />
+    }
+  }
+
+  const getSourceColor = (source: string) => {
+    switch (source) {
+      case "pubmed":
+        return "bg-blue-100 text-blue-800 border-blue-200"
+      case "arxiv":
+        return "bg-green-100 text-green-800 border-green-200"
+      case "scholar":
+        return "bg-purple-100 text-purple-800 border-purple-200"
+      case "semantic_scholar":
+        return "bg-orange-100 text-orange-800 border-orange-200"
+      case "tavily":
+        return "bg-teal-100 text-teal-800 border-teal-200"
+      default:
+        return "bg-gray-100 text-gray-800 border-gray-200"
+    }
+  }
+
+  const formatSourceName = (source: string) => {
+    switch (source) {
+      case "pubmed":
+        return "PubMed"
+      case "arxiv":
+        return "ArXiv"
+      case "scholar":
+        return "Google Scholar"
+      case "semantic_scholar":
+        return "Semantic Scholar"
+      case "tavily":
+        return "Tavily"
+      default:
+        return source
+    }
+  }
+
+  const handleApprove = () => {
+    toast.success("Design approved successfully!")
+    onApprove?.()
+  }
+
+  const handleRegenerate = () => {
+    if (!feedback.trim()) {
+      toast.error("Please provide feedback for regeneration")
+      return
+    }
+
+    toast.info("Regenerating design with your feedback...")
+    onRegenerate?.(feedback)
+    setFeedback("")
+  }
+
+  const renderSearchResults = () => {
+    const searchResults = designData.literatureFindings?.searchResults
+
+    if (!searchResults) {
+      return (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Search className="size-5" />
+              Literature Search
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-gray-600">
+              No comprehensive search results available.
+            </p>
+          </CardContent>
+        </Card>
+      )
+    }
+
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Search className="size-5" />
+              Multi-Source Literature Search
+            </div>
+            <Badge variant="secondary" className="text-sm">
+              {searchResults.totalResults} papers found
+            </Badge>
+          </CardTitle>
+          <div className="space-y-2">
+            <div className="flex justify-between text-sm text-gray-600">
+              <span>Search Progress</span>
+              <span>{Math.round(searchProgress)}% complete</span>
+            </div>
+            <Progress value={searchProgress} className="h-2" />
+          </div>
+        </CardHeader>
+        <CardContent>
+          <Tabs
+            value={selectedSource}
+            onValueChange={setSelectedSource}
+            className="w-full"
+          >
+            <TabsList className="grid w-full grid-cols-6">
+              <TabsTrigger value="overview" className="text-xs">
+                Overview
+              </TabsTrigger>
+              <TabsTrigger value="pubmed" className="text-xs">
+                PubMed ({searchResults.sources.pubmed.length})
+              </TabsTrigger>
+              <TabsTrigger value="arxiv" className="text-xs">
+                ArXiv ({searchResults.sources.arxiv.length})
+              </TabsTrigger>
+              <TabsTrigger value="scholar" className="text-xs">
+                Scholar ({searchResults.sources.scholar.length})
+              </TabsTrigger>
+              <TabsTrigger value="semanticScholar" className="text-xs">
+                S. Scholar ({searchResults.sources.semanticScholar.length})
+              </TabsTrigger>
+              <TabsTrigger value="tavily" className="text-xs">
+                Tavily ({searchResults.sources.tavily.length})
+              </TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="overview" className="space-y-4">
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                <Card>
+                  <CardHeader className="pb-2">
+                    <CardTitle className="flex items-center gap-2 text-sm">
+                      <TrendingUp className="size-4" />
+                      Key Methodologies
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="pt-0">
+                    <ul className="space-y-1">
+                      {searchResults.synthesizedFindings.keyMethodologies
+                        .slice(0, 5)
+                        .map((method, idx) => (
+                          <li
+                            key={idx}
+                            className="flex items-start gap-2 text-sm text-gray-700"
+                          >
+                            <span className="mt-1 text-blue-500">•</span>
+                            {method}
+                          </li>
+                        ))}
+                    </ul>
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader className="pb-2">
+                    <CardTitle className="flex items-center gap-2 text-sm">
+                      <AlertTriangle className="size-4" />
+                      Common Pitfalls
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="pt-0">
+                    <ul className="space-y-1">
+                      {searchResults.synthesizedFindings.commonPitfalls
+                        .slice(0, 5)
+                        .map((pitfall, idx) => (
+                          <li
+                            key={idx}
+                            className="flex items-start gap-2 text-sm text-gray-700"
+                          >
+                            <span className="mt-1 text-red-500">•</span>
+                            {pitfall}
+                          </li>
+                        ))}
+                    </ul>
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader className="pb-2">
+                    <CardTitle className="flex items-center gap-2 text-sm">
+                      <Lightbulb className="size-4" />
+                      Recommended Approaches
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="pt-0">
+                    <ul className="space-y-1">
+                      {searchResults.synthesizedFindings.recommendedApproaches
+                        .slice(0, 5)
+                        .map((approach, idx) => (
+                          <li
+                            key={idx}
+                            className="flex items-start gap-2 text-sm text-gray-700"
+                          >
+                            <span className="mt-1 text-green-500">•</span>
+                            {approach}
+                          </li>
+                        ))}
+                    </ul>
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader className="pb-2">
+                    <CardTitle className="flex items-center gap-2 text-sm">
+                      <BookOpen className="size-4" />
+                      Novel Insights
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="pt-0">
+                    <ul className="space-y-1">
+                      {searchResults.synthesizedFindings.novelInsights
+                        .slice(0, 5)
+                        .map((insight, idx) => (
+                          <li
+                            key={idx}
+                            className="flex items-start gap-2 text-sm text-gray-700"
+                          >
+                            <span className="mt-1 text-purple-500">•</span>
+                            {insight}
+                          </li>
+                        ))}
+                    </ul>
+                  </CardContent>
+                </Card>
+              </div>
+            </TabsContent>
+
+            {(
+              [
+                "pubmed",
+                "arxiv",
+                "scholar",
+                "semanticScholar",
+                "tavily"
+              ] as const
+            ).map(source => (
+              <TabsContent key={source} value={source} className="space-y-3">
+                <div className="mb-4 flex items-center gap-2">
+                  {getSourceIcon(source)}
+                  <h3 className="font-semibold">
+                    {formatSourceName(source)} Results
+                  </h3>
+                  <Badge className={getSourceColor(source)}>
+                    {searchResults.sources[source].length} papers
+                  </Badge>
+                </div>
+
+                {searchResults.sources[source].length === 0 ? (
+                  <p className="py-8 text-center text-gray-500">
+                    No results found from this source
+                  </p>
+                ) : (
+                  <div className="space-y-3">
+                    {searchResults.sources[source]
+                      .slice(0, 10)
+                      .map((paper, idx) => (
+                        <Card
+                          key={idx}
+                          className="border-l-4 border-l-blue-500"
+                        >
+                          <CardContent className="pt-4">
+                            <div className="space-y-2">
+                              <div className="flex items-start justify-between gap-4">
+                                <h4 className="text-sm font-medium leading-tight">
+                                  {paper.title}
+                                </h4>
+                                <div className="flex gap-2">
+                                  <Badge
+                                    className={getSourceColor(paper.source)}
+                                    variant="outline"
+                                  >
+                                    {formatSourceName(paper.source)}
+                                  </Badge>
+                                  {paper.relevanceScore && (
+                                    <Badge
+                                      variant="secondary"
+                                      className="text-xs"
+                                    >
+                                      {(paper.relevanceScore * 100).toFixed(0)}%
+                                      relevant
+                                    </Badge>
+                                  )}
+                                </div>
+                              </div>
+
+                              <div className="space-y-1 text-xs text-gray-600">
+                                {paper.authors.length > 0 && (
+                                  <p>
+                                    <strong>Authors:</strong>{" "}
+                                    {paper.authors.slice(0, 3).join(", ")}
+                                    {paper.authors.length > 3 ? " et al." : ""}
+                                  </p>
+                                )}
+                                <p>
+                                  <strong>Year:</strong> {paper.publishedDate}{" "}
+                                  {paper.journal && (
+                                    <span>
+                                      • <strong>Journal:</strong>{" "}
+                                      {paper.journal}
+                                    </span>
+                                  )}
+                                </p>
+                                {paper.citationCount && (
+                                  <p>
+                                    <strong>Citations:</strong>{" "}
+                                    {paper.citationCount}
+                                  </p>
+                                )}
+                              </div>
+
+                              <p className="text-xs leading-relaxed text-gray-700">
+                                {paper.abstract.length > 300
+                                  ? `${paper.abstract.substring(0, 300)}...`
+                                  : paper.abstract}
+                              </p>
+
+                              <div className="flex items-center gap-2 pt-2">
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  className="h-7 text-xs"
+                                  onClick={() =>
+                                    window.open(paper.url, "_blank")
+                                  }
+                                >
+                                  <ExternalLink className="mr-1 size-3" />
+                                  View{" "}
+                                  {source === "tavily" ? "Article" : "Paper"}
+                                </Button>
+                                {paper.doi && (
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-7 text-xs"
+                                    onClick={() =>
+                                      window.open(
+                                        `https://doi.org/${paper.doi}`,
+                                        "_blank"
+                                      )
+                                    }
+                                  >
+                                    DOI
+                                  </Button>
+                                )}
+                              </div>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      ))}
+                  </div>
+                )}
+              </TabsContent>
+            ))}
+          </Tabs>
+        </CardContent>
+      </Card>
+    )
+  }
 
   if (loading) {
     return <Loading />
@@ -504,7 +1057,25 @@ export const DesignReviewComponent: FC<DesignReviewProps> = ({ designId }) => {
   if (!designToUse) {
     return (
       <div className="flex size-full items-center justify-center">
-        <p className="text-lg font-medium">No design available</p>
+        <div className="max-w-md space-y-4 text-center">
+          <div className="mb-4 text-6xl">🔬</div>
+          <h2 className="text-2xl font-bold text-gray-800">
+            Design Ready to Load
+          </h2>
+          <p className="leading-relaxed text-gray-600">
+            Your experimental design is being prepared. The multi-agent research
+            system has completed the analysis and is ready to display your
+            comprehensive design review.
+          </p>
+          <div className="pt-4">
+            <Button
+              onClick={() => window.location.reload()}
+              className="bg-blue-600 hover:bg-blue-700"
+            >
+              Load Design Review
+            </Button>
+          </div>
+        </div>
       </div>
     )
   }
@@ -516,170 +1087,416 @@ export const DesignReviewComponent: FC<DesignReviewProps> = ({ designId }) => {
   ) {
     return (
       <div className="flex size-full items-center justify-center">
-        <p className="text-lg font-medium">No design content available</p>
+        <div className="max-w-md space-y-4 text-center">
+          <div className="mb-4 text-6xl">📄</div>
+          <h2 className="text-2xl font-bold text-gray-800">
+            Generating Design Content
+          </h2>
+          <p className="leading-relaxed text-gray-600">
+            The experimental design content is being generated by our AI system.
+            This process typically takes 1-2 minutes as we analyze literature,
+            process data, and create your comprehensive design.
+          </p>
+          <div className="pt-4">
+            <Button onClick={() => window.location.reload()} variant="outline">
+              Refresh Status
+            </Button>
+          </div>
+        </div>
       </div>
     )
   }
 
   return (
-    <div className="absolute inset-0 flex min-w-0 overflow-hidden rounded-lg shadow-lg">
-      {contentLoading ? (
-        <div className="my-48 w-full text-center">
-          <Loader text="Generating design content" />
+    <div className="scrollbar-thin scrollbar-track-gray-100 scrollbar-thumb-gray-300 hover:scrollbar-thumb-gray-400 mx-auto h-full max-w-6xl space-y-6 overflow-y-auto p-6">
+      <div className="flex items-center justify-between">
+        <h1 className="text-2xl font-bold">Experiment Design Review</h1>
+        <div className="flex gap-3">
+          <Button variant="outline" onClick={() => window.location.reload()}>
+            Refresh
+          </Button>
         </div>
-      ) : (
-        <>
-          <div className="bg-secondary flex w-[180px] shrink-0 flex-col border-r sm:w-[200px] md:w-[220px]">
-            <div className="px-4 py-2">
-              <h2 className="text-lg font-bold">
-                {(designToUse as DesignWithProblem).problem || designToUse.name}
-              </h2>
-              {designToUse.description && (
-                <p className="text-muted-foreground mt-1 line-clamp-2 pr-2 text-xs">
-                  {designToUse.description}
-                </p>
-              )}
-            </div>
-            <ScrollArea className="grow">
-              <div className="space-y-2 p-4">
-                {generatedOutline.map((item, index) => (
-                  <button
-                    key={index}
-                    className={`flex w-full items-center space-x-1 rounded-md px-3 py-2 text-left text-sm transition-colors ${
-                      activeSection === index
-                        ? "bg-primary text-primary-foreground"
-                        : "hover:bg-primary/10"
-                    }`}
-                    onClick={() => setActiveSection(index)}
-                  >
-                    <span className="truncate text-xs sm:text-sm">
-                      {outlineMapping[item] ||
-                        item.replace(/([A-Z])/g, " $1").trim()}
-                    </span>
-                    {activeSection === index && (
-                      <ChevronRight className="ml-auto shrink-0" />
-                    )}
-                  </button>
+      </div>
+
+      {/* Problem Statement */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Research Problem</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p className="text-gray-700">
+            {designData.problem || "No problem statement available"}
+          </p>
+          <div className="mt-4 grid grid-cols-1 gap-4 md:grid-cols-3">
+            <div>
+              <h4 className="mb-2 font-medium">Objectives</h4>
+              <ul className="space-y-1">
+                {(designData.objectives || []).map((obj, idx) => (
+                  <li key={idx} className="text-sm text-gray-600">
+                    • {obj}
+                  </li>
                 ))}
-              </div>
-            </ScrollArea>
+              </ul>
+            </div>
+            <div>
+              <h4 className="mb-2 font-medium">Variables</h4>
+              <ul className="space-y-1">
+                {(designData.variables || []).map((variable, idx) => (
+                  <li key={idx} className="text-sm text-gray-600">
+                    • {variable}
+                  </li>
+                ))}
+              </ul>
+            </div>
+            <div>
+              <h4 className="mb-2 font-medium">Special Considerations</h4>
+              <ul className="space-y-1">
+                {(designData.specialConsiderations || []).map(
+                  (consideration, idx) => (
+                    <li key={idx} className="text-sm text-gray-600">
+                      • {consideration}
+                    </li>
+                  )
+                )}
+              </ul>
+            </div>
           </div>
-          <Separator orientation="vertical" className="bg-white" />
-          <div className="bg-secondary flex flex-1 flex-col overflow-hidden">
-            <div
-              className={`transition-all duration-300 ease-in-out ${isQuestionSectionVisible ? "max-h-[200px]" : "max-h-0 overflow-hidden"} bg-secondary border-b`}
+        </CardContent>
+      </Card>
+
+      {/* Multi-Source Literature Search Results */}
+      {renderSearchResults()}
+
+      {/* Traditional Literature Findings */}
+      {(designData.literatureFindings?.papers || []).length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center justify-between">
+              Additional Literature Analysis
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() =>
+                  setExpandedSections(prev => ({
+                    ...prev,
+                    literature: !prev.literature
+                  }))
+                }
+              >
+                {expandedSections.literature ? <ChevronUp /> : <ChevronDown />}
+              </Button>
+            </CardTitle>
+          </CardHeader>
+          {expandedSections.literature && (
+            <CardContent>
+              <div className="space-y-4">
+                {(designData.literatureFindings?.papers || []).map(
+                  (paper, idx) => (
+                    <div key={idx} className="rounded-lg border p-4">
+                      <h4 className="mb-2 font-medium">{paper.title}</h4>
+                      <p className="mb-2 text-sm text-gray-600">
+                        {paper.summary}
+                      </p>
+                      <div className="grid grid-cols-1 gap-4 text-sm md:grid-cols-2">
+                        <div>
+                          <strong>Relevance:</strong> {paper.relevance}
+                        </div>
+                        <div>
+                          <strong>Methodology:</strong> {paper.methodology}
+                        </div>
+                      </div>
+                      {(paper.pitfalls || []).length > 0 && (
+                        <div className="mt-2">
+                          <strong className="text-sm">
+                            Potential Pitfalls:
+                          </strong>
+                          <ul className="mt-1 space-y-1">
+                            {(paper.pitfalls || []).map(
+                              (pitfall, pitfallIdx) => (
+                                <li
+                                  key={pitfallIdx}
+                                  className="text-sm text-red-600"
+                                >
+                                  • {pitfall}
+                                </li>
+                              )
+                            )}
+                          </ul>
+                        </div>
+                      )}
+                    </div>
+                  )
+                )}
+              </div>
+            </CardContent>
+          )}
+        </Card>
+      )}
+
+      {/* Data Analysis */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center justify-between">
+            Data Analysis Insights
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() =>
+                setExpandedSections(prev => ({
+                  ...prev,
+                  dataAnalysis: !prev.dataAnalysis
+                }))
+              }
             >
-              <div className="p-3 lg:p-4">
-                <h3 className="mb-2 text-lg font-semibold">
-                  Would you like to change anything?
-                </h3>
-                <div className="mt-2 flex items-center gap-2">
-                  <div className="relative min-w-0 flex-1">
-                    <Input
-                      type="text"
-                      placeholder="Type your prompt here..."
-                      value={question}
-                      onChange={e => setQuestion(e.target.value)}
-                      className="h-9 w-full"
-                    />
+              {expandedSections.dataAnalysis ? <ChevronUp /> : <ChevronDown />}
+            </Button>
+          </CardTitle>
+        </CardHeader>
+        {expandedSections.dataAnalysis && (
+          <CardContent>
+            <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+              <div>
+                <h4 className="mb-3 font-medium">Key Findings</h4>
+                <ul className="space-y-2">
+                  {(designData.dataAnalysis?.keyFindings || []).map(
+                    (finding, idx) => (
+                      <li key={idx} className="text-sm text-gray-700">
+                        • {finding}
+                      </li>
+                    )
+                  )}
+                </ul>
+              </div>
+              <div>
+                <h4 className="mb-3 font-medium">Correlations</h4>
+                <ul className="space-y-2">
+                  {(designData.dataAnalysis?.correlations || []).map(
+                    (correlation, idx) => (
+                      <li key={idx} className="text-sm text-gray-700">
+                        • {correlation}
+                      </li>
+                    )
+                  )}
+                </ul>
+              </div>
+              <div>
+                <h4 className="mb-3 font-medium">Outliers</h4>
+                <ul className="space-y-2">
+                  {(designData.dataAnalysis?.outliers || []).map(
+                    (outlier, idx) => (
+                      <li key={idx} className="text-sm text-gray-700">
+                        • {outlier}
+                      </li>
+                    )
+                  )}
+                </ul>
+              </div>
+              <div>
+                <h4 className="mb-3 font-medium">Key Metrics</h4>
+                <ul className="space-y-2">
+                  {(designData.dataAnalysis?.metrics || []).map(
+                    (metric, idx) => (
+                      <li key={idx} className="text-sm text-gray-700">
+                        • {metric}
+                      </li>
+                    )
+                  )}
+                </ul>
+              </div>
+            </div>
+          </CardContent>
+        )}
+      </Card>
+
+      {/* Experiment Design */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center justify-between">
+            Proposed Experiment Design
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() =>
+                setExpandedSections(prev => ({
+                  ...prev,
+                  experimentDesign: !prev.experimentDesign
+                }))
+              }
+            >
+              {expandedSections.experimentDesign ? (
+                <ChevronUp />
+              ) : (
+                <ChevronDown />
+              )}
+            </Button>
+          </CardTitle>
+        </CardHeader>
+        {expandedSections.experimentDesign && (
+          <CardContent>
+            <div className="space-y-6">
+              <div>
+                <h4 className="mb-3 font-medium">Hypothesis</h4>
+                <p className="rounded-lg bg-blue-50 p-4 text-gray-700">
+                  {designData.experimentDesign?.hypothesis ||
+                    "No hypothesis specified"}
+                </p>
+              </div>
+
+              <div>
+                <h4 className="mb-3 font-medium">Experimental Factors</h4>
+                <div className="grid gap-4">
+                  {(designData.experimentDesign?.factors || []).map(
+                    (factor, idx) => (
+                      <div key={idx} className="rounded-lg border p-4">
+                        <h5 className="font-medium">{factor.name}</h5>
+                        <div className="mt-2 flex flex-wrap gap-2">
+                          {(factor.levels || []).map((level, levelIdx) => (
+                            <Badge key={levelIdx} variant="outline">
+                              {level}
+                            </Badge>
+                          ))}
+                        </div>
+                      </div>
+                    )
+                  )}
+                </div>
+              </div>
+
+              <div>
+                <h4 className="mb-3 font-medium">Randomization Strategy</h4>
+                <p className="text-gray-700">
+                  {designData.experimentDesign?.randomization ||
+                    "No randomization strategy specified"}
+                </p>
+              </div>
+
+              <div>
+                <h4 className="mb-3 font-medium">Statistical Analysis Plan</h4>
+                <div className="space-y-2">
+                  <div>
+                    <strong>Methods:</strong>
+                    <ul className="mt-1 space-y-1">
+                      {(
+                        designData.experimentDesign?.statisticalPlan?.methods ||
+                        []
+                      ).map((method, idx) => (
+                        <li key={idx} className="text-sm text-gray-700">
+                          • {method}
+                        </li>
+                      ))}
+                    </ul>
                   </div>
-                  <Button
-                    onClick={handleRegenerateSection}
-                    disabled={isRegenerateLoading}
-                    size="sm"
-                    className="bg-foreground text-background h-9 shrink-0 whitespace-nowrap"
-                  >
-                    {isRegenerateLoading ? "Regenerating..." : "Go"}
-                    <Sparkles className="ml-2 size-4" />
-                  </Button>
-                  <Button
-                    onClick={handleDownload}
-                    size="sm"
-                    className="text-background h-9 shrink-0 whitespace-nowrap bg-blue-500"
-                  >
-                    Download <DownloadIcon className="ml-2 size-4" />
-                  </Button>
+                  <div>
+                    <strong>Significance Level:</strong>
+                    <span className="ml-2 text-gray-700">
+                      {designData.experimentDesign?.statisticalPlan
+                        ?.significance || "Not specified"}
+                    </span>
+                  </div>
                 </div>
               </div>
             </div>
-            <div className="mt-2 flex items-center justify-end px-4 md:mt-4 lg:px-6">
-              <div className="flex items-center space-x-2">
-                {!isEditing && (
-                  <>
-                    <Button variant="outline" size="icon" onClick={handleEdit}>
-                      <Edit className="size-4" />
-                    </Button>
-                    <Button
-                      title="Copy to clipboard"
-                      variant="outline"
-                      size="icon"
-                      onClick={() => {
-                        const content =
-                          sectionContents[generatedOutline[activeSection]] || ""
-                        navigator.clipboard.writeText(content)
-                        // Show a temporary toast or feedback (optional)
-                        alert("Content copied to clipboard!")
-                      }}
-                    >
-                      <CopyIcon className="size-4" />
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="icon"
-                      onClick={toggleQuestionSection}
-                      title={
-                        isQuestionSectionVisible
-                          ? "Hide question section"
-                          : "Show question section"
-                      }
-                    >
-                      {isQuestionSectionVisible ? (
-                        <ChevronUp className="size-4" />
-                      ) : (
-                        <Sparkles className="size-4" />
-                      )}
-                    </Button>
-                  </>
-                )}
+          </CardContent>
+        )}
+      </Card>
+
+      {/* Final Report Summary */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center justify-between">
+            Executive Summary
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() =>
+                setExpandedSections(prev => ({
+                  ...prev,
+                  finalReport: !prev.finalReport
+                }))
+              }
+            >
+              {expandedSections.finalReport ? <ChevronUp /> : <ChevronDown />}
+            </Button>
+          </CardTitle>
+        </CardHeader>
+        {expandedSections.finalReport && (
+          <CardContent>
+            <div className="space-y-4">
+              <div>
+                <h4 className="mb-2 font-medium">Introduction</h4>
+                <p className="text-sm text-gray-700">
+                  {designData.finalReport?.introduction ||
+                    "No introduction available"}
+                </p>
+              </div>
+              <div>
+                <h4 className="mb-2 font-medium">Literature Summary</h4>
+                <p className="text-sm text-gray-700">
+                  {designData.finalReport?.literatureSummary ||
+                    "No literature summary available"}
+                </p>
+              </div>
+              <div>
+                <h4 className="mb-2 font-medium">Data Insights</h4>
+                <p className="text-sm text-gray-700">
+                  {designData.finalReport?.dataInsights ||
+                    "No data insights available"}
+                </p>
+              </div>
+              <div>
+                <h4 className="mb-2 font-medium">Recommendations</h4>
+                <p className="text-sm text-gray-700">
+                  {designData.finalReport?.recommendations ||
+                    "No recommendations available"}
+                </p>
               </div>
             </div>
-            <ScrollArea className="mt-2 h-full px-4 pb-16 md:mt-4 lg:px-6">
-              <div className="prose dark:prose-invert w-full max-w-none overflow-x-hidden break-words pb-4 [&>*:first-child]:mt-0 [&_li]:my-0 [&_ol]:my-1 [&_p]:my-1 [&_ul]:my-1">
-                {isRegenerateLoading ? (
-                  <Loader text="Regenerating content" />
-                ) : isEditing ? (
-                  <textarea
-                    className="h-[calc(100vh-16rem)] min-h-[300px] w-full rounded border p-2"
-                    value={editedContent}
-                    onChange={e => setEditedContent(e.target.value)}
-                  />
-                ) : (
-                  <ReactMarkdown className="whitespace-pre-wrap break-words">
-                    {(sectionContents[generatedOutline[activeSection]] || "")
-                      .trim()
-                      .replace(/\n{3,}/g, "\n\n")}
-                  </ReactMarkdown>
-                )}
-              </div>
-            </ScrollArea>
-            {isEditing && (
-              <div className="bg-secondary fixed inset-x-0 bottom-0 flex justify-center space-x-4 p-4 shadow-md">
-                <Button
-                  className="bg-foreground h-10 w-28 opacity-70"
-                  onClick={handleCancel}
-                >
-                  <X className="mr-2 size-4" />
-                  Cancel
-                </Button>
-                <Button className="h-10 w-28" onClick={handleSave}>
-                  <Check className="mr-2 size-4" />
-                  Save
-                </Button>
-              </div>
-            )}
+          </CardContent>
+        )}
+      </Card>
+
+      {/* Action Buttons */}
+      <Card>
+        <CardContent className="pt-6">
+          <div className="space-y-4">
+            <div>
+              <label
+                htmlFor="feedback"
+                className="mb-2 block text-sm font-medium"
+              >
+                Feedback for Regeneration (optional)
+              </label>
+              <textarea
+                id="feedback"
+                value={feedback}
+                onChange={e => setFeedback(e.target.value)}
+                placeholder="Provide specific feedback about what should be changed or improved..."
+                className="min-h-[100px] w-full resize-y rounded-lg border border-gray-300 p-3"
+              />
+            </div>
+
+            <div className="flex gap-4">
+              <Button
+                onClick={handleApprove}
+                className="flex-1 bg-green-600 hover:bg-green-700"
+                disabled={isRegenerating}
+              >
+                Approve Design
+              </Button>
+              <Button
+                variant="outline"
+                onClick={handleRegenerate}
+                className="flex-1"
+                disabled={isRegenerating}
+              >
+                {isRegenerating
+                  ? "Regenerating..."
+                  : "Regenerate with Feedback"}
+              </Button>
+            </div>
           </div>
-        </>
-      )}
+        </CardContent>
+      </Card>
     </div>
   )
 }

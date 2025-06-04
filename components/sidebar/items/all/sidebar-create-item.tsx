@@ -34,6 +34,9 @@ import { FC, useContext, useRef, useState } from "react"
 import { toast } from "sonner"
 import { useRouter } from "next/navigation"
 
+// Flag to switch between mock and real API for testing
+const USE_MOCK_API = false // Set to false to use real API
+
 interface SidebarCreateItemProps {
   isOpen: boolean
   isTyping: boolean
@@ -240,6 +243,11 @@ export const SidebarCreateItem: FC<SidebarCreateItemProps> = ({
 
       // Special handling for designs to call the AI model first
       if (contentType === "designs") {
+        console.log(
+          "🎯 [SIDEBAR_CREATE] Creating design with state:",
+          createState
+        )
+
         // Create a valid design state for API
         const designState = {
           problem: createState.problem || createState.name,
@@ -248,6 +256,8 @@ export const SidebarCreateItem: FC<SidebarCreateItemProps> = ({
           variables: createState.variables || [],
           specialConsiderations: createState.specialConsiderations || []
         }
+
+        console.log("📤 [SIDEBAR_CREATE] API request payload:", designState)
 
         try {
           // First create the design in the database
@@ -262,14 +272,24 @@ export const SidebarCreateItem: FC<SidebarCreateItemProps> = ({
           // Generate a design URL to navigate to after creation
           const designURL = `/${selectedWorkspace.id}/design/${newDesign.id}`
 
+          // Set localStorage flag to indicate this design is being generated
+          localStorage.setItem(`design_generating_${newDesign.id}`, "true")
+
           // Close the modal first
           onOpenChange(false)
 
-          // Show a toast that design is being generated
-          toast.success("Design created! Generating content...")
+          // Navigate to the design page immediately to show progress
+          router.push(designURL)
 
-          // Then call the AI model endpoint to generate the design content
-          fetch("/api/design/draft", {
+          // Show a toast that design is being generated
+          toast.success(
+            USE_MOCK_API
+              ? "Design created! Generating content (Mock Mode)..."
+              : "Design created! Generating content..."
+          )
+
+          // Then call the AI model endpoint to generate the design content in the background
+          fetch(USE_MOCK_API ? "/api/design/mock" : "/api/design/draft", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify(designState)
@@ -282,19 +302,93 @@ export const SidebarCreateItem: FC<SidebarCreateItemProps> = ({
               }
               return response.json()
             })
-            .then(() => {
+            .then(data => {
+              console.log("✅ [CREATE_DESIGN] Raw API response:", data)
+
+              // Ensure the data has the complete structure expected by the UI
+              const completeData = {
+                problem: data.problem || designState.problem || newDesign.name,
+                objectives: data.objectives || designState.objectives || [],
+                variables: data.variables || designState.variables || [],
+                specialConsiderations:
+                  data.specialConsiderations ||
+                  designState.specialConsiderations ||
+                  [],
+                literatureFindings: data.literatureFindings || {
+                  papers: [],
+                  searchResults: {
+                    totalResults: 0,
+                    sources: {
+                      pubmed: [],
+                      arxiv: [],
+                      scholar: [],
+                      semanticScholar: [],
+                      tavily: []
+                    },
+                    synthesizedFindings: {
+                      keyMethodologies: [],
+                      commonPitfalls: [],
+                      recommendedApproaches: [],
+                      novelInsights: []
+                    }
+                  },
+                  synthesizedInsights: {
+                    keyMethodologies: [],
+                    commonPitfalls: [],
+                    recommendedApproaches: [],
+                    novelInsights: []
+                  }
+                },
+                dataAnalysis: data.dataAnalysis || {
+                  correlations: [],
+                  outliers: [],
+                  keyFindings: [],
+                  metrics: []
+                },
+                experimentDesign: data.experimentDesign || {
+                  hypothesis: "",
+                  factors: [],
+                  randomization: "",
+                  statisticalPlan: {
+                    methods: [],
+                    significance: ""
+                  }
+                },
+                finalReport: data.finalReport || {
+                  introduction: "",
+                  literatureSummary: "",
+                  dataInsights: "",
+                  hypothesis: "",
+                  designOfExperiments: "",
+                  statisticalAnalysis: "",
+                  recommendations: ""
+                }
+              }
+
+              console.log(
+                "🔄 [CREATE_DESIGN] Complete data structure:",
+                completeData
+              )
+
+              // Store the complete design data
+              localStorage.setItem(
+                `design_data_${newDesign.id}`,
+                JSON.stringify(completeData)
+              )
+              localStorage.setItem(`design_completed_${newDesign.id}`, "true")
+
               // Show success message after generation completes
               toast.success("Design content generated successfully!")
 
-              // Navigate to the new design
-              router.push(designURL)
+              // Remove the generating flag
+              localStorage.removeItem(`design_generating_${newDesign.id}`)
             })
             .catch(error => {
               console.error("Error in design generation:", error)
               toast.error(`Error generating design content: ${error.message}`)
 
-              // Still navigate to the design even if generation fails
-              router.push(designURL)
+              // Remove the generating flag even if generation fails
+              localStorage.removeItem(`design_generating_${newDesign.id}`)
             })
             .finally(() => {
               setCreating(false)

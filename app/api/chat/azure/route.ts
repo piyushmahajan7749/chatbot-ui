@@ -47,7 +47,7 @@ export async function POST(request: Request) {
     const azureOpenai = new OpenAI({
       apiKey: KEY,
       baseURL: `${ENDPOINT}/openai/deployments/${DEPLOYMENT_ID}`,
-      defaultQuery: { "api-version": "2023-12-01-preview" },
+      defaultQuery: { "api-version": "2024-08-06-preview" },
       defaultHeaders: { "api-key": KEY }
     })
 
@@ -59,7 +59,7 @@ export async function POST(request: Request) {
       stream: true
     })
 
-    const stream = OpenAIStream(response)
+    const stream = OpenAIStream(response as any)
 
     return new StreamingTextResponse(stream)
   } catch (error: any) {
