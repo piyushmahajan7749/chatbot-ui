@@ -2,6 +2,9 @@
   "functions": {
     "app/api/report/outline/route.ts": {
       "maxDuration": 240
+    },
+    "app/api/design/draft/route.ts": {
+      "maxDuration": 240
     }
   }
 }
