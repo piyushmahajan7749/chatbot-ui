@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Loader } from "@/components/ui/loader"
@@ -42,6 +42,8 @@ export function ReportReviewComponent({ onSave, reportId }: ReportReviewProps) {
   const [editedContent, setEditedContent] = useState("")
   const [chartImage, setChartImage] = useState<string | null>(null)
   const [isQuestionSectionVisible, setIsQuestionSectionVisible] = useState(true)
+
+  const sectionRefs = useRef<Record<string, HTMLDivElement | null>>({})
 
   const outlineMapping: Record<string, string> = {
     aim: "Aim",
@@ -232,7 +234,13 @@ export function ReportReviewComponent({ onSave, reportId }: ReportReviewProps) {
                         ? "bg-primary text-primary-foreground"
                         : "hover:bg-primary/10"
                     }`}
-                    onClick={() => setActiveSection(index)}
+                    onClick={() => {
+                      setActiveSection(index)
+                      sectionRefs.current[item]?.scrollIntoView({
+                        behavior: "smooth",
+                        block: "start"
+                      })
+                    }}
                   >
                     <span>{outlineMapping[item] || item}</span>
                     {activeSection === index && (
@@ -318,35 +326,53 @@ export function ReportReviewComponent({ onSave, reportId }: ReportReviewProps) {
               </div>
             </div>
             <ScrollArea className="mt-6 grow px-6">
-              {generatedOutline[activeSection] === "charts" ? (
-                <div className="prose dark:prose-invert max-w-none overflow-x-hidden break-words pb-4 [&>*:first-child]:mt-0 [&_li]:my-0 [&_ol]:my-1 [&_p]:my-1 [&_ul]:my-1">
-                  {chartImage && (
-                    <img
-                      src={chartImage}
-                      alt="Data visualization chart"
-                      className="h-auto max-w-full rounded-lg shadow-lg"
-                    />
-                  )}
-                </div>
-              ) : (
-                <div className="prose dark:prose-invert max-w-none overflow-x-hidden break-words pb-4 [&>*:first-child]:mt-0 [&_li]:my-0 [&_ol]:my-1 [&_p]:my-1 [&_ul]:my-1">
-                  {isRegenerateLoading ? (
-                    <Loader text="Regenerating content" />
-                  ) : isEditing ? (
-                    <textarea
-                      className="h-[calc(100vh-20rem)] w-full rounded border p-2"
-                      value={editedContent}
-                      onChange={e => setEditedContent(e.target.value)}
-                    />
-                  ) : (
-                    <ReactMarkdown className="whitespace-pre-wrap break-words">
-                      {(sectionContents[generatedOutline[activeSection]] || "")
-                        .trim()
-                        .replace(/\n{3,}/g, "\n\n")}
-                    </ReactMarkdown>
-                  )}
-                </div>
-              )}
+              <div className="space-y-10">
+                {generatedOutline.map((section, index) => (
+                  <div
+                    key={section}
+                    ref={el => {
+                      sectionRefs.current[section] = el
+                    }}
+                    className="pb-4"
+                  >
+                    <h2
+                      className={`mb-3 text-2xl font-bold ${
+                        activeSection === index ? "text-primary" : ""
+                      }`}
+                    >
+                      {outlineMapping[section] || section}
+                    </h2>
+
+                    {section === "charts" ? (
+                      <div className="prose dark:prose-invert max-w-none overflow-x-auto break-words pb-4 [&>*:first-child]:mt-0 [&_li]:my-0 [&_ol]:my-1 [&_p]:my-1 [&_ul]:my-1">
+                        {chartImage && (
+                          <img
+                            src={chartImage}
+                            alt="Data visualization chart"
+                            className="h-auto max-w-full rounded-lg shadow-lg"
+                          />
+                        )}
+                      </div>
+                    ) : isEditing && activeSection === index ? (
+                      <textarea
+                        className="h-[calc(100vh-20rem)] w-full rounded border p-2"
+                        value={editedContent}
+                        onChange={e => setEditedContent(e.target.value)}
+                      />
+                    ) : isRegenerateLoading && activeSection === index ? (
+                      <Loader text="Regenerating content" />
+                    ) : (
+                      <div className="prose dark:prose-invert max-w-none overflow-x-auto break-words pb-4 [&>*:first-child]:mt-0 [&_li]:my-0 [&_ol]:my-1 [&_p]:my-1 [&_ul]:my-1">
+                        <ReactMarkdown className="whitespace-pre-wrap break-words">
+                          {(sectionContents[section] || "")
+                            .trim()
+                            .replace(/\n{3,}/g, "\n\n")}
+                        </ReactMarkdown>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
             </ScrollArea>
             {isEditing && (
               <div className="bg-secondary mt-auto flex justify-center space-x-4 p-4">
@@ -357,7 +383,7 @@ export function ReportReviewComponent({ onSave, reportId }: ReportReviewProps) {
                   <X className="mr-2 size-4" />
                   Cancel
                 </Button>
-                <Button className="h-10 w-28" onClick={handleSave}>
+                <Button className="h-10 w-28" onClick={handleSaveEdit}>
                   <Check className="mr-2 size-4" />
                   Save
                 </Button>
