@@ -57,7 +57,7 @@ export const updateDesign = async (
   // If problem exists, use it for name
   if (designToUpdate.problem) {
     designToUpdate.name = designToUpdate.problem
-    delete designToUpdate.problem // Remove problem as it's not in the schema
+    delete (designToUpdate as any).problem // Remove problem as it's not in the schema
   }
 
   const { data: updatedDesign, error } = await supabase

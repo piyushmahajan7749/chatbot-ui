@@ -171,6 +171,13 @@ export const GlobalState: FC<GlobalStateProps> = ({ children }) => {
       const user = session.user
 
       const profile = await getProfileByUserId(user.id)
+
+      if (!profile) {
+        // Profile doesn't exist (e.g., after database reset), redirect to setup
+        console.log("Profile not found for user, redirecting to setup")
+        return router.push("/setup")
+      }
+
       setProfile(profile)
 
       if (!profile.has_onboarded) {

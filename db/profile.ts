@@ -8,10 +8,12 @@ export const getProfileByUserId = async (userId: string) => {
     .eq("user_id", userId)
     .maybeSingle()
 
-  if (!profile) {
-    throw new Error(error?.message)
+  if (error && error.code !== "PGRST116") {
+    // Only throw for actual database errors, not for "not found"
+    throw new Error(error.message)
   }
 
+  // Return null if profile doesn't exist (e.g., after database reset)
   return profile
 }
 

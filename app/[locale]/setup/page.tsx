@@ -13,6 +13,7 @@ import {
 import { supabase } from "@/lib/supabase/browser-client"
 import { TablesUpdate } from "@/supabase/types"
 import { useRouter } from "next/navigation"
+import { toast } from "sonner"
 import { useContext, useEffect, useState } from "react"
 import { APIStep } from "../../../components/setup/api-step"
 import { FinishStep } from "../../../components/setup/finish-step"
@@ -71,6 +72,14 @@ export default function SetupPage() {
         const user = session.user
 
         const profile = await getProfileByUserId(user.id)
+
+        if (!profile) {
+          // Profile doesn't exist, user needs to complete setup
+          console.log("Profile not found, user needs to complete setup")
+          setLoading(false)
+          return
+        }
+
         setProfile(profile)
         setUsername(profile.username)
 
@@ -93,6 +102,13 @@ export default function SetupPage() {
           const homeWorkspaceId = await getHomeWorkspaceByUserId(
             session.user.id
           )
+
+          if (!homeWorkspaceId) {
+            console.log("No home workspace found, staying in setup")
+            setLoading(false)
+            return
+          }
+
           return router.push(`/${homeWorkspaceId}/chat`)
         }
       }
@@ -119,6 +135,12 @@ export default function SetupPage() {
 
     const user = session.user
     const profile = await getProfileByUserId(user.id)
+
+    if (!profile) {
+      console.error("Profile not found during setup save")
+      toast.error("Profile not found. Please refresh and try again.")
+      return
+    }
 
     const updateProfilePayload: TablesUpdate<"profiles"> = {
       ...profile,

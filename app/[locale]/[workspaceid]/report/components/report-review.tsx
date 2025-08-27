@@ -22,7 +22,7 @@ import Loading from "@/app/[locale]/loading"
 import ReactMarkdown from "react-markdown"
 import PptxGenJS from "pptxgenjs"
 import { getContentSlide, getIntroSlide } from "./utils"
-import { getReportWithDetails } from "@/db/reports"
+import { getReportWithDetails, updateReport } from "@/db/reports"
 
 interface ReportReviewProps {
   onSave: () => void
@@ -42,6 +42,9 @@ export function ReportReviewComponent({ onSave, reportId }: ReportReviewProps) {
   const [editedContent, setEditedContent] = useState("")
   const [chartImage, setChartImage] = useState<string | null>(null)
   const [isQuestionSectionVisible, setIsQuestionSectionVisible] = useState(true)
+  const [canGenerate, setCanGenerate] = useState(false)
+  const [pendingFiles, setPendingFiles] = useState<any | null>(null)
+  const [pendingObjective, setPendingObjective] = useState<string>("")
 
   const sectionRefs = useRef<Record<string, HTMLDivElement | null>>({})
 
@@ -60,6 +63,22 @@ export function ReportReviewComponent({ onSave, reportId }: ReportReviewProps) {
     nextSteps: "Next Steps"
   }
 
+  const defaultOutlineOrder = [
+    "aim",
+    "introduction",
+    "principle",
+    "material",
+    "preparation",
+    "procedure",
+    "setup",
+    "dataAnalysis",
+    "charts",
+    "results",
+    "discussion",
+    "conclusion",
+    "nextSteps"
+  ]
+
   useEffect(() => {
     const loadReportData = async () => {
       setLoading(true)
@@ -77,11 +96,57 @@ export function ReportReviewComponent({ onSave, reportId }: ReportReviewProps) {
     if (!reportId) return
 
     try {
-      const groupedFiles = await getReportFilesByReportId(reportId)
-      const report = await getReportWithDetails(reportId)
-      if (Object.values(groupedFiles).some(files => files.length > 0)) {
-        generateDraft(groupedFiles, report.description)
+      const [groupedFiles, report] = await Promise.all([
+        getReportFilesByReportId(reportId),
+        getReportWithDetails(reportId)
+      ])
+
+      // If saved content exists, load it
+      const savedOutline = (report as any).report_outline as string[] | null
+      const savedDraft = (report as any).report_draft as Record<
+        string,
+        string
+      > | null
+      const savedChartImage = (report as any).chart_image as string | null
+
+      // Case 1: we have explicit saved outline + draft
+      if (savedOutline && savedOutline.length && savedDraft) {
+        setGeneratedOutline(savedOutline)
+        setSectionContents(savedDraft)
+        setChartImage(savedChartImage || savedDraft["charts"] || null)
+        setLoading(false)
+        return
       }
+
+      // Case 2: outline missing but draft exists – derive outline from draft keys
+      if (savedDraft && Object.keys(savedDraft).length > 0) {
+        const derived = Object.keys(savedDraft)
+        // Order derived keys by our default ordering
+        const ordered = derived.sort(
+          (a, b) =>
+            defaultOutlineOrder.indexOf(a) - defaultOutlineOrder.indexOf(b)
+        )
+        setGeneratedOutline(ordered)
+        setSectionContents(savedDraft)
+        setChartImage(savedChartImage || savedDraft["charts"] || null)
+
+        // Persist outline so future loads are straightforward
+        updateReport(reportId, { report_outline: ordered } as any).catch(
+          () => {}
+        )
+
+        setLoading(false)
+        return
+      }
+
+      // Else do not auto-generate; allow manual generation if files are linked
+      if (Object.values(groupedFiles).some(files => files.length > 0)) {
+        setPendingFiles(groupedFiles)
+        setPendingObjective(report.description)
+        setCanGenerate(true)
+      }
+
+      setLoading(false)
     } catch (error) {
       console.error("Error fetching report files:", error)
     }
@@ -106,6 +171,17 @@ export function ReportReviewComponent({ onSave, reportId }: ReportReviewProps) {
         setGeneratedOutline(data.reportOutline)
         setSectionContents(data.reportDraft)
         setChartImage(data.chartImage)
+
+        // Persist to DB
+        try {
+          await updateReport(reportId, {
+            report_outline: data.reportOutline,
+            report_draft: data.reportDraft,
+            chart_image: data.chartImage
+          } as any)
+        } catch (e) {
+          console.error("Failed to save generated report content:", e)
+        }
       } else {
         throw new Error("No outline or draft data received")
       }
@@ -143,6 +219,15 @@ export function ReportReviewComponent({ onSave, reportId }: ReportReviewProps) {
     }))
     setIsEditing(false)
     setEditedContent("")
+
+    // Persist to DB
+    const updated = {
+      ...sectionContents,
+      [generatedOutline[activeSection]]: editedContent
+    }
+    updateReport(reportId, {
+      report_draft: updated
+    } as any).catch(err => console.error("Failed to save edited section:", err))
   }
 
   const handleRegenerateSection = async () => {
@@ -178,6 +263,17 @@ export function ReportReviewComponent({ onSave, reportId }: ReportReviewProps) {
           ...prev,
           [generatedOutline[activeSection]]: result.regeneratedContent
         }))
+
+        // Persist regenerated section to DB
+        const updated = {
+          ...sectionContents,
+          [generatedOutline[activeSection]]: result.regeneratedContent
+        }
+        updateReport(reportId, {
+          report_draft: updated
+        } as any).catch(err =>
+          console.error("Failed to save regenerated section:", err)
+        )
       } else {
         throw new Error("Failed to regenerate content")
       }
@@ -277,6 +373,19 @@ export function ReportReviewComponent({ onSave, reportId }: ReportReviewProps) {
                   >
                     Go <Sparkles className="ml-2 size-4" />
                   </Button>
+                  {canGenerate && (
+                    <Button
+                      onClick={() => {
+                        if (pendingFiles) {
+                          generateDraft(pendingFiles, pendingObjective)
+                          setCanGenerate(false)
+                        }
+                      }}
+                      className="text-background ml-4 bg-green-600"
+                    >
+                      Generate Draft
+                    </Button>
+                  )}
                   <Button
                     onClick={handleDownload}
                     className="text-background ml-4 bg-blue-500"

@@ -15,7 +15,7 @@ import { createAssistant, updateAssistant } from "@/db/assistants"
 import { createChat } from "@/db/chats"
 import { createCollectionFiles } from "@/db/collection-files"
 import { createCollection } from "@/db/collections"
-import { createDesign } from "@/db/designs"
+import { createDesign, updateDesign } from "@/db/designs"
 import { createFileBasedOnExtension } from "@/db/files"
 import { createModel } from "@/db/models"
 import { createPreset } from "@/db/presets"
@@ -266,11 +266,20 @@ export const SidebarCreateItem: FC<SidebarCreateItemProps> = ({
             selectedWorkspace.id
           )
 
+          console.log("✅ [SIDEBAR_CREATE] Design created:", newDesign)
+          console.log("🆔 [SIDEBAR_CREATE] Design ID:", newDesign.id)
+          console.log("📝 [SIDEBAR_CREATE] Design name:", newDesign.name)
+
+          if (!newDesign.id) {
+            throw new Error("Design was created but has no ID")
+          }
+
           // Update the designs list
           setDesigns((prevItems: any) => [...prevItems, newDesign])
 
           // Generate a design URL to navigate to after creation
           const designURL = `/${selectedWorkspace.id}/design/${newDesign.id}`
+          console.log("🔗 [SIDEBAR_CREATE] Design URL:", designURL)
 
           // Set localStorage flag to indicate this design is being generated
           localStorage.setItem(`design_generating_${newDesign.id}`, "true")
@@ -289,10 +298,31 @@ export const SidebarCreateItem: FC<SidebarCreateItemProps> = ({
           )
 
           // Then call the AI model endpoint to generate the design content in the background
+          const requestPayload = {
+            problem: designState.problem || newDesign.name,
+            objectives: designState.objectives || [],
+            variables: designState.variables || [],
+            specialConsiderations: designState.specialConsiderations || []
+          }
+
+          console.log("\n" + "=".repeat(80))
+          console.log("🚀 [CREATE_DESIGN_FE] Starting Design Generation")
+          console.log("=".repeat(80))
+          console.log("📤 [CREATE_DESIGN_REQUEST] API Request:")
+          console.log(
+            "  🎯 Endpoint:",
+            USE_MOCK_API ? "/api/design/mock" : "/api/design/draft"
+          )
+          console.log(
+            "  📋 Request Payload:",
+            JSON.stringify(requestPayload, null, 2)
+          )
+
+          const startTime = Date.now()
           fetch(USE_MOCK_API ? "/api/design/mock" : "/api/design/draft", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(designState)
+            body: JSON.stringify(requestPayload)
           })
             .then(response => {
               if (!response.ok) {
@@ -302,18 +332,76 @@ export const SidebarCreateItem: FC<SidebarCreateItemProps> = ({
               }
               return response.json()
             })
-            .then(data => {
-              console.log("✅ [CREATE_DESIGN] Raw API response:", data)
+            .then(async data => {
+              const responseTime = Date.now() - startTime
+              console.log(
+                `📥 [CREATE_DESIGN_RESPONSE] API Response received in ${responseTime}ms:`
+              )
+              console.log("  ✅ Success:", data.success)
+              console.log(
+                "  📊 Response size:",
+                JSON.stringify(data).length,
+                "characters"
+              )
+              console.log("  🔑 Response keys:", Object.keys(data).join(", "))
 
-              // Ensure the data has the complete structure expected by the UI
+              if (data.reportWriterOutput) {
+                console.log("  📝 Report Writer Output: ✅")
+              }
+              if (data.searchResults) {
+                console.log(
+                  "  🌐 Search Results: ✅ (",
+                  data.searchResults.totalResults,
+                  "results)"
+                )
+              }
+              if (data.agentOutputs) {
+                console.log("  🤖 Agent Outputs: ✅")
+                console.log(
+                  "    📚 Literature Scout:",
+                  !!data.agentOutputs.literatureScoutOutput
+                )
+                console.log(
+                  "    💡 Hypothesis Builder:",
+                  !!data.agentOutputs.hypothesisBuilderOutput
+                )
+                console.log(
+                  "    🧪 Experiment Designer:",
+                  !!data.agentOutputs.experimentDesignerOutput
+                )
+                console.log(
+                  "    📊 Stat Check:",
+                  !!data.agentOutputs.statCheckOutput
+                )
+                console.log(
+                  "    📝 Report Writer:",
+                  !!data.agentOutputs.reportWriterOutput
+                )
+              }
+
+              // Handle both new and legacy API response formats
+              const reportOutput = data.reportWriterOutput || data
+              const searchResults = data.searchResults
+
+              // Create complete data structure for the UI
+              console.log(
+                "\n🔄 [CREATE_DESIGN_DATA] Creating complete data structure:"
+              )
+              console.log("  📝 Report Output Available:", !!reportOutput)
+              console.log("  🌐 Search Results Available:", !!searchResults)
+
               const completeData = {
-                problem: data.problem || designState.problem || newDesign.name,
-                objectives: data.objectives || designState.objectives || [],
-                variables: data.variables || designState.variables || [],
-                specialConsiderations:
-                  data.specialConsiderations ||
-                  designState.specialConsiderations ||
-                  [],
+                problem: designState.problem || newDesign.name,
+                objectives: designState.objectives || [],
+                variables: designState.variables || [],
+                specialConsiderations: designState.specialConsiderations || [],
+
+                // Include new API format data
+                reportWriterOutput: reportOutput,
+                searchResults: searchResults,
+                agentOutputs: data.agentOutputs,
+
+                // Legacy format (for backward compatibility)
                 literatureFindings: data.literatureFindings || {
                   papers: [],
                   searchResults: {
@@ -366,16 +454,79 @@ export const SidebarCreateItem: FC<SidebarCreateItemProps> = ({
               }
 
               console.log(
-                "🔄 [CREATE_DESIGN] Complete data structure:",
-                completeData
+                "🔄 [CREATE_DESIGN] Complete data structure keys:",
+                Object.keys(completeData)
               )
+              console.log(
+                "🔄 [CREATE_DESIGN] Report Writer Output in complete data:",
+                !!completeData.reportWriterOutput
+              )
+              if (completeData.reportWriterOutput) {
+                console.log(
+                  "  📋 Research Objective:",
+                  !!completeData.reportWriterOutput.researchObjective
+                )
+                console.log(
+                  "  📚 Literature Summary:",
+                  !!completeData.reportWriterOutput.literatureSummary
+                )
+                console.log(
+                  "  💡 Hypothesis:",
+                  !!completeData.reportWriterOutput.hypothesis
+                )
+                console.log(
+                  "  🧪 Experiment Design:",
+                  !!completeData.reportWriterOutput.experimentDesign
+                )
+                console.log(
+                  "  📊 Statistical Review:",
+                  !!completeData.reportWriterOutput.statisticalReview
+                )
+                console.log(
+                  "  📝 Final Notes:",
+                  !!completeData.reportWriterOutput.finalNotes
+                )
+              }
 
               // Store the complete design data
+              console.log(
+                "💾 [CREATE_DESIGN] Storing data in localStorage with key:",
+                `design_data_${newDesign.id}`
+              )
               localStorage.setItem(
                 `design_data_${newDesign.id}`,
                 JSON.stringify(completeData)
               )
               localStorage.setItem(`design_completed_${newDesign.id}`, "true")
+
+              // Also save the generated content to the database
+              try {
+                console.log(
+                  "💾 [CREATE_DESIGN] Updating design in database with generated content..."
+                )
+                await updateDesign(newDesign.id, {
+                  user_id: newDesign.user_id,
+                  name: newDesign.name,
+                  description: newDesign.description
+                  // content: JSON.stringify({
+                  //   reportWriterOutput: completeData.reportWriterOutput,
+                  //   searchResults: completeData.searchResults,
+                  //   agentOutputs: completeData.agentOutputs
+                  // }),
+                  // objectives: completeData.objectives,
+                  // variables: completeData.variables,
+                  // special_considerations: completeData.specialConsiderations
+                })
+                console.log(
+                  "✅ [CREATE_DESIGN] Successfully updated design in database"
+                )
+              } catch (dbError) {
+                console.error(
+                  "❌ [CREATE_DESIGN] Failed to update design in database:",
+                  dbError
+                )
+                // Don't fail the whole process if database update fails
+              }
 
               // Show success message after generation completes
               toast.success("Design content generated successfully!")

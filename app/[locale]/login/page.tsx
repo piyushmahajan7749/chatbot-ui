@@ -42,9 +42,27 @@ export default async function Login({
       .maybeSingle()
 
     if (!homeWorkspace) {
-      throw new Error(error?.message)
+      // If no home workspace exists (e.g., after database reset), redirect to setup
+      console.log(
+        "No home workspace found for user, redirecting to setup:",
+        error?.message
+      )
+      return redirect("/setup")
     }
     return redirect(`/${homeWorkspace.id}/chat`)
+  }
+
+  const clearCacheAndLogout = async () => {
+    "use server"
+
+    const cookieStore = cookies()
+    const supabase = createClient(cookieStore)
+
+    // Sign out the user
+    await supabase.auth.signOut()
+
+    // Redirect to login page
+    return redirect("/login?message=Cache cleared. Please sign in again.")
   }
 
   const signIn = async (formData: FormData) => {
@@ -72,9 +90,12 @@ export default async function Login({
       .single()
 
     if (!homeWorkspace) {
-      throw new Error(
-        homeWorkspaceError?.message || "An unexpected error occurred"
+      // If no home workspace exists (e.g., after database reset), redirect to setup
+      console.log(
+        "No home workspace found after login, redirecting to setup:",
+        homeWorkspaceError?.message
       )
+      return redirect("/setup")
     }
 
     return redirect(`/${homeWorkspace.id}/chat`)
@@ -206,6 +227,16 @@ export default async function Login({
             className="text-primary ml-1 underline hover:opacity-80"
           >
             Reset
+          </button>
+        </div>
+
+        <div className="text-muted-foreground mt-2 flex justify-center text-sm">
+          <span className="mr-1">Having login issues?</span>
+          <button
+            formAction={clearCacheAndLogout}
+            className="text-primary ml-1 underline hover:opacity-80"
+          >
+            Clear Cache
           </button>
         </div>
 

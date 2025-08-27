@@ -13,7 +13,9 @@ interface DesignData {
   objectives: string[]
   variables: string[]
   specialConsiderations: string[]
-  literatureFindings: {
+
+  // Legacy format (for backward compatibility)
+  literatureFindings?: {
     papers: Array<{
       title: string
       summary: string
@@ -29,13 +31,13 @@ interface DesignData {
       novelInsights: string[]
     }
   }
-  dataAnalysis: {
+  dataAnalysis?: {
     correlations: string[]
     outliers: string[]
     keyFindings: string[]
     metrics: string[]
   }
-  experimentDesign: {
+  experimentDesign?: {
     hypothesis: string
     factors: Array<{
       name: string
@@ -47,7 +49,7 @@ interface DesignData {
       significance: string
     }
   }
-  finalReport: {
+  finalReport?: {
     introduction: string
     literatureSummary: string
     dataInsights: string
@@ -56,6 +58,55 @@ interface DesignData {
     statisticalAnalysis: string
     recommendations: string
   }
+
+  // New API format
+  reportWriterOutput?: {
+    researchObjective: string
+    literatureSummary: {
+      whatOthersHaveDone: string
+      goodMethodsAndTools: string
+      potentialPitfalls: string
+      citations: string[]
+    }
+    hypothesis: {
+      hypothesis: string
+      explanation: string
+    }
+    experimentDesign: {
+      experimentDesign: {
+        whatWillBeTested: string
+        whatWillBeMeasured: string
+        controlGroups: string
+        experimentalGroups: string
+        sampleTypes: string
+        toolsNeeded: string
+        replicatesAndConditions: string
+        specificRequirements: string
+      }
+      executionPlan: {
+        materialsList: string
+        materialPreparation: string
+        stepByStepProcedure: string
+        timeline: string
+        setupInstructions: string
+        dataCollectionPlan: string
+        conditionsTable: string
+        storageDisposal: string
+        safetyNotes: string
+      }
+      rationale: string
+    }
+    statisticalReview: {
+      whatLooksGood: string
+      problemsOrRisks: string[]
+      suggestedImprovements: string[]
+      overallAssessment: string
+    }
+    finalNotes: string
+  }
+
+  searchResults?: any
+  agentOutputs?: any
 }
 
 export default function DesignIDPage({
@@ -76,19 +127,67 @@ export default function DesignIDPage({
   const fetchExistingDesign = useCallback(async () => {
     try {
       console.log("📋 [DESIGN_PAGE] Fetching existing design from database...")
+      console.log("📋 [DESIGN_PAGE] Design ID:", params.designid)
       setIsLoading(true)
       setDataSource("database")
 
-      // In a real implementation, you would fetch the design from your database
-      // For now, we'll create a mock design that represents what would be loaded
-      // Replace this with actual database call to get design by ID
+      // Validate design ID before making API call
+      if (
+        !params.designid ||
+        params.designid === "undefined" ||
+        params.designid === "null"
+      ) {
+        console.error("❌ [DESIGN_PAGE] Invalid design ID:", params.designid)
+        setIsLoading(false)
+        return
+      }
 
-      const mockExistingDesign = {
-        problem: `Existing research problem for design ${params.designid}`,
-        objectives: ["Database objective 1", "Database objective 2"],
-        variables: ["Database variable 1", "Database variable 2"],
-        specialConsiderations: ["Database consideration 1"],
-        literatureFindings: {
+      // Fetch the design from the database
+      const response = await fetch(`/api/design/${params.designid}`)
+      if (!response.ok) {
+        const errorText = await response.text()
+        console.error(
+          `❌ [DESIGN_PAGE] API Error ${response.status}:`,
+          errorText
+        )
+        throw new Error(`Failed to fetch design: ${response.status}`)
+      }
+
+      const designFromDb = await response.json()
+      console.log(
+        "📋 [DESIGN_PAGE] Design fetched from database:",
+        designFromDb
+      )
+
+      // Parse the stored content if it exists
+      let parsedContent = null
+      if (designFromDb.content) {
+        try {
+          parsedContent = JSON.parse(designFromDb.content)
+          console.log(
+            "📋 [DESIGN_PAGE] Parsed content from database:",
+            Object.keys(parsedContent)
+          )
+        } catch (parseError) {
+          console.error(
+            "❌ [DESIGN_PAGE] Failed to parse design content:",
+            parseError
+          )
+        }
+      }
+
+      // Create the design data structure
+      const existingDesignData = {
+        problem: designFromDb.name || `Design ${params.designid}`,
+        objectives: designFromDb.objectives || [],
+        variables: designFromDb.variables || [],
+        specialConsiderations: designFromDb.special_considerations || [],
+
+        // Include parsed content if available
+        ...(parsedContent || {}),
+
+        // Fallback to mock data if no content is stored
+        literatureFindings: parsedContent?.literatureFindings || {
           papers: [
             {
               title: "Existing Paper from Database",
@@ -152,14 +251,23 @@ export default function DesignIDPage({
         }
       }
 
-      // Simulate API delay
-      await new Promise(resolve => setTimeout(resolve, 1000))
-
-      setDesignData(mockExistingDesign)
-      setIsLoading(false)
+      console.log("✅ [DESIGN_PAGE] Loaded existing design from database")
       console.log(
-        "✅ [DESIGN_PAGE] Successfully loaded existing design from database"
+        "📊 [DESIGN_PAGE] Design data keys:",
+        Object.keys(existingDesignData)
       )
+      if (existingDesignData.reportWriterOutput) {
+        console.log(
+          "📝 [DESIGN_PAGE] reportWriterOutput available from database"
+        )
+      } else {
+        console.log(
+          "⚠️ [DESIGN_PAGE] No reportWriterOutput found, design may need regeneration"
+        )
+      }
+
+      setDesignData(existingDesignData)
+      setIsLoading(false)
     } catch (error) {
       console.error("❌ [DESIGN_PAGE] Error fetching design:", error)
       setIsLoading(false)
@@ -194,10 +302,50 @@ export default function DesignIDPage({
           )
           try {
             const parsedData = JSON.parse(designDataString)
+            console.log("📋 [DESIGN_PAGE] Parsed data from localStorage:")
+            console.log("  🔑 Data Keys:", Object.keys(parsedData))
+            console.log(
+              "  📝 Report Writer Output Available:",
+              !!parsedData.reportWriterOutput
+            )
+            if (parsedData.reportWriterOutput) {
+              console.log(
+                "    📋 Research Objective:",
+                !!parsedData.reportWriterOutput.researchObjective
+              )
+              console.log(
+                "    📚 Literature Summary:",
+                !!parsedData.reportWriterOutput.literatureSummary
+              )
+              console.log(
+                "    💡 Hypothesis:",
+                !!parsedData.reportWriterOutput.hypothesis
+              )
+              console.log(
+                "    🧪 Experiment Design:",
+                !!parsedData.reportWriterOutput.experimentDesign
+              )
+              console.log(
+                "    📊 Statistical Review:",
+                !!parsedData.reportWriterOutput.statisticalReview
+              )
+              console.log(
+                "    📝 Final Notes:",
+                !!parsedData.reportWriterOutput.finalNotes
+              )
+            }
+            console.log(
+              "🔄 [DESIGN_PAGE] Setting design data with keys:",
+              Object.keys(parsedData)
+            )
             setDesignData(parsedData)
             setDataSource("generated")
             setIsGenerating(false)
             setIsLoading(false)
+            console.log(
+              "✅ [DESIGN_PAGE] Successfully set design data, isLoading:",
+              false
+            )
 
             // Clean up localStorage
             localStorage.removeItem(`design_completed_${params.designid}`)
@@ -420,6 +568,10 @@ export default function DesignIDPage({
   // Show error state if no design data is available
   if (!designData && !isLoading && !isGenerating) {
     console.log("❌ [DESIGN_PAGE] Rendering error component - no data")
+    console.log("  📊 designData:", designData)
+    console.log("  🔄 isLoading:", isLoading)
+    console.log("  ⚙️ isGenerating:", isGenerating)
+    console.log("  ✅ hasCheckedStatus:", hasCheckedStatus)
     return (
       <div className="flex h-[calc(100vh-60px)] w-full flex-col overflow-hidden">
         <div className="flex items-center justify-center border-b px-4 py-3">
