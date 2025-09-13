@@ -24,6 +24,7 @@ import {
   optimizeSearchQuery,
   performMultiSourceSearch
 } from "../utils/search-utils"
+import { deepScholarRetrieveAndCurate } from "../utils/deepscholar-ops"
 
 const MODEL_NAME = "gpt-4o-2024-08-06"
 const openai = new OpenAI({
@@ -68,31 +69,45 @@ export async function callLiteratureScoutAgent(
   )
 
   try {
-    // Perform multi-source search
+    // DeepScholar retrieval pipeline: multi-round + sem-filter/top-k
     console.log(
-      "\n🌐 [LITERATURE_SCOUT_SEARCH] Starting multi-source search..."
+      "\n🌐 [LITERATURE_SCOUT_SEARCH] Starting DeepScholar retrieval..."
     )
-    const searchResults = await performMultiSourceSearch(
-      queryData.primaryQuery,
-      10
+    const dsStart = Date.now()
+    const curated = await deepScholarRetrieveAndCurate(
+      state.problem,
+      state.objectives,
+      state.variables,
+      2, // rounds
+      2, // queries per round
+      10, // per-source
+      30 // topK
+    )
+    console.log(
+      `⏱️  [LITERATURE_SCOUT_SEARCH] DeepScholar retrieval finished in ${
+        Date.now() - dsStart
+      }ms`
     )
 
     console.log("📊 [LITERATURE_SCOUT_SEARCH] Search Results Summary:")
-    console.log("  📚 Total Results:", searchResults.totalResults)
-    console.log("  🏥 PubMed:", searchResults.sources.pubmed.length)
-    console.log("  📄 ArXiv:", searchResults.sources.arxiv.length)
-    console.log("  🎓 Scholar:", searchResults.sources.scholar.length)
+    console.log("  📚 Total Curated:", curated.totalResults)
+    console.log("  🏥 PubMed:", curated.sources.pubmed.length)
+    console.log("  📄 ArXiv:", curated.sources.arxiv.length)
+    console.log("  🎓 Scholar:", curated.sources.scholar.length)
     console.log(
       "  🔬 Semantic Scholar:",
-      searchResults.sources.semanticScholar.length
+      curated.sources.semanticScholar.length
     )
-    console.log("  🌍 Tavily:", searchResults.sources.tavily.length)
+    console.log("  🌍 Tavily:", curated.sources.tavily.length)
 
     // Store search results in state for next agents
-    state.searchResults = searchResults
+    state.searchResults = curated
+    console.log(
+      `🧾 [LITERATURE_SCOUT_SEARCH] Curated total: ${curated.totalResults} (PubMed:${curated.sources.pubmed.length}, ArXiv:${curated.sources.arxiv.length}, SemSch:${curated.sources.semanticScholar.length}, Scholar:${curated.sources.scholar.length}, Tavily:${curated.sources.tavily.length})`
+    )
 
     console.log("\n🤖 [LITERATURE_SCOUT_AI] Calling OpenAI for analysis...")
-    const systemPrompt = createLiteratureScoutPrompt(state, searchResults)
+    const systemPrompt = createLiteratureScoutPrompt(state, curated)
     const userPrompt = `Please analyze these research papers and provide insights organized into the three sections: what others have done, good methods/tools, and potential pitfalls. Include proper citations.`
 
     console.log("📝 [LITERATURE_SCOUT_AI] Prompt lengths:")
