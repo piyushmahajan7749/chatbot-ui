@@ -11,7 +11,8 @@ import {
   HypothesisBuilderSchema,
   ExperimentDesignerSchema,
   StatCheckSchema,
-  ReportWriterSchema
+  ReportWriterSchema,
+  CitationItem
 } from "../types"
 import {
   createLiteratureScoutPrompt,
@@ -25,6 +26,34 @@ import {
   performMultiSourceSearch
 } from "../utils/search-utils"
 import { deepScholarRetrieveAndCurate } from "../utils/deepscholar-ops"
+
+function buildCitationsDetailed(searchResults?: any): CitationItem[] {
+  if (!searchResults) return []
+  const collect = (list: any[], source: CitationItem["source"]) =>
+    list.map((p: any, i: number) => ({
+      index: i + 1,
+      title: p.title,
+      url: p.url,
+      source,
+      authors: p.authors || [],
+      year: (p.publishedDate || "").toString(),
+      journal: p.journal,
+      doi: p.doi,
+      apa: undefined
+    })) as CitationItem[]
+
+  const items: CitationItem[] = []
+  items.push(...collect(searchResults.sources.pubmed || [], "pubmed"))
+  items.push(...collect(searchResults.sources.arxiv || [], "arxiv"))
+  items.push(
+    ...collect(searchResults.sources.semanticScholar || [], "semantic_scholar")
+  )
+  items.push(...collect(searchResults.sources.scholar || [], "scholar"))
+  items.push(...collect(searchResults.sources.tavily || [], "tavily"))
+
+  // Re-number sequentially for consistent [X] references
+  return items.map((it, idx) => ({ ...it, index: idx + 1 }))
+}
 
 const MODEL_NAME = "gpt-4o-2024-08-06"
 const openai = new OpenAI({
@@ -132,13 +161,14 @@ export async function callLiteratureScoutAgent(
     )
 
     const parsed = completion.choices[0].message.parsed!
-    const result = {
+    const result: LiteratureScoutOutput = {
       whatOthersHaveDone:
         parsed.whatOthersHaveDone || "No information available",
       goodMethodsAndTools:
         parsed.goodMethodsAndTools || "No information available",
       potentialPitfalls: parsed.potentialPitfalls || "No information available",
-      citations: parsed.citations || []
+      citations: parsed.citations || [],
+      citationsDetailed: buildCitationsDetailed(state.searchResults)
     }
 
     const totalTime = Date.now() - startTime

@@ -13,7 +13,12 @@ import { toast } from "sonner"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 
 // Add this type at the top of the file, after imports
-type DesignWithProblem = Tables<"designs"> & { problem?: string }
+type DesignWithProblem = Tables<"designs"> & {
+  problem?: string
+  objectives?: string[]
+  variables?: string[]
+  specialConsiderations?: string[]
+}
 
 interface AggregatedSearchResults {
   totalResults: number
@@ -144,6 +149,11 @@ interface DesignReviewProps {
   dataSource?: "generated" | "database" | null
 }
 
+function linkifyCitations(text: string) {
+  if (!text) return text
+  return text.replace(/\[(\d+)\]/g, (_m, p1) => `[${p1}](#cite-${p1})`)
+}
+
 export function DesignReview({
   designData,
   onApprove,
@@ -162,6 +172,7 @@ export function DesignReview({
     Record<string, string>
   >({})
   const [localDesign, setLocalDesign] = useState<DesignWithProblem | null>(null)
+  const [agentOutputs, setAgentOutputs] = useState<any | null>(null)
 
   useEffect(() => {
     // Skip API calls if data is already provided
@@ -226,18 +237,48 @@ export function DesignReview({
         }
 
         if (reportOutput.literatureSummary) {
+          const ls = reportOutput.literatureSummary as any
+          const detailed = (ls.citationsDetailed || []) as Array<{
+            index: number
+            title: string
+            url: string
+            authors: string[]
+            year?: string
+            journal?: string
+          }>
+
+          const citationsBlock =
+            detailed.length > 0
+              ? detailed
+                  .map(
+                    c =>
+                      `[${c.index}] ${c.title}${c.year ? ` (${c.year})` : ""}$${
+                        c.journal ? ` ${c.journal}` : ""
+                      } — ${c.authors?.join(", ") || ""} \n${c.url}`
+                  )
+                  .join("\n")
+              : ls.citations?.join("\n") || ""
+
           designContent.literatureSummary = `
 **What Others Have Done:**
-${reportOutput.literatureSummary.whatOthersHaveDone}
+${linkifyCitations(reportOutput.literatureSummary.whatOthersHaveDone)}
 
 **Good Methods and Tools:**
-${reportOutput.literatureSummary.goodMethodsAndTools}
+${linkifyCitations(reportOutput.literatureSummary.goodMethodsAndTools)}
 
 **Potential Pitfalls:**
-${reportOutput.literatureSummary.potentialPitfalls}
+${linkifyCitations(reportOutput.literatureSummary.potentialPitfalls)}
 
 **Citations:**
-${reportOutput.literatureSummary.citations.join("\n")}
+${citationsBlock
+  .split("\n")
+  .map((line: string) => {
+    const m = line.match(/^\[(\d+)\]/)
+    if (!m) return line
+    const idx = m[1]
+    return `<a id=\"cite-${idx}\"></a>` + line
+  })
+  .join("\n")}
           `.trim()
           console.log("    ✅ Added Literature Summary section")
         }
@@ -409,9 +450,11 @@ ${reportOutput.statisticalReview.overallAssessment}
       const requestPayload = {
         problem: design.problem || design.name,
         description: design.description,
-        objectives: [],
-        variables: [],
-        specialConsiderations: []
+        objectives: Array.isArray(design.objectives) ? design.objectives : [],
+        variables: Array.isArray(design.variables) ? design.variables : [],
+        specialConsiderations: Array.isArray(design.specialConsiderations)
+          ? design.specialConsiderations
+          : []
       }
 
       console.log("📤 [DESIGN_REVIEW_REQUEST] API Request:")
@@ -461,6 +504,9 @@ ${reportOutput.statisticalReview.overallAssessment}
           !!data.reportWriterOutput.statisticalReview
         )
         console.log("    📝 Final Notes:", !!data.reportWriterOutput.finalNotes)
+      }
+      if (data.agentOutputs) {
+        setAgentOutputs(data.agentOutputs)
       }
 
       if (data.searchResults) {
@@ -657,10 +703,10 @@ ${reportOutput.statisticalReview.overallAssessment}
             created_at: new Date().toISOString(),
             updated_at: null,
             folder_id: null,
-            objectives: null,
-            special_considerations: null,
-            variables: null
-          } as DesignWithProblem
+            objectives: [],
+            specialConsiderations: [],
+            variables: []
+          } as unknown as DesignWithProblem
           setSelectedDesign(fallbackDesign)
           setLocalDesign(fallbackDesign)
         } else {
@@ -723,10 +769,10 @@ ${reportOutput.statisticalReview.overallAssessment}
         created_at: new Date().toISOString(),
         updated_at: null,
         folder_id: null,
-        objectives: null,
-        special_considerations: null,
-        variables: null
-      } as DesignWithProblem
+        objectives: [],
+        specialConsiderations: [],
+        variables: []
+      } as unknown as DesignWithProblem
       setSelectedDesign(fallbackDesign)
       setLocalDesign(fallbackDesign)
     }
@@ -921,6 +967,70 @@ ${reportOutput.statisticalReview.overallAssessment}
           </div>
         </CardContent>
       </Card>
+
+      {agentOutputs && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Agent Outputs (Raw)</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="prose max-w-none text-white">
+              {agentOutputs.literatureScoutOutput && (
+                <>
+                  <h3>Literature Scout</h3>
+                  <pre className="whitespace-pre-wrap break-words">
+                    {JSON.stringify(
+                      agentOutputs.literatureScoutOutput,
+                      null,
+                      2
+                    )}
+                  </pre>
+                </>
+              )}
+              {agentOutputs.hypothesisBuilderOutput && (
+                <>
+                  <h3>Hypothesis Builder</h3>
+                  <pre className="whitespace-pre-wrap break-words">
+                    {JSON.stringify(
+                      agentOutputs.hypothesisBuilderOutput,
+                      null,
+                      2
+                    )}
+                  </pre>
+                </>
+              )}
+              {agentOutputs.experimentDesignerOutput && (
+                <>
+                  <h3>Experiment Designer</h3>
+                  <pre className="whitespace-pre-wrap break-words">
+                    {JSON.stringify(
+                      agentOutputs.experimentDesignerOutput,
+                      null,
+                      2
+                    )}
+                  </pre>
+                </>
+              )}
+              {agentOutputs.statCheckOutput && (
+                <>
+                  <h3>Stat Check</h3>
+                  <pre className="whitespace-pre-wrap break-words">
+                    {JSON.stringify(agentOutputs.statCheckOutput, null, 2)}
+                  </pre>
+                </>
+              )}
+              {agentOutputs.reportWriterOutput && (
+                <>
+                  <h3>Report Writer</h3>
+                  <pre className="whitespace-pre-wrap break-words">
+                    {JSON.stringify(agentOutputs.reportWriterOutput, null, 2)}
+                  </pre>
+                </>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      )}
     </div>
   )
 }

@@ -38,12 +38,25 @@ export interface AggregatedSearchResults {
   }
 }
 
+export interface CitationItem {
+  index: number
+  title: string
+  url: string
+  source: "pubmed" | "arxiv" | "scholar" | "semantic_scholar" | "tavily"
+  authors: string[]
+  year?: string
+  journal?: string
+  doi?: string
+  apa?: string
+}
+
 // New agent output interfaces
 export interface LiteratureScoutOutput {
   whatOthersHaveDone: string
   goodMethodsAndTools: string
   potentialPitfalls: string
   citations: string[]
+  citationsDetailed?: CitationItem[]
 }
 
 export interface HypothesisBuilderOutput {

@@ -227,7 +227,13 @@ export async function deepScholarRetrieveAndCurate(
   console.log(
     `🧹 [DEEPSCHOLAR][DEDUPE] After dedupe: ${candidates.length} unique`
   )
-  const filtered = await semFilter(candidates, problem, objectives, variables)
+  let filtered = await semFilter(candidates, problem, objectives, variables)
+  if (filtered.length === 0 && candidates.length > 0) {
+    console.warn(
+      "⚠️  [DEEPSCHOLAR][FILTER] Zero kept after filter; falling back to unfiltered candidates"
+    )
+    filtered = candidates
+  }
   const top = semTopK(filtered, topK)
   const result = buildCuratedAggregatedResults(top)
   console.log(
