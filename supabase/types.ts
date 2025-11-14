@@ -73,6 +73,159 @@ export type Database = {
           },
         ]
       }
+      design_research_plans: {
+        Row: {
+          plan_id: string
+          title: string
+          description: string
+          status: string
+          constraints: Json
+          preferences: Json
+          metadata: Json
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          plan_id: string
+          title: string
+          description: string
+          status: string
+          constraints?: Json
+          preferences?: Json
+          metadata?: Json
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          plan_id?: string
+          title?: string
+          description?: string
+          status?: string
+          constraints?: Json
+          preferences?: Json
+          metadata?: Json
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      design_hypotheses: {
+        Row: {
+          hypothesis_id: string
+          plan_id: string
+          content: string
+          explanation: string | null
+          elo: number | null
+          provenance: Json
+          metadata: Json
+          created_at: string
+        }
+        Insert: {
+          hypothesis_id: string
+          plan_id: string
+          content: string
+          explanation?: string | null
+          elo?: number | null
+          provenance?: Json
+          metadata?: Json
+          created_at?: string
+        }
+        Update: {
+          hypothesis_id?: string
+          plan_id?: string
+          content?: string
+          explanation?: string | null
+          elo?: number | null
+          provenance?: Json
+          metadata?: Json
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "design_hypotheses_plan_id_fkey"
+            columns: ["plan_id"]
+            isOneToOne: false
+            referencedRelation: "design_research_plans"
+            referencedColumns: ["plan_id"]
+          },
+        ]
+      }
+      design_tournament_matches: {
+        Row: {
+          match_id: string
+          plan_id: string
+          challenger_hypothesis_id: string | null
+          defender_hypothesis_id: string | null
+          winner_hypothesis_id: string | null
+          metadata: Json
+          created_at: string
+        }
+        Insert: {
+          match_id: string
+          plan_id: string
+          challenger_hypothesis_id?: string | null
+          defender_hypothesis_id?: string | null
+          winner_hypothesis_id?: string | null
+          metadata?: Json
+          created_at?: string
+        }
+        Update: {
+          match_id?: string
+          plan_id?: string
+          challenger_hypothesis_id?: string | null
+          defender_hypothesis_id?: string | null
+          winner_hypothesis_id?: string | null
+          metadata?: Json
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "design_tournament_matches_plan_id_fkey"
+            columns: ["plan_id"]
+            isOneToOne: false
+            referencedRelation: "design_research_plans"
+            referencedColumns: ["plan_id"]
+          },
+        ]
+      }
+      design_logs: {
+        Row: {
+          id: number
+          plan_id: string
+          timestamp: string
+          actor: string
+          level: string
+          message: string
+          context: Json
+        }
+        Insert: {
+          id?: number
+          plan_id: string
+          timestamp: string
+          actor: string
+          level: string
+          message: string
+          context?: Json
+        }
+        Update: {
+          id?: number
+          plan_id?: string
+          timestamp?: string
+          actor?: string
+          level?: string
+          message?: string
+          context?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "design_logs_plan_id_fkey"
+            columns: ["plan_id"]
+            isOneToOne: false
+            referencedRelation: "design_research_plans"
+            referencedColumns: ["plan_id"]
+          },
+        ]
+      }
       assistant_files: {
         Row: {
           assistant_id: string

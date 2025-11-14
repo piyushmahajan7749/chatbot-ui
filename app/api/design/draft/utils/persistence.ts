@@ -1,5 +1,7 @@
 import { promises as fs } from "fs"
 import path from "path"
+import { createClient } from "@supabase/supabase-js"
+import { Database } from "@/supabase/types"
 import {
   ResearchPlan,
   Hypothesis,
@@ -16,7 +18,125 @@ const DATA_DIR = path.join(
   "data"
 )
 
-// Ensure data directory exists
+const useSupabasePersistence =
+  Boolean(process.env.NEXT_PUBLIC_SUPABASE_URL) &&
+  Boolean(process.env.SUPABASE_SERVICE_ROLE_KEY)
+
+const supabaseAdmin = useSupabasePersistence
+  ? createClient<Database>(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!
+    )
+  : null
+
+type DesignPlanRow =
+  Database["public"]["Tables"]["design_research_plans"]["Row"]
+type DesignHypothesisRow =
+  Database["public"]["Tables"]["design_hypotheses"]["Row"]
+type DesignTournamentMatchRow =
+  Database["public"]["Tables"]["design_tournament_matches"]["Row"]
+type DesignLogRow = Database["public"]["Tables"]["design_logs"]["Row"]
+
+const planRowFromPlan = (plan: ResearchPlan): DesignPlanRow => ({
+  plan_id: plan.planId,
+  title: plan.title,
+  description: plan.description,
+  status: plan.status || "pending",
+  constraints: plan.constraints ?? {},
+  preferences: plan.preferences ?? {},
+  metadata: plan as any,
+  created_at: plan.createdAt || new Date().toISOString(),
+  updated_at: new Date().toISOString()
+})
+
+const planFromRow = (row: DesignPlanRow): ResearchPlan => {
+  const metadata =
+    (row.metadata as ResearchPlan | undefined) ?? ({} as ResearchPlan)
+  return {
+    planId: row.plan_id,
+    title: row.title,
+    description: row.description,
+    status:
+      (metadata.status as ResearchPlan["status"]) ||
+      (row.status as ResearchPlan["status"]),
+    constraints:
+      (row.constraints as ResearchPlan["constraints"]) ??
+      metadata.constraints ??
+      {},
+    preferences:
+      (row.preferences as ResearchPlan["preferences"]) ??
+      metadata.preferences ??
+      {},
+    createdAt: metadata.createdAt || row.created_at,
+    ...metadata
+  }
+}
+
+const hypothesisRowFromHypothesis = (
+  hypothesis: Hypothesis
+): DesignHypothesisRow => ({
+  hypothesis_id: hypothesis.hypothesisId,
+  plan_id: hypothesis.planId,
+  content: hypothesis.content,
+  explanation: hypothesis.explanation ?? null,
+  elo: typeof hypothesis.elo === "number" ? hypothesis.elo : null,
+  provenance: hypothesis.provenance ?? [],
+  metadata: hypothesis as any,
+  created_at: hypothesis.createdAt || new Date().toISOString()
+})
+
+const hypothesisFromRow = (row: DesignHypothesisRow): Hypothesis => {
+  const metadata =
+    (row.metadata as Hypothesis | undefined) ?? ({} as Hypothesis)
+  return {
+    hypothesisId: row.hypothesis_id,
+    planId: row.plan_id,
+    content: row.content,
+    explanation: row.explanation ?? metadata.explanation,
+    elo: row.elo ?? metadata.elo,
+    provenance:
+      (row.provenance as Hypothesis["provenance"]) ?? metadata.provenance,
+    createdAt: metadata.createdAt || row.created_at,
+    ...metadata
+  }
+}
+
+const matchRowFromMatch = (
+  match: TournamentMatch
+): DesignTournamentMatchRow => ({
+  match_id: match.matchId,
+  plan_id: match.planId,
+  challenger_hypothesis_id: match.hypothesisA ?? null,
+  defender_hypothesis_id: match.hypothesisB ?? null,
+  winner_hypothesis_id: match.winner ?? null,
+  metadata: match as any,
+  created_at: match.createdAt || new Date().toISOString()
+})
+
+const matchFromRow = (row: DesignTournamentMatchRow): TournamentMatch => {
+  const metadata =
+    (row.metadata as TournamentMatch | undefined) ?? ({} as TournamentMatch)
+  return {
+    matchId: row.match_id,
+    planId: row.plan_id,
+    hypothesisA: row.challenger_hypothesis_id ?? metadata.hypothesisA,
+    hypothesisB: row.defender_hypothesis_id ?? metadata.hypothesisB,
+    winner: row.winner_hypothesis_id ?? metadata.winner,
+    createdAt: metadata.createdAt || row.created_at,
+    ...metadata
+  }
+}
+
+const logRowFromEntry = (entry: LogEntry): Omit<DesignLogRow, "id"> => ({
+  plan_id: entry.context?.planId || "",
+  timestamp: entry.timestamp,
+  actor: entry.actor,
+  level: entry.level,
+  message: entry.message,
+  context: entry.context ?? {}
+})
+
+// Ensure data directory exists (local fallback)
 async function ensureDataDir(): Promise<void> {
   try {
     await fs.mkdir(DATA_DIR, { recursive: true })
@@ -119,6 +239,12 @@ export async function findJsonFileItems<T>(
 
 // Convenience functions for specific data types
 export async function saveResearchPlan(plan: ResearchPlan): Promise<void> {
+  if (supabaseAdmin) {
+    await supabaseAdmin
+      .from("design_research_plans")
+      .upsert(planRowFromPlan(plan))
+    return
+  }
   await ensureDataDir()
   const filename = "research_plans.json"
   const filePath = path.join(DATA_DIR, filename)
@@ -152,6 +278,14 @@ export async function saveResearchPlan(plan: ResearchPlan): Promise<void> {
 export async function getResearchPlan(
   planId: string
 ): Promise<ResearchPlan | null> {
+  if (supabaseAdmin) {
+    const { data } = await supabaseAdmin
+      .from("design_research_plans")
+      .select("*")
+      .eq("plan_id", planId)
+      .maybeSingle()
+    return data ? planFromRow(data) : null
+  }
   const plans = await readJsonFile<ResearchPlan>("research_plans.json")
   for (let i = plans.length - 1; i >= 0; i--) {
     if (plans[i].planId === planId) {
@@ -162,12 +296,25 @@ export async function getResearchPlan(
 }
 
 export async function saveHypothesis(hypothesis: Hypothesis): Promise<void> {
+  if (supabaseAdmin) {
+    await supabaseAdmin
+      .from("design_hypotheses")
+      .upsert(hypothesisRowFromHypothesis(hypothesis))
+    return
+  }
   await appendToJsonFile<Hypothesis>("hypotheses.json", hypothesis)
 }
 
 export async function getHypothesesByPlanId(
   planId: string
 ): Promise<Hypothesis[]> {
+  if (supabaseAdmin) {
+    const { data } = await supabaseAdmin
+      .from("design_hypotheses")
+      .select("*")
+      .eq("plan_id", planId)
+    return (data ?? []).map(hypothesisFromRow)
+  }
   return findJsonFileItems<Hypothesis>(
     "hypotheses.json",
     h => h.planId === planId
@@ -177,6 +324,14 @@ export async function getHypothesesByPlanId(
 export async function getHypothesisById(
   hypothesisId: string
 ): Promise<Hypothesis | null> {
+  if (supabaseAdmin) {
+    const { data } = await supabaseAdmin
+      .from("design_hypotheses")
+      .select("*")
+      .eq("hypothesis_id", hypothesisId)
+      .maybeSingle()
+    return data ? hypothesisFromRow(data) : null
+  }
   const hypotheses = await readJsonFile<Hypothesis>("hypotheses.json")
   for (let i = hypotheses.length - 1; i >= 0; i--) {
     if (hypotheses[i].hypothesisId === hypothesisId) {
@@ -190,6 +345,17 @@ export async function updateHypothesis(
   hypothesisId: string,
   updates: Partial<Hypothesis>
 ): Promise<boolean> {
+  if (supabaseAdmin) {
+    const current = await getHypothesisById(hypothesisId)
+    if (!current) {
+      return false
+    }
+    const nextHypothesis = { ...current, ...updates }
+    await supabaseAdmin
+      .from("design_hypotheses")
+      .upsert(hypothesisRowFromHypothesis(nextHypothesis))
+    return true
+  }
   return updateJsonFileItem<Hypothesis>(
     "hypotheses.json",
     "hypothesisId",
@@ -201,12 +367,26 @@ export async function updateHypothesis(
 export async function saveTournamentMatch(
   match: TournamentMatch
 ): Promise<void> {
+  if (supabaseAdmin) {
+    await supabaseAdmin
+      .from("design_tournament_matches")
+      .upsert(matchRowFromMatch(match))
+    return
+  }
   await appendToJsonFile<TournamentMatch>("tournament_matches.json", match)
 }
 
 export async function getTournamentMatchesByPlanId(
   planId: string
 ): Promise<TournamentMatch[]> {
+  if (supabaseAdmin) {
+    const { data } = await supabaseAdmin
+      .from("design_tournament_matches")
+      .select("*")
+      .eq("plan_id", planId)
+      .order("created_at", { ascending: true })
+    return (data ?? []).map(matchFromRow)
+  }
   return findJsonFileItems<TournamentMatch>(
     "tournament_matches.json",
     m => m.planId === planId
@@ -214,6 +394,10 @@ export async function getTournamentMatchesByPlanId(
 }
 
 export async function saveLog(entry: LogEntry): Promise<void> {
+  if (supabaseAdmin) {
+    await supabaseAdmin.from("design_logs").insert(logRowFromEntry(entry))
+    return
+  }
   await appendToJsonFile<LogEntry>("logs.json", entry)
 }
 
@@ -221,6 +405,23 @@ export async function getLogsByPlanId(
   planId: string,
   limit: number = 20
 ): Promise<LogEntry[]> {
+  if (supabaseAdmin) {
+    const { data } = await supabaseAdmin
+      .from("design_logs")
+      .select("*")
+      .eq("plan_id", planId)
+      .order("timestamp", { ascending: false })
+      .limit(limit)
+    return (
+      data?.map(row => ({
+        timestamp: row.timestamp,
+        actor: row.actor,
+        level: row.level,
+        message: row.message,
+        context: row.context ?? { planId: row.plan_id }
+      })) ?? []
+    )
+  }
   const allLogs = await readJsonFile<LogEntry>("logs.json")
   const planLogs = allLogs
     .filter(log => log.context?.planId === planId)
