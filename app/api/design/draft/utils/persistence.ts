@@ -51,7 +51,7 @@ const planRowFromPlan = (plan: ResearchPlan): DesignPlanRow => ({
 
 const planFromRow = (row: DesignPlanRow): ResearchPlan => {
   const metadata =
-    (row.metadata as ResearchPlan | undefined) ?? ({} as ResearchPlan)
+    ((row.metadata ?? {}) as unknown as Partial<ResearchPlan>) ?? {}
   return {
     planId: row.plan_id,
     title: row.title,
@@ -87,7 +87,7 @@ const hypothesisRowFromHypothesis = (
 
 const hypothesisFromRow = (row: DesignHypothesisRow): Hypothesis => {
   const metadata =
-    (row.metadata as Hypothesis | undefined) ?? ({} as Hypothesis)
+    ((row.metadata ?? {}) as unknown as Partial<Hypothesis>) ?? {}
   return {
     hypothesisId: row.hypothesis_id,
     planId: row.plan_id,
@@ -115,13 +115,16 @@ const matchRowFromMatch = (
 
 const matchFromRow = (row: DesignTournamentMatchRow): TournamentMatch => {
   const metadata =
-    (row.metadata as TournamentMatch | undefined) ?? ({} as TournamentMatch)
+    ((row.metadata ?? {}) as unknown as Partial<TournamentMatch>) ?? {}
+  const hypothesisA = row.challenger_hypothesis_id ?? metadata.hypothesisA ?? ""
+  const hypothesisB = row.defender_hypothesis_id ?? metadata.hypothesisB ?? ""
+  const winner = row.winner_hypothesis_id ?? metadata.winner
   return {
     matchId: row.match_id,
     planId: row.plan_id,
-    hypothesisA: row.challenger_hypothesis_id ?? metadata.hypothesisA,
-    hypothesisB: row.defender_hypothesis_id ?? metadata.hypothesisB,
-    winner: row.winner_hypothesis_id ?? metadata.winner,
+    hypothesisA,
+    hypothesisB,
+    winner,
     createdAt: metadata.createdAt || row.created_at,
     ...metadata
   }
@@ -413,13 +416,24 @@ export async function getLogsByPlanId(
       .order("timestamp", { ascending: false })
       .limit(limit)
     return (
-      data?.map(row => ({
-        timestamp: row.timestamp,
-        actor: row.actor,
-        level: row.level,
-        message: row.message,
-        context: row.context ?? { planId: row.plan_id }
-      })) ?? []
+      data?.map(row => {
+        const level =
+          row.level === "info" ||
+          row.level === "warn" ||
+          row.level === "error" ||
+          row.level === "debug"
+            ? row.level
+            : "info"
+        return {
+          timestamp: row.timestamp,
+          actor: row.actor,
+          level,
+          message: row.message,
+          context: (row.context as LogEntry["context"]) ?? {
+            planId: row.plan_id
+          }
+        }
+      }) ?? []
     )
   }
   const allLogs = await readJsonFile<LogEntry>("logs.json")
