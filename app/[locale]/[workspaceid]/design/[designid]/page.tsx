@@ -50,6 +50,7 @@ export default function DesignIDPage({
     null
   )
   const [designError, setDesignError] = useState<string | null>(null)
+  const [manualReportText, setManualReportText] = useState<string | null>(null)
 
   const loadDesignFromDatabase = useCallback(async () => {
     try {
@@ -200,6 +201,13 @@ export default function DesignIDPage({
     [planStatus?.top_hypotheses]
   )
 
+  const selectedHypothesis = useMemo(() => {
+    if (!selectedHypothesisId) return null
+    return latestHypotheses.find(
+      hypothesis => hypothesis.hypothesisId === selectedHypothesisId
+    )
+  }, [latestHypotheses, selectedHypothesisId])
+
   const logs = useMemo(() => planStatus?.logs || [], [planStatus?.logs])
 
   const reviewProblem = designData?.name || "Untitled Research Plan"
@@ -213,9 +221,13 @@ export default function DesignIDPage({
     setGeneratedLiteratureSummary(null)
     setGeneratedStatReview(null)
     setDesignError(null)
+    setManualReportText(null)
   }, [planStatus?.planId])
 
-  const handleGenerateDesign = async (hypothesis: DesignPlanHypothesis) => {
+  const handleGenerateDesign = async (
+    hypothesis: DesignPlanHypothesis,
+    options?: { instructions?: string }
+  ) => {
     if (!hypothesis?.hypothesisId) {
       return
     }
@@ -235,9 +247,17 @@ export default function DesignIDPage({
     setDesignError(null)
 
     try {
+      const fetchOptions: RequestInit = { method: "POST" }
+      if (options?.instructions) {
+        fetchOptions.headers = { "Content-Type": "application/json" }
+        fetchOptions.body = JSON.stringify({
+          instructions: options.instructions
+        })
+      }
+
       const response = await fetch(
         `/api/design/draft/hypothesis/${hypothesis.hypothesisId}/design`,
-        { method: "POST" }
+        fetchOptions
       )
 
       const data = await response.json()
@@ -256,6 +276,7 @@ export default function DesignIDPage({
       setGeneratedStatReview(
         data.statReview || data.report?.statisticalReview || null
       )
+      setManualReportText(null)
       toast.success("Experiment design generated.")
     } catch (error: any) {
       console.error("❌ [DESIGN_PAGE] Design generation error:", error)
@@ -266,6 +287,32 @@ export default function DesignIDPage({
       setGeneratingHypothesisId(null)
     }
   }
+
+  const handleRegenerateSelected = useCallback(async () => {
+    if (!selectedHypothesis) {
+      toast.error("Select a hypothesis before regenerating.")
+      return
+    }
+    await handleGenerateDesign(selectedHypothesis)
+  }, [selectedHypothesis, handleGenerateDesign])
+
+  const handleRegenerateWithPrompt = useCallback(
+    async (prompt: string) => {
+      if (!selectedHypothesis) {
+        toast.error("Select a hypothesis before regenerating.")
+        return
+      }
+      await handleGenerateDesign(selectedHypothesis, {
+        instructions: prompt
+      })
+    },
+    [selectedHypothesis, handleGenerateDesign]
+  )
+
+  const handleManualEditSave = useCallback(async (updatedText: string) => {
+    setManualReportText(updatedText)
+    toast.success("Custom edits saved locally.")
+  }, [])
 
   if (isGenerating) {
     return (
@@ -320,6 +367,10 @@ export default function DesignIDPage({
           generatedLiteratureSummary={generatedLiteratureSummary}
           generatedStatReview={generatedStatReview}
           designError={designError}
+          manualReportText={manualReportText}
+          onRegenerateDesign={handleRegenerateSelected}
+          onRegenerateWithPrompt={handleRegenerateWithPrompt}
+          onManualEdit={handleManualEditSave}
         />
       </div>
     </div>

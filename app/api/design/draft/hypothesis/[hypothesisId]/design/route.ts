@@ -26,6 +26,17 @@ export async function POST(
       )
     }
 
+    let requestBody: any = {}
+    try {
+      requestBody = await req.json()
+    } catch (error) {
+      requestBody = {}
+    }
+    const instructions =
+      typeof requestBody.instructions === "string"
+        ? requestBody.instructions.trim()
+        : undefined
+
     const hypothesis = await getHypothesisById(hypothesisId)
     if (!hypothesis) {
       return NextResponse.json(
@@ -82,6 +93,24 @@ export async function POST(
       objectives: ensureArray(planConstraints.objectives),
       variables: ensureArray(planConstraints.variables),
       specialConsiderations: ensureArray(planConstraints.specialConsiderations)
+    }
+
+    if (instructions && instructions.length > 0) {
+      state.specialConsiderations = [
+        ...state.specialConsiderations,
+        `User instructions: ${instructions}`
+      ]
+      await saveLog({
+        timestamp: new Date().toISOString(),
+        actor: "supervisor",
+        level: "info",
+        message: `Applying user instructions for hypothesis ${hypothesis.hypothesisId}`,
+        context: {
+          planId: plan.planId,
+          hypothesisId: hypothesis.hypothesisId,
+          instructions
+        }
+      })
     }
 
     state.literatureScoutOutput = await trackStep(

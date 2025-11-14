@@ -1,3 +1,7 @@
+"use client"
+
+"use client"
+
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import {
@@ -5,20 +9,31 @@ import {
   DesignPlanStatus,
   DesignPlanHypothesis
 } from "@/types/design-plan"
-import { type ReactNode } from "react"
+import { type ReactNode, useEffect, useState } from "react"
 import { formatDistanceToNow } from "date-fns"
 import {
   AlertTriangle,
   Atom,
   Beaker,
   ClipboardList,
+  Clock,
   Copy,
   Layers,
   Loader2,
+  MessageSquarePlus,
+  PenSquare,
+  RefreshCw,
   ShieldCheck,
   Target
 } from "lucide-react"
 import ReactMarkdown from "react-markdown"
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger
+} from "@/components/ui/tooltip"
+import { Textarea } from "@/components/ui/textarea"
 
 interface DesignReviewProps {
   designData: {
@@ -39,6 +54,10 @@ interface DesignReviewProps {
   generatedLiteratureSummary?: any | null
   generatedStatReview?: any | null
   designError?: string | null
+  manualReportText?: string | null
+  onRegenerateDesign?: () => Promise<void> | void
+  onRegenerateWithPrompt?: (prompt: string) => Promise<void> | void
+  onManualEdit?: (updatedText: string) => Promise<void> | void
 }
 
 const markdownClasses =
@@ -50,6 +69,39 @@ const normalizeListFormatting = (text: string) =>
     .replace(/\s+(\d+\.)\s+/g, "\n$1 ")
     .replace(/\n{2,}/g, "\n")
     .trim()
+
+const toTitleCase = (value: string) =>
+  value
+    .replace(/([A-Z])/g, " $1")
+    .replace(/_/g, " ")
+    .replace(/\s+/g, " ")
+    .replace(/^./, char => char.toUpperCase())
+
+const buildBlueprintMarkdown = (design: any): string => {
+  if (!design?.experimentDesign) return ""
+
+  const blueprint = design.experimentDesign.experimentDesign || {}
+  const executionPlan = design.experimentDesign.executionPlan || {}
+
+  const blueprintLines = Object.entries(blueprint)
+    .filter(([, value]) => typeof value === "string" && value.trim().length)
+    .map(([key, value]) => `- **${toTitleCase(key)}**: ${value}`)
+
+  const executionLines = Object.entries(executionPlan)
+    .filter(([, value]) => typeof value === "string" && value.trim().length)
+    .map(([key, value]) => `1. **${toTitleCase(key)}**: ${value}`)
+
+  return [
+    blueprintLines.length
+      ? ["### Experimental Parameters", ...blueprintLines].join("\n")
+      : "",
+    executionLines.length
+      ? ["### Execution Plan", ...executionLines].join("\n")
+      : ""
+  ]
+    .filter(Boolean)
+    .join("\n\n")
+}
 
 const SectionCard = ({
   title,
@@ -312,17 +364,175 @@ export function DesignReview({
   generatedDesign,
   generatedLiteratureSummary,
   generatedStatReview,
-  designError
+  designError,
+  manualReportText,
+  onRegenerateDesign,
+  onRegenerateWithPrompt,
+  onManualEdit
 }: DesignReviewProps) {
+  const [showAllHypotheses, setShowAllHypotheses] =
+    useState(!selectedHypothesisId)
+
+  useEffect(() => {
+    setShowAllHypotheses(!selectedHypothesisId)
+  }, [selectedHypothesisId])
+
   const objectives = designData?.objectives || []
   const variables = designData?.variables || []
   const specialConsiderations = designData?.specialConsiderations || []
+  const selectedHypothesis =
+    selectedHypothesisId && topHypotheses
+      ? topHypotheses.find(h => h.hypothesisId === selectedHypothesisId) || null
+      : null
+  const isGeneratingDesign =
+    !!selectedHypothesisId &&
+    generatingHypothesisId === selectedHypothesisId &&
+    !generatedDesign
+  const isDesignComplete = !!generatedDesign && !!selectedHypothesis
+
+  const [showPromptDialog, setShowPromptDialog] = useState(false)
+  const [promptValue, setPromptValue] = useState("")
+  const [isSubmittingPrompt, setIsSubmittingPrompt] = useState(false)
+
+  const [isManualEditing, setIsManualEditing] = useState(false)
+  const [manualDraft, setManualDraft] = useState("")
+  const [isSavingManualEdit, setIsSavingManualEdit] = useState(false)
+  const canManualEdit = Boolean(onManualEdit)
+
+  const startManualEditing = () => {
+    if (!generatedDesign) return
+    const seed =
+      manualReportText && manualReportText.trim().length > 0
+        ? manualReportText
+        : buildBlueprintMarkdown(generatedDesign)
+    setManualDraft(seed)
+    setIsManualEditing(true)
+  }
+
+  const handleManualSave = async () => {
+    if (!onManualEdit) return
+    setIsSavingManualEdit(true)
+    try {
+      await onManualEdit(manualDraft)
+      setIsManualEditing(false)
+    } finally {
+      setIsSavingManualEdit(false)
+    }
+  }
 
   const designReportCard = generatedDesign &&
     typeof generatedDesign === "object" && (
       <Card>
         <CardHeader>
           <CardTitle>Experiment Design</CardTitle>
+          {generatedDesign && (
+            <>
+              {showPromptDialog && (
+                <div className="border-border/80 bg-background/80 rounded-lg border p-4 shadow-sm">
+                  <p className="text-foreground text-sm font-semibold">
+                    Add instructions for regeneration
+                  </p>
+                  <p className="text-muted-foreground text-xs">
+                    Explain what needs to change or improve.
+                  </p>
+                  <Textarea
+                    className="mt-3 h-24"
+                    value={promptValue}
+                    onChange={event => setPromptValue(event.target.value)}
+                    placeholder="e.g., focus on improving statistical power and add more replicates for the control group."
+                  />
+                  <div className="mt-3 flex gap-2">
+                    <Button
+                      size="sm"
+                      onClick={async () => {
+                        if (!onRegenerateWithPrompt) return
+                        setIsSubmittingPrompt(true)
+                        try {
+                          await onRegenerateWithPrompt(promptValue.trim())
+                          setShowPromptDialog(false)
+                          setPromptValue("")
+                        } finally {
+                          setIsSubmittingPrompt(false)
+                        }
+                      }}
+                      disabled={isSubmittingPrompt || !promptValue.trim()}
+                    >
+                      {isSubmittingPrompt ? (
+                        <>
+                          <Loader2 className="mr-2 size-4 animate-spin" />
+                          Sending…
+                        </>
+                      ) : (
+                        "Submit prompt"
+                      )}
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => {
+                        setShowPromptDialog(false)
+                        setPromptValue("")
+                      }}
+                    >
+                      Cancel
+                    </Button>
+                  </div>
+                </div>
+              )}
+              <div className="flex flex-wrap gap-2 pt-3">
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => onRegenerateDesign?.()}
+                      >
+                        <RefreshCw className="mr-2 size-4" />
+                        Regenerate
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>
+                        Run the entire design pipeline again with fresh agents.
+                      </p>
+                    </TooltipContent>
+                  </Tooltip>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setShowPromptDialog(true)}
+                      >
+                        <MessageSquarePlus className="mr-2 size-4" />
+                        Regenerate w/ prompt
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>Provide custom instructions before regenerating.</p>
+                    </TooltipContent>
+                  </Tooltip>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={startManualEditing}
+                        disabled={!canManualEdit}
+                      >
+                        <PenSquare className="mr-2 size-4" />
+                        Edit text
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>Manually edit the generated report content.</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              </div>
+            </>
+          )}
         </CardHeader>
         <CardContent className="text-muted-foreground space-y-4 text-sm">
           {generatedDesign.researchObjective && (
@@ -364,153 +574,200 @@ export function DesignReview({
             <SectionCard
               title="Experiment Blueprint"
               description="Design parameters and execution plan."
+              badge={
+                manualReportText && !isManualEditing ? "Custom edit" : undefined
+              }
             >
-              {(() => {
-                const blueprint =
-                  generatedDesign.experimentDesign.experimentDesign || {}
-                const executionPlan =
-                  generatedDesign.experimentDesign.executionPlan || {}
-                const blueprintHighlights = [
-                  {
-                    label: "What is Tested",
-                    value: blueprint.whatWillBeTested,
-                    icon: Target
-                  },
-                  {
-                    label: "What is Measured",
-                    value: blueprint.whatWillBeMeasured,
-                    icon: ClipboardList
-                  },
-                  {
-                    label: "Control Groups",
-                    value: blueprint.controlGroups,
-                    icon: ShieldCheck
-                  },
-                  {
-                    label: "Experimental Groups",
-                    value: blueprint.experimentalGroups,
-                    icon: Layers
-                  },
-                  {
-                    label: "Sample Types",
-                    value: blueprint.sampleTypes,
-                    icon: Beaker
-                  },
-                  {
-                    label: "Tools Needed",
-                    value: blueprint.toolsNeeded,
-                    icon: AlertTriangle
-                  },
-                  {
-                    label: "Replicates & Conditions",
-                    value: blueprint.replicatesAndConditions,
-                    icon: Copy
-                  },
-                  {
-                    label: "Specific Requirements",
-                    value: blueprint.specificRequirements,
-                    icon: Atom
-                  }
-                ].filter(tile => tile.value)
+              {manualReportText && !isManualEditing ? (
+                <ReactMarkdown className={markdownClasses}>
+                  {manualReportText}
+                </ReactMarkdown>
+              ) : isManualEditing ? (
+                <div className="space-y-3">
+                  <Textarea
+                    className="h-64"
+                    value={manualDraft}
+                    onChange={event => setManualDraft(event.target.value)}
+                  />
+                  <div className="flex flex-wrap gap-2">
+                    <Button
+                      size="sm"
+                      onClick={handleManualSave}
+                      disabled={
+                        isSavingManualEdit ||
+                        !manualDraft.trim() ||
+                        !canManualEdit
+                      }
+                    >
+                      {isSavingManualEdit ? (
+                        <>
+                          <Loader2 className="mr-2 size-4 animate-spin" />
+                          Saving…
+                        </>
+                      ) : (
+                        "Save edits"
+                      )}
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => {
+                        setIsManualEditing(false)
+                        setManualDraft("")
+                      }}
+                    >
+                      Cancel
+                    </Button>
+                  </div>
+                </div>
+              ) : (
+                (() => {
+                  const blueprint =
+                    generatedDesign.experimentDesign.experimentDesign || {}
+                  const executionPlan =
+                    generatedDesign.experimentDesign.executionPlan || {}
+                  const blueprintHighlights = [
+                    {
+                      label: "What is Tested",
+                      value: blueprint.whatWillBeTested,
+                      icon: Target
+                    },
+                    {
+                      label: "What is Measured",
+                      value: blueprint.whatWillBeMeasured,
+                      icon: ClipboardList
+                    },
+                    {
+                      label: "Control Groups",
+                      value: blueprint.controlGroups,
+                      icon: ShieldCheck
+                    },
+                    {
+                      label: "Experimental Groups",
+                      value: blueprint.experimentalGroups,
+                      icon: Layers
+                    },
+                    {
+                      label: "Sample Types",
+                      value: blueprint.sampleTypes,
+                      icon: Beaker
+                    },
+                    {
+                      label: "Tools Needed",
+                      value: blueprint.toolsNeeded,
+                      icon: AlertTriangle
+                    },
+                    {
+                      label: "Replicates & Conditions",
+                      value: blueprint.replicatesAndConditions,
+                      icon: Copy
+                    },
+                    {
+                      label: "Specific Requirements",
+                      value: blueprint.specificRequirements,
+                      icon: Atom
+                    }
+                  ].filter(tile => tile.value)
 
-                const executionSteps: {
-                  label: string
-                  value?: string
-                  accent: StepAccent
-                }[] = [
-                  {
-                    label: "Materials List",
-                    value: executionPlan.materialsList,
-                    accent: "emerald"
-                  },
-                  {
-                    label: "Material Preparation",
-                    value: executionPlan.materialPreparation,
-                    accent: "blue"
-                  },
-                  {
-                    label: "Step-by-Step Procedure",
-                    value: executionPlan.stepByStepProcedure,
-                    accent: "violet"
-                  },
-                  {
-                    label: "Timeline",
-                    value: executionPlan.timeline,
-                    accent: "amber"
-                  },
-                  {
-                    label: "Setup Instructions",
-                    value: executionPlan.setupInstructions,
-                    accent: "blue"
-                  },
-                  {
-                    label: "Data Collection Plan",
-                    value: executionPlan.dataCollectionPlan,
-                    accent: "emerald"
-                  },
-                  {
-                    label: "Conditions Table",
-                    value: executionPlan.conditionsTable,
-                    accent: "rose"
-                  },
-                  {
-                    label: "Storage & Disposal",
-                    value: executionPlan.storageDisposal,
-                    accent: "amber"
-                  },
-                  {
-                    label: "Safety Notes",
-                    value: executionPlan.safetyNotes,
-                    accent: "rose"
-                  }
-                ].filter(step => step.value)
+                  const executionSteps: {
+                    label: string
+                    value?: string
+                    accent: StepAccent
+                  }[] = [
+                    {
+                      label: "Materials List",
+                      value: executionPlan.materialsList,
+                      accent: "emerald"
+                    },
+                    {
+                      label: "Material Preparation",
+                      value: executionPlan.materialPreparation,
+                      accent: "blue"
+                    },
+                    {
+                      label: "Step-by-Step Procedure",
+                      value: executionPlan.stepByStepProcedure,
+                      accent: "violet"
+                    },
+                    {
+                      label: "Timeline",
+                      value: executionPlan.timeline,
+                      accent: "amber"
+                    },
+                    {
+                      label: "Setup Instructions",
+                      value: executionPlan.setupInstructions,
+                      accent: "blue"
+                    },
+                    {
+                      label: "Data Collection Plan",
+                      value: executionPlan.dataCollectionPlan,
+                      accent: "emerald"
+                    },
+                    {
+                      label: "Conditions Table",
+                      value: executionPlan.conditionsTable,
+                      accent: "rose"
+                    },
+                    {
+                      label: "Storage & Disposal",
+                      value: executionPlan.storageDisposal,
+                      accent: "amber"
+                    },
+                    {
+                      label: "Safety Notes",
+                      value: executionPlan.safetyNotes,
+                      accent: "rose"
+                    }
+                  ].filter(step => step.value)
 
-                return (
-                  <div className="space-y-5">
-                    {blueprintHighlights.length > 0 && (
-                      <div className="grid gap-3 md:grid-cols-2">
-                        {blueprintHighlights.map(tile => (
-                          <InfoTile
-                            key={tile.label}
-                            label={tile.label}
-                            value={tile.value}
-                            icon={tile.icon}
-                          />
-                        ))}
-                      </div>
-                    )}
-                    {executionSteps.length > 0 && (
-                      <div className="space-y-3">
-                        <div className="flex items-center justify-between">
-                          <p className="text-muted-foreground text-xs font-semibold uppercase tracking-wide">
-                            Execution Plan
-                          </p>
-                          {executionPlan.timeline && (
-                            <span className="bg-primary/10 text-primary rounded-full px-3 py-1 text-xs font-semibold">
-                              Timeline in plan
-                            </span>
-                          )}
-                        </div>
-                        <div className="grid gap-3">
-                          {executionSteps.map(step => (
-                            <StepCard
-                              key={step.label}
-                              title={step.label}
-                              body={step.value}
-                              accent={step.accent}
+                  return (
+                    <div className="space-y-5">
+                      {blueprintHighlights.length > 0 && (
+                        <div className="grid gap-3 md:grid-cols-2">
+                          {blueprintHighlights.map(tile => (
+                            <InfoTile
+                              key={tile.label}
+                              label={tile.label}
+                              value={tile.value}
+                              icon={tile.icon}
                             />
                           ))}
                         </div>
-                      </div>
-                    )}
-                    {generatedDesign.experimentDesign.rationale && (
-                      <p className="text-foreground italic">
-                        {generatedDesign.experimentDesign.rationale}
-                      </p>
-                    )}
-                  </div>
-                )
-              })()}
+                      )}
+                      {executionSteps.length > 0 && (
+                        <div className="space-y-3">
+                          <div className="flex items-center justify-between">
+                            <p className="text-muted-foreground text-xs font-semibold uppercase tracking-wide">
+                              Execution Plan
+                            </p>
+                            {executionPlan.timeline && (
+                              <span className="bg-primary/10 text-primary rounded-full px-3 py-1 text-xs font-semibold">
+                                Timeline in plan
+                              </span>
+                            )}
+                          </div>
+                          <div className="grid gap-3">
+                            {executionSteps.map(step => (
+                              <StepCard
+                                key={step.label}
+                                title={step.label}
+                                body={step.value}
+                                accent={step.accent}
+                              />
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                      {generatedDesign.experimentDesign.rationale && (
+                        <p className="text-foreground italic">
+                          {generatedDesign.experimentDesign.rationale}
+                        </p>
+                      )}
+                    </div>
+                  )
+                })()
+              )}
             </SectionCard>
           )}
           {generatedDesign.statisticalReview && (
@@ -519,51 +776,67 @@ export function DesignReview({
               description="Quality checks by the StatCheck agent."
               badge="QA"
             >
-              <div className="grid gap-3 md:grid-cols-2">
-                <div className="rounded-lg bg-emerald-500/10 p-3">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-emerald-400">
-                    What Looks Good
-                  </p>
-                  <ReactMarkdown className={markdownClasses}>
-                    {generatedDesign.statisticalReview.whatLooksGood ||
-                      "No notes provided."}
-                  </ReactMarkdown>
+              {isManualEditing ? (
+                <Textarea
+                  className="h-60"
+                  value={manualDraft}
+                  onChange={event => setManualDraft(event.target.value)}
+                />
+              ) : (
+                <div className="grid gap-3 md:grid-cols-2">
+                  <div className="rounded-lg bg-emerald-500/10 p-3">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-emerald-400">
+                      What Looks Good
+                    </p>
+                    <ReactMarkdown className={markdownClasses}>
+                      {generatedDesign.statisticalReview.whatLooksGood ||
+                        "No notes provided."}
+                    </ReactMarkdown>
+                  </div>
+                  <div className="rounded-lg bg-rose-500/10 p-3">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-rose-400">
+                      Problems / Risks
+                    </p>
+                    <ReactMarkdown className={markdownClasses}>
+                      {generatedDesign.statisticalReview.problemsOrRisks
+                        ?.map((item: string) => `- ${item}`)
+                        .join("\n") || "None reported."}
+                    </ReactMarkdown>
+                  </div>
+                  <div className="rounded-lg bg-amber-500/10 p-3">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-amber-400">
+                      Suggested Improvements
+                    </p>
+                    <ReactMarkdown className={markdownClasses}>
+                      {generatedDesign.statisticalReview.suggestedImprovements
+                        ?.map((item: string) => `- ${item}`)
+                        .join("\n") || "No improvements suggested."}
+                    </ReactMarkdown>
+                  </div>
+                  <div className="rounded-lg bg-blue-500/10 p-3">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-blue-400">
+                      Overall Assessment
+                    </p>
+                    <ReactMarkdown className={markdownClasses}>
+                      {generatedDesign.statisticalReview.overallAssessment ||
+                        "No assessment provided."}
+                    </ReactMarkdown>
+                  </div>
                 </div>
-                <div className="rounded-lg bg-rose-500/10 p-3">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-rose-400">
-                    Problems / Risks
-                  </p>
-                  <ReactMarkdown className={markdownClasses}>
-                    {generatedDesign.statisticalReview.problemsOrRisks
-                      ?.map((item: string) => `- ${item}`)
-                      .join("\n") || "None reported."}
-                  </ReactMarkdown>
-                </div>
-                <div className="rounded-lg bg-amber-500/10 p-3">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-amber-400">
-                    Suggested Improvements
-                  </p>
-                  <ReactMarkdown className={markdownClasses}>
-                    {generatedDesign.statisticalReview.suggestedImprovements
-                      ?.map((item: string) => `- ${item}`)
-                      .join("\n") || "No improvements suggested."}
-                  </ReactMarkdown>
-                </div>
-                <div className="rounded-lg bg-blue-500/10 p-3">
-                  <p className="text-xs font-semibold uppercase tracking-wide text-blue-400">
-                    Overall Assessment
-                  </p>
-                  <ReactMarkdown className={markdownClasses}>
-                    {generatedDesign.statisticalReview.overallAssessment ||
-                      "No assessment provided."}
-                  </ReactMarkdown>
-                </div>
-              </div>
+              )}
             </SectionCard>
           )}
           {generatedDesign.finalNotes && (
             <SectionCard title="Final Notes">
-              <p>{generatedDesign.finalNotes}</p>
+              {isManualEditing ? (
+                <Textarea
+                  className="h-32"
+                  value={manualDraft}
+                  onChange={event => setManualDraft(event.target.value)}
+                />
+              ) : (
+                <p>{generatedDesign.finalNotes}</p>
+              )}
             </SectionCard>
           )}
         </CardContent>
@@ -681,68 +954,135 @@ export function DesignReview({
         </CardContent>
       </Card>
 
-      {planStatus && renderPlanStatus(planStatus)}
+      {!selectedHypothesis && planStatus && renderPlanStatus(planStatus)}
 
       {topHypotheses && topHypotheses.length > 0 && (
         <Card>
-          <CardHeader>
-            <CardTitle>Hypotheses</CardTitle>
+          <CardHeader className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <CardTitle>Hypotheses</CardTitle>
+              {selectedHypothesis && (
+                <p className="text-muted-foreground text-xs">
+                  {isDesignComplete
+                    ? "Experiment design generated."
+                    : isGeneratingDesign
+                      ? "Generating experiment design…"
+                      : "Hypothesis selected. Pick another if needed."}
+                </p>
+              )}
+            </div>
+            {selectedHypothesis && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setShowAllHypotheses(prev => !prev)}
+              >
+                {showAllHypotheses ? "Hide list" : "Change hypothesis"}
+              </Button>
+            )}
           </CardHeader>
           <CardContent className="space-y-4">
-            {topHypotheses.map(hypothesis => {
-              const isSelected =
-                selectedHypothesisId === hypothesis.hypothesisId
-              const isGenerating =
-                generatingHypothesisId === hypothesis.hypothesisId
+            {selectedHypothesis && (
+              <div className="border-border/70 bg-background/80 rounded-lg border p-4 shadow-sm">
+                <div className="flex flex-col gap-2">
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div className="space-y-1">
+                      <p className="text-foreground text-sm font-semibold">
+                        {selectedHypothesis.content}
+                      </p>
+                      <p className="text-muted-foreground text-xs">
+                        {selectedHypothesis.explanation}
+                      </p>
+                    </div>
+                    <span
+                      className={`rounded-full px-3 py-1 text-xs font-semibold ${
+                        isDesignComplete
+                          ? "bg-emerald-500/10 text-emerald-500"
+                          : isGeneratingDesign
+                            ? "bg-amber-500/10 text-amber-500"
+                            : "bg-primary/10 text-primary"
+                      }`}
+                    >
+                      {isDesignComplete
+                        ? "Design ready"
+                        : isGeneratingDesign
+                          ? "In progress"
+                          : "Selected"}
+                    </span>
+                  </div>
+                  <div className="flex flex-wrap gap-3 text-xs">
+                    {typeof selectedHypothesis.elo === "number" && (
+                      <span className="bg-secondary/20 rounded-full px-2 py-1 font-semibold">
+                        Elo {Math.round(selectedHypothesis.elo)}
+                      </span>
+                    )}
+                    <span className="text-muted-foreground">
+                      Hypothesis ID: {selectedHypothesis.hypothesisId}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            )}
 
-              return (
-                <div
-                  key={hypothesis.hypothesisId}
-                  className={`border-border space-y-2 rounded-lg border p-4 ${
-                    isSelected ? "border-primary" : ""
-                  }`}
-                >
-                  <div className="flex items-start justify-between gap-4">
-                    <div className="space-y-2">
-                      <h3 className="text-foreground text-base font-semibold">
-                        {hypothesis.content}
-                      </h3>
-                      {hypothesis.explanation && (
-                        <p className="text-muted-foreground text-sm">
-                          {hypothesis.explanation}
+            {(!selectedHypothesis || showAllHypotheses) && (
+              <div className="space-y-4">
+                {topHypotheses.map(hypothesis => {
+                  const isSelected =
+                    selectedHypothesisId === hypothesis.hypothesisId
+                  const isGenerating =
+                    generatingHypothesisId === hypothesis.hypothesisId
+
+                  return (
+                    <div
+                      key={hypothesis.hypothesisId}
+                      className={`border-border space-y-2 rounded-lg border p-4 ${
+                        isSelected ? "border-primary shadow-md" : ""
+                      }`}
+                    >
+                      <div className="flex items-start justify-between gap-4">
+                        <div className="space-y-2">
+                          <h3 className="text-foreground text-base font-semibold">
+                            {hypothesis.content}
+                          </h3>
+                          {hypothesis.explanation && (
+                            <p className="text-muted-foreground text-sm">
+                              {hypothesis.explanation}
+                            </p>
+                          )}
+                        </div>
+                        <div className="flex flex-col items-end gap-2">
+                          {typeof hypothesis.elo === "number" && (
+                            <span className="bg-secondary text-secondary-foreground rounded px-2 py-1 text-xs font-semibold">
+                              Elo: {Math.round(hypothesis.elo)}
+                            </span>
+                          )}
+                          <Button
+                            size="sm"
+                            disabled={isGenerating}
+                            onClick={() => onGenerateDesign?.(hypothesis)}
+                          >
+                            {isGenerating ? (
+                              <>
+                                <Loader2 className="mr-2 size-4 animate-spin" />
+                                Generating…
+                              </>
+                            ) : (
+                              "Generate Experiment Design"
+                            )}
+                          </Button>
+                        </div>
+                      </div>
+                      {isSelected && isGenerating && (
+                        <p className="text-muted-foreground text-xs">
+                          Generating experiment design…
                         </p>
                       )}
                     </div>
-                    <div className="flex flex-col items-end gap-2">
-                      {typeof hypothesis.elo === "number" && (
-                        <span className="bg-secondary text-secondary-foreground rounded px-2 py-1 text-xs font-semibold">
-                          Elo: {Math.round(hypothesis.elo)}
-                        </span>
-                      )}
-                      <Button
-                        size="sm"
-                        disabled={isGenerating}
-                        onClick={() => onGenerateDesign?.(hypothesis)}
-                      >
-                        {isGenerating ? (
-                          <>
-                            <Loader2 className="mr-2 size-4 animate-spin" />
-                            Generating…
-                          </>
-                        ) : (
-                          "Generate Experiment Design"
-                        )}
-                      </Button>
-                    </div>
-                  </div>
-                  {isSelected && isGenerating && (
-                    <p className="text-muted-foreground text-xs">
-                      Generating experiment design…
-                    </p>
-                  )}
-                </div>
-              )
-            })}
+                  )
+                })}
+              </div>
+            )}
+
             {designError && (
               <p className="text-destructive text-sm">{designError}</p>
             )}
@@ -750,7 +1090,64 @@ export function DesignReview({
         </Card>
       )}
 
-      {logs && logs.length > 0 && renderLogs(logs)}
+      {selectedHypothesis && isGeneratingDesign && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Design Agent Progress</CardTitle>
+            <p className="text-muted-foreground text-xs">
+              Tracking multi-agent pipeline for “
+              {selectedHypothesis.content.slice(0, 80)}
+              {selectedHypothesis.content.length > 80 ? "…" : ""}”
+            </p>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            {[
+              {
+                title: "Literature Scout",
+                description: "Reviewing and summarizing relevant papers."
+              },
+              {
+                title: "Experiment Designer",
+                description: "Constructing the experimental blueprint."
+              },
+              {
+                title: "Stat Check",
+                description: "Validating assumptions and power."
+              },
+              {
+                title: "Report Writer",
+                description: "Compiling the final document."
+              }
+            ].map((step, index) => {
+              const isCurrent = index === 0
+              return (
+                <div
+                  key={step.title}
+                  className="border-border/70 bg-background/80 flex items-start gap-3 rounded-lg border p-3"
+                >
+                  <div className="mt-1">
+                    {isCurrent ? (
+                      <Loader2 className="text-primary size-4 animate-spin" />
+                    ) : (
+                      <Clock className="text-muted-foreground size-4" />
+                    )}
+                  </div>
+                  <div>
+                    <p className="text-foreground font-semibold">
+                      {step.title}
+                    </p>
+                    <p className="text-muted-foreground text-sm">
+                      {step.description}
+                    </p>
+                  </div>
+                </div>
+              )
+            })}
+          </CardContent>
+        </Card>
+      )}
+
+      {!selectedHypothesis && logs && logs.length > 0 && renderLogs(logs)}
 
       {(!planStatus || planStatus.status !== "completed") &&
         designData?.reportWriterOutput &&
