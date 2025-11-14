@@ -532,5 +532,64 @@
       "hypothesisId": "1d524719-7b4b-44bc-a87d-1ee2faf1876e",
       "error": "Connection error."
     }
+  },
+  {
+    "timestamp": "2025-11-14T18:58:53.736Z",
+    "actor": "supervisor",
+    "message": "Starting research plan 000fc65e-6073-4fc8-8c86-7a27f9b744e7",
+    "level": "info",
+    "context": {
+      "planId": "000fc65e-6073-4fc8-8c86-7a27f9b744e7"
+    }
+  },
+  {
+    "timestamp": "2025-11-14T18:58:53.750Z",
+    "actor": "supervisor",
+    "message": "Created 10 generation tasks",
+    "level": "info",
+    "context": {
+      "planId": "000fc65e-6073-4fc8-8c86-7a27f9b744e7",
+      "taskCount": 10
+    }
+  },
+  {
+    "timestamp": "2025-11-14T18:59:10.129Z",
+    "actor": "supervisor",
+    "message": "Generated 10 hypotheses",
+    "level": "info",
+    "context": {
+      "planId": "000fc65e-6073-4fc8-8c86-7a27f9b744e7",
+      "hypothesisCount": 10
+    }
+  },
+  {
+    "timestamp": "2025-11-14T18:59:10.144Z",
+    "actor": "supervisor",
+    "message": "Starting tournament with top 10 hypotheses",
+    "level": "info",
+    "context": {
+      "planId": "000fc65e-6073-4fc8-8c86-7a27f9b744e7",
+      "topN": 10
+    }
+  },
+  {
+    "timestamp": "2025-11-14T19:00:32.591Z",
+    "actor": "supervisor",
+    "message": "Research plan 000fc65e-6073-4fc8-8c86-7a27f9b744e7 completed",
+    "level": "info",
+    "context": {
+      "planId": "000fc65e-6073-4fc8-8c86-7a27f9b744e7",
+      "totalTimeMs": 98884
+    }
+  },
+  {
+    "timestamp": "2025-11-14T19:02:54.828Z",
+    "actor": "supervisor",
+    "level": "info",
+    "message": "Starting sequential experiment design pipeline for hypothesis 0d9a81b6-6e09-4192-871b-5939f3fd102b",
+    "context": {
+      "planId": "000fc65e-6073-4fc8-8c86-7a27f9b744e7",
+      "hypothesisId": "0d9a81b6-6e09-4192-871b-5939f3fd102b"
+    }
   }
 ]

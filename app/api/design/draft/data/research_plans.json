@@ -58,5 +58,20 @@
     },
     "createdAt": "2025-11-14T12:40:10.231Z",
     "status": "completed"
+  },
+  {
+    "planId": "000fc65e-6073-4fc8-8c86-7a27f9b744e7",
+    "title": "How to lower viscosity of high concentation bispecific antibidy formulation at 180 mg/ml?",
+    "description": "How to lower viscosity of high concentation bispecific antibidy formulation at 180 mg/ml?",
+    "constraints": {
+      "objectives": [],
+      "variables": [],
+      "specialConsiderations": []
+    },
+    "preferences": {
+      "max_hypotheses": 10
+    },
+    "createdAt": "2025-11-14T18:58:53.706Z",
+    "status": "completed"
   }
 ]

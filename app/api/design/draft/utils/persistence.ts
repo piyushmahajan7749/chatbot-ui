@@ -243,10 +243,16 @@ export async function findJsonFileItems<T>(
 // Convenience functions for specific data types
 export async function saveResearchPlan(plan: ResearchPlan): Promise<void> {
   if (supabaseAdmin) {
-    await supabaseAdmin
+    const { error } = await supabaseAdmin
       .from("design_research_plans")
       .upsert(planRowFromPlan(plan))
-    return
+    if (!error) {
+      return
+    }
+    console.warn(
+      "[PERSISTENCE] Supabase saveResearchPlan failed:",
+      error.message
+    )
   }
   await ensureDataDir()
   const filename = "research_plans.json"
@@ -282,12 +288,18 @@ export async function getResearchPlan(
   planId: string
 ): Promise<ResearchPlan | null> {
   if (supabaseAdmin) {
-    const { data } = await supabaseAdmin
+    const { data, error } = await supabaseAdmin
       .from("design_research_plans")
       .select("*")
       .eq("plan_id", planId)
       .maybeSingle()
-    return data ? planFromRow(data) : null
+    if (!error) {
+      return data ? planFromRow(data) : null
+    }
+    console.warn(
+      "[PERSISTENCE] Supabase getResearchPlan failed:",
+      error.message
+    )
   }
   const plans = await readJsonFile<ResearchPlan>("research_plans.json")
   for (let i = plans.length - 1; i >= 0; i--) {
@@ -300,10 +312,13 @@ export async function getResearchPlan(
 
 export async function saveHypothesis(hypothesis: Hypothesis): Promise<void> {
   if (supabaseAdmin) {
-    await supabaseAdmin
+    const { error } = await supabaseAdmin
       .from("design_hypotheses")
       .upsert(hypothesisRowFromHypothesis(hypothesis))
-    return
+    if (!error) {
+      return
+    }
+    console.warn("[PERSISTENCE] Supabase saveHypothesis failed:", error.message)
   }
   await appendToJsonFile<Hypothesis>("hypotheses.json", hypothesis)
 }
@@ -312,11 +327,17 @@ export async function getHypothesesByPlanId(
   planId: string
 ): Promise<Hypothesis[]> {
   if (supabaseAdmin) {
-    const { data } = await supabaseAdmin
+    const { data, error } = await supabaseAdmin
       .from("design_hypotheses")
       .select("*")
       .eq("plan_id", planId)
-    return (data ?? []).map(hypothesisFromRow)
+    if (!error) {
+      return (data ?? []).map(hypothesisFromRow)
+    }
+    console.warn(
+      "[PERSISTENCE] Supabase getHypothesesByPlanId failed:",
+      error.message
+    )
   }
   return findJsonFileItems<Hypothesis>(
     "hypotheses.json",
@@ -328,12 +349,18 @@ export async function getHypothesisById(
   hypothesisId: string
 ): Promise<Hypothesis | null> {
   if (supabaseAdmin) {
-    const { data } = await supabaseAdmin
+    const { data, error } = await supabaseAdmin
       .from("design_hypotheses")
       .select("*")
       .eq("hypothesis_id", hypothesisId)
       .maybeSingle()
-    return data ? hypothesisFromRow(data) : null
+    if (!error) {
+      return data ? hypothesisFromRow(data) : null
+    }
+    console.warn(
+      "[PERSISTENCE] Supabase getHypothesisById failed:",
+      error.message
+    )
   }
   const hypotheses = await readJsonFile<Hypothesis>("hypotheses.json")
   for (let i = hypotheses.length - 1; i >= 0; i--) {
@@ -354,10 +381,16 @@ export async function updateHypothesis(
       return false
     }
     const nextHypothesis = { ...current, ...updates }
-    await supabaseAdmin
+    const { error } = await supabaseAdmin
       .from("design_hypotheses")
       .upsert(hypothesisRowFromHypothesis(nextHypothesis))
-    return true
+    if (!error) {
+      return true
+    }
+    console.warn(
+      "[PERSISTENCE] Supabase updateHypothesis failed:",
+      error.message
+    )
   }
   return updateJsonFileItem<Hypothesis>(
     "hypotheses.json",
@@ -371,10 +404,16 @@ export async function saveTournamentMatch(
   match: TournamentMatch
 ): Promise<void> {
   if (supabaseAdmin) {
-    await supabaseAdmin
+    const { error } = await supabaseAdmin
       .from("design_tournament_matches")
       .upsert(matchRowFromMatch(match))
-    return
+    if (!error) {
+      return
+    }
+    console.warn(
+      "[PERSISTENCE] Supabase saveTournamentMatch failed:",
+      error.message
+    )
   }
   await appendToJsonFile<TournamentMatch>("tournament_matches.json", match)
 }
@@ -383,12 +422,18 @@ export async function getTournamentMatchesByPlanId(
   planId: string
 ): Promise<TournamentMatch[]> {
   if (supabaseAdmin) {
-    const { data } = await supabaseAdmin
+    const { data, error } = await supabaseAdmin
       .from("design_tournament_matches")
       .select("*")
       .eq("plan_id", planId)
       .order("created_at", { ascending: true })
-    return (data ?? []).map(matchFromRow)
+    if (!error) {
+      return (data ?? []).map(matchFromRow)
+    }
+    console.warn(
+      "[PERSISTENCE] Supabase getTournamentMatchesByPlanId failed:",
+      error.message
+    )
   }
   return findJsonFileItems<TournamentMatch>(
     "tournament_matches.json",
@@ -398,8 +443,13 @@ export async function getTournamentMatchesByPlanId(
 
 export async function saveLog(entry: LogEntry): Promise<void> {
   if (supabaseAdmin) {
-    await supabaseAdmin.from("design_logs").insert(logRowFromEntry(entry))
-    return
+    const { error } = await supabaseAdmin
+      .from("design_logs")
+      .insert(logRowFromEntry(entry))
+    if (!error) {
+      return
+    }
+    console.warn("[PERSISTENCE] Supabase saveLog failed:", error.message)
   }
   await appendToJsonFile<LogEntry>("logs.json", entry)
 }
@@ -409,31 +459,37 @@ export async function getLogsByPlanId(
   limit: number = 20
 ): Promise<LogEntry[]> {
   if (supabaseAdmin) {
-    const { data } = await supabaseAdmin
+    const { data, error } = await supabaseAdmin
       .from("design_logs")
       .select("*")
       .eq("plan_id", planId)
       .order("timestamp", { ascending: false })
       .limit(limit)
-    return (
-      data?.map(row => {
-        const level =
-          row.level === "info" ||
-          row.level === "warn" ||
-          row.level === "error" ||
-          row.level === "debug"
-            ? row.level
-            : "info"
-        return {
-          timestamp: row.timestamp,
-          actor: row.actor,
-          level,
-          message: row.message,
-          context: (row.context as LogEntry["context"]) ?? {
-            planId: row.plan_id
+    if (!error) {
+      return (
+        data?.map(row => {
+          const level =
+            row.level === "info" ||
+            row.level === "warn" ||
+            row.level === "error" ||
+            row.level === "debug"
+              ? row.level
+              : "info"
+          return {
+            timestamp: row.timestamp,
+            actor: row.actor,
+            level,
+            message: row.message,
+            context: (row.context as LogEntry["context"]) ?? {
+              planId: row.plan_id
+            }
           }
-        }
-      }) ?? []
+        }) ?? []
+      )
+    }
+    console.warn(
+      "[PERSISTENCE] Supabase getLogsByPlanId failed:",
+      error.message
     )
   }
   const allLogs = await readJsonFile<LogEntry>("logs.json")
