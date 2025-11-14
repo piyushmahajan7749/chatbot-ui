@@ -1,537 +1,257 @@
 "use client"
 
-import { useEffect, useState, useCallback } from "react"
+import { useCallback, useEffect, useMemo, useState } from "react"
 import { DesignReview } from "../components/design-review"
 import { DesignProgress } from "@/components/ui/design-progress"
+import {
+  DesignPlanMetadata,
+  DesignPlanStatus,
+  DesignPlanHypothesis
+} from "@/types/design-plan"
 import { toast } from "sonner"
 
-// Flag to switch between mock and real API for testing
-const USE_MOCK_API = false // Set to false to use real API
-
 interface DesignData {
-  problem: string
-  objectives: string[]
-  variables: string[]
-  specialConsiderations: string[]
-
-  // Legacy format (for backward compatibility)
-  literatureFindings?: {
-    papers: Array<{
-      title: string
-      summary: string
-      relevance: string
-      methodology: string
-      pitfalls: string[]
-    }>
-    searchResults?: any
-    synthesizedInsights?: {
-      keyMethodologies: string[]
-      commonPitfalls: string[]
-      recommendedApproaches: string[]
-      novelInsights: string[]
-    }
-  }
-  dataAnalysis?: {
-    correlations: string[]
-    outliers: string[]
-    keyFindings: string[]
-    metrics: string[]
-  }
-  experimentDesign?: {
-    hypothesis: string
-    factors: Array<{
-      name: string
-      levels: string[]
-    }>
-    randomization: string
-    statisticalPlan: {
-      methods: string[]
-      significance: string
-    }
-  }
-  finalReport?: {
-    introduction: string
-    literatureSummary: string
-    dataInsights: string
-    hypothesis: string
-    designOfExperiments: string
-    statisticalAnalysis: string
-    recommendations: string
-  }
-
-  // New API format
-  reportWriterOutput?: {
-    researchObjective: string
-    literatureSummary: {
-      whatOthersHaveDone: string
-      goodMethodsAndTools: string
-      potentialPitfalls: string
-      citations: string[]
-    }
-    hypothesis: {
-      hypothesis: string
-      explanation: string
-    }
-    experimentDesign: {
-      experimentDesign: {
-        whatWillBeTested: string
-        whatWillBeMeasured: string
-        controlGroups: string
-        experimentalGroups: string
-        sampleTypes: string
-        toolsNeeded: string
-        replicatesAndConditions: string
-        specificRequirements: string
-      }
-      executionPlan: {
-        materialsList: string
-        materialPreparation: string
-        stepByStepProcedure: string
-        timeline: string
-        setupInstructions: string
-        dataCollectionPlan: string
-        conditionsTable: string
-        storageDisposal: string
-        safetyNotes: string
-      }
-      rationale: string
-    }
-    statisticalReview: {
-      whatLooksGood: string
-      problemsOrRisks: string[]
-      suggestedImprovements: string[]
-      overallAssessment: string
-    }
-    finalNotes: string
-  }
-
+  name?: string
+  description?: string
+  objectives?: string[]
+  variables?: string[]
+  specialConsiderations?: string[]
+  reportWriterOutput?: any
   searchResults?: any
-  agentOutputs?: any
 }
+
+const planMetadataKey = (designId: string) => `design_plan_${designId}`
+const planStatusKey = (designId: string) => `design_plan_status_${designId}`
 
 export default function DesignIDPage({
   params
 }: {
   params: { designid: string }
 }) {
-  const [isGenerating, setIsGenerating] = useState(false)
   const [designData, setDesignData] = useState<DesignData | null>(null)
-  const [isLoading, setIsLoading] = useState(true)
-  const [dataSource, setDataSource] = useState<"generated" | "database" | null>(
+  const [planMetadata, setPlanMetadata] = useState<DesignPlanMetadata | null>(
     null
   )
-  const [hasCheckedStatus, setHasCheckedStatus] = useState(false)
-  const [isRegenerating, setIsRegenerating] = useState(false)
+  const [planStatus, setPlanStatus] = useState<DesignPlanStatus | null>(null)
+  const [isGenerating, setIsGenerating] = useState(false)
+  const [isLoading, setIsLoading] = useState(true)
+  const [planError, setPlanError] = useState<string | null>(null)
+  const [generatingHypothesisId, setGeneratingHypothesisId] = useState<
+    string | null
+  >(null)
+  const [selectedHypothesisId, setSelectedHypothesisId] = useState<
+    string | null
+  >(null)
+  const [generatedDesign, setGeneratedDesign] = useState<any | null>(null)
+  const [designError, setDesignError] = useState<string | null>(null)
 
-  // Function to fetch existing design from the database
-  const fetchExistingDesign = useCallback(async () => {
+  const loadDesignFromDatabase = useCallback(async () => {
     try {
-      console.log("📋 [DESIGN_PAGE] Fetching existing design from database...")
-      console.log("📋 [DESIGN_PAGE] Design ID:", params.designid)
       setIsLoading(true)
-      setDataSource("database")
-
-      // Validate design ID before making API call
-      if (
-        !params.designid ||
-        params.designid === "undefined" ||
-        params.designid === "null"
-      ) {
-        console.error("❌ [DESIGN_PAGE] Invalid design ID:", params.designid)
-        setIsLoading(false)
-        return
-      }
-
-      // Fetch the design from the database
       const response = await fetch(`/api/design/${params.designid}`)
       if (!response.ok) {
-        const errorText = await response.text()
-        console.error(
-          `❌ [DESIGN_PAGE] API Error ${response.status}:`,
-          errorText
-        )
         throw new Error(`Failed to fetch design: ${response.status}`)
       }
 
       const designFromDb = await response.json()
-      console.log(
-        "📋 [DESIGN_PAGE] Design fetched from database:",
-        designFromDb
-      )
-
-      // Parse the stored content if it exists
-      let parsedContent = null
-      if (designFromDb.content) {
-        try {
-          parsedContent = JSON.parse(designFromDb.content)
-          console.log(
-            "📋 [DESIGN_PAGE] Parsed content from database:",
-            Object.keys(parsedContent)
-          )
-        } catch (parseError) {
-          console.error(
-            "❌ [DESIGN_PAGE] Failed to parse design content:",
-            parseError
-          )
-        }
-      }
-
-      // Create the design data structure
-      const existingDesignData = {
-        problem: designFromDb.name || `Design ${params.designid}`,
+      const base: DesignData = {
+        name: designFromDb.name || `Design ${params.designid}`,
+        description: designFromDb.description || "",
         objectives: designFromDb.objectives || [],
         variables: designFromDb.variables || [],
-        specialConsiderations: designFromDb.special_considerations || [],
+        specialConsiderations: designFromDb.special_considerations || []
+      }
 
-        // Include parsed content if available
-        ...(parsedContent || {}),
-
-        // Fallback to mock data if no content is stored
-        literatureFindings: parsedContent?.literatureFindings || {
-          papers: [
-            {
-              title: "Existing Paper from Database",
-              summary: "This paper was previously loaded from database",
-              relevance: "Previously analyzed relevance",
-              methodology: "Database stored methodology",
-              pitfalls: ["Known pitfall 1", "Known pitfall 2"]
-            }
-          ],
-          searchResults: {
-            totalResults: 0,
-            sources: {
-              pubmed: [],
-              arxiv: [],
-              scholar: [],
-              semanticScholar: [],
-              tavily: []
-            },
-            synthesizedFindings: {
-              keyMethodologies: [],
-              commonPitfalls: [],
-              recommendedApproaches: [],
-              novelInsights: []
-            }
-          },
-          synthesizedInsights: {
-            keyMethodologies: ["Methodology from database"],
-            commonPitfalls: ["Pitfall from database"],
-            recommendedApproaches: ["Approach from database"],
-            novelInsights: ["Insight from database"]
-          }
-        },
-        dataAnalysis: {
-          correlations: ["Existing correlation analysis"],
-          outliers: ["Existing outlier detection"],
-          keyFindings: ["Previous key finding"],
-          metrics: ["Stored metric analysis"]
-        },
-        experimentDesign: {
-          hypothesis: "Previously formulated hypothesis from database",
-          factors: [
-            {
-              name: "Existing factor 1",
-              levels: ["Level A", "Level B", "Level C"]
-            }
-          ],
-          randomization: "Previously defined randomization strategy",
-          statisticalPlan: {
-            methods: ["Existing statistical method"],
-            significance: "0.05"
-          }
-        },
-        finalReport: {
-          introduction: "Previously generated introduction",
-          literatureSummary: "Existing literature summary",
-          dataInsights: "Previous data insights",
-          hypothesis: "Stored hypothesis",
-          designOfExperiments: "Existing DOE description",
-          statisticalAnalysis: "Previous statistical analysis",
-          recommendations: "Stored recommendations"
+      if (designFromDb.content) {
+        try {
+          const parsed = JSON.parse(designFromDb.content)
+          setDesignData({ ...base, ...parsed })
+        } catch {
+          setDesignData(base)
         }
-      }
-
-      console.log("✅ [DESIGN_PAGE] Loaded existing design from database")
-      console.log(
-        "📊 [DESIGN_PAGE] Design data keys:",
-        Object.keys(existingDesignData)
-      )
-      if (existingDesignData.reportWriterOutput) {
-        console.log(
-          "📝 [DESIGN_PAGE] reportWriterOutput available from database"
-        )
       } else {
-        console.log(
-          "⚠️ [DESIGN_PAGE] No reportWriterOutput found, design may need regeneration"
-        )
+        setDesignData(base)
       }
-
-      setDesignData(existingDesignData)
-      setIsLoading(false)
-    } catch (error) {
-      console.error("❌ [DESIGN_PAGE] Error fetching design:", error)
+    } catch (error: any) {
+      console.error("❌ [DESIGN_PAGE] Error loading design:", error)
+      setDesignData(null)
+      toast.error(
+        `Unable to load design: ${error?.message || "Unexpected error"}`
+      )
+    } finally {
       setIsLoading(false)
     }
   }, [params.designid])
 
-  // Check design status and handle the generation flow - only run once
   useEffect(() => {
-    if (hasCheckedStatus) {
-      return // Prevent multiple checks
-    }
-
-    const checkDesignStatus = () => {
+    const storedMetadata = (() => {
       try {
-        console.log("🔍 [DESIGN_PAGE] Checking design status...")
+        const value = localStorage.getItem(planMetadataKey(params.designid))
+        return value ? (JSON.parse(value) as DesignPlanMetadata) : null
+      } catch {
+        localStorage.removeItem(planMetadataKey(params.designid))
+        return null
+      }
+    })()
 
-        // Check if there's a design being generated
-        const isGeneratingFlag = localStorage.getItem(
-          `design_generating_${params.designid}`
-        )
-        const isCompleted = localStorage.getItem(
-          `design_completed_${params.designid}`
-        )
-        const designDataString = localStorage.getItem(
-          `design_data_${params.designid}`
-        )
+    const storedStatus = (() => {
+      try {
+        const value = localStorage.getItem(planStatusKey(params.designid))
+        return value ? (JSON.parse(value) as DesignPlanStatus) : null
+      } catch {
+        localStorage.removeItem(planStatusKey(params.designid))
+        return null
+      }
+    })()
 
-        if (isCompleted && designDataString) {
-          // Design generation just completed, load the fresh data
-          console.log(
-            "✅ [DESIGN_PAGE] Design generation completed, loading fresh data..."
-          )
-          try {
-            const parsedData = JSON.parse(designDataString)
-            console.log("📋 [DESIGN_PAGE] Parsed data from localStorage:")
-            console.log("  🔑 Data Keys:", Object.keys(parsedData))
-            console.log(
-              "  📝 Report Writer Output Available:",
-              !!parsedData.reportWriterOutput
-            )
-            if (parsedData.reportWriterOutput) {
-              console.log(
-                "    📋 Research Objective:",
-                !!parsedData.reportWriterOutput.researchObjective
-              )
-              console.log(
-                "    📚 Literature Summary:",
-                !!parsedData.reportWriterOutput.literatureSummary
-              )
-              console.log(
-                "    💡 Hypothesis:",
-                !!parsedData.reportWriterOutput.hypothesis
-              )
-              console.log(
-                "    🧪 Experiment Design:",
-                !!parsedData.reportWriterOutput.experimentDesign
-              )
-              console.log(
-                "    📊 Statistical Review:",
-                !!parsedData.reportWriterOutput.statisticalReview
-              )
-              console.log(
-                "    📝 Final Notes:",
-                !!parsedData.reportWriterOutput.finalNotes
-              )
-            }
-            console.log(
-              "🔄 [DESIGN_PAGE] Setting design data with keys:",
-              Object.keys(parsedData)
-            )
-            setDesignData(parsedData)
-            setDataSource("generated")
-            setIsGenerating(false)
-            setIsLoading(false)
-            console.log(
-              "✅ [DESIGN_PAGE] Successfully set design data, isLoading:",
-              false
-            )
+    if (storedMetadata) {
+      setPlanMetadata(storedMetadata)
+      setIsGenerating(true)
+      if (storedMetadata.request && !designData) {
+        setDesignData({
+          name: storedMetadata.request.title,
+          description: storedMetadata.request.description,
+          objectives: storedMetadata.request.constraints?.objectives || [],
+          variables: storedMetadata.request.constraints?.variables || [],
+          specialConsiderations:
+            storedMetadata.request.constraints?.specialConsiderations || []
+        })
+      }
+    }
 
-            // Clean up localStorage
-            localStorage.removeItem(`design_completed_${params.designid}`)
-            localStorage.removeItem(`design_data_${params.designid}`)
-            localStorage.removeItem(`design_generating_${params.designid}`)
-
-            console.log(
-              "🧹 [DESIGN_PAGE] Cleaned up localStorage after loading generated design"
-            )
-          } catch (parseError) {
-            console.error(
-              "❌ [DESIGN_PAGE] Error parsing design data:",
-              parseError
-            )
-            setIsGenerating(false)
-            // Fall back to fetching existing design
-            fetchExistingDesign()
-          }
-        } else if (isGeneratingFlag) {
-          // Design is still being generated
-          console.log(
-            "🔄 [DESIGN_PAGE] Design still generating, showing progress..."
-          )
-          setIsGenerating(true)
-          setIsLoading(false)
-        } else {
-          // This is an existing design, fetch it from database
-          console.log(
-            "📋 [DESIGN_PAGE] Loading existing design from database..."
-          )
-          setIsGenerating(false)
-          fetchExistingDesign()
-        }
-
-        setHasCheckedStatus(true) // Mark that we've checked the status
-      } catch (error) {
-        console.error("❌ [DESIGN_PAGE] Error checking design status:", error)
+    if (storedStatus) {
+      setPlanStatus(storedStatus)
+      if (storedStatus.status === "completed") {
         setIsGenerating(false)
-        setHasCheckedStatus(true)
-        fetchExistingDesign()
       }
     }
 
-    // Initial check
-    checkDesignStatus()
-  }, [params.designid, hasCheckedStatus, fetchExistingDesign])
+    loadDesignFromDatabase()
+  }, [params.designid, loadDesignFromDatabase])
 
-  // Separate effect for polling during generation - only when actively generating
   useEffect(() => {
-    if (!isGenerating || hasCheckedStatus === false) {
-      return // Don't poll if not generating or haven't checked status yet
-    }
-
-    const pollForCompletion = () => {
-      const isCompleted = localStorage.getItem(
-        `design_completed_${params.designid}`
-      )
-      const designDataString = localStorage.getItem(
-        `design_data_${params.designid}`
-      )
-
-      if (isCompleted && designDataString) {
-        console.log("✅ [DESIGN_PAGE] Generation completed during polling!")
-        try {
-          const parsedData = JSON.parse(designDataString)
-          setDesignData(parsedData)
-          setDataSource("generated")
-          setIsGenerating(false)
-          setIsLoading(false)
-
-          // Clean up localStorage
-          localStorage.removeItem(`design_completed_${params.designid}`)
-          localStorage.removeItem(`design_data_${params.designid}`)
-          localStorage.removeItem(`design_generating_${params.designid}`)
-        } catch (parseError) {
-          console.error(
-            "❌ [DESIGN_PAGE] Error parsing design data during polling:",
-            parseError
-          )
-          setIsGenerating(false)
-          fetchExistingDesign()
-        }
-      }
-    }
-
-    const pollInterval = setInterval(pollForCompletion, 2000)
-
-    // Cleanup after 5 minutes maximum
-    const maxTimeout = setTimeout(() => {
-      clearInterval(pollInterval)
-      localStorage.removeItem(`design_generating_${params.designid}`)
-      setIsGenerating(false)
-      fetchExistingDesign()
-      console.log(
-        "⏰ [DESIGN_PAGE] Generation timeout, loading existing design"
-      )
-    }, 300000)
-
-    return () => {
-      clearInterval(pollInterval)
-      clearTimeout(maxTimeout)
-    }
-  }, [isGenerating, params.designid, hasCheckedStatus, fetchExistingDesign])
-
-  const handleGenerationComplete = () => {
-    console.log("✅ [DESIGN_PAGE] Design generation completed!")
-    setIsGenerating(false)
-    localStorage.removeItem(`design_generating_${params.designid}`)
-    // The polling effect will pick up the completed design data
-  }
-
-  // Debug effect to track state changes
-  useEffect(() => {
-    console.log("🔄 [DESIGN_PAGE] State update:", {
-      isGenerating,
-      isLoading,
-      hasData: !!designData,
-      dataSource,
-      hasCheckedStatus
-    })
-  }, [isGenerating, isLoading, designData, dataSource, hasCheckedStatus])
-
-  // Function to handle design regeneration
-  const handleRegenerate = async (feedback: string) => {
-    if (!designData || !feedback.trim()) {
-      console.error("❌ [DESIGN_PAGE] Missing data for regeneration")
-      toast.error("Please provide feedback for regeneration")
+    if (!planMetadata) {
       return
     }
 
-    try {
-      setIsRegenerating(true)
-      console.log(
-        "🔄 [DESIGN_PAGE] Starting design regeneration with feedback:",
-        feedback
-      )
-      toast.info(
-        USE_MOCK_API
-          ? "Regenerating design with your feedback (Mock Mode)..."
-          : "Regenerating design with your feedback..."
-      )
+    let isActive = true
+    let timer: NodeJS.Timeout | null = null
 
-      const response = await fetch(
-        USE_MOCK_API ? "/api/design/mock-regenerate" : "/api/design/regenerate",
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            designId: params.designid,
-            feedback: feedback,
-            currentDesign: designData
-          })
+    const pollStatus = async () => {
+      try {
+        const response = await fetch(planMetadata.statusUrl)
+        if (!response.ok) {
+          throw new Error(`Status poll failed: ${response.status}`)
         }
-      )
 
-      if (!response.ok) {
-        throw new Error(`Regeneration failed: ${response.status}`)
-      }
+        const status = (await response.json()) as DesignPlanStatus
+        if (!isActive) {
+          return
+        }
 
-      const result = await response.json()
-      console.log("✅ [DESIGN_PAGE] Regeneration completed:", result)
-
-      if (result.success && result.design) {
-        // Update the design data with the regenerated version
-        setDesignData(result.design)
-        setDataSource("generated")
-        toast.success("Design successfully regenerated with your feedback!")
-        console.log(
-          "🔄 [DESIGN_PAGE] Design data updated with regenerated version"
+        setPlanStatus(status)
+        localStorage.setItem(
+          planStatusKey(params.designid),
+          JSON.stringify(status)
         )
-      } else {
-        throw new Error(result.error || "Regeneration failed")
+        setPlanError(null)
+
+        if (status.status === "completed" || status.status === "failed") {
+          setIsGenerating(false)
+          localStorage.removeItem(planMetadataKey(params.designid))
+          localStorage.removeItem(`design_generating_${params.designid}`)
+          if (timer) {
+            clearInterval(timer)
+            timer = null
+          }
+          if (status.status === "completed") {
+            toast.success("Design draft completed.")
+          } else {
+            toast.error("Design draft failed.")
+          }
+        }
+      } catch (error: any) {
+        console.error("❌ [DESIGN_PAGE] Poll error:", error)
+        if (isActive) {
+          setPlanError(error?.message || "Unable to fetch plan status")
+        }
       }
-    } catch (error) {
-      console.error("❌ [DESIGN_PAGE] Regeneration error:", error)
+    }
+
+    pollStatus()
+    timer = setInterval(pollStatus, 5000)
+
+    return () => {
+      isActive = false
+      if (timer) {
+        clearInterval(timer)
+      }
+    }
+  }, [planMetadata, params.designid])
+
+  const latestHypotheses = useMemo(
+    () => planStatus?.top_hypotheses || [],
+    [planStatus?.top_hypotheses]
+  )
+
+  const logs = useMemo(() => planStatus?.logs || [], [planStatus?.logs])
+
+  const reviewProblem = designData?.name || "Untitled Research Plan"
+
+  const isDesignLoaded = !!designData
+
+  useEffect(() => {
+    setSelectedHypothesisId(null)
+    setGeneratingHypothesisId(null)
+    setGeneratedDesign(null)
+    setDesignError(null)
+  }, [planStatus?.planId])
+
+  const handleGenerateDesign = async (hypothesis: DesignPlanHypothesis) => {
+    if (!hypothesis?.hypothesisId) {
+      return
+    }
+
+    if (!planStatus || planStatus.status !== "completed") {
       toast.error(
-        `Failed to regenerate design: ${error instanceof Error ? error.message : "Unknown error"}`
+        "The research plan is still running. Please wait until it completes."
       )
+      return
+    }
+
+    setSelectedHypothesisId(hypothesis.hypothesisId)
+    setGeneratingHypothesisId(hypothesis.hypothesisId)
+    setGeneratedDesign(null)
+    setDesignError(null)
+
+    try {
+      const response = await fetch(
+        `/api/design/draft/hypothesis/${hypothesis.hypothesisId}/design`,
+        { method: "POST" }
+      )
+
+      const data = await response.json()
+
+      if (!response.ok || !data?.success) {
+        throw new Error(
+          data?.error ||
+            `Design generation failed with status ${response.status}`
+        )
+      }
+
+      setGeneratedDesign(data.report)
+      toast.success("Experiment design generated.")
+    } catch (error: any) {
+      console.error("❌ [DESIGN_PAGE] Design generation error:", error)
+      const message = error?.message || "Failed to generate experiment design"
+      setDesignError(message)
+      toast.error(message)
     } finally {
-      setIsRegenerating(false)
+      setGeneratingHypothesisId(null)
     }
   }
 
-  // Show progress component while generating
   if (isGenerating) {
-    console.log("🎨 [DESIGN_PAGE] Rendering progress component")
     return (
       <div className="flex h-[calc(100vh-60px)] w-full flex-col overflow-hidden">
         <div className="flex items-center justify-center border-b px-4 py-3">
@@ -539,17 +259,18 @@ export default function DesignIDPage({
         </div>
         <div className="flex flex-1 items-center justify-center p-6">
           <DesignProgress
-            isGenerating={isGenerating}
-            onComplete={handleGenerationComplete}
+            isGenerating
+            status={planStatus?.status}
+            progress={planStatus?.progress}
+            logs={logs}
+            error={planError}
           />
         </div>
       </div>
     )
   }
 
-  // Show loading state while fetching existing design (but not if we're generating)
-  if (isLoading && !isGenerating) {
-    console.log("⏳ [DESIGN_PAGE] Rendering loading component")
+  if (isLoading && !isDesignLoaded) {
     return (
       <div className="flex h-[calc(100vh-60px)] w-full flex-col overflow-hidden">
         <div className="flex items-center justify-center border-b px-4 py-3">
@@ -558,77 +279,30 @@ export default function DesignIDPage({
         <div className="flex flex-1 items-center justify-center p-6">
           <div className="space-y-4 text-center">
             <div className="mx-auto size-12 animate-spin rounded-full border-b-2 border-gray-900"></div>
-            <p className="text-gray-600">Loading your design...</p>
+            <p className="text-gray-600">Loading your design…</p>
           </div>
         </div>
       </div>
     )
   }
 
-  // Show error state if no design data is available
-  if (!designData && !isLoading && !isGenerating) {
-    console.log("❌ [DESIGN_PAGE] Rendering error component - no data")
-    console.log("  📊 designData:", designData)
-    console.log("  🔄 isLoading:", isLoading)
-    console.log("  ⚙️ isGenerating:", isGenerating)
-    console.log("  ✅ hasCheckedStatus:", hasCheckedStatus)
-    return (
-      <div className="flex h-[calc(100vh-60px)] w-full flex-col overflow-hidden">
-        <div className="flex items-center justify-center border-b px-4 py-3">
-          <h1 className="text-2xl font-bold">Design Not Found</h1>
-        </div>
-        <div className="flex flex-1 items-center justify-center p-6">
-          <div className="space-y-4 text-center">
-            <p className="text-gray-600">Could not load the design data.</p>
-            <button
-              onClick={() => {
-                setHasCheckedStatus(false)
-                setIsLoading(true)
-              }}
-              className="rounded bg-blue-600 px-4 py-2 text-white hover:bg-blue-700"
-            >
-              Retry
-            </button>
-          </div>
-        </div>
-      </div>
-    )
-  }
-
-  // Show design review component when data is loaded
-  if (designData && !isLoading && !isGenerating) {
-    console.log("✅ [DESIGN_PAGE] Rendering design review component")
-    return (
-      <div className="flex h-[calc(100vh-60px)] w-full flex-col overflow-hidden">
-        <div className="flex items-center justify-center border-b px-4 py-3">
-          <h1 className="text-2xl font-bold">Design Review</h1>
-        </div>
-        <div className="relative flex-1 overflow-hidden p-1 sm:p-2">
-          <DesignReview
-            designData={designData}
-            onApprove={() => console.log("Design approved")}
-            onRegenerate={handleRegenerate}
-            isRegenerating={isRegenerating}
-            skipApiCalls={true}
-            dataSource={dataSource}
-          />
-        </div>
-      </div>
-    )
-  }
-
-  // Fallback loading state (should rarely be reached)
-  console.log("🤔 [DESIGN_PAGE] Rendering fallback loading state")
   return (
     <div className="flex h-[calc(100vh-60px)] w-full flex-col overflow-hidden">
       <div className="flex items-center justify-center border-b px-4 py-3">
-        <h1 className="text-2xl font-bold">Loading...</h1>
+        <h1 className="text-2xl font-bold">{reviewProblem}</h1>
       </div>
-      <div className="flex flex-1 items-center justify-center p-6">
-        <div className="space-y-4 text-center">
-          <div className="mx-auto size-12 animate-spin rounded-full border-b-2 border-gray-900"></div>
-          <p className="text-gray-600">Please wait...</p>
-        </div>
+      <div className="flex-1 overflow-auto p-4">
+        <DesignReview
+          designData={designData}
+          planStatus={planStatus}
+          topHypotheses={latestHypotheses}
+          logs={logs}
+          onGenerateDesign={handleGenerateDesign}
+          generatingHypothesisId={generatingHypothesisId}
+          selectedHypothesisId={selectedHypothesisId}
+          generatedDesign={generatedDesign}
+          designError={designError}
+        />
       </div>
     </div>
   )

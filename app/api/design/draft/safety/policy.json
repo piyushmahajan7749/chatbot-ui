@@ -1,0 +1,44 @@
+{
+  "forbidden_categories": [
+    "no_actionable_protocols",
+    "no_pathogen_enhancement",
+    "no_dual_use_details",
+    "no_weapons_design",
+    "no_harmful_substances_synthesis"
+  ],
+  "rules": [
+    {
+      "category": "no_actionable_protocols",
+      "description": "Block detailed protocols for creating harmful substances",
+      "keywords": ["synthesis protocol", "step-by-step", "recipe", "how to make"],
+      "severity": "block"
+    },
+    {
+      "category": "no_pathogen_enhancement",
+      "description": "Block research that enhances pathogen virulence or transmissibility",
+      "keywords": ["enhance virulence", "increase transmissibility", "gain of function"],
+      "severity": "block"
+    },
+    {
+      "category": "no_dual_use_details",
+      "description": "Flag research with dual-use potential",
+      "keywords": ["bioweapon", "biological weapon", "dual use"],
+      "severity": "flag"
+    },
+    {
+      "category": "no_weapons_design",
+      "description": "Block weapons design or development",
+      "keywords": ["weapon", "explosive", "lethal"],
+      "severity": "block"
+    },
+    {
+      "category": "no_harmful_substances_synthesis",
+      "description": "Block synthesis of harmful or controlled substances",
+      "keywords": ["synthesize", "produce", "manufacture", "drug"],
+      "severity": "flag"
+    }
+  ],
+  "flag_threshold": 0.3,
+  "block_threshold": 0.7
+}
+

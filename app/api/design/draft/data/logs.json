@@ -1,0 +1,209 @@
+[
+  {
+    "timestamp": "2025-11-13T11:27:26.841Z",
+    "actor": "supervisor",
+    "message": "Starting research plan a9fffa70-2294-4494-b8ce-b1b6f14958ce",
+    "level": "info",
+    "context": {
+      "planId": "a9fffa70-2294-4494-b8ce-b1b6f14958ce"
+    }
+  },
+  {
+    "timestamp": "2025-11-13T11:27:26.842Z",
+    "actor": "supervisor",
+    "message": "Created 10 generation tasks",
+    "level": "info",
+    "context": {
+      "planId": "a9fffa70-2294-4494-b8ce-b1b6f14958ce",
+      "taskCount": 10
+    }
+  },
+  {
+    "timestamp": "2025-11-13T11:27:37.161Z",
+    "actor": "supervisor",
+    "message": "Generated 10 hypotheses",
+    "level": "info",
+    "context": {
+      "planId": "a9fffa70-2294-4494-b8ce-b1b6f14958ce",
+      "hypothesisCount": 10
+    }
+  },
+  {
+    "timestamp": "2025-11-13T11:27:37.177Z",
+    "actor": "supervisor",
+    "message": "Starting tournament with top 10 hypotheses",
+    "level": "info",
+    "context": {
+      "planId": "a9fffa70-2294-4494-b8ce-b1b6f14958ce",
+      "topN": 10
+    }
+  },
+  {
+    "timestamp": "2025-11-13T11:28:41.724Z",
+    "actor": "supervisor",
+    "message": "Research plan a9fffa70-2294-4494-b8ce-b1b6f14958ce completed",
+    "level": "info",
+    "context": {
+      "planId": "a9fffa70-2294-4494-b8ce-b1b6f14958ce",
+      "totalTimeMs": 74918
+    }
+  },
+  {
+    "timestamp": "2025-11-13T11:40:43.262Z",
+    "actor": "supervisor",
+    "message": "Starting research plan 77d8bc0b-a31e-4a23-9f74-1f1a32d14aa2",
+    "level": "info",
+    "context": {
+      "planId": "77d8bc0b-a31e-4a23-9f74-1f1a32d14aa2"
+    }
+  },
+  {
+    "timestamp": "2025-11-13T11:40:43.264Z",
+    "actor": "supervisor",
+    "message": "Created 10 generation tasks",
+    "level": "info",
+    "context": {
+      "planId": "77d8bc0b-a31e-4a23-9f74-1f1a32d14aa2",
+      "taskCount": 10
+    }
+  },
+  {
+    "timestamp": "2025-11-13T11:40:54.378Z",
+    "actor": "supervisor",
+    "message": "Generated 10 hypotheses",
+    "level": "info",
+    "context": {
+      "planId": "77d8bc0b-a31e-4a23-9f74-1f1a32d14aa2",
+      "hypothesisCount": 10
+    }
+  },
+  {
+    "timestamp": "2025-11-13T11:40:54.379Z",
+    "actor": "supervisor",
+    "message": "Starting tournament with top 10 hypotheses",
+    "level": "info",
+    "context": {
+      "planId": "77d8bc0b-a31e-4a23-9f74-1f1a32d14aa2",
+      "topN": 10
+    }
+  },
+  {
+    "timestamp": "2025-11-13T11:42:13.257Z",
+    "actor": "supervisor",
+    "message": "Research plan 77d8bc0b-a31e-4a23-9f74-1f1a32d14aa2 completed",
+    "level": "info",
+    "context": {
+      "planId": "77d8bc0b-a31e-4a23-9f74-1f1a32d14aa2",
+      "totalTimeMs": 90014
+    }
+  },
+  {
+    "timestamp": "2025-11-13T11:47:08.785Z",
+    "actor": "supervisor",
+    "level": "info",
+    "message": "Generating experiment design for hypothesis 8e262391-455a-4a1c-84ac-d5af165c9e7f",
+    "context": {
+      "planId": "77d8bc0b-a31e-4a23-9f74-1f1a32d14aa2",
+      "hypothesisId": "8e262391-455a-4a1c-84ac-d5af165c9e7f"
+    }
+  },
+  {
+    "timestamp": "2025-11-13T11:47:12.690Z",
+    "actor": "supervisor",
+    "level": "info",
+    "message": "Experiment design generated for hypothesis 8e262391-455a-4a1c-84ac-d5af165c9e7f",
+    "context": {
+      "planId": "77d8bc0b-a31e-4a23-9f74-1f1a32d14aa2",
+      "hypothesisId": "8e262391-455a-4a1c-84ac-d5af165c9e7f"
+    }
+  },
+  {
+    "timestamp": "2025-11-14T12:18:58.420Z",
+    "actor": "supervisor",
+    "message": "Starting research plan c8d5823b-2067-45ec-ab7e-0c47927a2e54",
+    "level": "info",
+    "context": {
+      "planId": "c8d5823b-2067-45ec-ab7e-0c47927a2e54"
+    }
+  },
+  {
+    "timestamp": "2025-11-14T12:18:58.421Z",
+    "actor": "supervisor",
+    "message": "Created 10 generation tasks",
+    "level": "info",
+    "context": {
+      "planId": "c8d5823b-2067-45ec-ab7e-0c47927a2e54",
+      "taskCount": 10
+    }
+  },
+  {
+    "timestamp": "2025-11-14T12:19:19.538Z",
+    "actor": "supervisor",
+    "message": "Generated 10 hypotheses",
+    "level": "info",
+    "context": {
+      "planId": "c8d5823b-2067-45ec-ab7e-0c47927a2e54",
+      "hypothesisCount": 10
+    }
+  },
+  {
+    "timestamp": "2025-11-14T12:19:19.541Z",
+    "actor": "supervisor",
+    "message": "Starting tournament with top 10 hypotheses",
+    "level": "info",
+    "context": {
+      "planId": "c8d5823b-2067-45ec-ab7e-0c47927a2e54",
+      "topN": 10
+    }
+  },
+  {
+    "timestamp": "2025-11-14T12:20:24.802Z",
+    "actor": "supervisor",
+    "message": "Research plan c8d5823b-2067-45ec-ab7e-0c47927a2e54 completed",
+    "level": "info",
+    "context": {
+      "planId": "c8d5823b-2067-45ec-ab7e-0c47927a2e54",
+      "totalTimeMs": 86418
+    }
+  },
+  {
+    "timestamp": "2025-11-14T12:20:43.815Z",
+    "actor": "supervisor",
+    "level": "info",
+    "message": "Generating experiment design for hypothesis b6bbf77a-acbe-4b47-a6df-a6f6d953c81f",
+    "context": {
+      "planId": "c8d5823b-2067-45ec-ab7e-0c47927a2e54",
+      "hypothesisId": "b6bbf77a-acbe-4b47-a6df-a6f6d953c81f"
+    }
+  },
+  {
+    "timestamp": "2025-11-14T12:20:49.060Z",
+    "actor": "supervisor",
+    "level": "info",
+    "message": "Experiment design generated for hypothesis b6bbf77a-acbe-4b47-a6df-a6f6d953c81f",
+    "context": {
+      "planId": "c8d5823b-2067-45ec-ab7e-0c47927a2e54",
+      "hypothesisId": "b6bbf77a-acbe-4b47-a6df-a6f6d953c81f"
+    }
+  },
+  {
+    "timestamp": "2025-11-14T12:21:16.778Z",
+    "actor": "supervisor",
+    "level": "info",
+    "message": "Generating experiment design for hypothesis d7269802-ea91-4bfc-a3f8-1411c908692b",
+    "context": {
+      "planId": "c8d5823b-2067-45ec-ab7e-0c47927a2e54",
+      "hypothesisId": "d7269802-ea91-4bfc-a3f8-1411c908692b"
+    }
+  },
+  {
+    "timestamp": "2025-11-14T12:21:24.942Z",
+    "actor": "supervisor",
+    "level": "info",
+    "message": "Experiment design generated for hypothesis d7269802-ea91-4bfc-a3f8-1411c908692b",
+    "context": {
+      "planId": "c8d5823b-2067-45ec-ab7e-0c47927a2e54",
+      "hypothesisId": "d7269802-ea91-4bfc-a3f8-1411c908692b"
+    }
+  }
+]

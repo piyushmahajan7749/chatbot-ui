@@ -1,0 +1,1150 @@
+[
+  {
+    "hypothesisId": "10a16faf-3389-4d57-9aea-57ba46273c64",
+    "planId": "a9fffa70-2294-4494-b8ce-b1b6f14958ce",
+    "content": "The addition of arginine at a concentration of 0.5 M will reduce the viscosity of a bispecific antibody solution at 180 mg/ml by at least 20%.",
+    "explanation": "Arginine is known to interact with proteins in a way that can alter their surface properties and reduce intermolecular interactions, thus potentially decreasing viscosity. This hypothesis is grounded in the understanding of protein chemistry and solvent interactions.",
+    "elo": 1484,
+    "createdAt": "2025-11-13T11:27:37.144Z",
+    "provenance": [
+      "Studies have shown that arginine can reduce the viscosity of highly concentrated protein solutions through its chaotropic effects (Shire et al., 2004).",
+      "Arginine is commonly used as a stabilizing agent in protein formulation (Yamaguchi et al., 2010)."
+    ],
+    "metadata": {
+      "feasibility_score": 0.8,
+      "novelty_score": 0.6
+    }
+  },
+  {
+    "hypothesisId": "2ad0e876-9cf5-48c1-a5aa-b531f7194c9c",
+    "planId": "a9fffa70-2294-4494-b8ce-b1b6f14958ce",
+    "content": "The addition of arginine to a bispecific antibody solution at a concentration of 180 mg/ml will reduce its viscosity by at least 20% compared to a control solution without arginine.",
+    "explanation": "Arginine is known to interact with protein molecules, potentially altering their interaction and aggregation behavior, which can lead to reduced viscosity in high-concentration protein solutions.",
+    "elo": 1516,
+    "createdAt": "2025-11-13T11:27:37.148Z",
+    "provenance": [
+      "Studies have shown that arginine can reduce protein-protein interactions and aggregation, which are key factors contributing to high viscosity in antibody solutions (Shire et al., 2004, Journal of Pharmaceutical Sciences)."
+    ],
+    "metadata": {
+      "feasibility_score": 0.8,
+      "novelty_score": 0.6
+    }
+  },
+  {
+    "hypothesisId": "033bb8e3-5594-4062-80da-7eee93dd6ce3",
+    "planId": "a9fffa70-2294-4494-b8ce-b1b6f14958ce",
+    "content": "The addition of arginine hydrochloride at a concentration of 0.5 M will reduce the viscosity of a bispecific antibody solution at 180 mg/ml by at least 20%.",
+    "explanation": "Arginine hydrochloride is known to reduce protein-protein interactions which are a major contributor to increased viscosity in protein solutions. This hypothesis is based on previous studies showing that arginine can effectively lower the viscosity of therapeutic proteins by disrupting intermolecular interactions.",
+    "elo": 1516,
+    "createdAt": "2025-11-13T11:27:37.149Z",
+    "provenance": [
+      "Recent studies on monoclonal antibodies have demonstrated the effectiveness of arginine in lowering solution viscosity. (Yadav et al., Journal of Pharmaceutical Sciences, 2012)",
+      "Arginine hydrochloride has been documented as a stabilizing agent for high-concentration protein formulations. (Shire et al., Biotechnology and Bioengineering, 2004)"
+    ],
+    "metadata": {
+      "feasibility_score": 0.9,
+      "novelty_score": 0.6
+    }
+  },
+  {
+    "hypothesisId": "a602d285-b3b5-4347-a337-cd3f473e43e8",
+    "planId": "a9fffa70-2294-4494-b8ce-b1b6f14958ce",
+    "content": "Addition of arginine to the bispecific antibody solution at 180 mg/ml will reduce its viscosity compared to a control solution without arginine.",
+    "explanation": "Arginine is known to reduce protein-protein interactions and improve solubility, which can lead to decreased viscosity in protein solutions. This effect is due to its ability to interact with charged residues and reduce aggregation.",
+    "elo": 1484,
+    "createdAt": "2025-11-13T11:27:37.150Z",
+    "provenance": [
+      "Protein solubility and viscosity modulation by arginine has been documented in literature, particularly in contexts where protein-protein interactions are significant.",
+      "Past studies have shown that excipients like arginine can effectively reduce the viscosity of high concentration protein solutions."
+    ],
+    "metadata": {
+      "feasibility_score": 0.8,
+      "novelty_score": 0.6
+    }
+  },
+  {
+    "hypothesisId": "9a0731be-eaef-4e04-8f7d-241a83f71e55",
+    "planId": "a9fffa70-2294-4494-b8ce-b1b6f14958ce",
+    "content": "Adding arginine to a bispecific antibody formulation at a concentration of 180 mg/ml will reduce the viscosity of the solution.",
+    "explanation": "Arginine is known to have a stabilizing effect on protein formulations and can reduce viscosity by interfering with protein-protein interactions that lead to increased viscosity.",
+    "elo": 1484,
+    "createdAt": "2025-11-13T11:27:37.151Z",
+    "provenance": [
+      "Studies have shown that arginine can reduce viscosity in high-concentration protein formulations (Shire et al., 2004)",
+      "Arginine acts as a chaotropic agent which helps in reducing protein aggregation (Arakawa et al., 2007)"
+    ],
+    "metadata": {
+      "feasibility_score": 0.8,
+      "novelty_score": 0.6
+    }
+  },
+  {
+    "hypothesisId": "2ef15849-d949-4e91-b353-0a92e92bdc18",
+    "planId": "a9fffa70-2294-4494-b8ce-b1b6f14958ce",
+    "content": "The addition of arginine at a concentration of 50 mM will significantly reduce the viscosity of a bispecific antibody solution at 180 mg/ml.",
+    "explanation": "Arginine is known to reduce protein-protein interactions, which can lower the viscosity of concentrated protein solutions. This hypothesis can be tested by preparing antibody solutions with and without arginine and measuring their viscosities.",
+    "elo": 1484,
+    "createdAt": "2025-11-13T11:27:37.153Z",
+    "provenance": [
+      "Arginine's effect on protein solubility and viscosity is documented in literature, such as the work by Shire et al. (2004) on protein formulation.",
+      "Studies on bispecific antibodies indicate that their high viscosity at concentrations like 180 mg/ml can be problematic for formulation, and arginine has been used in similar contexts."
+    ],
+    "metadata": {
+      "feasibility_score": 0.9,
+      "novelty_score": 0.6
+    }
+  },
+  {
+    "hypothesisId": "7284f3ca-832b-4fe5-9d33-afd6fb8c7240",
+    "planId": "a9fffa70-2294-4494-b8ce-b1b6f14958ce",
+    "content": "The addition of arginine at a concentration of 50 mM to the bispecific antibody formulation will reduce the viscosity of the solution at 180 mg/ml concentration.",
+    "explanation": "Arginine is known to reduce protein-protein interactions and can act as a viscosity-reducing agent in protein formulations. This hypothesis is based on the premise that arginine will disrupt intermolecular interactions that contribute to high viscosity.",
+    "elo": 1484,
+    "createdAt": "2025-11-13T11:27:37.154Z",
+    "provenance": [
+      "Arginine has been documented in studies to lower viscosity in protein solutions (Arakawa et al., 2007).",
+      "Previous research has shown that arginine can stabilize proteins and reduce viscosity (Shire et al., 2004)."
+    ],
+    "metadata": {
+      "feasibility_score": 0.8,
+      "novelty_score": 0.6
+    }
+  },
+  {
+    "hypothesisId": "b3271b83-fb36-4932-909a-193d2d161dfd",
+    "planId": "a9fffa70-2294-4494-b8ce-b1b6f14958ce",
+    "content": "Adding a specific concentration of arginine will reduce the viscosity of a bispecific antibody solution at 180 mg/ml without compromising its stability.",
+    "explanation": "Arginine is known to interact with protein surfaces, potentially reducing protein-protein interactions that contribute to high viscosity in concentrated antibody solutions.",
+    "elo": 1484,
+    "createdAt": "2025-11-13T11:27:37.155Z",
+    "provenance": [
+      "Arginine's effects on protein solutions are documented in scientific literature, e.g., studies on protein stabilization and viscosity reduction in monoclonal antibodies."
+    ],
+    "metadata": {
+      "feasibility_score": 0.8,
+      "novelty_score": 0.6
+    }
+  },
+  {
+    "hypothesisId": "1d698168-99e4-4a66-94ac-404eb1f0589f",
+    "planId": "a9fffa70-2294-4494-b8ce-b1b6f14958ce",
+    "content": "The addition of 0.1% (w/v) polysorbate 80 to a bispecific antibody solution at 180 mg/ml will decrease the solution's viscosity by at least 20%.",
+    "explanation": "Polysorbate 80 is a non-ionic surfactant known to reduce the viscosity of protein solutions by interfering with protein-protein interactions that lead to high viscosity.",
+    "elo": 1516,
+    "createdAt": "2025-11-13T11:27:37.158Z",
+    "provenance": [
+      "Existing literature on surfactants in protein formulations",
+      "Polysorbate 80's known effects on protein aggregation and viscosity"
+    ],
+    "metadata": {
+      "feasibility_score": 0.9,
+      "novelty_score": 0.3
+    }
+  },
+  {
+    "hypothesisId": "aac2304c-1b3b-4f60-8184-51424d7cdec1",
+    "planId": "a9fffa70-2294-4494-b8ce-b1b6f14958ce",
+    "content": "The addition of arginine at a concentration of 100 mM will reduce the viscosity of the bispecific antibody solution at 180 mg/ml by at least 20%.",
+    "explanation": "Arginine is known to interact with protein surfaces and reduce intermolecular interactions that contribute to high viscosity, particularly in high-concentration protein solutions.",
+    "elo": 1484,
+    "createdAt": "2025-11-13T11:27:37.160Z",
+    "provenance": [
+      "Previous studies have shown that arginine can disrupt protein-protein interactions, leading to decreased viscosity in antibody formulations.",
+      "Arginine is often used as a stabilizing agent in protein formulations."
+    ],
+    "metadata": {
+      "feasibility_score": 0.9,
+      "novelty_score": 0.6
+    }
+  },
+  {
+    "hypothesisId": "e061fc90-ef2f-4303-83b9-c2024bbbb660",
+    "planId": "a9fffa70-2294-4494-b8ce-b1b6f14958ce",
+    "content": "Introducing arginine at a concentration of 0.5 M is expected to reduce the viscosity of a bispecific antibody solution, prepared at a concentration of 180 mg/ml, by at least 20% by decreasing intermolecular protein interactions.",
+    "explanation": "Clarified the process by explicitly stating the mechanism (decreased intermolecular protein interactions) to enhance understanding of how viscosity is reduced.",
+    "elo": 1500,
+    "createdAt": "2025-11-13T11:28:37.863Z",
+    "provenance": [
+      "The addition of arginine at a concentration of 0.5 M will reduce the viscosity of a bispecific antibody solution at 180 mg/ml by at least 20%."
+    ],
+    "metadata": {
+      "evolved_from": "10a16faf-3389-4d57-9aea-57ba46273c64",
+      "improvement_type": "clarity"
+    }
+  },
+  {
+    "hypothesisId": "117d182a-6a09-41df-9c6c-56c6dc9a6931",
+    "planId": "a9fffa70-2294-4494-b8ce-b1b6f14958ce",
+    "content": "Adding arginine at a concentration of 0.5 M will reduce the viscosity of high-concentration bispecific antibody solutions, such as those at 180 mg/ml, by at least 20%, possibly through mechanisms altering protein surface charge and reducing aggregation.",
+    "explanation": "Expanded on the potential mechanisms (altering surface charge and reducing aggregation) to provide a more detailed understanding of how arginine may affect viscosity.",
+    "elo": 1500,
+    "createdAt": "2025-11-13T11:28:37.866Z",
+    "provenance": [
+      "The addition of arginine at a concentration of 0.5 M will reduce the viscosity of a bispecific antibody solution at 180 mg/ml by at least 20%."
+    ],
+    "metadata": {
+      "evolved_from": "10a16faf-3389-4d57-9aea-57ba46273c64",
+      "improvement_type": "specificity"
+    }
+  },
+  {
+    "hypothesisId": "fdeb5c40-880b-42aa-afbe-8e5c9154da7c",
+    "planId": "a9fffa70-2294-4494-b8ce-b1b6f14958ce",
+    "content": "At a concentration of 0.5 M, arginine will decrease the viscosity of bispecific antibody solutions, specifically at concentrations near 180 mg/ml, by at least 20%, facilitating easier handling in pharmaceutical applications.",
+    "explanation": "Broadened the focus by mentioning the applicability in pharmaceutical contexts, highlighting its practical significance.",
+    "elo": 1500,
+    "createdAt": "2025-11-13T11:28:37.867Z",
+    "provenance": [
+      "The addition of arginine at a concentration of 0.5 M will reduce the viscosity of a bispecific antibody solution at 180 mg/ml by at least 20%."
+    ],
+    "metadata": {
+      "evolved_from": "10a16faf-3389-4d57-9aea-57ba46273c64",
+      "improvement_type": "scope"
+    }
+  },
+  {
+    "hypothesisId": "8724a814-1687-42d7-85f2-68cf81807d05",
+    "planId": "a9fffa70-2294-4494-b8ce-b1b6f14958ce",
+    "content": "The incorporation of arginine into a bispecific antibody solution at a concentration of 180 mg/ml will reduce its viscosity by 25% or more compared to a control solution lacking arginine.",
+    "explanation": "The hypothesis is made more specific by increasing the expected viscosity reduction, allowing for a more stringent test of the arginine's efficacy.",
+    "elo": 1500,
+    "createdAt": "2025-11-13T11:28:37.868Z",
+    "provenance": [
+      "The addition of arginine to a bispecific antibody solution at a concentration of 180 mg/ml will reduce its viscosity by at least 20% compared to a control solution without arginine."
+    ],
+    "metadata": {
+      "evolved_from": "2ad0e876-9cf5-48c1-a5aa-b531f7194c9c",
+      "improvement_type": "specificity"
+    }
+  },
+  {
+    "hypothesisId": "026ff6ca-3404-41e1-929d-21e368d5b45a",
+    "planId": "a9fffa70-2294-4494-b8ce-b1b6f14958ce",
+    "content": "The addition of 180 mg/ml arginine to bispecific antibody solutions with varying initial viscosities will consistently reduce viscosity by at least 20%, regardless of the initial viscosity levels.",
+    "explanation": "The scope is expanded to include solutions with different initial viscosities, testing the consistency of arginine's effect across a range of conditions.",
+    "elo": 1500,
+    "createdAt": "2025-11-13T11:28:37.869Z",
+    "provenance": [
+      "The addition of arginine to a bispecific antibody solution at a concentration of 180 mg/ml will reduce its viscosity by at least 20% compared to a control solution without arginine."
+    ],
+    "metadata": {
+      "evolved_from": "2ad0e876-9cf5-48c1-a5aa-b531f7194c9c",
+      "improvement_type": "scope"
+    }
+  },
+  {
+    "hypothesisId": "9e2c4b8e-0f8d-4206-b11f-06afdfb5f239",
+    "planId": "a9fffa70-2294-4494-b8ce-b1b6f14958ce",
+    "content": "Arginine integration at 180 mg/ml into a bispecific antibody formulation will decrease the solution's viscosity by interacting with protein aggregates to prevent their formation, resulting in a reduced viscosity of at least 20% compared to a formulation without arginine.",
+    "explanation": "The hypothesis is refined to include a specific mechanism by which arginine acts, enhancing the explanatory power of the hypothesis.",
+    "elo": 1500,
+    "createdAt": "2025-11-13T11:28:37.869Z",
+    "provenance": [
+      "The addition of arginine to a bispecific antibody solution at a concentration of 180 mg/ml will reduce its viscosity by at least 20% compared to a control solution without arginine."
+    ],
+    "metadata": {
+      "evolved_from": "2ad0e876-9cf5-48c1-a5aa-b531f7194c9c",
+      "improvement_type": "clarity"
+    }
+  },
+  {
+    "hypothesisId": "ef64993d-cec2-4bd8-ab80-9c7be01db433",
+    "planId": "a9fffa70-2294-4494-b8ce-b1b6f14958ce",
+    "content": "The addition of 0.5 M arginine hydrochloride will reduce the viscosity of bispecific antibody solutions with concentrations ranging from 150 mg/ml to 200 mg/ml by at least 15%.",
+    "explanation": "The scope of the hypothesis was adjusted to include a range of concentrations, increasing its applicability to similar systems.",
+    "elo": 1500,
+    "createdAt": "2025-11-13T11:28:37.870Z",
+    "provenance": [
+      "The addition of arginine hydrochloride at a concentration of 0.5 M will reduce the viscosity of a bispecific antibody solution at 180 mg/ml by at least 20%."
+    ],
+    "metadata": {
+      "evolved_from": "033bb8e3-5594-4062-80da-7eee93dd6ce3",
+      "improvement_type": "scope"
+    }
+  },
+  {
+    "hypothesisId": "809d235a-f84c-40a3-aff3-deb9fae4f18f",
+    "planId": "a9fffa70-2294-4494-b8ce-b1b6f14958ce",
+    "content": "The incorporation of arginine hydrochloride at a concentration of 0.5 M will reduce the viscosity of a bispecific antibody solution at 180 mg/ml by an average of 20%, with a variance of ±5%.",
+    "explanation": "The hypothesis now includes statistical details, providing more specific expectations regarding the variability of the outcome.",
+    "elo": 1500,
+    "createdAt": "2025-11-13T11:28:37.871Z",
+    "provenance": [
+      "The addition of arginine hydrochloride at a concentration of 0.5 M will reduce the viscosity of a bispecific antibody solution at 180 mg/ml by at least 20%."
+    ],
+    "metadata": {
+      "evolved_from": "033bb8e3-5594-4062-80da-7eee93dd6ce3",
+      "improvement_type": "specificity"
+    }
+  },
+  {
+    "hypothesisId": "e027ff8c-7235-49eb-b55b-8aa00ac190ac",
+    "planId": "a9fffa70-2294-4494-b8ce-b1b6f14958ce",
+    "content": "Arginine hydrochloride at a concentration of 0.5 M disrupts intermolecular forces in bispecific antibody solutions at 180 mg/ml, leading to a reduction in viscosity by at least 20% compared to no additive.",
+    "explanation": "The hypothesis clarifies the mechanism by explicitly stating the comparison to a control without additives, improving clarity.",
+    "elo": 1500,
+    "createdAt": "2025-11-13T11:28:37.872Z",
+    "provenance": [
+      "The addition of arginine hydrochloride at a concentration of 0.5 M will reduce the viscosity of a bispecific antibody solution at 180 mg/ml by at least 20%."
+    ],
+    "metadata": {
+      "evolved_from": "033bb8e3-5594-4062-80da-7eee93dd6ce3",
+      "improvement_type": "clarity"
+    }
+  },
+  {
+    "hypothesisId": "3b27a598-6ec9-4523-97b2-1031cabe8acf",
+    "planId": "a9fffa70-2294-4494-b8ce-b1b6f14958ce",
+    "content": "Incorporating arginine at a concentration of 180 mg/ml into the bispecific antibody solution will significantly decrease its viscosity relative to a control solution lacking arginine.",
+    "explanation": "The language has been refined for clarity, and 'reduce' was changed to 'decrease' to suggest a quantitative approach to measuring viscosity change.",
+    "elo": 1500,
+    "createdAt": "2025-11-13T11:28:37.872Z",
+    "provenance": [
+      "Addition of arginine to the bispecific antibody solution at 180 mg/ml will reduce its viscosity compared to a control solution without arginine."
+    ],
+    "metadata": {
+      "evolved_from": "a602d285-b3b5-4347-a337-cd3f473e43e8",
+      "improvement_type": "clarity"
+    }
+  },
+  {
+    "hypothesisId": "d53b17c9-5bd2-4179-acd1-cb0d73974732",
+    "planId": "a9fffa70-2294-4494-b8ce-b1b6f14958ce",
+    "content": "The addition of arginine at concentrations up to 180 mg/ml will proportionally decrease the viscosity of a bispecific antibody solution, with the effect being more pronounced at higher arginine concentrations.",
+    "explanation": "The scope has been adjusted to explore the relationship between varying arginine concentrations and viscosity, providing a more comprehensive understanding of the effect.",
+    "elo": 1500,
+    "createdAt": "2025-11-13T11:28:37.873Z",
+    "provenance": [
+      "Addition of arginine to the bispecific antibody solution at 180 mg/ml will reduce its viscosity compared to a control solution without arginine."
+    ],
+    "metadata": {
+      "evolved_from": "a602d285-b3b5-4347-a337-cd3f473e43e8",
+      "improvement_type": "scope"
+    }
+  },
+  {
+    "hypothesisId": "d469d8bf-c909-42e2-8789-d8046d0e942f",
+    "planId": "a9fffa70-2294-4494-b8ce-b1b6f14958ce",
+    "content": "Arginine addition to a bispecific antibody solution at 180 mg/ml improves solubility and reduces viscosity by modulating electrostatic interactions and limiting protein aggregation.",
+    "explanation": "The hypothesis now includes a more detailed mechanism of action, specifying how arginine affects protein aggregation and electrostatic interactions.",
+    "elo": 1500,
+    "createdAt": "2025-11-13T11:28:37.874Z",
+    "provenance": [
+      "Addition of arginine to the bispecific antibody solution at 180 mg/ml will reduce its viscosity compared to a control solution without arginine."
+    ],
+    "metadata": {
+      "evolved_from": "a602d285-b3b5-4347-a337-cd3f473e43e8",
+      "improvement_type": "specificity"
+    }
+  },
+  {
+    "hypothesisId": "97cfaa96-691a-4eb0-a0cb-69e9fa9b082f",
+    "planId": "a9fffa70-2294-4494-b8ce-b1b6f14958ce",
+    "content": "Incorporating 180 mg/ml of arginine into a bispecific antibody formulation lowers the solution's viscosity by minimizing protein-protein interactions.",
+    "explanation": "The language was refined for clarity by specifying the mechanism through which arginine affects viscosity.",
+    "elo": 1500,
+    "createdAt": "2025-11-13T11:28:37.892Z",
+    "provenance": [
+      "Original hypothesis: Adding arginine to a bispecific antibody formulation at a concentration of 180 mg/ml will reduce the viscosity of the solution."
+    ],
+    "metadata": {
+      "evolved_from": "9a0731be-eaef-4e04-8f7d-241a83f71e55",
+      "improvement_type": "clarity"
+    }
+  },
+  {
+    "hypothesisId": "0c5df930-b56f-48e6-9acb-6a40ef2f5a51",
+    "planId": "a9fffa70-2294-4494-b8ce-b1b6f14958ce",
+    "content": "Adding between 150-200 mg/ml of arginine to a bispecific antibody formulation optimally reduces solution viscosity, suggesting a concentration-dependent effect.",
+    "explanation": "The scope was adjusted to explore a range of concentrations, which can provide insights into the optimal amount of arginine for viscosity reduction.",
+    "elo": 1500,
+    "createdAt": "2025-11-13T11:28:37.894Z",
+    "provenance": [
+      "Original hypothesis: Adding arginine to a bispecific antibody formulation at a concentration of 180 mg/ml will reduce the viscosity of the solution."
+    ],
+    "metadata": {
+      "evolved_from": "9a0731be-eaef-4e04-8f7d-241a83f71e55",
+      "improvement_type": "scope"
+    }
+  },
+  {
+    "hypothesisId": "b254b017-1702-40ae-876f-e694f9e91dff",
+    "planId": "a9fffa70-2294-4494-b8ce-b1b6f14958ce",
+    "content": "Arginine, added at a concentration of 180 mg/ml to bispecific antibody formulations, will consistently reduce viscosity across different antibody types due to its interference with protein-protein interactions.",
+    "explanation": "Expanded the hypothesis to include its applicability across various bispecific antibody types, providing a broader application of the original idea.",
+    "elo": 1500,
+    "createdAt": "2025-11-13T11:28:37.895Z",
+    "provenance": [
+      "Original hypothesis: Adding arginine to a bispecific antibody formulation at a concentration of 180 mg/ml will reduce the viscosity of the solution."
+    ],
+    "metadata": {
+      "evolved_from": "9a0731be-eaef-4e04-8f7d-241a83f71e55",
+      "improvement_type": "scope"
+    }
+  },
+  {
+    "hypothesisId": "8e262391-455a-4a1c-84ac-d5af165c9e7f",
+    "planId": "77d8bc0b-a31e-4a23-9f74-1f1a32d14aa2",
+    "content": "The addition of arginine at a concentration of 50 mM will lower the viscosity of a bispecific antibody solution at 180 mg/ml by at least 20%.",
+    "explanation": "Arginine is known to interact with protein surfaces and can disrupt protein-protein interactions that contribute to high viscosity. It is often used as a stabilizing agent in protein formulations.",
+    "elo": 1516,
+    "createdAt": "2025-11-13T11:40:54.343Z",
+    "provenance": [
+      "Arginine's role in reducing protein solution viscosity is documented in protein chemistry literature.",
+      "Arginine has been shown to mitigate aggregation and viscosity in monoclonal antibody formulations."
+    ],
+    "metadata": {
+      "feasibility_score": 0.9,
+      "novelty_score": 0.6
+    }
+  },
+  {
+    "hypothesisId": "45507336-3a6d-4015-baa5-a04eb74171f3",
+    "planId": "77d8bc0b-a31e-4a23-9f74-1f1a32d14aa2",
+    "content": "The addition of polysorbate 80 at a concentration of 0.01% (w/v) will reduce the viscosity of a bispecific antibody solution at 180 mg/ml by at least 10%.",
+    "explanation": "Polysorbate 80 is a nonionic surfactant commonly used to stabilize protein formulations by preventing protein aggregation, which can contribute to high viscosity. By reducing aggregation, the viscosity of the antibody solution is expected to decrease.",
+    "elo": 1516,
+    "createdAt": "2025-11-13T11:40:54.347Z",
+    "provenance": [
+      "Studies have shown that surfactants like polysorbate 80 can lower protein solution viscosity by preventing protein-protein interactions (refer to journal articles on protein formulation and surfactant applications)."
+    ],
+    "metadata": {
+      "feasibility_score": 0.9,
+      "novelty_score": 0.6
+    }
+  },
+  {
+    "hypothesisId": "fecf414d-d887-43a5-941f-2babb6fc88ac",
+    "planId": "77d8bc0b-a31e-4a23-9f74-1f1a32d14aa2",
+    "content": "Adding arginine as an excipient to a bispecific antibody solution at a concentration of 180 mg/ml will reduce its viscosity by at least 20%.",
+    "explanation": "Arginine is known to interact with proteins and can affect the aggregation state and solubility, potentially reducing viscosity by disrupting intermolecular interactions.",
+    "elo": 1516,
+    "createdAt": "2025-11-13T11:40:54.365Z",
+    "provenance": [
+      "Studies have shown that arginine can reduce the viscosity of protein solutions by altering protein-protein interactions, as seen in research by Arakawa et al. (2007) in the Journal of Pharmaceutical Sciences."
+    ],
+    "metadata": {
+      "feasibility_score": 0.9,
+      "novelty_score": 0.7
+    }
+  },
+  {
+    "hypothesisId": "5c9047a3-cfe7-4742-8b96-29f9e3b104da",
+    "planId": "77d8bc0b-a31e-4a23-9f74-1f1a32d14aa2",
+    "content": "Adding arginine at a concentration of 100 mM to a bispecific antibody solution at 180 mg/ml will reduce its viscosity by at least 20% compared to a control without arginine.",
+    "explanation": "Arginine is known to act as a viscosity-reducing agent in protein formulations by disrupting intermolecular interactions. This hypothesis is based on the principle that arginine can interfere with protein-protein interactions that contribute to high viscosity.",
+    "elo": 1516,
+    "createdAt": "2025-11-13T11:40:54.366Z",
+    "provenance": [
+      "The Journal of Pharmaceutical Sciences, 2013, 'Effects of Arginine on Protein-Protein Interactions'",
+      "Biophysical Journal, 2011, 'Role of Arginine in Protein Formulations'"
+    ],
+    "metadata": {
+      "feasibility_score": 0.9,
+      "novelty_score": 0.5
+    }
+  },
+  {
+    "hypothesisId": "75573700-36ae-4db4-b3c0-f99cb2f46e88",
+    "planId": "77d8bc0b-a31e-4a23-9f74-1f1a32d14aa2",
+    "content": "The addition of 0.1% polysorbate 80 to a bispecific antibody solution at 180 mg/ml will reduce its viscosity by at least 20%.",
+    "explanation": "Polysorbate 80 is a surfactant known to reduce protein-protein interactions in solutions, which is a key factor affecting viscosity. By adding it to the bispecific antibody solution, it is expected to reduce the intermolecular forces that contribute to high viscosity.",
+    "elo": 1516,
+    "createdAt": "2025-11-13T11:40:54.367Z",
+    "provenance": [
+      "Surfactants like polysorbate 80 are commonly used to decrease viscosity in protein formulations (Lee et al., 2011).",
+      "Polysorbate 80 has been shown to effectively reduce viscosity in monoclonal antibody solutions (Wang et al., 2015)."
+    ],
+    "metadata": {
+      "feasibility_score": 0.85,
+      "novelty_score": 0.4
+    }
+  },
+  {
+    "hypothesisId": "fc39a5e2-0dba-4bc1-955e-570110c82fd6",
+    "planId": "77d8bc0b-a31e-4a23-9f74-1f1a32d14aa2",
+    "content": "Addition of arginine to the formulation of a bispecific antibody at a concentration of 180 mg/ml will decrease its viscosity.",
+    "explanation": "Arginine is known to be a stabilizing agent that can reduce protein-protein interactions, which are responsible for increased viscosity in high concentration protein solutions.",
+    "elo": 1484,
+    "createdAt": "2025-11-13T11:40:54.367Z",
+    "provenance": [
+      "Protein formulation studies have shown that arginine can reduce viscosity by minimizing attractive forces between protein molecules.",
+      "Journal of Pharmaceutical Sciences, 2012: 'Viscosity reduction of monoclonal antibodies using arginine and its derivatives.'"
+    ],
+    "metadata": {
+      "feasibility_score": 0.9,
+      "novelty_score": 0.7
+    }
+  },
+  {
+    "hypothesisId": "809cd3ee-7a10-47d7-9226-f61d7f2b6653",
+    "planId": "77d8bc0b-a31e-4a23-9f74-1f1a32d14aa2",
+    "content": "The addition of 0.1% w/v polysorbate 80 to a bispecific antibody solution at 180 mg/ml will reduce the solution's viscosity by at least 20%.",
+    "explanation": "Polysorbate 80 is a non-ionic surfactant known to reduce protein aggregation and improve solubility, which can lead to lower viscosity in protein solutions.",
+    "elo": 1516,
+    "createdAt": "2025-11-13T11:40:54.368Z",
+    "provenance": [
+      "Surfactants like polysorbate 80 are commonly used in biopharmaceutical formulations to stabilize proteins and reduce viscosity.",
+      "Studies have shown that polysorbates can mitigate protein-protein interactions that contribute to high viscosity."
+    ],
+    "metadata": {
+      "feasibility_score": 0.85,
+      "novelty_score": 0.6
+    }
+  },
+  {
+    "hypothesisId": "32db0cc2-6e6a-42f5-a187-72e369cece88",
+    "planId": "77d8bc0b-a31e-4a23-9f74-1f1a32d14aa2",
+    "content": "The addition of 0.1% polysorbate 80 to a solution of bispecific antibodies at a concentration of 180 mg/ml will reduce the solution's viscosity by at least 20%.",
+    "explanation": "Polysorbate 80 is a surfactant known to reduce protein-protein interactions, which can decrease the viscosity of protein solutions. This hypothesis is scientifically sound as it leverages the known properties of surfactants to alter solution characteristics.",
+    "elo": 1516,
+    "createdAt": "2025-11-13T11:40:54.369Z",
+    "provenance": [
+      "Studies on protein solutions and surfactants",
+      "Properties of polysorbate 80 in reducing viscosity"
+    ],
+    "metadata": {
+      "feasibility_score": 0.9,
+      "novelty_score": 0.6
+    }
+  },
+  {
+    "hypothesisId": "6c5f2d98-73d9-4197-a3c1-bc29b5550cbb",
+    "planId": "77d8bc0b-a31e-4a23-9f74-1f1a32d14aa2",
+    "content": "The addition of 10% (w/v) arginine hydrochloride to the bispecific antibody solution will reduce its viscosity by at least 20% compared to a control solution at 180 mg/ml concentration.",
+    "explanation": "Arginine hydrochloride is known to interact with proteins to minimize intermolecular interactions that contribute to high viscosity. It can enhance protein solubility and stability, which may lead to a reduction in viscosity.",
+    "elo": 1516,
+    "createdAt": "2025-11-13T11:40:54.369Z",
+    "provenance": [
+      "Arginine has been shown in various studies to reduce protein solution viscosity by disrupting protein-protein interactions.",
+      "Protein formulation studies often use excipients like arginine to modulate viscosity."
+    ],
+    "metadata": {
+      "feasibility_score": 0.9,
+      "novelty_score": 0.5
+    }
+  },
+  {
+    "hypothesisId": "cdd81626-b244-4c1b-95ff-a37ae15fa19e",
+    "planId": "77d8bc0b-a31e-4a23-9f74-1f1a32d14aa2",
+    "content": "The addition of arginine at a concentration of 50 mM will significantly reduce the viscosity of a bispecific antibody solution at 180 mg/ml concentration.",
+    "explanation": "Arginine is known to interact with proteins and can influence their solubility and viscosity. It is often used as an excipient to reduce viscosity in high-concentration protein formulations.",
+    "elo": 1484,
+    "createdAt": "2025-11-13T11:40:54.378Z",
+    "provenance": [
+      "Studies have shown that arginine can lower the viscosity of antibody solutions by disrupting protein-protein interactions (Arakawa et al., 2007).",
+      "Arginine's effects on viscosity reduction are documented in protein formulation literature."
+    ],
+    "metadata": {
+      "feasibility_score": 0.9,
+      "novelty_score": 0.5
+    }
+  },
+  {
+    "hypothesisId": "24398c40-e622-4ee8-9121-e4fbd03e9580",
+    "planId": "77d8bc0b-a31e-4a23-9f74-1f1a32d14aa2",
+    "content": "The inclusion of 50 mM arginine will decrease the viscosity of a bispecific antibody solution at 180 mg/ml by 15% to 25%.",
+    "explanation": "The range of viscosity reduction is provided to acknowledge potential variability in results due to different experimental conditions or antibody types.",
+    "elo": 1500,
+    "createdAt": "2025-11-13T11:41:56.343Z",
+    "provenance": [
+      "The addition of arginine at a concentration of 50 mM will lower the viscosity of a bispecific antibody solution at 180 mg/ml by at least 20%."
+    ],
+    "metadata": {
+      "evolved_from": "8e262391-455a-4a1c-84ac-d5af165c9e7f",
+      "improvement_type": "specificity"
+    }
+  },
+  {
+    "hypothesisId": "b70a2d65-ef7b-4f2c-8d74-c753a9fe22ed",
+    "planId": "77d8bc0b-a31e-4a23-9f74-1f1a32d14aa2",
+    "content": "At a concentration of 50 mM, arginine will reduce the viscosity of various bispecific antibody solutions at concentrations around 180 mg/ml by interacting with protein surfaces and mitigating protein-protein interactions.",
+    "explanation": "The scope has been adjusted to consider a broader range of bispecific antibody solutions, acknowledging potential variation in formulation concentration.",
+    "elo": 1500,
+    "createdAt": "2025-11-13T11:41:56.346Z",
+    "provenance": [
+      "The addition of arginine at a concentration of 50 mM will lower the viscosity of a bispecific antibody solution at 180 mg/ml by at least 20%."
+    ],
+    "metadata": {
+      "evolved_from": "8e262391-455a-4a1c-84ac-d5af165c9e7f",
+      "improvement_type": "scope"
+    }
+  },
+  {
+    "hypothesisId": "a4b9321d-1693-4c3f-8b1a-bca9bbac3d91",
+    "planId": "77d8bc0b-a31e-4a23-9f74-1f1a32d14aa2",
+    "content": "Arginine at 50 mM concentration will reduce the viscosity of a 180 mg/ml bispecific antibody formulation by disrupting intermolecular interactions, potentially enhancing the stability and manufacturability of the solution.",
+    "explanation": "The hypothesis has been expanded to include the potential benefits of reduced viscosity, such as improved stability and manufacturability, providing a more comprehensive perspective.",
+    "elo": 1500,
+    "createdAt": "2025-11-13T11:41:56.347Z",
+    "provenance": [
+      "The addition of arginine at a concentration of 50 mM will lower the viscosity of a bispecific antibody solution at 180 mg/ml by at least 20%."
+    ],
+    "metadata": {
+      "evolved_from": "8e262391-455a-4a1c-84ac-d5af165c9e7f",
+      "improvement_type": "incorporated improvements"
+    }
+  },
+  {
+    "hypothesisId": "80b5eb26-8175-4c43-92cc-876f8f721646",
+    "planId": "77d8bc0b-a31e-4a23-9f74-1f1a32d14aa2",
+    "content": "Introducing polysorbate 80 at a concentration of 0.01% (w/v) will lower the viscosity of a bispecific antibody formulation at 180 mg/ml by at least 10% by preventing protein aggregation.",
+    "explanation": "The hypothesis was rephrased for enhanced clarity, specifically linking the mechanism of action (prevention of protein aggregation) directly to the expected outcome (lowered viscosity).",
+    "elo": 1500,
+    "createdAt": "2025-11-13T11:41:56.368Z",
+    "provenance": [
+      "The addition of polysorbate 80 at a concentration of 0.01% (w/v) will reduce the viscosity of a bispecific antibody solution at 180 mg/ml by at least 10%."
+    ],
+    "metadata": {
+      "evolved_from": "45507336-3a6d-4015-baa5-a04eb74171f3",
+      "improvement_type": "clarity"
+    }
+  },
+  {
+    "hypothesisId": "a3c9312a-f15f-4510-b792-9dbb2fdd17e4",
+    "planId": "77d8bc0b-a31e-4a23-9f74-1f1a32d14aa2",
+    "content": "Increasing polysorbate 80 concentration from 0.01% to 0.02% (w/v) may further reduce the viscosity of a bispecific antibody solution at 180 mg/ml, potentially beyond 10%, by enhancing the stabilization of the protein formulation.",
+    "explanation": "The scope was expanded by suggesting an increased concentration of polysorbate 80 to explore the potential for greater viscosity reduction, addressing possible limitations of the original hypothesis.",
+    "elo": 1500,
+    "createdAt": "2025-11-13T11:41:56.368Z",
+    "provenance": [
+      "The addition of polysorbate 80 at a concentration of 0.01% (w/v) will reduce the viscosity of a bispecific antibody solution at 180 mg/ml by at least 10%."
+    ],
+    "metadata": {
+      "evolved_from": "45507336-3a6d-4015-baa5-a04eb74171f3",
+      "improvement_type": "scope"
+    }
+  },
+  {
+    "hypothesisId": "a3bed6de-95c4-4166-a8ad-68eac7e5bd36",
+    "planId": "77d8bc0b-a31e-4a23-9f74-1f1a32d14aa2",
+    "content": "The incorporation of polysorbate 80 at 0.01% (w/v) is hypothesized to decrease the viscosity of bispecific antibody solutions with concentrations ranging from 100 mg/ml to 200 mg/ml by at least 10%, through reduced protein aggregation.",
+    "explanation": "The hypothesis was broadened to cover a range of antibody concentrations, thus offering a more comprehensive assessment of polysorbate 80's effectiveness.",
+    "elo": 1500,
+    "createdAt": "2025-11-13T11:41:56.369Z",
+    "provenance": [
+      "The addition of polysorbate 80 at a concentration of 0.01% (w/v) will reduce the viscosity of a bispecific antibody solution at 180 mg/ml by at least 10%."
+    ],
+    "metadata": {
+      "evolved_from": "45507336-3a6d-4015-baa5-a04eb74171f3",
+      "improvement_type": "scope"
+    }
+  },
+  {
+    "hypothesisId": "6de715b0-1c77-4405-a26e-51f7594731f7",
+    "planId": "77d8bc0b-a31e-4a23-9f74-1f1a32d14aa2",
+    "content": "Introducing arginine as an excipient to a bispecific antibody solution at a concentration of 180 mg/ml will decrease its viscosity by approximately 20% by modifying protein-protein interactions.",
+    "explanation": "The language was refined to clarify the mechanism of action, emphasizing the role of protein-protein interactions in viscosity reduction.",
+    "elo": 1500,
+    "createdAt": "2025-11-13T11:41:56.370Z",
+    "provenance": [
+      "Original hypothesis: Adding arginine as an excipient to a bispecific antibody solution at a concentration of 180 mg/ml will reduce its viscosity by at least 20%."
+    ],
+    "metadata": {
+      "evolved_from": "fecf414d-d887-43a5-941f-2babb6fc88ac",
+      "improvement_type": "clarity"
+    }
+  },
+  {
+    "hypothesisId": "c9486296-5b72-4bb6-9dde-026dbd8a4e7d",
+    "planId": "77d8bc0b-a31e-4a23-9f74-1f1a32d14aa2",
+    "content": "Adding 180 mg/ml of arginine to bispecific antibody solutions will result in a measurable decrease in viscosity, potentially exceeding 20%, due to arginine's ability to enhance the solubility of protein complexes.",
+    "explanation": "The scope was adjusted to allow for variability in the extent of viscosity reduction, acknowledging the variability in experimental outcomes.",
+    "elo": 1500,
+    "createdAt": "2025-11-13T11:41:56.371Z",
+    "provenance": [
+      "Original hypothesis: Adding arginine as an excipient to a bispecific antibody solution at a concentration of 180 mg/ml will reduce its viscosity by at least 20%."
+    ],
+    "metadata": {
+      "evolved_from": "fecf414d-d887-43a5-941f-2babb6fc88ac",
+      "improvement_type": "scope"
+    }
+  },
+  {
+    "hypothesisId": "361ccf25-0721-4a24-8c49-96ac22fdfb06",
+    "planId": "77d8bc0b-a31e-4a23-9f74-1f1a32d14aa2",
+    "content": "Incorporating arginine at concentrations of 160 to 200 mg/ml in bispecific antibody formulations will optimize viscosity reduction by at least 20%, leveraging arginine's role in disrupting protein aggregation.",
+    "explanation": "The hypothesis was modified to explore a range of arginine concentrations, potentially optimizing the conditions for viscosity reduction.",
+    "elo": 1500,
+    "createdAt": "2025-11-13T11:41:56.372Z",
+    "provenance": [
+      "Original hypothesis: Adding arginine as an excipient to a bispecific antibody solution at a concentration of 180 mg/ml will reduce its viscosity by at least 20%."
+    ],
+    "metadata": {
+      "evolved_from": "fecf414d-d887-43a5-941f-2babb6fc88ac",
+      "improvement_type": "specificity"
+    }
+  },
+  {
+    "hypothesisId": "be7c946b-895b-4ffc-83de-7f47dc102f6b",
+    "planId": "77d8bc0b-a31e-4a23-9f74-1f1a32d14aa2",
+    "content": "Incorporating arginine at a concentration of 100 mM into a bispecific antibody formulation at a density of 180 mg/ml will decrease its viscosity by at least 20% in comparison to a control formulation lacking arginine.",
+    "explanation": "This variant refines the language for clarity by using 'incorporating' instead of 'adding' and 'formulation' instead of 'solution.'",
+    "elo": 1500,
+    "createdAt": "2025-11-13T11:41:56.381Z",
+    "provenance": [
+      "Original hypothesis: Adding arginine at a concentration of 100 mM to a bispecific antibody solution at 180 mg/ml will reduce its viscosity by at least 20% compared to a control without arginine."
+    ],
+    "metadata": {
+      "evolved_from": "5c9047a3-cfe7-4742-8b96-29f9e3b104da",
+      "improvement_type": "clarity"
+    }
+  },
+  {
+    "hypothesisId": "ce98a2d8-653b-4ca6-bc37-d1e5fed28ce6",
+    "planId": "77d8bc0b-a31e-4a23-9f74-1f1a32d14aa2",
+    "content": "Adding arginine at a concentration of 100 mM to bispecific antibody solutions with varying concentrations between 150 mg/ml and 200 mg/ml will consistently reduce viscosity by at least 20% compared to controls without arginine.",
+    "explanation": "This variant expands the scope by considering a range of antibody concentrations, providing a more comprehensive assessment of the hypothesis.",
+    "elo": 1500,
+    "createdAt": "2025-11-13T11:41:56.383Z",
+    "provenance": [
+      "Original hypothesis: Adding arginine at a concentration of 100 mM to a bispecific antibody solution at 180 mg/ml will reduce its viscosity by at least 20% compared to a control without arginine."
+    ],
+    "metadata": {
+      "evolved_from": "5c9047a3-cfe7-4742-8b96-29f9e3b104da",
+      "improvement_type": "scope"
+    }
+  },
+  {
+    "hypothesisId": "deae304f-a5cc-4eab-a77e-60e57cdc723e",
+    "planId": "77d8bc0b-a31e-4a23-9f74-1f1a32d14aa2",
+    "content": "Arginine at 100 mM reduces viscosity by disrupting specific protein-protein interactions in bispecific antibody solutions at 180 mg/ml, achieving a minimum 20% reduction compared to control solutions without arginine.",
+    "explanation": "The focus is shifted to the mechanism of action by emphasizing the specific disruption of protein-protein interactions, providing a more detailed understanding of the underlying process.",
+    "elo": 1500,
+    "createdAt": "2025-11-13T11:41:56.394Z",
+    "provenance": [
+      "Original hypothesis: Adding arginine at a concentration of 100 mM to a bispecific antibody solution at 180 mg/ml will reduce its viscosity by at least 20% compared to a control without arginine."
+    ],
+    "metadata": {
+      "evolved_from": "5c9047a3-cfe7-4742-8b96-29f9e3b104da",
+      "improvement_type": "specificity"
+    }
+  },
+  {
+    "hypothesisId": "88495229-d1a4-4002-a692-08756887351e",
+    "planId": "77d8bc0b-a31e-4a23-9f74-1f1a32d14aa2",
+    "content": "Incorporating 0.1% polysorbate 80 into a bispecific antibody solution with a concentration of 180 mg/ml will decrease its viscosity by approximately 20% or more.",
+    "explanation": "Clarified the expected level of viscosity reduction using approximate language to account for variability in results and measurement accuracy.",
+    "elo": 1500,
+    "createdAt": "2025-11-13T11:41:56.512Z",
+    "provenance": [
+      "The addition of 0.1% polysorbate 80 to a bispecific antibody solution at 180 mg/ml will reduce its viscosity by at least 20%."
+    ],
+    "metadata": {
+      "evolved_from": "75573700-36ae-4db4-b3c0-f99cb2f46e88",
+      "improvement_type": "clarity"
+    }
+  },
+  {
+    "hypothesisId": "e996afd7-ba8b-4510-a13a-b71225fd4385",
+    "planId": "77d8bc0b-a31e-4a23-9f74-1f1a32d14aa2",
+    "content": "The introduction of 0.1% polysorbate 80 to solutions of bispecific antibodies with concentrations ranging from 150 to 200 mg/ml will result in a reduction of viscosity by at least 20%.",
+    "explanation": "Expanded the concentration range of the antibody solution to increase the hypothesis's applicability, potentially making it relevant to a broader range of experimental conditions.",
+    "elo": 1500,
+    "createdAt": "2025-11-13T11:41:56.515Z",
+    "provenance": [
+      "The addition of 0.1% polysorbate 80 to a bispecific antibody solution at 180 mg/ml will reduce its viscosity by at least 20%."
+    ],
+    "metadata": {
+      "evolved_from": "75573700-36ae-4db4-b3c0-f99cb2f46e88",
+      "improvement_type": "scope"
+    }
+  },
+  {
+    "hypothesisId": "ac7803bd-50e5-439d-b884-dc640fb06be8",
+    "planId": "77d8bc0b-a31e-4a23-9f74-1f1a32d14aa2",
+    "content": "Polysorbate 80, when added at a concentration of 0.1% to a bispecific antibody solution at 180 mg/ml, will significantly lower viscosity due to its ability to interfere with protein-protein interactions.",
+    "explanation": "Highlighted the mechanism behind viscosity reduction and emphasized the role of polysorbate 80, enhancing the understanding of the underlying process.",
+    "elo": 1500,
+    "createdAt": "2025-11-13T11:41:56.525Z",
+    "provenance": [
+      "The addition of 0.1% polysorbate 80 to a bispecific antibody solution at 180 mg/ml will reduce its viscosity by at least 20%."
+    ],
+    "metadata": {
+      "evolved_from": "75573700-36ae-4db4-b3c0-f99cb2f46e88",
+      "improvement_type": "specificity"
+    }
+  },
+  {
+    "hypothesisId": "7cb7ad27-1691-4bae-9cf8-ca0e84e968a5",
+    "planId": "c8d5823b-2067-45ec-ab7e-0c47927a2e54",
+    "content": "The addition of specific amino acids such as arginine or lysine to the formulation of a bispecific antibody at a concentration of 180 mg/ml will reduce its viscosity.",
+    "explanation": "Amino acids like arginine and lysine are known to interact with protein surfaces, potentially reducing intermolecular interactions that contribute to high viscosity. This is based on their ability to disrupt protein-protein interactions without denaturing the protein.",
+    "elo": 1484,
+    "createdAt": "2025-11-14T12:19:19.297Z",
+    "provenance": [
+      "Research on protein formulation suggests that certain amino acids can reduce protein viscosity by interacting with charged or hydrophobic regions on the protein surface.",
+      "Biophysical studies have shown that amino acids like arginine and lysine can effectively lower the viscosity of concentrated protein solutions."
+    ],
+    "metadata": {
+      "feasibility_score": 0.8,
+      "novelty_score": 0.5
+    }
+  },
+  {
+    "hypothesisId": "99f27049-3275-4218-8e5a-e123a9fb0070",
+    "planId": "c8d5823b-2067-45ec-ab7e-0c47927a2e54",
+    "content": "The addition of arginine hydrochloride at a concentration of 50 mM will reduce the viscosity of a bispecific antibody solution at a concentration of 180 mg/ml.",
+    "explanation": "Arginine hydrochloride is known to interact with protein molecules, potentially reducing intermolecular attractions and thus decreasing the viscosity of protein solutions. This is supported by studies showing its effect on decreasing viscosity in monoclonal antibody solutions.",
+    "elo": 1484,
+    "createdAt": "2025-11-14T12:19:19.301Z",
+    "provenance": [
+      "Studies on the impact of arginine hydrochloride on protein solutions",
+      "Research on protein-protein interactions and viscosity modulation"
+    ],
+    "metadata": {
+      "feasibility_score": 0.9,
+      "novelty_score": 0.6
+    }
+  },
+  {
+    "hypothesisId": "b6bbf77a-acbe-4b47-a6df-a6f6d953c81f",
+    "planId": "c8d5823b-2067-45ec-ab7e-0c47927a2e54",
+    "content": "Adding 2% polyethylene glycol (PEG) to a bispecific antibody solution at 180 mg/ml will result in a 20% reduction in viscosity.",
+    "explanation": "PEG is known to reduce protein-protein interactions which are a major factor contributing to high viscosity in antibody solutions. By adding PEG, we can potentially lower the viscosity of the solution.",
+    "elo": 1516,
+    "createdAt": "2025-11-14T12:19:19.313Z",
+    "provenance": [
+      "Studies have shown that PEG can act as a crowding agent, reducing protein solution viscosity by minimizing protein-protein interactions (Reference: Biophysical Journal, 2019)."
+    ],
+    "metadata": {
+      "feasibility_score": 0.9,
+      "novelty_score": 0.6
+    }
+  },
+  {
+    "hypothesisId": "8648c610-1171-4391-8861-0f15a70e8842",
+    "planId": "c8d5823b-2067-45ec-ab7e-0c47927a2e54",
+    "content": "The addition of arginine at a concentration of 50 mM will reduce the viscosity of a bispecific antibody solution at 180 mg/ml by at least 20%.",
+    "explanation": "Arginine is known to interact with proteins in a way that can reduce their aggregation and thus lower the viscosity of protein solutions. It acts as a chaotropic agent, which can disrupt protein-protein interactions that contribute to high viscosity.",
+    "elo": 1484,
+    "createdAt": "2025-11-14T12:19:19.315Z",
+    "provenance": [
+      "Arginine has been documented in the literature as an effective excipient for reducing viscosity in protein formulations (Arakawa et al., 2007)",
+      "Previous studies have shown that arginine can prevent aggregation of proteins at high concentrations, which is a common cause of increased viscosity (Tessier et al., 2008)"
+    ],
+    "metadata": {
+      "feasibility_score": 0.9,
+      "novelty_score": 0.7
+    }
+  },
+  {
+    "hypothesisId": "d5a5bd4c-c847-46b6-9999-f52e43cfc7e0",
+    "planId": "c8d5823b-2067-45ec-ab7e-0c47927a2e54",
+    "content": "Adding an excipient such as arginine at a concentration of 50 mM will reduce the viscosity of the bispecific antibody solution at 180 mg/ml concentration by at least 10%.",
+    "explanation": "Arginine is known to interact with protein molecules and can help in reducing intermolecular interactions that contribute to high viscosity. By testing its effect on bispecific antibodies, we can determine if it can effectively lower viscosity at high concentrations.",
+    "elo": 1516,
+    "createdAt": "2025-11-14T12:19:19.315Z",
+    "provenance": [
+      "Bhatnagar, D., et al. (2007). 'Effect of Arginine on Protein Stability and Solubility.' Journal of Pharmaceutical Sciences.",
+      "Shire, S.J., et al. (2004). 'Challenges in the Development of High Protein Concentration Formulations.' Journal of Pharmaceutical Sciences."
+    ],
+    "metadata": {
+      "feasibility_score": 0.8,
+      "novelty_score": 0.5
+    }
+  },
+  {
+    "hypothesisId": "3d0f218b-0be4-4d4a-bbc1-872f33050139",
+    "planId": "c8d5823b-2067-45ec-ab7e-0c47927a2e54",
+    "content": "Adding a specific concentration of polysorbate 80 to a bispecific antibody solution at 180 mg/ml will reduce its viscosity by at least 20%.",
+    "explanation": "Polysorbate 80 is a surfactant known to reduce protein-protein interactions in solutions, which can lower viscosity. Testing different concentrations of polysorbate 80 can help identify an optimal concentration for viscosity reduction.",
+    "elo": 1516,
+    "createdAt": "2025-11-14T12:19:19.339Z",
+    "provenance": [
+      "Polysorbate 80 has been used in formulations to stabilize proteins and reduce viscosity (References: Mahler et al., 2009).",
+      "Surfactants like polysorbates reduce surface tension and can alter protein interactions (Source: Wang et al., 2010)."
+    ],
+    "metadata": {
+      "feasibility_score": 0.8,
+      "novelty_score": 0.5
+    }
+  },
+  {
+    "hypothesisId": "da41b29d-a9a3-4b9e-a66f-a4e3fbed6b56",
+    "planId": "c8d5823b-2067-45ec-ab7e-0c47927a2e54",
+    "content": "The addition of polysorbate 80 at a concentration of 0.1% (w/v) will decrease the viscosity of a bispecific antibody solution at a concentration of 180 mg/ml.",
+    "explanation": "Polysorbate 80 is a non-ionic surfactant commonly used to reduce protein-protein interactions, which are a major cause of high viscosity in protein solutions. By interfering with these interactions, the surfactant can lower the overall viscosity.",
+    "elo": 1484,
+    "createdAt": "2025-11-14T12:19:19.347Z",
+    "provenance": [
+      "Surfactants like polysorbate 80 have been shown to reduce viscosity in protein formulations by disrupting protein-protein interactions (Jiskoot et al., 2012, 'Protein Formulations: A Practical Guide' - Springer)."
+    ],
+    "metadata": {
+      "feasibility_score": 0.8,
+      "novelty_score": 0.4
+    }
+  },
+  {
+    "hypothesisId": "fbc6c341-fbac-4867-b00e-1559f0dca5ef",
+    "planId": "c8d5823b-2067-45ec-ab7e-0c47927a2e54",
+    "content": "The addition of arginine as an excipient at a concentration of 50 mM will lower the viscosity of a bispecific antibody solution at 180 mg/ml.",
+    "explanation": "Arginine is known to interfere with protein-protein interactions that contribute to high viscosity in concentrated protein solutions, potentially reducing the solution's viscosity.",
+    "elo": 1484,
+    "createdAt": "2025-11-14T12:19:19.357Z",
+    "provenance": [
+      "Studies have shown that arginine can effectively reduce viscosity by decreasing attractive protein-protein interactions (Tsumoto et al., 2004).",
+      "Arginine is often used in protein formulations to stabilize proteins and manage viscosity (Arakawa et al., 2007)."
+    ],
+    "metadata": {
+      "feasibility_score": 0.8,
+      "novelty_score": 0.6
+    }
+  },
+  {
+    "hypothesisId": "eb6f7570-0eb4-4723-954e-113bb57df11b",
+    "planId": "c8d5823b-2067-45ec-ab7e-0c47927a2e54",
+    "content": "Adding arginine to a solution of bispecific antibody at a concentration of 180 mg/ml will reduce its viscosity by at least 10%.",
+    "explanation": "Arginine is known to interact with proteins and can reduce viscosity by preventing intermolecular interactions that lead to high viscosity. This hypothesis is based on the property of arginine to act as a protein stabilizer and its ability to modulate protein-protein interactions.",
+    "elo": 1484,
+    "createdAt": "2025-11-14T12:19:19.387Z",
+    "provenance": [
+      "https://doi.org/10.1021/acs.molpharmaceut.0c00592",
+      "https://doi.org/10.1016/j.ejpb.2018.01.022"
+    ],
+    "metadata": {
+      "feasibility_score": 0.8,
+      "novelty_score": 0.6
+    }
+  },
+  {
+    "hypothesisId": "816231b0-f5e6-48e5-8165-992adc4f14b5",
+    "planId": "c8d5823b-2067-45ec-ab7e-0c47927a2e54",
+    "content": "The addition of arginine at a concentration of 20 mM will reduce the viscosity of a bispecific antibody solution at 180 mg/ml by at least 15% compared to a control solution without arginine.",
+    "explanation": "Arginine is known to disrupt protein-protein interactions that contribute to high viscosity in concentrated protein solutions, such as those of antibodies. This hypothesis is testable by preparing solutions with and without arginine and measuring their viscosities using a viscometer.",
+    "elo": 1516,
+    "createdAt": "2025-11-14T12:19:19.529Z",
+    "provenance": [
+      "Studies have shown that arginine can reduce viscosity in monoclonal antibody formulations by disrupting intermolecular interactions (e.g., Shire et al., Journal of Pharmaceutical Sciences, 2010)."
+    ],
+    "metadata": {
+      "feasibility_score": 0.9,
+      "novelty_score": 0.7
+    }
+  },
+  {
+    "hypothesisId": "d7269802-ea91-4bfc-a3f8-1411c908692b",
+    "planId": "c8d5823b-2067-45ec-ab7e-0c47927a2e54",
+    "content": "The incorporation of amino acids, specifically arginine or lysine, into the formulation of a bispecific antibody at concentrations between 150 mg/ml and 200 mg/ml will result in a significant reduction in viscosity.",
+    "explanation": "The scope has been broadened by including a range of concentrations rather than a fixed value, allowing for exploration of optimal concentrations for viscosity reduction.",
+    "elo": 1500,
+    "createdAt": "2025-11-14T12:20:15.008Z",
+    "provenance": [
+      "The addition of specific amino acids such as arginine or lysine to the formulation of a bispecific antibody at a concentration of 180 mg/ml will reduce its viscosity."
+    ],
+    "metadata": {
+      "evolved_from": "7cb7ad27-1691-4bae-9cf8-ca0e84e968a5",
+      "improvement_type": "scope"
+    }
+  },
+  {
+    "hypothesisId": "6b38aa24-659e-4ae2-a5e1-927435986615",
+    "planId": "c8d5823b-2067-45ec-ab7e-0c47927a2e54",
+    "content": "Incorporating arginine or lysine at 180 mg/ml in bispecific antibody formulations decreases viscosity by altering protein surface interactions, specifically targeting hydrophobic regions to prevent aggregation.",
+    "explanation": "The hypothesis now includes a more detailed mechanism of action, explaining how arginine and lysine interact with hydrophobic regions on the protein surface.",
+    "elo": 1500,
+    "createdAt": "2025-11-14T12:20:15.008Z",
+    "provenance": [
+      "The addition of specific amino acids such as arginine or lysine to the formulation of a bispecific antibody at a concentration of 180 mg/ml will reduce its viscosity."
+    ],
+    "metadata": {
+      "evolved_from": "7cb7ad27-1691-4bae-9cf8-ca0e84e968a5",
+      "improvement_type": "specificity"
+    }
+  },
+  {
+    "hypothesisId": "b0404c8e-2d0c-466f-8464-2cfe6d52e331",
+    "planId": "c8d5823b-2067-45ec-ab7e-0c47927a2e54",
+    "content": "The addition of amino acids, particularly arginine or lysine, to bispecific antibody formulations at 180 mg/ml will not only reduce viscosity but also maintain the stability and activity of the antibodies.",
+    "explanation": "The hypothesis is expanded to include the potential benefit of maintaining antibody stability and activity, providing a more comprehensive view of the impact of amino acid addition.",
+    "elo": 1500,
+    "createdAt": "2025-11-14T12:20:15.009Z",
+    "provenance": [
+      "The addition of specific amino acids such as arginine or lysine to the formulation of a bispecific antibody at a concentration of 180 mg/ml will reduce its viscosity."
+    ],
+    "metadata": {
+      "evolved_from": "7cb7ad27-1691-4bae-9cf8-ca0e84e968a5",
+      "improvement_type": "scope"
+    }
+  },
+  {
+    "hypothesisId": "8dcb03e4-5e64-4fa8-8ff9-b410d633758e",
+    "planId": "c8d5823b-2067-45ec-ab7e-0c47927a2e54",
+    "content": "The incorporation of 50 mM arginine hydrochloride will decrease the viscosity of bispecific antibody solutions at concentrations exceeding 150 mg/ml.",
+    "explanation": "Broadened the scope to include concentrations over 150 mg/ml instead of a fixed 180 mg/ml, allowing for more general application and testing at various high concentrations.",
+    "elo": 1500,
+    "createdAt": "2025-11-14T12:20:15.010Z",
+    "provenance": [
+      "The addition of arginine hydrochloride at a concentration of 50 mM will reduce the viscosity of a bispecific antibody solution at a concentration of 180 mg/ml."
+    ],
+    "metadata": {
+      "evolved_from": "99f27049-3275-4218-8e5a-e123a9fb0070",
+      "improvement_type": "scope"
+    }
+  },
+  {
+    "hypothesisId": "40415b9c-773c-4bf2-b2e5-ce84e729f092",
+    "planId": "c8d5823b-2067-45ec-ab7e-0c47927a2e54",
+    "content": "The addition of arginine hydrochloride at a concentration of 50 mM will reduce both viscosity and aggregation in a bispecific antibody solution at 180 mg/ml.",
+    "explanation": "Expanded the hypothesis to include the potential reduction in protein aggregation, which is another aspect of protein solution behavior that arginine hydrochloride could affect.",
+    "elo": 1500,
+    "createdAt": "2025-11-14T12:20:15.010Z",
+    "provenance": [
+      "The addition of arginine hydrochloride at a concentration of 50 mM will reduce the viscosity of a bispecific antibody solution at a concentration of 180 mg/ml."
+    ],
+    "metadata": {
+      "evolved_from": "99f27049-3275-4218-8e5a-e123a9fb0070",
+      "improvement_type": "specificity"
+    }
+  },
+  {
+    "hypothesisId": "76cb0a6c-7083-4c60-95ee-5d6631136a2f",
+    "planId": "c8d5823b-2067-45ec-ab7e-0c47927a2e54",
+    "content": "Arginine hydrochloride, at a 50 mM concentration, is hypothesized to reduce viscosity in bispecific antibody solutions by disrupting protein-protein interactions, with effects measurable at various antibody concentrations.",
+    "explanation": "Refined language for clarity and included a broader range of concentrations while emphasizing the mechanism of action, thus clarifying the hypothesis's underlying rationale.",
+    "elo": 1500,
+    "createdAt": "2025-11-14T12:20:15.011Z",
+    "provenance": [
+      "The addition of arginine hydrochloride at a concentration of 50 mM will reduce the viscosity of a bispecific antibody solution at a concentration of 180 mg/ml."
+    ],
+    "metadata": {
+      "evolved_from": "99f27049-3275-4218-8e5a-e123a9fb0070",
+      "improvement_type": "clarity"
+    }
+  },
+  {
+    "hypothesisId": "08b104ab-7ed0-44fb-962d-d8ca4f616695",
+    "planId": "c8d5823b-2067-45ec-ab7e-0c47927a2e54",
+    "content": "Incorporating 2% polyethylene glycol (PEG) into a bispecific antibody solution at a concentration of 180 mg/ml is expected to achieve a significant reduction in viscosity, potentially exceeding 20%.",
+    "explanation": "By suggesting that the reduction in viscosity could potentially exceed 20%, the hypothesis becomes more open to observing greater effects, which could be a possibility depending on the specific antibody interactions.",
+    "elo": 1500,
+    "createdAt": "2025-11-14T12:20:15.012Z",
+    "provenance": [
+      "Adding 2% polyethylene glycol (PEG) to a bispecific antibody solution at 180 mg/ml will result in a 20% reduction in viscosity."
+    ],
+    "metadata": {
+      "evolved_from": "b6bbf77a-acbe-4b47-a6df-a6f6d953c81f",
+      "improvement_type": "scope"
+    }
+  },
+  {
+    "hypothesisId": "d8457239-2156-4961-b687-a60442380ca7",
+    "planId": "c8d5823b-2067-45ec-ab7e-0c47927a2e54",
+    "content": "Adding polyethylene glycol (PEG) at concentrations between 1-3% to a bispecific antibody solution at 180 mg/ml will result in a measurable reduction in viscosity, likely due to decreased protein-protein interactions.",
+    "explanation": "The hypothesis has been broadened to explore a range of PEG concentrations, acknowledging potential variability in effect depending on the concentration used.",
+    "elo": 1500,
+    "createdAt": "2025-11-14T12:20:15.012Z",
+    "provenance": [
+      "Adding 2% polyethylene glycol (PEG) to a bispecific antibody solution at 180 mg/ml will result in a 20% reduction in viscosity."
+    ],
+    "metadata": {
+      "evolved_from": "b6bbf77a-acbe-4b47-a6df-a6f6d953c81f",
+      "improvement_type": "specificity"
+    }
+  },
+  {
+    "hypothesisId": "0039a251-9bab-4b35-b03a-9a33959d3ed2",
+    "planId": "c8d5823b-2067-45ec-ab7e-0c47927a2e54",
+    "content": "The addition of 2% polyethylene glycol (PEG) to a high-concentration bispecific antibody solution (180 mg/ml) will reduce viscosity by approximately 20% by mitigating protein-protein interactions.",
+    "explanation": "The hypothesis has been refined for clarity by specifying 'high-concentration' and reinforcing the mechanism (protein-protein interaction mitigation).",
+    "elo": 1500,
+    "createdAt": "2025-11-14T12:20:15.013Z",
+    "provenance": [
+      "Adding 2% polyethylene glycol (PEG) to a bispecific antibody solution at 180 mg/ml will result in a 20% reduction in viscosity."
+    ],
+    "metadata": {
+      "evolved_from": "b6bbf77a-acbe-4b47-a6df-a6f6d953c81f",
+      "improvement_type": "clarity"
+    }
+  },
+  {
+    "hypothesisId": "445bb312-9fe7-4e44-a33d-e4b1a75582a4",
+    "planId": "c8d5823b-2067-45ec-ab7e-0c47927a2e54",
+    "content": "The addition of 50 mM arginine will decrease the viscosity of a bispecific antibody solution of concentration 180 mg/ml by 15% to 25%.",
+    "explanation": "The range of viscosity reduction was specified to account for variability in experimental conditions and to make the hypothesis more realistic.",
+    "elo": 1500,
+    "createdAt": "2025-11-14T12:20:15.014Z",
+    "provenance": [
+      "The addition of arginine at a concentration of 50 mM will reduce the viscosity of a bispecific antibody solution at 180 mg/ml by at least 20%."
+    ],
+    "metadata": {
+      "evolved_from": "8648c610-1171-4391-8861-0f15a70e8842",
+      "improvement_type": "specificity"
+    }
+  },
+  {
+    "hypothesisId": "6acc200d-6694-43fc-a22c-7f50d4ed3471",
+    "planId": "c8d5823b-2067-45ec-ab7e-0c47927a2e54",
+    "content": "At a concentration of 50 mM, arginine will decrease the viscosity of a bispecific antibody solution with concentrations ranging from 150 mg/ml to 200 mg/ml by at least 20%.",
+    "explanation": "The scope was adjusted to consider a range of antibody concentrations, making the hypothesis applicable to a broader range of experimental conditions.",
+    "elo": 1500,
+    "createdAt": "2025-11-14T12:20:15.014Z",
+    "provenance": [
+      "The addition of arginine at a concentration of 50 mM will reduce the viscosity of a bispecific antibody solution at 180 mg/ml by at least 20%."
+    ],
+    "metadata": {
+      "evolved_from": "8648c610-1171-4391-8861-0f15a70e8842",
+      "improvement_type": "scope"
+    }
+  },
+  {
+    "hypothesisId": "691b408f-3c79-435d-b774-2846aa5f5995",
+    "planId": "c8d5823b-2067-45ec-ab7e-0c47927a2e54",
+    "content": "Arginine, when added at a concentration of 50 mM, will interact with bispecific antibodies at 180 mg/ml to reduce solution viscosity by at least 20%, due to its role as a chaotropic agent disrupting protein-protein interactions.",
+    "explanation": "The hypothesis was clarified by explicitly mentioning the mechanism by which arginine affects protein interactions and viscosity.",
+    "elo": 1500,
+    "createdAt": "2025-11-14T12:20:15.016Z",
+    "provenance": [
+      "The addition of arginine at a concentration of 50 mM will reduce the viscosity of a bispecific antibody solution at 180 mg/ml by at least 20%."
+    ],
+    "metadata": {
+      "evolved_from": "8648c610-1171-4391-8861-0f15a70e8842",
+      "improvement_type": "clarity"
+    }
+  },
+  {
+    "hypothesisId": "702e051c-6a6d-4c6e-ab4b-a171a27852a9",
+    "planId": "c8d5823b-2067-45ec-ab7e-0c47927a2e54",
+    "content": "Incorporating arginine at a concentration of 50 mM will significantly decrease the viscosity of a bispecific antibody solution at a concentration of 180 mg/ml by at least 10%.",
+    "explanation": "Replaced 'adding' with 'incorporating' to imply integration into the formulation process, and emphasized 'significantly decrease' for clarity.",
+    "elo": 1500,
+    "createdAt": "2025-11-14T12:20:15.017Z",
+    "provenance": [
+      "Adding an excipient such as arginine at a concentration of 50 mM will reduce the viscosity of the bispecific antibody solution at 180 mg/ml concentration by at least 10%."
+    ],
+    "metadata": {
+      "evolved_from": "d5a5bd4c-c847-46b6-9999-f52e43cfc7e0",
+      "improvement_type": "clarity"
+    }
+  },
+  {
+    "hypothesisId": "173f4a71-e7c5-449f-b7d6-a538878bbf4d",
+    "planId": "c8d5823b-2067-45ec-ab7e-0c47927a2e54",
+    "content": "Adding arginine at varying concentrations, starting from 50 mM, will reduce the viscosity of bispecific antibody solutions with an initial concentration of 180 mg/ml by at least 10%.",
+    "explanation": "Expanded the hypothesis to consider varying concentrations of arginine to explore its effect across a range, enhancing the hypothesis' scope.",
+    "elo": 1500,
+    "createdAt": "2025-11-14T12:20:15.017Z",
+    "provenance": [
+      "Adding an excipient such as arginine at a concentration of 50 mM will reduce the viscosity of the bispecific antibody solution at 180 mg/ml concentration by at least 10%."
+    ],
+    "metadata": {
+      "evolved_from": "d5a5bd4c-c847-46b6-9999-f52e43cfc7e0",
+      "improvement_type": "scope"
+    }
+  },
+  {
+    "hypothesisId": "771dd6fc-b1ce-4360-9bce-4cc515cf2364",
+    "planId": "c8d5823b-2067-45ec-ab7e-0c47927a2e54",
+    "content": "Arginine at a concentration of 50 mM is hypothesized to reduce the viscosity of bispecific antibody solutions of 180 mg/ml by disrupting protein-protein interactions, leading to at least a 10% decrease.",
+    "explanation": "Added a mechanistic explanation of how arginine could reduce viscosity, thereby increasing the specificity and depth of the hypothesis.",
+    "elo": 1500,
+    "createdAt": "2025-11-14T12:20:15.018Z",
+    "provenance": [
+      "Adding an excipient such as arginine at a concentration of 50 mM will reduce the viscosity of the bispecific antibody solution at 180 mg/ml concentration by at least 10%."
+    ],
+    "metadata": {
+      "evolved_from": "d5a5bd4c-c847-46b6-9999-f52e43cfc7e0",
+      "improvement_type": "specificity"
+    }
+  }
+]

@@ -1,123 +1,146 @@
-# Design Draft API - Refactored Structure
+# ShadowAI Co-Scientist Implementation
 
-This API has been refactored for better readability, maintainability, and organization. The code is now modular and follows clean architecture principles.
+This directory contains the asynchronous Google ADK-style co-scientist pipeline implementation for research plan generation and hypothesis evaluation.
 
-## Directory Structure
+## Architecture
 
+The system follows a Supervisor → Worker Pool → Agent Adapters architecture:
+
+- **route.ts**: API ingress that validates requests and enqueues research plans
+- **supervisor.ts**: Orchestrates runs, seeds generation tasks, manages tournaments, and schedules agent cycles
+- **worker.ts**: Dispatches tasks to appropriate agent adapters with concurrency control
+- **agents/**: Individual agent adapters (generation, reflection, ranking, evolution, proximity, metaReview, statCheck, reportWriter)
+- **utils/**: Model calls, persistence helpers
+- **safety/**: Safety gating and policy enforcement
+- **data/**: JSON file-based persistence (POC, easily replaceable with DB)
+
+## Setup
+
+### Environment Variables
+
+```bash
+OPENAI_API_KEY=sk-...  # or OPENAI_KEY
 ```
-app/api/design/draft/
-├── route.ts                 # Main API route (clean & minimal)
-├── README.md               # This documentation
-├── agents/
-│   └── index.ts            # All agent implementations
-├── prompts/
-│   └── agent-prompts.ts    # All agent prompts separated
-├── types/
-│   └── index.ts            # TypeScript interfaces & Zod schemas
-└── utils/
-    └── search-utils.ts     # Search utilities & rate limiting
-```
 
-## Key Improvements
+### Installation
 
-### 1. **Separation of Concerns**
+Dependencies are already included in the main package.json. Key dependencies:
 
-- **Main Route (`route.ts`)**: Only contains workflow orchestration and API handling
-- **Agents (`agents/index.ts`)**: Contains all agent logic and OpenAI API calls
-- **Prompts (`prompts/agent-prompts.ts`)**: All prompts extracted into functions
-- **Types (`types/index.ts`)**: All interfaces and Zod schemas centralized
-- **Utils (`utils/search-utils.ts`)**: Search functionality and rate limiting
-
-### 2. **Improved Readability**
-
-- Main route file reduced from ~1850 lines to ~200 lines
-- Clear separation between different functionalities
-- Easy to find and modify specific components
-- Better error handling and logging
-
-### 3. **Better Maintainability**
-
-- Prompts can be easily modified without touching agent logic
-- Types are centralized and reusable
-- Search utilities are modular and testable
-- Each agent is clearly separated and focused
-
-## Agent Workflow
-
-The API follows a 6-agent sequential workflow:
-
-1. **Design Planner Agent** - Orchestrates the process
-2. **Literature Scout Agent** - Searches and analyzes research papers
-3. **Hypothesis Builder Agent** - Creates testable hypotheses
-4. **Experiment Designer Agent** - Designs complete lab-ready experiments
-5. **Stat Check Agent** - Reviews for statistical soundness
-6. **Report Writer Agent** - Creates comprehensive reports
+- `openai`: OpenAI API client
+- `uuid`: UUID generation
 
 ## Usage
 
-The API endpoint remains the same:
+### Starting a Research Plan
 
-```typescript
-POST /api/design/draft
+```bash
+curl -X POST 'http://localhost:3000/api/design/draft' \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "planId": "plan-1",
+    "title": "Topical eczema formulation for molecule X",
+    "description": "Design formulation to enhance skin penetration with low irritation",
+    "preferences": {
+      "max_hypotheses": 10
+    }
+  }'
+```
 
-// Request body:
-{
-  "problem": "Research problem description",
-  "objectives": ["objective1", "objective2"],
-  "variables": ["variable1", "variable2"],
-  "specialConsiderations": ["consideration1", "consideration2"]
-}
+Response:
 
-// Response:
+```json
 {
   "success": true,
-  "reportWriterOutput": { /* Final comprehensive report */ },
-  "agentOutputs": { /* All individual agent outputs */ },
-  "searchResults": { /* Literature search results */ }
+  "planId": "plan-1",
+  "statusUrl": "/api/design/draft/status/plan-1",
+  "message": "Research plan enqueued successfully"
 }
 ```
 
-## Environment Variables Required
+### Checking Plan Status
 
-```env
-OPENAI_KEY=your_openai_api_key
-SERPAPI_API_KEY=your_serpapi_key
-TAVILY_API_KEY=your_tavily_key (optional)
+```bash
+curl 'http://localhost:3000/api/design/draft/status/plan-1'
 ```
 
-## Key Features
+Response includes:
 
-- **Multi-source Literature Search**: PubMed, ArXiv, Semantic Scholar, Google Scholar, Tavily
-- **Enhanced Rate Limiting**: Intelligent backoff strategies for API calls
-- **AI-Powered Synthesis**: Automated extraction of research insights
-- **Comprehensive Validation**: Statistical and logical experiment review
-- **Lab-Ready Output**: Detailed execution plans with materials, procedures, timelines
+- Plan status (pending, seed_in_progress, completed, failed)
+- Progress metrics
+- Top hypotheses (ranked by Elo)
+- Recent logs
 
-## Modifying the System
+## Data Persistence
 
-### To Update Prompts
+Data is stored in JSON files under `app/api/design/draft/data/`:
 
-Edit `prompts/agent-prompts.ts` - each agent has its own prompt function.
+- `research_plans.json`: Research plans
+- `hypotheses.json`: Generated hypotheses with Elo ratings
+- `tournament_matches.json`: Pairwise ranking results
+- `logs.json`: Execution logs
 
-### To Add New Agents
+## Agent Types
 
-1. Add agent function to `agents/index.ts`
-2. Add agent output types to `types/index.ts`
-3. Update workflow in `route.ts`
-4. Create prompt function in `prompts/agent-prompts.ts`
+1. **GENERATION**: Generates testable hypotheses from research plans
+2. **REFLECTION**: Critically evaluates hypotheses
+3. **RANKING**: Compares pairs of hypotheses (used in tournaments)
+4. **EVOLUTION**: Creates evolved variants of hypotheses
+5. **PROXIMITY**: Evaluates semantic similarity between hypotheses
+6. **META_REVIEW**: Analyzes overall research process and generates prompt patches
+7. **STATCHECK**: Evaluates statistical soundness
+8. **REPORT**: Synthesizes findings into comprehensive reports
 
-### To Modify Search Logic
+## Safety Gate
 
-Edit `utils/search-utils.ts` for search functionality and rate limiting.
+The safety gate (`safety/gate.ts`) evaluates:
 
-### To Update Types
+- Research plans on ingestion
+- Hypotheses before persistence
 
-Edit `types/index.ts` for interfaces and Zod schemas.
+Decisions: `allow`, `flag` (needs review), `block` (rejected)
 
-## Benefits of This Structure
+## Supervisor Workflow
 
-1. **Easy Debugging**: Each component is isolated and can be tested separately
-2. **Fast Development**: Changes to prompts don't require touching agent logic
-3. **Better Testing**: Modular structure allows for unit testing of components
-4. **Scalability**: Easy to add new agents or modify existing ones
-5. **Documentation**: Clear separation makes the codebase self-documenting
+1. **Seed Phase**: Generate initial hypotheses (default: 10)
+2. **Tournament Phase**: Pairwise ranking of top hypotheses, update Elo ratings
+3. **Reflection Phase**: Reflect on top hypotheses
+4. **Evolution Phase**: Generate evolved variants
+5. **Meta Review Phase**: Analyze process and generate improvements
+
+## Migration to Database
+
+To migrate from JSON files to a database (e.g., Postgres/Prisma):
+
+1. Replace `utils/persistence.ts` functions with database queries
+2. Update schema:
+
+   - `research_plans` table
+   - `hypotheses` table (with Elo column)
+   - `tournament_matches` table
+   - `agent_tasks` table
+   - `agent_outputs` table
+   - `logs` table
+
+3. Update supervisor.ts to use new persistence functions
+
+## Testing
+
+Run tests:
+
+```bash
+npm test
+```
+
+## Configuration
+
+- `DEFAULT_SEED_COUNT`: Number of initial hypotheses (default: 10)
+- `DEFAULT_CONCURRENCY`: Worker concurrency limit (default: 4)
+- `DEFAULT_TIMEOUT_MS`: Task timeout (default: 60000ms)
+- `INITIAL_ELO`: Starting Elo rating (default: 1500)
+
+## Notes
+
+- The system runs synchronously for POC but returns 202 Accepted immediately
+- In production, supervisor should run in a background job queue
+- File-based persistence is a POC; replace with database for production
+- Safety gate uses keyword matching; enhance with ML models for production
