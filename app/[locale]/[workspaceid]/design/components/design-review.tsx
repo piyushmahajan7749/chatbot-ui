@@ -1,7 +1,5 @@
 "use client"
 
-"use client"
-
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import {
@@ -20,8 +18,6 @@ import {
   Copy,
   Layers,
   Loader2,
-  MessageSquarePlus,
-  PenSquare,
   RefreshCw,
   ShieldCheck,
   Target
@@ -33,7 +29,6 @@ import {
   TooltipProvider,
   TooltipTrigger
 } from "@/components/ui/tooltip"
-import { Textarea } from "@/components/ui/textarea"
 
 interface DesignReviewProps {
   designData: {
@@ -54,10 +49,7 @@ interface DesignReviewProps {
   generatedLiteratureSummary?: any | null
   generatedStatReview?: any | null
   designError?: string | null
-  manualReportText?: string | null
   onRegenerateDesign?: () => Promise<void> | void
-  onRegenerateWithPrompt?: (prompt: string) => Promise<void> | void
-  onManualEdit?: (updatedText: string) => Promise<void> | void
 }
 
 const markdownClasses =
@@ -69,39 +61,6 @@ const normalizeListFormatting = (text: string) =>
     .replace(/\s+(\d+\.)\s+/g, "\n$1 ")
     .replace(/\n{2,}/g, "\n")
     .trim()
-
-const toTitleCase = (value: string) =>
-  value
-    .replace(/([A-Z])/g, " $1")
-    .replace(/_/g, " ")
-    .replace(/\s+/g, " ")
-    .replace(/^./, char => char.toUpperCase())
-
-const buildBlueprintMarkdown = (design: any): string => {
-  if (!design?.experimentDesign) return ""
-
-  const blueprint = design.experimentDesign.experimentDesign || {}
-  const executionPlan = design.experimentDesign.executionPlan || {}
-
-  const blueprintLines = Object.entries(blueprint)
-    .filter(([, value]) => typeof value === "string" && value.trim().length)
-    .map(([key, value]) => `- **${toTitleCase(key)}**: ${value}`)
-
-  const executionLines = Object.entries(executionPlan)
-    .filter(([, value]) => typeof value === "string" && value.trim().length)
-    .map(([key, value]) => `1. **${toTitleCase(key)}**: ${value}`)
-
-  return [
-    blueprintLines.length
-      ? ["### Experimental Parameters", ...blueprintLines].join("\n")
-      : "",
-    executionLines.length
-      ? ["### Execution Plan", ...executionLines].join("\n")
-      : ""
-  ]
-    .filter(Boolean)
-    .join("\n\n")
-}
 
 const SectionCard = ({
   title,
@@ -365,10 +324,7 @@ export function DesignReview({
   generatedLiteratureSummary,
   generatedStatReview,
   designError,
-  manualReportText,
-  onRegenerateDesign,
-  onRegenerateWithPrompt,
-  onManualEdit
+  onRegenerateDesign
 }: DesignReviewProps) {
   const [showAllHypotheses, setShowAllHypotheses] =
     useState(!selectedHypothesisId)
@@ -390,148 +346,33 @@ export function DesignReview({
     !generatedDesign
   const isDesignComplete = !!generatedDesign && !!selectedHypothesis
 
-  const [showPromptDialog, setShowPromptDialog] = useState(false)
-  const [promptValue, setPromptValue] = useState("")
-  const [isSubmittingPrompt, setIsSubmittingPrompt] = useState(false)
-
-  const [isManualEditing, setIsManualEditing] = useState(false)
-  const [manualDraft, setManualDraft] = useState("")
-  const [isSavingManualEdit, setIsSavingManualEdit] = useState(false)
-  const canManualEdit = Boolean(onManualEdit)
-
-  const startManualEditing = () => {
-    if (!generatedDesign) return
-    const seed =
-      manualReportText && manualReportText.trim().length > 0
-        ? manualReportText
-        : buildBlueprintMarkdown(generatedDesign)
-    setManualDraft(seed)
-    setIsManualEditing(true)
-  }
-
-  const handleManualSave = async () => {
-    if (!onManualEdit) return
-    setIsSavingManualEdit(true)
-    try {
-      await onManualEdit(manualDraft)
-      setIsManualEditing(false)
-    } finally {
-      setIsSavingManualEdit(false)
-    }
-  }
-
   const designReportCard = generatedDesign &&
     typeof generatedDesign === "object" && (
       <Card>
         <CardHeader>
           <CardTitle>Experiment Design</CardTitle>
           {generatedDesign && (
-            <>
-              {showPromptDialog && (
-                <div className="border-border/80 bg-background/80 rounded-lg border p-4 shadow-sm">
-                  <p className="text-foreground text-sm font-semibold">
-                    Add instructions for regeneration
-                  </p>
-                  <p className="text-muted-foreground text-xs">
-                    Explain what needs to change or improve.
-                  </p>
-                  <Textarea
-                    className="mt-3 h-24"
-                    value={promptValue}
-                    onChange={event => setPromptValue(event.target.value)}
-                    placeholder="e.g., focus on improving statistical power and add more replicates for the control group."
-                  />
-                  <div className="mt-3 flex gap-2">
+            <div className="flex flex-wrap gap-2 pt-3">
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
                     <Button
+                      variant="outline"
                       size="sm"
-                      onClick={async () => {
-                        if (!onRegenerateWithPrompt) return
-                        setIsSubmittingPrompt(true)
-                        try {
-                          await onRegenerateWithPrompt(promptValue.trim())
-                          setShowPromptDialog(false)
-                          setPromptValue("")
-                        } finally {
-                          setIsSubmittingPrompt(false)
-                        }
-                      }}
-                      disabled={isSubmittingPrompt || !promptValue.trim()}
+                      onClick={() => onRegenerateDesign?.()}
                     >
-                      {isSubmittingPrompt ? (
-                        <>
-                          <Loader2 className="mr-2 size-4 animate-spin" />
-                          Sending…
-                        </>
-                      ) : (
-                        "Submit prompt"
-                      )}
+                      <RefreshCw className="mr-2 size-4" />
+                      Regenerate
                     </Button>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      onClick={() => {
-                        setShowPromptDialog(false)
-                        setPromptValue("")
-                      }}
-                    >
-                      Cancel
-                    </Button>
-                  </div>
-                </div>
-              )}
-              <div className="flex flex-wrap gap-2 pt-3">
-                <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => onRegenerateDesign?.()}
-                      >
-                        <RefreshCw className="mr-2 size-4" />
-                        Regenerate
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      <p>
-                        Run the entire design pipeline again with fresh agents.
-                      </p>
-                    </TooltipContent>
-                  </Tooltip>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setShowPromptDialog(true)}
-                      >
-                        <MessageSquarePlus className="mr-2 size-4" />
-                        Regenerate w/ prompt
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      <p>Provide custom instructions before regenerating.</p>
-                    </TooltipContent>
-                  </Tooltip>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={startManualEditing}
-                        disabled={!canManualEdit}
-                      >
-                        <PenSquare className="mr-2 size-4" />
-                        Edit text
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent>
-                      <p>Manually edit the generated report content.</p>
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
-              </div>
-            </>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>
+                      Run the entire design pipeline again with fresh agents.
+                    </p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            </div>
           )}
         </CardHeader>
         <CardContent className="text-muted-foreground space-y-4 text-sm">
@@ -574,200 +415,153 @@ export function DesignReview({
             <SectionCard
               title="Experiment Blueprint"
               description="Design parameters and execution plan."
-              badge={
-                manualReportText && !isManualEditing ? "Custom edit" : undefined
-              }
             >
-              {manualReportText && !isManualEditing ? (
-                <ReactMarkdown className={markdownClasses}>
-                  {manualReportText}
-                </ReactMarkdown>
-              ) : isManualEditing ? (
-                <div className="space-y-3">
-                  <Textarea
-                    className="h-64"
-                    value={manualDraft}
-                    onChange={event => setManualDraft(event.target.value)}
-                  />
-                  <div className="flex flex-wrap gap-2">
-                    <Button
-                      size="sm"
-                      onClick={handleManualSave}
-                      disabled={
-                        isSavingManualEdit ||
-                        !manualDraft.trim() ||
-                        !canManualEdit
-                      }
-                    >
-                      {isSavingManualEdit ? (
-                        <>
-                          <Loader2 className="mr-2 size-4 animate-spin" />
-                          Saving…
-                        </>
-                      ) : (
-                        "Save edits"
-                      )}
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="ghost"
-                      onClick={() => {
-                        setIsManualEditing(false)
-                        setManualDraft("")
-                      }}
-                    >
-                      Cancel
-                    </Button>
-                  </div>
-                </div>
-              ) : (
-                (() => {
-                  const blueprint =
-                    generatedDesign.experimentDesign.experimentDesign || {}
-                  const executionPlan =
-                    generatedDesign.experimentDesign.executionPlan || {}
-                  const blueprintHighlights = [
-                    {
-                      label: "What is Tested",
-                      value: blueprint.whatWillBeTested,
-                      icon: Target
-                    },
-                    {
-                      label: "What is Measured",
-                      value: blueprint.whatWillBeMeasured,
-                      icon: ClipboardList
-                    },
-                    {
-                      label: "Control Groups",
-                      value: blueprint.controlGroups,
-                      icon: ShieldCheck
-                    },
-                    {
-                      label: "Experimental Groups",
-                      value: blueprint.experimentalGroups,
-                      icon: Layers
-                    },
-                    {
-                      label: "Sample Types",
-                      value: blueprint.sampleTypes,
-                      icon: Beaker
-                    },
-                    {
-                      label: "Tools Needed",
-                      value: blueprint.toolsNeeded,
-                      icon: AlertTriangle
-                    },
-                    {
-                      label: "Replicates & Conditions",
-                      value: blueprint.replicatesAndConditions,
-                      icon: Copy
-                    },
-                    {
-                      label: "Specific Requirements",
-                      value: blueprint.specificRequirements,
-                      icon: Atom
-                    }
-                  ].filter(tile => tile.value)
+              {(() => {
+                const blueprint =
+                  generatedDesign.experimentDesign.experimentDesign || {}
+                const executionPlan =
+                  generatedDesign.experimentDesign.executionPlan || {}
+                const blueprintHighlights = [
+                  {
+                    label: "What is Tested",
+                    value: blueprint.whatWillBeTested,
+                    icon: Target
+                  },
+                  {
+                    label: "What is Measured",
+                    value: blueprint.whatWillBeMeasured,
+                    icon: ClipboardList
+                  },
+                  {
+                    label: "Control Groups",
+                    value: blueprint.controlGroups,
+                    icon: ShieldCheck
+                  },
+                  {
+                    label: "Experimental Groups",
+                    value: blueprint.experimentalGroups,
+                    icon: Layers
+                  },
+                  {
+                    label: "Sample Types",
+                    value: blueprint.sampleTypes,
+                    icon: Beaker
+                  },
+                  {
+                    label: "Tools Needed",
+                    value: blueprint.toolsNeeded,
+                    icon: AlertTriangle
+                  },
+                  {
+                    label: "Replicates & Conditions",
+                    value: blueprint.replicatesAndConditions,
+                    icon: Copy
+                  },
+                  {
+                    label: "Specific Requirements",
+                    value: blueprint.specificRequirements,
+                    icon: Atom
+                  }
+                ].filter(tile => tile.value)
 
-                  const executionSteps: {
-                    label: string
-                    value?: string
-                    accent: StepAccent
-                  }[] = [
-                    {
-                      label: "Materials List",
-                      value: executionPlan.materialsList,
-                      accent: "emerald"
-                    },
-                    {
-                      label: "Material Preparation",
-                      value: executionPlan.materialPreparation,
-                      accent: "blue"
-                    },
-                    {
-                      label: "Step-by-Step Procedure",
-                      value: executionPlan.stepByStepProcedure,
-                      accent: "violet"
-                    },
-                    {
-                      label: "Timeline",
-                      value: executionPlan.timeline,
-                      accent: "amber"
-                    },
-                    {
-                      label: "Setup Instructions",
-                      value: executionPlan.setupInstructions,
-                      accent: "blue"
-                    },
-                    {
-                      label: "Data Collection Plan",
-                      value: executionPlan.dataCollectionPlan,
-                      accent: "emerald"
-                    },
-                    {
-                      label: "Conditions Table",
-                      value: executionPlan.conditionsTable,
-                      accent: "rose"
-                    },
-                    {
-                      label: "Storage & Disposal",
-                      value: executionPlan.storageDisposal,
-                      accent: "amber"
-                    },
-                    {
-                      label: "Safety Notes",
-                      value: executionPlan.safetyNotes,
-                      accent: "rose"
-                    }
-                  ].filter(step => step.value)
+                const executionSteps: {
+                  label: string
+                  value?: string
+                  accent: StepAccent
+                }[] = [
+                  {
+                    label: "Materials List",
+                    value: executionPlan.materialsList,
+                    accent: "emerald"
+                  },
+                  {
+                    label: "Material Preparation",
+                    value: executionPlan.materialPreparation,
+                    accent: "blue"
+                  },
+                  {
+                    label: "Step-by-Step Procedure",
+                    value: executionPlan.stepByStepProcedure,
+                    accent: "violet"
+                  },
+                  {
+                    label: "Timeline",
+                    value: executionPlan.timeline,
+                    accent: "amber"
+                  },
+                  {
+                    label: "Setup Instructions",
+                    value: executionPlan.setupInstructions,
+                    accent: "blue"
+                  },
+                  {
+                    label: "Data Collection Plan",
+                    value: executionPlan.dataCollectionPlan,
+                    accent: "emerald"
+                  },
+                  {
+                    label: "Conditions Table",
+                    value: executionPlan.conditionsTable,
+                    accent: "rose"
+                  },
+                  {
+                    label: "Storage & Disposal",
+                    value: executionPlan.storageDisposal,
+                    accent: "amber"
+                  },
+                  {
+                    label: "Safety Notes",
+                    value: executionPlan.safetyNotes,
+                    accent: "rose"
+                  }
+                ].filter(step => step.value)
 
-                  return (
-                    <div className="space-y-5">
-                      {blueprintHighlights.length > 0 && (
-                        <div className="grid gap-3 md:grid-cols-2">
-                          {blueprintHighlights.map(tile => (
-                            <InfoTile
-                              key={tile.label}
-                              label={tile.label}
-                              value={tile.value}
-                              icon={tile.icon}
+                return (
+                  <div className="space-y-5">
+                    {blueprintHighlights.length > 0 && (
+                      <div className="grid gap-3 md:grid-cols-2">
+                        {blueprintHighlights.map(tile => (
+                          <InfoTile
+                            key={tile.label}
+                            label={tile.label}
+                            value={tile.value}
+                            icon={tile.icon}
+                          />
+                        ))}
+                      </div>
+                    )}
+                    {executionSteps.length > 0 && (
+                      <div className="space-y-3">
+                        <div className="flex items-center justify-between">
+                          <p className="text-muted-foreground text-xs font-semibold uppercase tracking-wide">
+                            Execution Plan
+                          </p>
+                          {executionPlan.timeline && (
+                            <span className="bg-primary/10 text-primary rounded-full px-3 py-1 text-xs font-semibold">
+                              Timeline in plan
+                            </span>
+                          )}
+                        </div>
+                        <div className="grid gap-3">
+                          {executionSteps.map(step => (
+                            <StepCard
+                              key={step.label}
+                              title={step.label}
+                              body={step.value}
+                              accent={step.accent}
                             />
                           ))}
                         </div>
-                      )}
-                      {executionSteps.length > 0 && (
-                        <div className="space-y-3">
-                          <div className="flex items-center justify-between">
-                            <p className="text-muted-foreground text-xs font-semibold uppercase tracking-wide">
-                              Execution Plan
-                            </p>
-                            {executionPlan.timeline && (
-                              <span className="bg-primary/10 text-primary rounded-full px-3 py-1 text-xs font-semibold">
-                                Timeline in plan
-                              </span>
-                            )}
-                          </div>
-                          <div className="grid gap-3">
-                            {executionSteps.map(step => (
-                              <StepCard
-                                key={step.label}
-                                title={step.label}
-                                body={step.value}
-                                accent={step.accent}
-                              />
-                            ))}
-                          </div>
-                        </div>
-                      )}
-                      {generatedDesign.experimentDesign.rationale && (
-                        <p className="text-foreground italic">
-                          {generatedDesign.experimentDesign.rationale}
-                        </p>
-                      )}
-                    </div>
-                  )
-                })()
-              )}
+                      </div>
+                    )}
+                    {generatedDesign.experimentDesign.rationale && (
+                      <p className="text-foreground italic">
+                        {generatedDesign.experimentDesign.rationale}
+                      </p>
+                    )}
+                  </div>
+                )
+              })()}
             </SectionCard>
           )}
           {generatedDesign.statisticalReview && (
@@ -776,67 +570,51 @@ export function DesignReview({
               description="Quality checks by the StatCheck agent."
               badge="QA"
             >
-              {isManualEditing ? (
-                <Textarea
-                  className="h-60"
-                  value={manualDraft}
-                  onChange={event => setManualDraft(event.target.value)}
-                />
-              ) : (
-                <div className="grid gap-3 md:grid-cols-2">
-                  <div className="rounded-lg bg-emerald-500/10 p-3">
-                    <p className="text-xs font-semibold uppercase tracking-wide text-emerald-400">
-                      What Looks Good
-                    </p>
-                    <ReactMarkdown className={markdownClasses}>
-                      {generatedDesign.statisticalReview.whatLooksGood ||
-                        "No notes provided."}
-                    </ReactMarkdown>
-                  </div>
-                  <div className="rounded-lg bg-rose-500/10 p-3">
-                    <p className="text-xs font-semibold uppercase tracking-wide text-rose-400">
-                      Problems / Risks
-                    </p>
-                    <ReactMarkdown className={markdownClasses}>
-                      {generatedDesign.statisticalReview.problemsOrRisks
-                        ?.map((item: string) => `- ${item}`)
-                        .join("\n") || "None reported."}
-                    </ReactMarkdown>
-                  </div>
-                  <div className="rounded-lg bg-amber-500/10 p-3">
-                    <p className="text-xs font-semibold uppercase tracking-wide text-amber-400">
-                      Suggested Improvements
-                    </p>
-                    <ReactMarkdown className={markdownClasses}>
-                      {generatedDesign.statisticalReview.suggestedImprovements
-                        ?.map((item: string) => `- ${item}`)
-                        .join("\n") || "No improvements suggested."}
-                    </ReactMarkdown>
-                  </div>
-                  <div className="rounded-lg bg-blue-500/10 p-3">
-                    <p className="text-xs font-semibold uppercase tracking-wide text-blue-400">
-                      Overall Assessment
-                    </p>
-                    <ReactMarkdown className={markdownClasses}>
-                      {generatedDesign.statisticalReview.overallAssessment ||
-                        "No assessment provided."}
-                    </ReactMarkdown>
-                  </div>
+              <div className="grid gap-3 md:grid-cols-2">
+                <div className="rounded-lg bg-emerald-500/10 p-3">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-emerald-400">
+                    What Looks Good
+                  </p>
+                  <ReactMarkdown className={markdownClasses}>
+                    {generatedDesign.statisticalReview.whatLooksGood ||
+                      "No notes provided."}
+                  </ReactMarkdown>
                 </div>
-              )}
+                <div className="rounded-lg bg-rose-500/10 p-3">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-rose-400">
+                    Problems / Risks
+                  </p>
+                  <ReactMarkdown className={markdownClasses}>
+                    {generatedDesign.statisticalReview.problemsOrRisks
+                      ?.map((item: string) => `- ${item}`)
+                      .join("\n") || "None reported."}
+                  </ReactMarkdown>
+                </div>
+                <div className="rounded-lg bg-amber-500/10 p-3">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-amber-400">
+                    Suggested Improvements
+                  </p>
+                  <ReactMarkdown className={markdownClasses}>
+                    {generatedDesign.statisticalReview.suggestedImprovements
+                      ?.map((item: string) => `- ${item}`)
+                      .join("\n") || "No improvements suggested."}
+                  </ReactMarkdown>
+                </div>
+                <div className="rounded-lg bg-blue-500/10 p-3">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-blue-400">
+                    Overall Assessment
+                  </p>
+                  <ReactMarkdown className={markdownClasses}>
+                    {generatedDesign.statisticalReview.overallAssessment ||
+                      "No assessment provided."}
+                  </ReactMarkdown>
+                </div>
+              </div>
             </SectionCard>
           )}
           {generatedDesign.finalNotes && (
             <SectionCard title="Final Notes">
-              {isManualEditing ? (
-                <Textarea
-                  className="h-32"
-                  value={manualDraft}
-                  onChange={event => setManualDraft(event.target.value)}
-                />
-              ) : (
-                <p>{generatedDesign.finalNotes}</p>
-              )}
+              <p>{generatedDesign.finalNotes}</p>
             </SectionCard>
           )}
         </CardContent>

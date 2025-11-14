@@ -1,6 +1,7 @@
 "use client"
 
 import { useCallback, useEffect, useMemo, useState } from "react"
+import { Button } from "@/components/ui/button"
 import { DesignReview } from "../components/design-review"
 import { DesignProgress } from "@/components/ui/design-progress"
 import {
@@ -9,6 +10,8 @@ import {
   DesignPlanHypothesis
 } from "@/types/design-plan"
 import { toast } from "sonner"
+import { Textarea } from "@/components/ui/textarea"
+import { Loader2, EyeOff, PanelTopOpen } from "lucide-react"
 
 interface DesignData {
   name?: string
@@ -50,7 +53,9 @@ export default function DesignIDPage({
     null
   )
   const [designError, setDesignError] = useState<string | null>(null)
-  const [manualReportText, setManualReportText] = useState<string | null>(null)
+  const [promptInput, setPromptInput] = useState("")
+  const [isPromptSubmitting, setIsPromptSubmitting] = useState(false)
+  const [showPromptToolbar, setShowPromptToolbar] = useState(true)
 
   const loadDesignFromDatabase = useCallback(async () => {
     try {
@@ -221,8 +226,14 @@ export default function DesignIDPage({
     setGeneratedLiteratureSummary(null)
     setGeneratedStatReview(null)
     setDesignError(null)
-    setManualReportText(null)
+    setPromptInput("")
+    setShowPromptToolbar(true)
   }, [planStatus?.planId])
+
+  useEffect(() => {
+    setPromptInput("")
+    setShowPromptToolbar(true)
+  }, [selectedHypothesisId])
 
   const handleGenerateDesign = async (
     hypothesis: DesignPlanHypothesis,
@@ -276,7 +287,6 @@ export default function DesignIDPage({
       setGeneratedStatReview(
         data.statReview || data.report?.statisticalReview || null
       )
-      setManualReportText(null)
       toast.success("Experiment design generated.")
     } catch (error: any) {
       console.error("❌ [DESIGN_PAGE] Design generation error:", error)
@@ -296,23 +306,26 @@ export default function DesignIDPage({
     await handleGenerateDesign(selectedHypothesis)
   }, [selectedHypothesis, handleGenerateDesign])
 
-  const handleRegenerateWithPrompt = useCallback(
-    async (prompt: string) => {
-      if (!selectedHypothesis) {
-        toast.error("Select a hypothesis before regenerating.")
-        return
-      }
+  const handlePromptSubmit = useCallback(async () => {
+    if (!selectedHypothesis) {
+      toast.error("Select a hypothesis before regenerating.")
+      return
+    }
+    const trimmed = promptInput.trim()
+    if (!trimmed) {
+      toast.error("Add instructions before regenerating.")
+      return
+    }
+    setIsPromptSubmitting(true)
+    try {
       await handleGenerateDesign(selectedHypothesis, {
-        instructions: prompt
+        instructions: trimmed
       })
-    },
-    [selectedHypothesis, handleGenerateDesign]
-  )
-
-  const handleManualEditSave = useCallback(async (updatedText: string) => {
-    setManualReportText(updatedText)
-    toast.success("Custom edits saved locally.")
-  }, [])
+      setPromptInput("")
+    } finally {
+      setIsPromptSubmitting(false)
+    }
+  }, [selectedHypothesis, promptInput, handleGenerateDesign])
 
   if (isGenerating) {
     return (
@@ -355,24 +368,104 @@ export default function DesignIDPage({
         <h1 className="text-2xl font-bold">{reviewProblem}</h1>
       </div>
       <div className="flex-1 overflow-auto p-4">
-        <DesignReview
-          designData={designData}
-          planStatus={planStatus}
-          topHypotheses={latestHypotheses}
-          logs={logs}
-          onGenerateDesign={handleGenerateDesign}
-          generatingHypothesisId={generatingHypothesisId}
-          selectedHypothesisId={selectedHypothesisId}
-          generatedDesign={generatedDesign}
-          generatedLiteratureSummary={generatedLiteratureSummary}
-          generatedStatReview={generatedStatReview}
-          designError={designError}
-          manualReportText={manualReportText}
-          onRegenerateDesign={handleRegenerateSelected}
-          onRegenerateWithPrompt={handleRegenerateWithPrompt}
-          onManualEdit={handleManualEditSave}
-        />
+        <div className="pb-28">
+          <DesignReview
+            designData={designData}
+            planStatus={planStatus}
+            topHypotheses={latestHypotheses}
+            logs={logs}
+            onGenerateDesign={handleGenerateDesign}
+            generatingHypothesisId={generatingHypothesisId}
+            selectedHypothesisId={selectedHypothesisId}
+            generatedDesign={generatedDesign}
+            generatedLiteratureSummary={generatedLiteratureSummary}
+            generatedStatReview={generatedStatReview}
+            designError={designError}
+            onRegenerateDesign={handleRegenerateSelected}
+          />
+        </div>
       </div>
+      {selectedHypothesis &&
+        generatedDesign &&
+        !generatingHypothesisId &&
+        showPromptToolbar && (
+          <div className="border-border/70 from-background via-muted/70 to-background w-full border-t bg-gradient-to-r p-4 shadow-[-8px_0_24px_rgba(0,0,0,0.25)] supports-[backdrop-filter]:backdrop-blur">
+            <div className="mx-auto flex w-full max-w-5xl flex-col gap-4 sm:flex-row sm:items-end">
+              <div className="flex-1">
+                <div className="flex items-center justify-between text-xs uppercase tracking-wide">
+                  <p className="text-muted-foreground/90 font-semibold">
+                    Regenerate with prompt
+                  </p>
+                  <span className="text-muted-foreground/80">
+                    Target: {selectedHypothesis.content.slice(0, 60)}
+                    {selectedHypothesis.content.length > 60 ? "…" : ""}
+                  </span>
+                </div>
+                <Textarea
+                  value={promptInput}
+                  onChange={event => setPromptInput(event.target.value)}
+                  placeholder="Describe how the experiment should change or what to emphasize…"
+                  className="border-border/60 bg-background/80 mt-2 w-full"
+                  rows={2}
+                />
+                <p className="text-muted-foreground text-[11px]">
+                  Suggestions can adjust materials, statistical rigor, controls,
+                  or focus.
+                </p>
+              </div>
+              <div className="flex shrink-0 items-center gap-2">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setShowPromptToolbar(false)}
+                >
+                  <EyeOff className="mr-2 size-4" />
+                  Hide
+                </Button>
+                <Button
+                  variant="ghost"
+                  onClick={() => setPromptInput("")}
+                  disabled={!promptInput.trim() || isPromptSubmitting}
+                >
+                  Clear
+                </Button>
+                <Button
+                  onClick={handlePromptSubmit}
+                  disabled={
+                    isPromptSubmitting ||
+                    !promptInput.trim() ||
+                    generatingHypothesisId === selectedHypothesis.hypothesisId
+                  }
+                >
+                  {isPromptSubmitting ? (
+                    <>
+                      <Loader2 className="mr-2 size-4 animate-spin" />
+                      Sending
+                    </>
+                  ) : (
+                    "Regenerate"
+                  )}
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
+      {selectedHypothesis &&
+        generatedDesign &&
+        !generatingHypothesisId &&
+        !showPromptToolbar && (
+          <div className="pointer-events-none absolute inset-x-0 bottom-6 flex justify-center">
+            <Button
+              size="sm"
+              variant="outline"
+              className="border-border/60 bg-background/80 pointer-events-auto backdrop-blur"
+              onClick={() => setShowPromptToolbar(true)}
+            >
+              <PanelTopOpen className="mr-2 size-4" />
+              Show prompt controls
+            </Button>
+          </div>
+        )}
     </div>
   )
 }
