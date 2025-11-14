@@ -5,8 +5,19 @@ import {
   DesignPlanStatus,
   DesignPlanHypothesis
 } from "@/types/design-plan"
+import { type ReactNode } from "react"
 import { formatDistanceToNow } from "date-fns"
-import { Loader2 } from "lucide-react"
+import {
+  AlertTriangle,
+  Atom,
+  Beaker,
+  ClipboardList,
+  Copy,
+  Layers,
+  Loader2,
+  ShieldCheck,
+  Target
+} from "lucide-react"
 import ReactMarkdown from "react-markdown"
 
 interface DesignReviewProps {
@@ -28,6 +39,106 @@ interface DesignReviewProps {
   generatedLiteratureSummary?: any | null
   generatedStatReview?: any | null
   designError?: string | null
+}
+
+const markdownClasses =
+  "prose prose-sm max-w-none text-foreground dark:prose-invert prose-headings:text-foreground prose-strong:text-foreground prose-li:marker:text-muted-foreground"
+
+const normalizeListFormatting = (text: string) =>
+  text
+    .replace(/\s*-\s+/g, "\n- ")
+    .replace(/\s+(\d+\.)\s+/g, "\n$1 ")
+    .replace(/\n{2,}/g, "\n")
+    .trim()
+
+const SectionCard = ({
+  title,
+  description,
+  children,
+  badge
+}: {
+  title: string
+  description?: string
+  children: ReactNode
+  badge?: string
+}) => (
+  <div className="border-border from-background via-background/60 to-background rounded-xl border bg-gradient-to-b p-4 shadow-inner">
+    <div className="border-border/70 flex flex-col gap-1 border-b pb-3">
+      <div className="flex items-center justify-between gap-2">
+        <h3 className="text-foreground text-lg font-semibold">{title}</h3>
+        {badge && (
+          <span className="bg-primary/10 text-primary rounded-full px-3 py-1 text-xs font-semibold">
+            {badge}
+          </span>
+        )}
+      </div>
+      {description && (
+        <p className="text-muted-foreground text-xs">{description}</p>
+      )}
+    </div>
+    <div className="text-muted-foreground pt-3 text-sm">{children}</div>
+  </div>
+)
+
+const InfoTile = ({
+  label,
+  value,
+  icon: Icon
+}: {
+  label: string
+  value?: string
+  icon?: React.ElementType
+}) => {
+  if (!value) return null
+
+  return (
+    <div className="border-border/70 bg-background/80 flex flex-col gap-2 rounded-lg border p-3 shadow-sm">
+      <div className="text-muted-foreground flex items-center gap-2 text-xs font-semibold uppercase tracking-wide">
+        {Icon && <Icon className="text-primary size-4" />}
+        {label}
+      </div>
+      <p className="text-foreground text-sm">{value}</p>
+    </div>
+  )
+}
+
+type StepAccent = "emerald" | "blue" | "violet" | "amber" | "rose"
+
+const StepCard = ({
+  title,
+  body,
+  accent = "emerald"
+}: {
+  title: string
+  body?: string
+  accent?: StepAccent
+}) => {
+  if (!body) return null
+
+  const accentMap: Record<StepAccent, string> = {
+    emerald: "border-emerald-500/40 bg-emerald-500/5",
+    blue: "border-sky-500/40 bg-sky-500/5",
+    violet: "border-violet-500/40 bg-violet-500/5",
+    amber: "border-amber-500/40 bg-amber-500/5",
+    rose: "border-rose-500/40 bg-rose-500/5"
+  } as const
+
+  const baseClass = accentMap[accent] || accentMap.emerald
+
+  const formatted = normalizeListFormatting(body)
+
+  return (
+    <div
+      className={`rounded-lg border ${baseClass} p-3 shadow-sm backdrop-blur`}
+    >
+      <p className="text-muted-foreground text-xs font-semibold uppercase tracking-wide">
+        {title}
+      </p>
+      <ReactMarkdown className={`${markdownClasses} mt-2`}>
+        {formatted}
+      </ReactMarkdown>
+    </div>
+  )
 }
 
 function formatList(label: string, values?: string[]) {
@@ -169,7 +280,7 @@ function renderLegacyReport(report: any) {
             <h3 className="text-foreground text-base font-semibold">
               Literature Summary
             </h3>
-            <ReactMarkdown>
+            <ReactMarkdown className={markdownClasses}>
               {report.literatureSummary.whatOthersHaveDone}
             </ReactMarkdown>
           </div>
@@ -215,19 +326,22 @@ export function DesignReview({
         </CardHeader>
         <CardContent className="text-muted-foreground space-y-4 text-sm">
           {generatedDesign.researchObjective && (
-            <section>
-              <h3 className="text-foreground text-base font-semibold">
-                Research Objective
-              </h3>
-              <p>{generatedDesign.researchObjective}</p>
-            </section>
+            <SectionCard
+              title="Research Objective"
+              description="Primary goal the experiment must accomplish."
+            >
+              <p className="text-foreground">
+                {generatedDesign.researchObjective}
+              </p>
+            </SectionCard>
           )}
           {generatedDesign.literatureSummary && (
-            <section className="space-y-2">
-              <h3 className="text-foreground text-base font-semibold">
-                Literature Summary
-              </h3>
-              <ReactMarkdown className="prose max-w-none">
+            <SectionCard
+              title="Literature Summary"
+              description="Key learnings from recent papers."
+              badge={`${generatedLiteratureSummary?.citations?.length || 0} refs`}
+            >
+              <ReactMarkdown className={markdownClasses}>
                 {[
                   generatedDesign.literatureSummary.whatOthersHaveDone,
                   generatedDesign.literatureSummary.goodMethodsAndTools,
@@ -236,73 +350,221 @@ export function DesignReview({
                   .filter(Boolean)
                   .join("\n\n")}
               </ReactMarkdown>
-            </section>
+            </SectionCard>
           )}
           {generatedDesign.hypothesis && (
-            <section>
-              <h3 className="text-foreground text-base font-semibold">
-                Selected Hypothesis
-              </h3>
+            <SectionCard title="Selected Hypothesis" badge="Final pick">
               <p className="text-foreground font-medium">
                 {generatedDesign.hypothesis.hypothesis}
               </p>
               <p>{generatedDesign.hypothesis.explanation}</p>
-            </section>
+            </SectionCard>
           )}
           {generatedDesign.experimentDesign && (
-            <section className="space-y-2">
-              <h3 className="text-foreground text-base font-semibold">
-                Experiment Design
-              </h3>
-              <ReactMarkdown className="prose max-w-none">
-                {Object.entries(
+            <SectionCard
+              title="Experiment Blueprint"
+              description="Design parameters and execution plan."
+            >
+              {(() => {
+                const blueprint =
                   generatedDesign.experimentDesign.experimentDesign || {}
+                const executionPlan =
+                  generatedDesign.experimentDesign.executionPlan || {}
+                const blueprintHighlights = [
+                  {
+                    label: "What is Tested",
+                    value: blueprint.whatWillBeTested,
+                    icon: Target
+                  },
+                  {
+                    label: "What is Measured",
+                    value: blueprint.whatWillBeMeasured,
+                    icon: ClipboardList
+                  },
+                  {
+                    label: "Control Groups",
+                    value: blueprint.controlGroups,
+                    icon: ShieldCheck
+                  },
+                  {
+                    label: "Experimental Groups",
+                    value: blueprint.experimentalGroups,
+                    icon: Layers
+                  },
+                  {
+                    label: "Sample Types",
+                    value: blueprint.sampleTypes,
+                    icon: Beaker
+                  },
+                  {
+                    label: "Tools Needed",
+                    value: blueprint.toolsNeeded,
+                    icon: AlertTriangle
+                  },
+                  {
+                    label: "Replicates & Conditions",
+                    value: blueprint.replicatesAndConditions,
+                    icon: Copy
+                  },
+                  {
+                    label: "Specific Requirements",
+                    value: blueprint.specificRequirements,
+                    icon: Atom
+                  }
+                ].filter(tile => tile.value)
+
+                const executionSteps: {
+                  label: string
+                  value?: string
+                  accent: StepAccent
+                }[] = [
+                  {
+                    label: "Materials List",
+                    value: executionPlan.materialsList,
+                    accent: "emerald"
+                  },
+                  {
+                    label: "Material Preparation",
+                    value: executionPlan.materialPreparation,
+                    accent: "blue"
+                  },
+                  {
+                    label: "Step-by-Step Procedure",
+                    value: executionPlan.stepByStepProcedure,
+                    accent: "violet"
+                  },
+                  {
+                    label: "Timeline",
+                    value: executionPlan.timeline,
+                    accent: "amber"
+                  },
+                  {
+                    label: "Setup Instructions",
+                    value: executionPlan.setupInstructions,
+                    accent: "blue"
+                  },
+                  {
+                    label: "Data Collection Plan",
+                    value: executionPlan.dataCollectionPlan,
+                    accent: "emerald"
+                  },
+                  {
+                    label: "Conditions Table",
+                    value: executionPlan.conditionsTable,
+                    accent: "rose"
+                  },
+                  {
+                    label: "Storage & Disposal",
+                    value: executionPlan.storageDisposal,
+                    accent: "amber"
+                  },
+                  {
+                    label: "Safety Notes",
+                    value: executionPlan.safetyNotes,
+                    accent: "rose"
+                  }
+                ].filter(step => step.value)
+
+                return (
+                  <div className="space-y-5">
+                    {blueprintHighlights.length > 0 && (
+                      <div className="grid gap-3 md:grid-cols-2">
+                        {blueprintHighlights.map(tile => (
+                          <InfoTile
+                            key={tile.label}
+                            label={tile.label}
+                            value={tile.value}
+                            icon={tile.icon}
+                          />
+                        ))}
+                      </div>
+                    )}
+                    {executionSteps.length > 0 && (
+                      <div className="space-y-3">
+                        <div className="flex items-center justify-between">
+                          <p className="text-muted-foreground text-xs font-semibold uppercase tracking-wide">
+                            Execution Plan
+                          </p>
+                          {executionPlan.timeline && (
+                            <span className="bg-primary/10 text-primary rounded-full px-3 py-1 text-xs font-semibold">
+                              Timeline in plan
+                            </span>
+                          )}
+                        </div>
+                        <div className="grid gap-3">
+                          {executionSteps.map(step => (
+                            <StepCard
+                              key={step.label}
+                              title={step.label}
+                              body={step.value}
+                              accent={step.accent}
+                            />
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                    {generatedDesign.experimentDesign.rationale && (
+                      <p className="text-foreground italic">
+                        {generatedDesign.experimentDesign.rationale}
+                      </p>
+                    )}
+                  </div>
                 )
-                  .map(([key, value]) => `**${key}**: ${value}`)
-                  .join("\n\n")}
-              </ReactMarkdown>
-              {generatedDesign.experimentDesign.executionPlan && (
-                <ReactMarkdown className="prose max-w-none">
-                  {Object.entries(
-                    generatedDesign.experimentDesign.executionPlan
-                  )
-                    .map(([key, value]) => `**${key}**: ${value}`)
-                    .join("\n\n")}
-                </ReactMarkdown>
-              )}
-              {generatedDesign.experimentDesign.rationale && (
-                <p>{generatedDesign.experimentDesign.rationale}</p>
-              )}
-            </section>
+              })()}
+            </SectionCard>
           )}
           {generatedDesign.statisticalReview && (
-            <section className="space-y-2">
-              <h3 className="text-foreground text-base font-semibold">
-                Statistical Review
-              </h3>
-              <ReactMarkdown className="prose max-w-none">
-                {[
-                  generatedDesign.statisticalReview.whatLooksGood,
-                  generatedDesign.statisticalReview.problemsOrRisks
-                    ?.map((item: string) => `- ${item}`)
-                    .join("\n"),
-                  generatedDesign.statisticalReview.suggestedImprovements
-                    ?.map((item: string) => `- ${item}`)
-                    .join("\n"),
-                  generatedDesign.statisticalReview.overallAssessment
-                ]
-                  .filter(Boolean)
-                  .join("\n\n")}
-              </ReactMarkdown>
-            </section>
+            <SectionCard
+              title="Statistical Review"
+              description="Quality checks by the StatCheck agent."
+              badge="QA"
+            >
+              <div className="grid gap-3 md:grid-cols-2">
+                <div className="rounded-lg bg-emerald-500/10 p-3">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-emerald-400">
+                    What Looks Good
+                  </p>
+                  <ReactMarkdown className={markdownClasses}>
+                    {generatedDesign.statisticalReview.whatLooksGood ||
+                      "No notes provided."}
+                  </ReactMarkdown>
+                </div>
+                <div className="rounded-lg bg-rose-500/10 p-3">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-rose-400">
+                    Problems / Risks
+                  </p>
+                  <ReactMarkdown className={markdownClasses}>
+                    {generatedDesign.statisticalReview.problemsOrRisks
+                      ?.map((item: string) => `- ${item}`)
+                      .join("\n") || "None reported."}
+                  </ReactMarkdown>
+                </div>
+                <div className="rounded-lg bg-amber-500/10 p-3">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-amber-400">
+                    Suggested Improvements
+                  </p>
+                  <ReactMarkdown className={markdownClasses}>
+                    {generatedDesign.statisticalReview.suggestedImprovements
+                      ?.map((item: string) => `- ${item}`)
+                      .join("\n") || "No improvements suggested."}
+                  </ReactMarkdown>
+                </div>
+                <div className="rounded-lg bg-blue-500/10 p-3">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-blue-400">
+                    Overall Assessment
+                  </p>
+                  <ReactMarkdown className={markdownClasses}>
+                    {generatedDesign.statisticalReview.overallAssessment ||
+                      "No assessment provided."}
+                  </ReactMarkdown>
+                </div>
+              </div>
+            </SectionCard>
           )}
           {generatedDesign.finalNotes && (
-            <section>
-              <h3 className="text-foreground text-base font-semibold">
-                Final Notes
-              </h3>
+            <SectionCard title="Final Notes">
               <p>{generatedDesign.finalNotes}</p>
-            </section>
+            </SectionCard>
           )}
         </CardContent>
       </Card>

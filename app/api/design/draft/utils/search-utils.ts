@@ -5,9 +5,16 @@ import OpenAI from "openai"
 import { AggregatedSearchResults, SearchResult } from "../types"
 
 // Initialize enhanced search tools
-const scholarTool = new SERPGoogleScholarAPITool({
-  apiKey: process.env.SERPAPI_API_KEY
-})
+let scholarTool: SERPGoogleScholarAPITool | null = null
+if (process.env.SERPAPI_API_KEY) {
+  scholarTool = new SERPGoogleScholarAPITool({
+    apiKey: process.env.SERPAPI_API_KEY
+  })
+} else {
+  console.log(
+    "⚠️ [SERPAPI] SERPAPI_API_KEY not configured. Google Scholar searches disabled."
+  )
+}
 
 // Initialize Tavily for comprehensive web search (if API key available)
 let tavilyTool: TavilySearchResults | null = null
@@ -225,14 +232,15 @@ export async function searchArXivEnhanced(
     await rateLimiter.checkAndWait("arxiv", 3)
     console.log(`🔍 [ARXIV_ENHANCED] Searching for: ${query}`)
 
-    const response = await axios.get("http://export.arxiv.org/api/query", {
+    const response = await axios.get("https://export.arxiv.org/api/query", {
       params: {
-        search_query: `all:${query}`,
+        search_query: `all:${encodeURIComponent(query)}`,
         start: 0,
         max_results: maxResults,
         sortBy: "relevance",
         sortOrder: "descending"
-      }
+      },
+      timeout: 10000
     })
 
     const results: SearchResult[] = []
@@ -391,6 +399,13 @@ export async function searchGoogleScholar(
   maxResults: number = 10
 ): Promise<SearchResult[]> {
   try {
+    if (!scholarTool) {
+      console.log(
+        "⚠️ [SCHOLAR] SERPAPI key missing; skipping Google Scholar search."
+      )
+      return []
+    }
+
     await rateLimiter.checkAndWait("scholar", 2)
 
     console.log(`🔍 [SCHOLAR] Searching for: ${query}`)
