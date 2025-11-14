@@ -205,5 +205,95 @@
       "planId": "c8d5823b-2067-45ec-ab7e-0c47927a2e54",
       "hypothesisId": "d7269802-ea91-4bfc-a3f8-1411c908692b"
     }
+  },
+  {
+    "timestamp": "2025-11-14T12:27:12.915Z",
+    "actor": "supervisor",
+    "level": "info",
+    "message": "Generating experiment design for hypothesis 816231b0-f5e6-48e5-8165-992adc4f14b5",
+    "context": {
+      "planId": "c8d5823b-2067-45ec-ab7e-0c47927a2e54",
+      "hypothesisId": "816231b0-f5e6-48e5-8165-992adc4f14b5"
+    }
+  },
+  {
+    "timestamp": "2025-11-14T12:27:16.018Z",
+    "actor": "supervisor",
+    "level": "info",
+    "message": "Experiment design generated for hypothesis 816231b0-f5e6-48e5-8165-992adc4f14b5",
+    "context": {
+      "planId": "c8d5823b-2067-45ec-ab7e-0c47927a2e54",
+      "hypothesisId": "816231b0-f5e6-48e5-8165-992adc4f14b5"
+    }
+  },
+  {
+    "timestamp": "2025-11-14T12:40:10.271Z",
+    "actor": "supervisor",
+    "message": "Starting research plan 992d314b-95be-4539-97b9-bc6312a8247b",
+    "level": "info",
+    "context": {
+      "planId": "992d314b-95be-4539-97b9-bc6312a8247b"
+    }
+  },
+  {
+    "timestamp": "2025-11-14T12:40:10.272Z",
+    "actor": "supervisor",
+    "message": "Created 10 generation tasks",
+    "level": "info",
+    "context": {
+      "planId": "992d314b-95be-4539-97b9-bc6312a8247b",
+      "taskCount": 10
+    }
+  },
+  {
+    "timestamp": "2025-11-14T12:40:19.333Z",
+    "actor": "supervisor",
+    "message": "Generated 10 hypotheses",
+    "level": "info",
+    "context": {
+      "planId": "992d314b-95be-4539-97b9-bc6312a8247b",
+      "hypothesisCount": 10
+    }
+  },
+  {
+    "timestamp": "2025-11-14T12:40:19.334Z",
+    "actor": "supervisor",
+    "message": "Starting tournament with top 10 hypotheses",
+    "level": "info",
+    "context": {
+      "planId": "992d314b-95be-4539-97b9-bc6312a8247b",
+      "topN": 10
+    }
+  },
+  {
+    "timestamp": "2025-11-14T12:41:24.599Z",
+    "actor": "supervisor",
+    "message": "Research plan 992d314b-95be-4539-97b9-bc6312a8247b completed",
+    "level": "info",
+    "context": {
+      "planId": "992d314b-95be-4539-97b9-bc6312a8247b",
+      "totalTimeMs": 74367
+    }
+  },
+  {
+    "timestamp": "2025-11-14T12:41:40.113Z",
+    "actor": "supervisor",
+    "level": "info",
+    "message": "Starting sequential experiment design pipeline for hypothesis 1be285f0-e6d1-413a-b65f-95e24d227c2a",
+    "context": {
+      "planId": "992d314b-95be-4539-97b9-bc6312a8247b",
+      "hypothesisId": "1be285f0-e6d1-413a-b65f-95e24d227c2a"
+    }
+  },
+  {
+    "timestamp": "2025-11-14T12:47:39.169Z",
+    "actor": "supervisor",
+    "level": "info",
+    "message": "Experiment design pipeline completed for hypothesis 1be285f0-e6d1-413a-b65f-95e24d227c2a",
+    "context": {
+      "planId": "992d314b-95be-4539-97b9-bc6312a8247b",
+      "hypothesisId": "1be285f0-e6d1-413a-b65f-95e24d227c2a",
+      "totalTimeMs": 359056
+    }
   }
 ]

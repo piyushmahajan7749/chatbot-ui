@@ -1,8 +1,12 @@
 import { NextResponse } from "next/server"
-import { v4 as uuidv4 } from "uuid"
 
-import { workerRunner } from "../../../worker"
-import { AgentTask } from "../../../types/interfaces"
+import {
+  callExperimentDesignerAgent,
+  callLiteratureScoutAgent,
+  callReportWriterAgent,
+  callStatCheckAgent
+} from "../../../agents"
+import { ExperimentDesignState } from "../../../types"
 import {
   getHypothesisById,
   getResearchPlan,
@@ -38,55 +42,84 @@ export async function POST(
       )
     }
 
+    const stepTimings: { step: string; durationMs: number }[] = []
+    const trackStep = async <T>(step: string, fn: () => Promise<T>) => {
+      const start = Date.now()
+      const result = await fn()
+      stepTimings.push({ step, durationMs: Date.now() - start })
+      return result
+    }
+
+    const planConstraints = plan.constraints || {}
+    const ensureArray = (value: unknown): string[] => {
+      if (Array.isArray(value)) {
+        return value.filter(
+          (item): item is string =>
+            typeof item === "string" && item.trim().length > 0
+        )
+      }
+      if (typeof value === "string" && value.trim().length > 0) {
+        return [value.trim()]
+      }
+      return []
+    }
+
+    const pipelineStart = Date.now()
+
     await saveLog({
       timestamp: new Date().toISOString(),
       actor: "supervisor",
       level: "info",
-      message: `Generating experiment design for hypothesis ${hypothesis.hypothesisId}`,
+      message: `Starting sequential experiment design pipeline for hypothesis ${hypothesis.hypothesisId}`,
       context: {
         planId: plan.planId,
         hypothesisId: hypothesis.hypothesisId
       }
     })
 
-    const reportTask: AgentTask = {
-      taskId: uuidv4(),
-      planId: plan.planId,
-      agentType: "REPORT",
-      priority: 6,
-      metadata: {
-        plan: {
-          title: plan.title,
-          description: plan.description,
-          constraints: plan.constraints,
-          preferences: plan.preferences
-        },
-        topHypotheses: [
-          {
-            content: hypothesis.content,
-            explanation: hypothesis.explanation,
-            elo: hypothesis.elo
-          }
-        ]
-      }
+    const state: ExperimentDesignState = {
+      problem: plan.title || plan.description || "Untitled research problem",
+      objectives: ensureArray(planConstraints.objectives),
+      variables: ensureArray(planConstraints.variables),
+      specialConsiderations: ensureArray(planConstraints.specialConsiderations)
     }
 
-    const reportResult = await workerRunner(reportTask)
+    state.literatureScoutOutput = await trackStep(
+      "literature_scout",
+      async () => callLiteratureScoutAgent(state)
+    )
 
-    if (reportResult.status !== "success" || !reportResult.output) {
-      throw new Error(
-        reportResult.error || "Failed to generate experiment design"
-      )
+    state.hypothesisBuilderOutput = {
+      hypothesis: hypothesis.content,
+      explanation:
+        hypothesis.explanation ||
+        "User-selected hypothesis from tournament stage."
     }
+
+    state.experimentDesignerOutput = await trackStep(
+      "experiment_designer",
+      async () => callExperimentDesignerAgent(state)
+    )
+
+    state.statCheckOutput = await trackStep("stat_check", async () =>
+      callStatCheckAgent(state)
+    )
+
+    state.reportWriterOutput = await trackStep("report_writer", async () =>
+      callReportWriterAgent(state)
+    )
+
+    const totalTimeMs = Date.now() - pipelineStart
 
     await saveLog({
       timestamp: new Date().toISOString(),
       actor: "supervisor",
       level: "info",
-      message: `Experiment design generated for hypothesis ${hypothesis.hypothesisId}`,
+      message: `Experiment design pipeline completed for hypothesis ${hypothesis.hypothesisId}`,
       context: {
         planId: plan.planId,
-        hypothesisId: hypothesis.hypothesisId
+        hypothesisId: hypothesis.hypothesisId,
+        totalTimeMs
       }
     })
 
@@ -94,11 +127,29 @@ export async function POST(
       success: true,
       planId: plan.planId,
       hypothesisId: hypothesis.hypothesisId,
-      report: reportResult.output,
-      metrics: reportResult.metrics
+      report: state.reportWriterOutput,
+      literatureSummary: state.literatureScoutOutput,
+      experimentDesign: state.experimentDesignerOutput,
+      statReview: state.statCheckOutput,
+      metrics: {
+        totalTimeMs,
+        steps: stepTimings
+      }
     })
   } catch (error: any) {
     console.error("[HYPOTHESIS-DESIGN] Error generating design:", error)
+
+    await saveLog({
+      timestamp: new Date().toISOString(),
+      actor: "supervisor",
+      level: "error",
+      message: `Experiment design pipeline failed for hypothesis ${params.hypothesisId}`,
+      context: {
+        hypothesisId: params.hypothesisId,
+        error: error?.message || "Unknown error"
+      }
+    })
+
     return NextResponse.json(
       {
         success: false,

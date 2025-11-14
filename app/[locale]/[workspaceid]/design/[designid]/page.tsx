@@ -43,6 +43,12 @@ export default function DesignIDPage({
     string | null
   >(null)
   const [generatedDesign, setGeneratedDesign] = useState<any | null>(null)
+  const [generatedLiteratureSummary, setGeneratedLiteratureSummary] = useState<
+    any | null
+  >(null)
+  const [generatedStatReview, setGeneratedStatReview] = useState<any | null>(
+    null
+  )
   const [designError, setDesignError] = useState<string | null>(null)
 
   const loadDesignFromDatabase = useCallback(async () => {
@@ -204,6 +210,8 @@ export default function DesignIDPage({
     setSelectedHypothesisId(null)
     setGeneratingHypothesisId(null)
     setGeneratedDesign(null)
+    setGeneratedLiteratureSummary(null)
+    setGeneratedStatReview(null)
     setDesignError(null)
   }, [planStatus?.planId])
 
@@ -222,6 +230,8 @@ export default function DesignIDPage({
     setSelectedHypothesisId(hypothesis.hypothesisId)
     setGeneratingHypothesisId(hypothesis.hypothesisId)
     setGeneratedDesign(null)
+    setGeneratedLiteratureSummary(null)
+    setGeneratedStatReview(null)
     setDesignError(null)
 
     try {
@@ -240,6 +250,12 @@ export default function DesignIDPage({
       }
 
       setGeneratedDesign(data.report)
+      setGeneratedLiteratureSummary(
+        data.literatureSummary || data.report?.literatureSummary || null
+      )
+      setGeneratedStatReview(
+        data.statReview || data.report?.statisticalReview || null
+      )
       toast.success("Experiment design generated.")
     } catch (error: any) {
       console.error("❌ [DESIGN_PAGE] Design generation error:", error)
@@ -301,6 +317,8 @@ export default function DesignIDPage({
           generatingHypothesisId={generatingHypothesisId}
           selectedHypothesisId={selectedHypothesisId}
           generatedDesign={generatedDesign}
+          generatedLiteratureSummary={generatedLiteratureSummary}
+          generatedStatReview={generatedStatReview}
           designError={designError}
         />
       </div>

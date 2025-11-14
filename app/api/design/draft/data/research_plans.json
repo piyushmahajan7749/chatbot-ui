@@ -43,5 +43,20 @@
     },
     "createdAt": "2025-11-14T12:18:58.383Z",
     "status": "completed"
+  },
+  {
+    "planId": "992d314b-95be-4539-97b9-bc6312a8247b",
+    "title": "How can I lower the viscosity of a bispecific antibody at a high concentration of 180 mg/ml?",
+    "description": "How can I lower the viscosity of a bispecific antibody at a high concentration of 180 mg/ml?",
+    "constraints": {
+      "objectives": [],
+      "variables": [],
+      "specialConsiderations": []
+    },
+    "preferences": {
+      "max_hypotheses": 10
+    },
+    "createdAt": "2025-11-14T12:40:10.231Z",
+    "status": "completed"
   }
 ]

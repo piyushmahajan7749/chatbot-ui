@@ -25,6 +25,8 @@ interface DesignReviewProps {
   generatingHypothesisId?: string | null
   selectedHypothesisId?: string | null
   generatedDesign?: any | null
+  generatedLiteratureSummary?: any | null
+  generatedStatReview?: any | null
   designError?: string | null
 }
 
@@ -197,6 +199,8 @@ export function DesignReview({
   generatingHypothesisId,
   selectedHypothesisId,
   generatedDesign,
+  generatedLiteratureSummary,
+  generatedStatReview,
   designError
 }: DesignReviewProps) {
   const objectives = designData?.objectives || []
@@ -304,6 +308,101 @@ export function DesignReview({
       </Card>
     )
 
+  const citationsCard =
+    generatedLiteratureSummary &&
+    (generatedLiteratureSummary.citations?.length ||
+      generatedLiteratureSummary.citationsDetailed?.length) ? (
+      <Card>
+        <CardHeader>
+          <CardTitle>Citations & Notes</CardTitle>
+        </CardHeader>
+        <CardContent className="text-muted-foreground space-y-4 text-sm">
+          {generatedLiteratureSummary.citationsDetailed &&
+            generatedLiteratureSummary.citationsDetailed.length > 0 && (
+              <div className="space-y-2">
+                <h3 className="text-foreground text-base font-semibold">
+                  Detailed Citations
+                </h3>
+                <ol className="list-decimal space-y-2 pl-5">
+                  {generatedLiteratureSummary.citationsDetailed.map(
+                    (cite: any, idx: number) => (
+                      <li key={`${cite.title}-${idx}`}>
+                        <span className="text-foreground font-semibold">
+                          {cite.title}
+                        </span>
+                        {cite.authors?.length > 0 && (
+                          <span className="text-muted-foreground block text-xs">
+                            {cite.authors.join(", ")}
+                          </span>
+                        )}
+                        {cite.journal && (
+                          <span className="text-muted-foreground block text-xs">
+                            {cite.journal}
+                            {cite.year ? ` (${cite.year})` : ""}
+                          </span>
+                        )}
+                        {cite.url && (
+                          <a
+                            href={cite.url}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="text-primary text-xs underline"
+                          >
+                            View Source
+                          </a>
+                        )}
+                      </li>
+                    )
+                  )}
+                </ol>
+              </div>
+            )}
+          {generatedLiteratureSummary.citations &&
+            generatedLiteratureSummary.citations.length > 0 &&
+            (!generatedLiteratureSummary.citationsDetailed ||
+              generatedLiteratureSummary.citationsDetailed.length === 0) && (
+              <div>
+                <h3 className="text-foreground text-base font-semibold">
+                  Citations
+                </h3>
+                <ol className="list-decimal space-y-2 pl-5">
+                  {generatedLiteratureSummary.citations.map(
+                    (cite: string, idx: number) => (
+                      <li key={`cite-${idx}`}>{cite}</li>
+                    )
+                  )}
+                </ol>
+              </div>
+            )}
+          {generatedDesign?.finalNotes && (
+            <div>
+              <h3 className="text-foreground text-base font-semibold">Notes</h3>
+              <p>{generatedDesign.finalNotes}</p>
+            </div>
+          )}
+          {generatedStatReview && (
+            <div className="space-y-2">
+              <h3 className="text-foreground text-base font-semibold">
+                Review Highlights
+              </h3>
+              <ul className="list-disc space-y-1 pl-5">
+                {generatedStatReview.problemsOrRisks?.map(
+                  (issue: string, idx: number) => (
+                    <li key={`issue-${idx}`}>{issue}</li>
+                  )
+                )}
+                {generatedStatReview.suggestedImprovements?.map(
+                  (tip: string, idx: number) => (
+                    <li key={`improve-${idx}`}>{tip}</li>
+                  )
+                )}
+              </ul>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    ) : null
+
   return (
     <div className="mx-auto flex max-w-5xl flex-col gap-6">
       <Card>
@@ -409,6 +508,7 @@ export function DesignReview({
       )}
 
       {designReportCard}
+      {citationsCard}
     </div>
   )
 }
