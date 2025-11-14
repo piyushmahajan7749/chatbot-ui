@@ -11,7 +11,7 @@ import {
 } from "@/types/design-plan"
 import { toast } from "sonner"
 import { Textarea } from "@/components/ui/textarea"
-import { Loader2, EyeOff, PanelTopOpen } from "lucide-react"
+import { Loader2, EyeOff, PanelTopOpen, Save, CheckCircle2 } from "lucide-react"
 
 interface DesignData {
   name?: string
@@ -25,6 +25,15 @@ interface DesignData {
 
 const planMetadataKey = (designId: string) => `design_plan_${designId}`
 const planStatusKey = (designId: string) => `design_plan_status_${designId}`
+const DESIGN_SAVE_VERSION = "shadowai.design.save@v1"
+
+const stripEphemeralFields = (payload: any) => {
+  if (!payload || typeof payload !== "object") {
+    return null
+  }
+  const { savedAt, ...rest } = payload
+  return rest
+}
 
 export default function DesignIDPage({
   params
@@ -56,6 +65,60 @@ export default function DesignIDPage({
   const [promptInput, setPromptInput] = useState("")
   const [isPromptSubmitting, setIsPromptSubmitting] = useState(false)
   const [showPromptToolbar, setShowPromptToolbar] = useState(true)
+  const [savedHypothesisSnapshot, setSavedHypothesisSnapshot] =
+    useState<DesignPlanHypothesis | null>(null)
+  const [isSavingDesign, setIsSavingDesign] = useState(false)
+  const [lastSavedPayloadSignature, setLastSavedPayloadSignature] = useState<
+    string | null
+  >(null)
+  const applySavedPayload = useCallback((rawPayload: any) => {
+    if (!rawPayload || typeof rawPayload !== "object") {
+      return
+    }
+
+    const normalized = {
+      version: rawPayload.version || DESIGN_SAVE_VERSION,
+      planId: rawPayload.planId ?? null,
+      selectedHypothesisId:
+        rawPayload.selectedHypothesisId ||
+        rawPayload.selectedHypothesis?.hypothesisId ||
+        null,
+      selectedHypothesis: rawPayload.selectedHypothesis || null,
+      generatedDesign: rawPayload.generatedDesign || rawPayload.report || null,
+      generatedLiteratureSummary:
+        rawPayload.generatedLiteratureSummary ||
+        rawPayload.literatureSummary ||
+        rawPayload.report?.literatureSummary ||
+        null,
+      generatedStatReview:
+        rawPayload.generatedStatReview ||
+        rawPayload.statReview ||
+        rawPayload.report?.statisticalReview ||
+        null
+    }
+
+    if (!normalized.generatedDesign) {
+      return
+    }
+
+    setGeneratedDesign(normalized.generatedDesign)
+    setGeneratedLiteratureSummary(normalized.generatedLiteratureSummary)
+    setGeneratedStatReview(normalized.generatedStatReview)
+
+    if (normalized.selectedHypothesisId) {
+      setSelectedHypothesisId(normalized.selectedHypothesisId)
+    }
+    if (normalized.selectedHypothesis) {
+      setSavedHypothesisSnapshot(
+        normalized.selectedHypothesis as DesignPlanHypothesis
+      )
+    }
+
+    const signatureBase = stripEphemeralFields(normalized)
+    if (signatureBase) {
+      setLastSavedPayloadSignature(JSON.stringify(signatureBase))
+    }
+  }, [])
 
   const loadDesignFromDatabase = useCallback(async () => {
     try {
@@ -66,6 +129,8 @@ export default function DesignIDPage({
       }
 
       const designFromDb = await response.json()
+      setLastSavedPayloadSignature(null)
+      setSavedHypothesisSnapshot(null)
       const base: DesignData = {
         name: designFromDb.name || `Design ${params.designid}`,
         description: designFromDb.description || "",
@@ -77,7 +142,21 @@ export default function DesignIDPage({
       if (designFromDb.content) {
         try {
           const parsed = JSON.parse(designFromDb.content)
-          setDesignData({ ...base, ...parsed })
+          if (parsed && typeof parsed === "object") {
+            setDesignData({ ...base, ...parsed })
+            if (
+              typeof parsed.version === "string" &&
+              parsed.version.startsWith("shadowai.design")
+            ) {
+              applySavedPayload(parsed)
+            } else if (parsed.savedDesign) {
+              applySavedPayload(parsed.savedDesign)
+            } else if (parsed.generatedDesign) {
+              applySavedPayload(parsed)
+            }
+          } else {
+            setDesignData(base)
+          }
         } catch {
           setDesignData(base)
         }
@@ -93,7 +172,7 @@ export default function DesignIDPage({
     } finally {
       setIsLoading(false)
     }
-  }, [params.designid])
+  }, [params.designid, applySavedPayload])
 
   useEffect(() => {
     const storedMetadata = (() => {
@@ -206,12 +285,29 @@ export default function DesignIDPage({
     [planStatus?.top_hypotheses]
   )
 
+  const displayHypotheses = useMemo(() => {
+    if (!savedHypothesisSnapshot || !savedHypothesisSnapshot.hypothesisId) {
+      return latestHypotheses
+    }
+
+    const alreadyPresent = latestHypotheses.some(
+      hypothesis =>
+        hypothesis.hypothesisId === savedHypothesisSnapshot.hypothesisId
+    )
+
+    if (alreadyPresent) {
+      return latestHypotheses
+    }
+
+    return [...latestHypotheses, savedHypothesisSnapshot]
+  }, [latestHypotheses, savedHypothesisSnapshot])
+
   const selectedHypothesis = useMemo(() => {
     if (!selectedHypothesisId) return null
-    return latestHypotheses.find(
+    return displayHypotheses.find(
       hypothesis => hypothesis.hypothesisId === selectedHypothesisId
     )
-  }, [latestHypotheses, selectedHypothesisId])
+  }, [displayHypotheses, selectedHypothesisId])
 
   const logs = useMemo(() => planStatus?.logs || [], [planStatus?.logs])
 
@@ -228,6 +324,8 @@ export default function DesignIDPage({
     setDesignError(null)
     setPromptInput("")
     setShowPromptToolbar(true)
+    setSavedHypothesisSnapshot(null)
+    setLastSavedPayloadSignature(null)
   }, [planStatus?.planId])
 
   useEffect(() => {
@@ -256,6 +354,8 @@ export default function DesignIDPage({
     setGeneratedLiteratureSummary(null)
     setGeneratedStatReview(null)
     setDesignError(null)
+    setLastSavedPayloadSignature(null)
+    setSavedHypothesisSnapshot(null)
 
     try {
       const fetchOptions: RequestInit = { method: "POST" }
@@ -327,6 +427,90 @@ export default function DesignIDPage({
     }
   }, [selectedHypothesis, promptInput, handleGenerateDesign])
 
+  const currentDesignSnapshot = useMemo(() => {
+    if (!generatedDesign) return null
+    return {
+      version: DESIGN_SAVE_VERSION,
+      planId: planStatus?.planId || null,
+      selectedHypothesisId:
+        selectedHypothesisId || savedHypothesisSnapshot?.hypothesisId || null,
+      selectedHypothesis: selectedHypothesis || savedHypothesisSnapshot || null,
+      generatedDesign,
+      generatedLiteratureSummary,
+      generatedStatReview
+    }
+  }, [
+    generatedDesign,
+    generatedLiteratureSummary,
+    generatedStatReview,
+    planStatus?.planId,
+    selectedHypothesis,
+    selectedHypothesisId,
+    savedHypothesisSnapshot
+  ])
+
+  const currentSnapshotSignature = useMemo(() => {
+    if (!currentDesignSnapshot) return null
+    const normalized = stripEphemeralFields(currentDesignSnapshot)
+    return normalized ? JSON.stringify(normalized) : null
+  }, [currentDesignSnapshot])
+
+  const hasUnsavedChanges =
+    !!currentSnapshotSignature &&
+    currentSnapshotSignature !== lastSavedPayloadSignature
+
+  const handleSaveDesign = useCallback(async () => {
+    if (!currentDesignSnapshot || !currentSnapshotSignature) {
+      toast.error("Nothing to save yet.")
+      return
+    }
+
+    setIsSavingDesign(true)
+    try {
+      const payloadToPersist = {
+        ...currentDesignSnapshot,
+        savedAt: new Date().toISOString()
+      }
+
+      const response = await fetch(`/api/design/${params.designid}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          content: payloadToPersist,
+          objectives: designData?.objectives || [],
+          variables: designData?.variables || [],
+          specialConsiderations: designData?.specialConsiderations || []
+        })
+      })
+
+      const data = await response.json()
+
+      if (!response.ok || !data?.success) {
+        throw new Error(
+          data?.error || `Failed to save design (status ${response.status})`
+        )
+      }
+
+      setLastSavedPayloadSignature(currentSnapshotSignature)
+      if (currentDesignSnapshot.selectedHypothesis) {
+        setSavedHypothesisSnapshot(
+          currentDesignSnapshot.selectedHypothesis as DesignPlanHypothesis
+        )
+      }
+      toast.success("Design saved.")
+    } catch (error: any) {
+      console.error("❌ [DESIGN_PAGE] Save error:", error)
+      toast.error(error?.message || "Failed to save design.")
+    } finally {
+      setIsSavingDesign(false)
+    }
+  }, [
+    currentDesignSnapshot,
+    currentSnapshotSignature,
+    designData,
+    params.designid
+  ])
+
   if (isGenerating) {
     return (
       <div className="flex h-[calc(100vh-60px)] w-full flex-col overflow-hidden">
@@ -372,7 +556,7 @@ export default function DesignIDPage({
           <DesignReview
             designData={designData}
             planStatus={planStatus}
-            topHypotheses={latestHypotheses}
+            topHypotheses={displayHypotheses}
             logs={logs}
             onGenerateDesign={handleGenerateDesign}
             generatingHypothesisId={generatingHypothesisId}
@@ -413,7 +597,29 @@ export default function DesignIDPage({
                   or focus.
                 </p>
               </div>
-              <div className="flex shrink-0 items-center gap-2">
+              <div className="flex shrink-0 flex-wrap items-center gap-2">
+                <Button
+                  onClick={handleSaveDesign}
+                  disabled={!hasUnsavedChanges || isSavingDesign}
+                  variant={hasUnsavedChanges ? "default" : "secondary"}
+                >
+                  {isSavingDesign ? (
+                    <>
+                      <Loader2 className="mr-2 size-4 animate-spin" />
+                      Saving
+                    </>
+                  ) : hasUnsavedChanges ? (
+                    <>
+                      <Save className="mr-2 size-4" />
+                      Save design
+                    </>
+                  ) : (
+                    <>
+                      <CheckCircle2 className="mr-2 size-4" />
+                      Saved
+                    </>
+                  )}
+                </Button>
                 <Button
                   variant="ghost"
                   size="sm"

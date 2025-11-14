@@ -115,6 +115,12 @@ const InfoTile = ({
 
 type StepAccent = "emerald" | "blue" | "violet" | "amber" | "rose"
 
+type ExecutionStep = {
+  label: string
+  value?: string
+  accent: StepAccent
+}
+
 const StepCard = ({
   title,
   body,
@@ -464,57 +470,55 @@ export function DesignReview({
                   }
                 ].filter(tile => tile.value)
 
-                const executionSteps: {
-                  label: string
-                  value?: string
-                  accent: StepAccent
-                }[] = [
-                  {
-                    label: "Materials List",
-                    value: executionPlan.materialsList,
-                    accent: "emerald"
-                  },
-                  {
-                    label: "Material Preparation",
-                    value: executionPlan.materialPreparation,
-                    accent: "blue"
-                  },
-                  {
-                    label: "Step-by-Step Procedure",
-                    value: executionPlan.stepByStepProcedure,
-                    accent: "violet"
-                  },
-                  {
-                    label: "Timeline",
-                    value: executionPlan.timeline,
-                    accent: "amber"
-                  },
-                  {
-                    label: "Setup Instructions",
-                    value: executionPlan.setupInstructions,
-                    accent: "blue"
-                  },
-                  {
-                    label: "Data Collection Plan",
-                    value: executionPlan.dataCollectionPlan,
-                    accent: "emerald"
-                  },
-                  {
-                    label: "Conditions Table",
-                    value: executionPlan.conditionsTable,
-                    accent: "rose"
-                  },
-                  {
-                    label: "Storage & Disposal",
-                    value: executionPlan.storageDisposal,
-                    accent: "amber"
-                  },
-                  {
-                    label: "Safety Notes",
-                    value: executionPlan.safetyNotes,
-                    accent: "rose"
-                  }
-                ].filter(step => step.value)
+                const executionSteps = (
+                  [
+                    {
+                      label: "Materials List",
+                      value: executionPlan.materialsList,
+                      accent: "emerald"
+                    },
+                    {
+                      label: "Material Preparation",
+                      value: executionPlan.materialPreparation,
+                      accent: "blue"
+                    },
+                    {
+                      label: "Step-by-Step Procedure",
+                      value: executionPlan.stepByStepProcedure,
+                      accent: "violet"
+                    },
+                    {
+                      label: "Timeline",
+                      value: executionPlan.timeline,
+                      accent: "amber"
+                    },
+                    {
+                      label: "Setup Instructions",
+                      value: executionPlan.setupInstructions,
+                      accent: "blue"
+                    },
+                    {
+                      label: "Data Collection Plan",
+                      value: executionPlan.dataCollectionPlan,
+                      accent: "emerald"
+                    },
+                    {
+                      label: "Conditions Table",
+                      value: executionPlan.conditionsTable,
+                      accent: "rose"
+                    },
+                    {
+                      label: "Storage & Disposal",
+                      value: executionPlan.storageDisposal,
+                      accent: "amber"
+                    },
+                    {
+                      label: "Safety Notes",
+                      value: executionPlan.safetyNotes,
+                      accent: "rose"
+                    }
+                  ] satisfies ExecutionStep[]
+                ).filter(step => step.value)
 
                 return (
                   <div className="space-y-5">
