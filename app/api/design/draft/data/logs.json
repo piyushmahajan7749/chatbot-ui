@@ -591,5 +591,511 @@
       "planId": "000fc65e-6073-4fc8-8c86-7a27f9b744e7",
       "hypothesisId": "0d9a81b6-6e09-4192-871b-5939f3fd102b"
     }
+  },
+  {
+    "timestamp": "2025-11-14T19:05:14.553Z",
+    "actor": "supervisor",
+    "level": "info",
+    "message": "Experiment design pipeline completed for hypothesis 0d9a81b6-6e09-4192-871b-5939f3fd102b",
+    "context": {
+      "planId": "000fc65e-6073-4fc8-8c86-7a27f9b744e7",
+      "hypothesisId": "0d9a81b6-6e09-4192-871b-5939f3fd102b",
+      "totalTimeMs": 139725
+    }
+  },
+  {
+    "timestamp": "2025-11-15T07:55:04.198Z",
+    "actor": "supervisor",
+    "message": "Starting research plan bdadf945-238b-4775-8811-000b595bf5de",
+    "level": "info",
+    "context": {
+      "planId": "bdadf945-238b-4775-8811-000b595bf5de"
+    }
+  },
+  {
+    "timestamp": "2025-11-15T07:55:04.206Z",
+    "actor": "supervisor",
+    "message": "Created 10 generation tasks",
+    "level": "info",
+    "context": {
+      "planId": "bdadf945-238b-4775-8811-000b595bf5de",
+      "taskCount": 10
+    }
+  },
+  {
+    "timestamp": "2025-11-15T07:55:14.096Z",
+    "actor": "supervisor",
+    "message": "Generated 10 hypotheses",
+    "level": "info",
+    "context": {
+      "planId": "bdadf945-238b-4775-8811-000b595bf5de",
+      "hypothesisCount": 10
+    }
+  },
+  {
+    "timestamp": "2025-11-15T07:55:14.343Z",
+    "actor": "supervisor",
+    "message": "Starting tournament with top 10 hypotheses",
+    "level": "info",
+    "context": {
+      "planId": "bdadf945-238b-4775-8811-000b595bf5de",
+      "topN": 10
+    }
+  },
+  {
+    "timestamp": "2025-11-15T07:56:44.059Z",
+    "actor": "supervisor",
+    "message": "Research plan bdadf945-238b-4775-8811-000b595bf5de completed",
+    "level": "info",
+    "context": {
+      "planId": "bdadf945-238b-4775-8811-000b595bf5de",
+      "totalTimeMs": 99904
+    }
+  },
+  {
+    "timestamp": "2025-11-15T07:59:04.328Z",
+    "actor": "supervisor",
+    "level": "info",
+    "message": "Starting sequential experiment design pipeline for hypothesis 0a30447f-ef74-4264-bd55-39d82c7337b7",
+    "context": {
+      "planId": "bdadf945-238b-4775-8811-000b595bf5de",
+      "hypothesisId": "0a30447f-ef74-4264-bd55-39d82c7337b7"
+    }
+  },
+  {
+    "timestamp": "2025-11-15T08:01:41.721Z",
+    "actor": "supervisor",
+    "level": "info",
+    "message": "Experiment design pipeline completed for hypothesis 0a30447f-ef74-4264-bd55-39d82c7337b7",
+    "context": {
+      "planId": "bdadf945-238b-4775-8811-000b595bf5de",
+      "hypothesisId": "0a30447f-ef74-4264-bd55-39d82c7337b7",
+      "totalTimeMs": 157393
+    }
+  },
+  {
+    "timestamp": "2025-11-15T08:14:24.416Z",
+    "actor": "supervisor",
+    "level": "info",
+    "message": "Starting sequential experiment design pipeline for hypothesis 0a30447f-ef74-4264-bd55-39d82c7337b7",
+    "context": {
+      "planId": "bdadf945-238b-4775-8811-000b595bf5de",
+      "hypothesisId": "0a30447f-ef74-4264-bd55-39d82c7337b7"
+    }
+  },
+  {
+    "timestamp": "2025-11-15T08:14:24.423Z",
+    "actor": "supervisor",
+    "level": "info",
+    "message": "Applying user instructions for hypothesis 0a30447f-ef74-4264-bd55-39d82c7337b7",
+    "context": {
+      "planId": "bdadf945-238b-4775-8811-000b595bf5de",
+      "hypothesisId": "0a30447f-ef74-4264-bd55-39d82c7337b7",
+      "instructions": "give me more detailed instructions"
+    }
+  },
+  {
+    "timestamp": "2025-11-15T08:18:31.548Z",
+    "actor": "supervisor",
+    "level": "info",
+    "message": "Experiment design pipeline completed for hypothesis 0a30447f-ef74-4264-bd55-39d82c7337b7",
+    "context": {
+      "planId": "bdadf945-238b-4775-8811-000b595bf5de",
+      "hypothesisId": "0a30447f-ef74-4264-bd55-39d82c7337b7",
+      "totalTimeMs": 247132
+    }
+  },
+  {
+    "timestamp": "2025-11-15T08:24:03.694Z",
+    "actor": "supervisor",
+    "level": "info",
+    "message": "Starting sequential experiment design pipeline for hypothesis eda37eed-7686-435f-bf4e-a9fe66497e75",
+    "context": {
+      "planId": "bdadf945-238b-4775-8811-000b595bf5de",
+      "hypothesisId": "eda37eed-7686-435f-bf4e-a9fe66497e75"
+    }
+  },
+  {
+    "timestamp": "2025-11-15T08:26:59.241Z",
+    "actor": "supervisor",
+    "level": "info",
+    "message": "Experiment design pipeline completed for hypothesis eda37eed-7686-435f-bf4e-a9fe66497e75",
+    "context": {
+      "planId": "bdadf945-238b-4775-8811-000b595bf5de",
+      "hypothesisId": "eda37eed-7686-435f-bf4e-a9fe66497e75",
+      "totalTimeMs": 175546
+    }
+  },
+  {
+    "timestamp": "2025-11-15T08:56:13.001Z",
+    "actor": "supervisor",
+    "level": "info",
+    "message": "Starting sequential experiment design pipeline for hypothesis eda37eed-7686-435f-bf4e-a9fe66497e75",
+    "context": {
+      "planId": "bdadf945-238b-4775-8811-000b595bf5de",
+      "hypothesisId": "eda37eed-7686-435f-bf4e-a9fe66497e75"
+    }
+  },
+  {
+    "timestamp": "2025-11-15T08:59:31.194Z",
+    "actor": "supervisor",
+    "level": "info",
+    "message": "Experiment design pipeline completed for hypothesis eda37eed-7686-435f-bf4e-a9fe66497e75",
+    "context": {
+      "planId": "bdadf945-238b-4775-8811-000b595bf5de",
+      "hypothesisId": "eda37eed-7686-435f-bf4e-a9fe66497e75",
+      "totalTimeMs": 198193
+    }
+  },
+  {
+    "timestamp": "2025-11-18T09:06:29.599Z",
+    "actor": "supervisor",
+    "message": "Starting research plan 5cdb84d9-5be2-496c-818a-f9a4f167e00f",
+    "level": "info",
+    "context": {
+      "planId": "5cdb84d9-5be2-496c-818a-f9a4f167e00f"
+    }
+  },
+  {
+    "timestamp": "2025-11-18T09:06:29.605Z",
+    "actor": "supervisor",
+    "message": "Created 10 generation tasks",
+    "level": "info",
+    "context": {
+      "planId": "5cdb84d9-5be2-496c-818a-f9a4f167e00f",
+      "taskCount": 10
+    }
+  },
+  {
+    "timestamp": "2025-11-18T09:06:42.679Z",
+    "actor": "supervisor",
+    "message": "Generated 10 hypotheses",
+    "level": "info",
+    "context": {
+      "planId": "5cdb84d9-5be2-496c-818a-f9a4f167e00f",
+      "hypothesisCount": 10
+    }
+  },
+  {
+    "timestamp": "2025-11-18T09:06:42.955Z",
+    "actor": "supervisor",
+    "message": "Starting tournament with top 10 hypotheses",
+    "level": "info",
+    "context": {
+      "planId": "5cdb84d9-5be2-496c-818a-f9a4f167e00f",
+      "topN": 10
+    }
+  },
+  {
+    "timestamp": "2025-11-18T09:08:02.625Z",
+    "actor": "supervisor",
+    "message": "Research plan 5cdb84d9-5be2-496c-818a-f9a4f167e00f completed",
+    "level": "info",
+    "context": {
+      "planId": "5cdb84d9-5be2-496c-818a-f9a4f167e00f",
+      "totalTimeMs": 93069
+    }
+  },
+  {
+    "timestamp": "2025-11-18T09:08:21.787Z",
+    "actor": "supervisor",
+    "level": "info",
+    "message": "Starting sequential experiment design pipeline for hypothesis 5724a5d4-847a-4faa-b27b-6dfa08235ed9",
+    "context": {
+      "planId": "5cdb84d9-5be2-496c-818a-f9a4f167e00f",
+      "hypothesisId": "5724a5d4-847a-4faa-b27b-6dfa08235ed9"
+    }
+  },
+  {
+    "timestamp": "2025-11-18T09:08:22.829Z",
+    "actor": "supervisor",
+    "level": "error",
+    "message": "Experiment design pipeline failed for hypothesis 5724a5d4-847a-4faa-b27b-6dfa08235ed9",
+    "context": {
+      "hypothesisId": "5724a5d4-847a-4faa-b27b-6dfa08235ed9",
+      "error": "PaperFinder failed (405): Method Not Allowed"
+    }
+  },
+  {
+    "timestamp": "2025-11-18T09:11:49.034Z",
+    "actor": "supervisor",
+    "level": "info",
+    "message": "Starting sequential experiment design pipeline for hypothesis 5724a5d4-847a-4faa-b27b-6dfa08235ed9",
+    "context": {
+      "planId": "5cdb84d9-5be2-496c-818a-f9a4f167e00f",
+      "hypothesisId": "5724a5d4-847a-4faa-b27b-6dfa08235ed9"
+    }
+  },
+  {
+    "timestamp": "2025-11-18T09:11:59.118Z",
+    "actor": "supervisor",
+    "level": "error",
+    "message": "Experiment design pipeline failed for hypothesis 5724a5d4-847a-4faa-b27b-6dfa08235ed9",
+    "context": {
+      "hypothesisId": "5724a5d4-847a-4faa-b27b-6dfa08235ed9",
+      "error": "PaperFinder failed (500): A content Agent has failed to respond; BroadSearchAgent failed to respond; No documents retrieved from dense and s2 search"
+    }
+  },
+  {
+    "timestamp": "2025-11-18T09:18:06.201Z",
+    "actor": "supervisor",
+    "level": "info",
+    "message": "Starting sequential experiment design pipeline for hypothesis 5724a5d4-847a-4faa-b27b-6dfa08235ed9",
+    "context": {
+      "planId": "5cdb84d9-5be2-496c-818a-f9a4f167e00f",
+      "hypothesisId": "5724a5d4-847a-4faa-b27b-6dfa08235ed9"
+    }
+  },
+  {
+    "timestamp": "2025-11-18T09:20:53.772Z",
+    "actor": "supervisor",
+    "level": "info",
+    "message": "Experiment design pipeline completed for hypothesis 5724a5d4-847a-4faa-b27b-6dfa08235ed9",
+    "context": {
+      "planId": "5cdb84d9-5be2-496c-818a-f9a4f167e00f",
+      "hypothesisId": "5724a5d4-847a-4faa-b27b-6dfa08235ed9",
+      "totalTimeMs": 167566
+    }
+  },
+  {
+    "timestamp": "2025-11-18T09:57:53.939Z",
+    "actor": "supervisor",
+    "level": "info",
+    "message": "Starting sequential experiment design pipeline for hypothesis 5724a5d4-847a-4faa-b27b-6dfa08235ed9",
+    "context": {
+      "planId": "5cdb84d9-5be2-496c-818a-f9a4f167e00f",
+      "hypothesisId": "5724a5d4-847a-4faa-b27b-6dfa08235ed9"
+    }
+  },
+  {
+    "timestamp": "2025-11-18T09:57:55.395Z",
+    "actor": "supervisor",
+    "level": "error",
+    "message": "Experiment design pipeline failed for hypothesis 5724a5d4-847a-4faa-b27b-6dfa08235ed9",
+    "context": {
+      "hypothesisId": "5724a5d4-847a-4faa-b27b-6dfa08235ed9",
+      "error": "PaperFinder failed (503): Service Unavailable"
+    }
+  },
+  {
+    "timestamp": "2025-11-18T09:58:01.226Z",
+    "actor": "supervisor",
+    "level": "info",
+    "message": "Starting sequential experiment design pipeline for hypothesis 5724a5d4-847a-4faa-b27b-6dfa08235ed9",
+    "context": {
+      "planId": "5cdb84d9-5be2-496c-818a-f9a4f167e00f",
+      "hypothesisId": "5724a5d4-847a-4faa-b27b-6dfa08235ed9"
+    }
+  },
+  {
+    "timestamp": "2025-11-18T09:58:02.354Z",
+    "actor": "supervisor",
+    "level": "error",
+    "message": "Experiment design pipeline failed for hypothesis 5724a5d4-847a-4faa-b27b-6dfa08235ed9",
+    "context": {
+      "hypothesisId": "5724a5d4-847a-4faa-b27b-6dfa08235ed9",
+      "error": "PaperFinder failed (503): Service Unavailable"
+    }
+  },
+  {
+    "timestamp": "2025-11-18T10:00:15.297Z",
+    "actor": "supervisor",
+    "level": "info",
+    "message": "Starting sequential experiment design pipeline for hypothesis 5724a5d4-847a-4faa-b27b-6dfa08235ed9",
+    "context": {
+      "planId": "5cdb84d9-5be2-496c-818a-f9a4f167e00f",
+      "hypothesisId": "5724a5d4-847a-4faa-b27b-6dfa08235ed9"
+    }
+  },
+  {
+    "timestamp": "2025-11-18T10:00:16.383Z",
+    "actor": "supervisor",
+    "level": "error",
+    "message": "Experiment design pipeline failed for hypothesis 5724a5d4-847a-4faa-b27b-6dfa08235ed9",
+    "context": {
+      "hypothesisId": "5724a5d4-847a-4faa-b27b-6dfa08235ed9",
+      "error": "PaperFinder failed (503): Service Unavailable"
+    }
+  },
+  {
+    "timestamp": "2025-11-18T10:04:05.488Z",
+    "actor": "supervisor",
+    "level": "info",
+    "message": "Starting sequential experiment design pipeline for hypothesis 5724a5d4-847a-4faa-b27b-6dfa08235ed9",
+    "context": {
+      "planId": "5cdb84d9-5be2-496c-818a-f9a4f167e00f",
+      "hypothesisId": "5724a5d4-847a-4faa-b27b-6dfa08235ed9"
+    }
+  },
+  {
+    "timestamp": "2025-11-18T10:04:06.625Z",
+    "actor": "supervisor",
+    "level": "error",
+    "message": "Experiment design pipeline failed for hypothesis 5724a5d4-847a-4faa-b27b-6dfa08235ed9",
+    "context": {
+      "hypothesisId": "5724a5d4-847a-4faa-b27b-6dfa08235ed9",
+      "error": "PaperFinder failed (503): Service Unavailable"
+    }
+  },
+  {
+    "timestamp": "2025-11-18T10:04:32.010Z",
+    "actor": "supervisor",
+    "level": "info",
+    "message": "Starting sequential experiment design pipeline for hypothesis ace00b78-416c-4dbd-9b68-28b270a4f7e9",
+    "context": {
+      "planId": "5cdb84d9-5be2-496c-818a-f9a4f167e00f",
+      "hypothesisId": "ace00b78-416c-4dbd-9b68-28b270a4f7e9"
+    }
+  },
+  {
+    "timestamp": "2025-11-18T10:04:33.287Z",
+    "actor": "supervisor",
+    "level": "error",
+    "message": "Experiment design pipeline failed for hypothesis ace00b78-416c-4dbd-9b68-28b270a4f7e9",
+    "context": {
+      "hypothesisId": "ace00b78-416c-4dbd-9b68-28b270a4f7e9",
+      "error": "PaperFinder failed (503): Service Unavailable"
+    }
+  },
+  {
+    "timestamp": "2025-11-18T10:13:31.501Z",
+    "actor": "supervisor",
+    "level": "info",
+    "message": "Starting sequential experiment design pipeline for hypothesis 5724a5d4-847a-4faa-b27b-6dfa08235ed9",
+    "context": {
+      "planId": "5cdb84d9-5be2-496c-818a-f9a4f167e00f",
+      "hypothesisId": "5724a5d4-847a-4faa-b27b-6dfa08235ed9"
+    }
+  },
+  {
+    "timestamp": "2025-11-18T10:15:20.520Z",
+    "actor": "supervisor",
+    "level": "error",
+    "message": "Experiment design pipeline failed for hypothesis 5724a5d4-847a-4faa-b27b-6dfa08235ed9",
+    "context": {
+      "hypothesisId": "5724a5d4-847a-4faa-b27b-6dfa08235ed9",
+      "error": "PaperFinder failed (503): Service Unavailable"
+    }
+  },
+  {
+    "timestamp": "2025-11-18T10:25:11.962Z",
+    "actor": "supervisor",
+    "level": "info",
+    "message": "Starting sequential experiment design pipeline for hypothesis 1ab562ab-d7c0-48a6-8f4f-f4121bff283f",
+    "context": {
+      "planId": "5cdb84d9-5be2-496c-818a-f9a4f167e00f",
+      "hypothesisId": "1ab562ab-d7c0-48a6-8f4f-f4121bff283f"
+    }
+  },
+  {
+    "timestamp": "2025-11-18T10:25:17.184Z",
+    "actor": "supervisor",
+    "level": "info",
+    "message": "Starting sequential experiment design pipeline for hypothesis 1ab562ab-d7c0-48a6-8f4f-f4121bff283f",
+    "context": {
+      "planId": "5cdb84d9-5be2-496c-818a-f9a4f167e00f",
+      "hypothesisId": "1ab562ab-d7c0-48a6-8f4f-f4121bff283f"
+    }
+  },
+  {
+    "timestamp": "2025-11-18T10:25:18.019Z",
+    "actor": "supervisor",
+    "level": "error",
+    "message": "Experiment design pipeline failed for hypothesis 1ab562ab-d7c0-48a6-8f4f-f4121bff283f",
+    "context": {
+      "hypothesisId": "1ab562ab-d7c0-48a6-8f4f-f4121bff283f",
+      "error": "PaperFinder failed (503): Service Unavailable"
+    }
+  },
+  {
+    "timestamp": "2025-11-18T10:25:22.444Z",
+    "actor": "supervisor",
+    "level": "error",
+    "message": "Experiment design pipeline failed for hypothesis 1ab562ab-d7c0-48a6-8f4f-f4121bff283f",
+    "context": {
+      "hypothesisId": "1ab562ab-d7c0-48a6-8f4f-f4121bff283f",
+      "error": "PaperFinder failed (503): Service Unavailable"
+    }
+  },
+  {
+    "timestamp": "2025-11-18T10:51:54.940Z",
+    "actor": "supervisor",
+    "level": "info",
+    "message": "Starting sequential experiment design pipeline for hypothesis 5724a5d4-847a-4faa-b27b-6dfa08235ed9",
+    "context": {
+      "planId": "5cdb84d9-5be2-496c-818a-f9a4f167e00f",
+      "hypothesisId": "5724a5d4-847a-4faa-b27b-6dfa08235ed9"
+    }
+  },
+  {
+    "timestamp": "2025-11-18T10:52:03.464Z",
+    "actor": "supervisor",
+    "level": "error",
+    "message": "Experiment design pipeline failed for hypothesis 5724a5d4-847a-4faa-b27b-6dfa08235ed9",
+    "context": {
+      "hypothesisId": "5724a5d4-847a-4faa-b27b-6dfa08235ed9",
+      "error": "PaperFinder failed (503): Service Unavailable"
+    }
+  },
+  {
+    "timestamp": "2025-11-18T11:02:26.645Z",
+    "actor": "supervisor",
+    "level": "info",
+    "message": "Starting sequential experiment design pipeline for hypothesis 5724a5d4-847a-4faa-b27b-6dfa08235ed9",
+    "context": {
+      "planId": "5cdb84d9-5be2-496c-818a-f9a4f167e00f",
+      "hypothesisId": "5724a5d4-847a-4faa-b27b-6dfa08235ed9"
+    }
+  },
+  {
+    "timestamp": "2025-11-18T11:06:27.839Z",
+    "actor": "supervisor",
+    "level": "error",
+    "message": "Experiment design pipeline failed for hypothesis 5724a5d4-847a-4faa-b27b-6dfa08235ed9",
+    "context": {
+      "hypothesisId": "5724a5d4-847a-4faa-b27b-6dfa08235ed9",
+      "error": "PaperFinder failed (504): Gateway Timeout"
+    }
+  },
+  {
+    "timestamp": "2025-11-18T11:20:52.677Z",
+    "actor": "supervisor",
+    "level": "info",
+    "message": "Starting sequential experiment design pipeline for hypothesis 1ab562ab-d7c0-48a6-8f4f-f4121bff283f",
+    "context": {
+      "planId": "5cdb84d9-5be2-496c-818a-f9a4f167e00f",
+      "hypothesisId": "1ab562ab-d7c0-48a6-8f4f-f4121bff283f"
+    }
+  },
+  {
+    "timestamp": "2025-11-18T11:20:57.703Z",
+    "actor": "supervisor",
+    "level": "info",
+    "message": "Starting sequential experiment design pipeline for hypothesis ace00b78-416c-4dbd-9b68-28b270a4f7e9",
+    "context": {
+      "planId": "5cdb84d9-5be2-496c-818a-f9a4f167e00f",
+      "hypothesisId": "ace00b78-416c-4dbd-9b68-28b270a4f7e9"
+    }
+  },
+  {
+    "timestamp": "2025-11-18T11:22:37.078Z",
+    "actor": "supervisor",
+    "level": "error",
+    "message": "Experiment design pipeline failed for hypothesis 1ab562ab-d7c0-48a6-8f4f-f4121bff283f",
+    "context": {
+      "hypothesisId": "1ab562ab-d7c0-48a6-8f4f-f4121bff283f",
+      "error": "PaperFinder failed (500): A content Agent has failed to respond; BroadSearchAgent failed to respond; No documents retrieved from dense and s2 search"
+    }
+  },
+  {
+    "timestamp": "2025-11-18T11:23:58.529Z",
+    "actor": "supervisor",
+    "level": "info",
+    "message": "Experiment design pipeline completed for hypothesis ace00b78-416c-4dbd-9b68-28b270a4f7e9",
+    "context": {
+      "planId": "5cdb84d9-5be2-496c-818a-f9a4f167e00f",
+      "hypothesisId": "ace00b78-416c-4dbd-9b68-28b270a4f7e9",
+      "totalTimeMs": 180824
+    }
   }
 ]

@@ -21,11 +21,12 @@ import {
   createStatCheckPrompt,
   createReportWriterPrompt
 } from "../prompts/agent-prompts"
+import { optimizeSearchQuery } from "../utils/search-utils"
+import { buildCuratedAggregatedResults } from "../utils/deepscholar-ops"
 import {
-  optimizeSearchQuery,
-  performMultiSourceSearch
-} from "../utils/search-utils"
-import { deepScholarRetrieveAndCurate } from "../utils/deepscholar-ops"
+  normalizePaperFinderResults,
+  runPaperFinder
+} from "../utils/paper-finder"
 
 function buildCitationsDetailed(searchResults?: any): CitationItem[] {
   if (!searchResults) return []
@@ -98,25 +99,64 @@ export async function callLiteratureScoutAgent(
   )
 
   try {
-    // DeepScholar retrieval pipeline: multi-round + sem-filter/top-k
+    const paperFinderQuery = [
+      `Research problem: ${state.problem}`,
+      state.objectives.length
+        ? `Objectives: ${state.objectives.join("; ")}`
+        : null,
+      state.variables.length
+        ? `Variables: ${state.variables.join("; ")}`
+        : null,
+      state.specialConsiderations.length
+        ? `Special considerations: ${state.specialConsiderations.join("; ")}`
+        : null,
+      queryData.primaryQuery
+        ? `Optimized query: ${queryData.primaryQuery}`
+        : null,
+      queryData.alternativeQueries.length
+        ? `Alternative queries: ${queryData.alternativeQueries.join(" | ")}`
+        : null
+    ]
+      .filter(Boolean)
+      .join("\n")
+
     console.log(
-      "\n🌐 [LITERATURE_SCOUT_SEARCH] Starting DeepScholar retrieval..."
+      "\n🌐 [LITERATURE_SCOUT_SEARCH] Requesting papers from PaperFinder..."
     )
-    const dsStart = Date.now()
-    const curated = await deepScholarRetrieveAndCurate(
-      state.problem,
-      state.objectives,
-      state.variables,
-      2, // rounds
-      2, // queries per round
-      10, // per-source
-      30 // topK
-    )
+    const pfStart = Date.now()
+    const paperFinderResponse = await runPaperFinder(paperFinderQuery, {
+      operationMode: "infer",
+      readResultsFromCache: true
+    })
     console.log(
-      `⏱️  [LITERATURE_SCOUT_SEARCH] DeepScholar retrieval finished in ${
-        Date.now() - dsStart
+      `⏱️  [LITERATURE_SCOUT_SEARCH] PaperFinder responded in ${
+        Date.now() - pfStart
       }ms`
     )
+
+    const normalizedResults = normalizePaperFinderResults(
+      paperFinderResponse
+    ).slice(0, 40)
+
+    if (normalizedResults.length === 0) {
+      throw new Error("PaperFinder returned no papers for the given query")
+    }
+
+    const curated = buildCuratedAggregatedResults(normalizedResults)
+
+    curated.searchMetrics.queryOptimization = [
+      queryData.primaryQuery,
+      ...queryData.alternativeQueries
+    ].filter(Boolean)
+    curated.searchMetrics.relevanceScores = normalizedResults
+      .map(paper => paper.relevanceScore ?? 0)
+      .filter(score => typeof score === "number" && score > 0)
+
+    if (paperFinderResponse.response_text) {
+      curated.synthesizedFindings.novelInsights = [
+        paperFinderResponse.response_text
+      ]
+    }
 
     console.log("📊 [LITERATURE_SCOUT_SEARCH] Search Results Summary:")
     console.log("  📚 Total Curated:", curated.totalResults)

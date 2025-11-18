@@ -1910,5 +1910,776 @@
       "evolved_from": "d45ca2ba-b060-4a21-985a-d5553239c43c",
       "improvement_type": "scope"
     }
+  },
+  {
+    "hypothesisId": "eda37eed-7686-435f-bf4e-a9fe66497e75",
+    "planId": "bdadf945-238b-4775-8811-000b595bf5de",
+    "content": "The addition of polysorbate 80 at a concentration of 0.05% (w/v) to a bispecific antibody formulation at 180 mg/ml will reduce its viscosity by at least 20% at room temperature.",
+    "explanation": "Polysorbate 80 is a well-known surfactant used in pharmaceutical formulations to reduce protein aggregation and improve the stability of high-concentration antibody solutions. It is likely to disrupt intermolecular interactions that contribute to high viscosity.",
+    "elo": 1516,
+    "createdAt": "2025-11-15T07:55:13.593Z",
+    "provenance": [
+      "Polysorbate 80 is commonly used in antibody formulations to enhance stability and reduce viscosity (Wang et al., 2007)",
+      "Surfactants like polysorbate can reduce molecular interactions that increase solution viscosity (Shire et al., 2004)"
+    ],
+    "metadata": {
+      "feasibility_score": 0.9,
+      "novelty_score": 0.6
+    }
+  },
+  {
+    "hypothesisId": "8b62505f-4290-4484-b8ed-17c2d681ec85",
+    "planId": "bdadf945-238b-4775-8811-000b595bf5de",
+    "content": "The addition of polysorbate 80 at a concentration of 5% (w/v) will reduce the viscosity of a high concentration bispecific antibody formulation at 180 mg/ml by at least 20%.",
+    "explanation": "Polysorbate 80 is a nonionic surfactant commonly used in pharmaceutical formulations to enhance solubility and reduce viscosity by disrupting protein-protein interactions that contribute to increased viscosity.",
+    "elo": 1516,
+    "createdAt": "2025-11-15T07:55:13.630Z",
+    "provenance": [
+      "Polysorbate 80 is known to reduce viscosity in protein formulations by altering protein interactions (Wang et al., 2014, Journal of Pharmaceutical Sciences).",
+      "Previous studies have demonstrated that surfactants can effectively lower the viscosity of dense protein solutions (Kim et al., 2016, Biotechnology Journal)."
+    ],
+    "metadata": {
+      "feasibility_score": 0.8,
+      "novelty_score": 0.5
+    }
+  },
+  {
+    "hypothesisId": "05d8ed15-b0e2-41bf-a5ee-83b88c21fb61",
+    "planId": "bdadf945-238b-4775-8811-000b595bf5de",
+    "content": "Adding polyethylene glycol (PEG) as an excipient to a bispecific antibody formulation at 180 mg/ml will reduce its viscosity by at least 20%.",
+    "explanation": "PEG is known to act as a viscosity reducer in protein formulations by enhancing protein solubility and reducing intermolecular interactions that contribute to high viscosity.",
+    "elo": 1516,
+    "createdAt": "2025-11-15T07:55:13.637Z",
+    "provenance": [
+      "PEG is commonly used in pharmaceutical formulations to alter viscosity (Hsu et al., 2018)",
+      "Studies have shown PEG can effectively lower viscosity in protein solutions (Wang et al., 2017)"
+    ],
+    "metadata": {
+      "feasibility_score": 0.9,
+      "novelty_score": 0.6
+    }
+  },
+  {
+    "hypothesisId": "9be26cc1-d227-4022-8bdc-dc3d5c232a9c",
+    "planId": "bdadf945-238b-4775-8811-000b595bf5de",
+    "content": "The addition of polysorbate 80 at 0.1% (w/v) concentration to a high concentration bispecific antibody formulation reduces its viscosity by at least 20% at 180 mg/ml.",
+    "explanation": "Polysorbate 80 is a non-ionic surfactant known to decrease protein-protein interactions, which often contribute to the viscosity of protein formulations. By reducing these interactions, the overall viscosity of the solution is expected to decrease.",
+    "elo": 1516,
+    "createdAt": "2025-11-15T07:55:13.646Z",
+    "provenance": [
+      "Literature on protein formulation science suggests surfactants can reduce viscosity by mitigating protein aggregation (e.g., 'Protein Interaction Effects on Solution Viscosity of High Concentration Antibody Solutions', Journal of Pharmaceutical Sciences).",
+      "Studies demonstrating the efficacy of polysorbate 80 in reducing viscosity of monoclonal antibody formulations."
+    ],
+    "metadata": {
+      "feasibility_score": 0.8,
+      "novelty_score": 0.4
+    }
+  },
+  {
+    "hypothesisId": "0a30447f-ef74-4264-bd55-39d82c7337b7",
+    "planId": "bdadf945-238b-4775-8811-000b595bf5de",
+    "content": "The addition of arginine hydrochloride at a concentration of 50 mM to a high concentration bispecific antibody formulation will reduce its viscosity at 180 mg/ml.",
+    "explanation": "Arginine hydrochloride is known to interact with protein molecules, potentially reducing protein-protein interactions that contribute to increased viscosity in concentrated formulations. This interaction can lead to a more favorable molecular environment, thereby lowering the viscosity.",
+    "elo": 1516,
+    "createdAt": "2025-11-15T07:55:13.657Z",
+    "provenance": [
+      "Arginine hydrochloride has been studied for its effects on reducing viscosity in protein formulations due to its capability to disrupt protein-protein interactions (e.g., Yadav et al., J. Pharm. Sci. 2012).",
+      "Previous studies have demonstrated that small molecules like arginine can effectively modulate the physical properties of protein solutions."
+    ],
+    "metadata": {
+      "feasibility_score": 0.8,
+      "novelty_score": 0.4
+    }
+  },
+  {
+    "hypothesisId": "b5f70f8d-65f8-4243-95bd-8e96093d4319",
+    "planId": "bdadf945-238b-4775-8811-000b595bf5de",
+    "content": "The addition of polysorbate 80 at concentrations between 0.05% and 0.1% will significantly lower the viscosity of a high concentration bispecific antibody formulation at 180 mg/ml without affecting antibody stability.",
+    "explanation": "Polysorbate 80 is a surfactant commonly used in pharmaceutical formulations to reduce viscosity and improve protein solubility. Its effect on viscosity is due to its ability to reduce intermolecular interactions between protein molecules.",
+    "elo": 1516,
+    "createdAt": "2025-11-15T07:55:13.775Z",
+    "provenance": [
+      "Surfactants in pharmaceutical formulations",
+      "Effects of polysorbate 80 on protein formulations"
+    ],
+    "metadata": {
+      "feasibility_score": 0.9,
+      "novelty_score": 0.7
+    }
+  },
+  {
+    "hypothesisId": "5f2cf62a-929b-41b9-8bf6-52cc21ea69bc",
+    "planId": "bdadf945-238b-4775-8811-000b595bf5de",
+    "content": "Adding 0.5% w/v of polysorbate 80 to a high concentration bispecific antibody formulation at 180 mg/ml will reduce its viscosity by at least 20%.",
+    "explanation": "Polysorbate 80 is a surfactant commonly used to stabilize protein formulations and reduce viscosity by decreasing protein-protein interactions. This hypothesis is grounded in the principle that surfactants can alter the hydrodynamic properties of protein solutions.",
+    "elo": 1516,
+    "createdAt": "2025-11-15T07:55:13.995Z",
+    "provenance": [
+      "Scientific literature on protein formulation and surfactant use",
+      "Previous studies on viscosity reduction using polysorbates"
+    ],
+    "metadata": {
+      "feasibility_score": 0.9,
+      "novelty_score": 0.5
+    }
+  },
+  {
+    "hypothesisId": "734d7b17-95f5-45c9-a9d6-91a3f6f72283",
+    "planId": "bdadf945-238b-4775-8811-000b595bf5de",
+    "content": "The addition of polysorbate 80 at a concentration of 0.1% (w/v) will reduce the viscosity of a bispecific antibody formulation at 180 mg/ml by at least 20% compared to a formulation without polysorbate 80.",
+    "explanation": "Polysorbate 80 is a surfactant commonly used to stabilize protein formulations and can decrease viscosity by reducing protein-protein interactions. This hypothesis is scientifically sound because surfactants are known to alter the rheological properties of protein solutions.",
+    "elo": 1516,
+    "createdAt": "2025-11-15T07:55:14.029Z",
+    "provenance": [
+      "Polysorbate 80 is a well-documented excipient used in protein formulations to improve stability and reduce viscosity.",
+      "Previous studies have shown that surfactants like polysorbate 80 can effectively reduce viscosity in high concentration protein solutions."
+    ],
+    "metadata": {
+      "feasibility_score": 0.9,
+      "novelty_score": 0.6
+    }
+  },
+  {
+    "hypothesisId": "38089f91-04a1-4fab-be62-49316ad60cd4",
+    "planId": "bdadf945-238b-4775-8811-000b595bf5de",
+    "content": "The addition of arginine to the high concentration bispecific antibody formulation at 180 mg/ml will reduce its viscosity by at least 20% compared to the formulation without arginine.",
+    "explanation": "Arginine is known to reduce protein-protein interactions in antibody formulations, which can decrease viscosity. This effect has been observed in similar biopharmaceutical formulations and is based on its ability to disrupt hydrophobic interactions and shield electrostatic interactions.",
+    "elo": 1516,
+    "createdAt": "2025-11-15T07:55:14.046Z",
+    "provenance": [
+      "Research studies have shown that arginine reduces viscosity in monoclonal antibody formulations (Shire et al., 2010).",
+      "Arginine has been used as an excipient in various formulations to improve stability and solubility (Arakawa et al., 2007)."
+    ],
+    "metadata": {
+      "feasibility_score": 0.8,
+      "novelty_score": 0.6
+    }
+  },
+  {
+    "hypothesisId": "deef38b9-fc2a-4d7c-8522-275d3d952c44",
+    "planId": "bdadf945-238b-4775-8811-000b595bf5de",
+    "content": "The addition of the amino acid arginine to a high concentration bispecific antibody formulation at 180 mg/ml will reduce its viscosity by at least 10%.",
+    "explanation": "Arginine is known to reduce protein-protein interactions and can decrease the viscosity of protein solutions by mitigating aggregation, which is a common cause of increased viscosity in high concentration formulations.",
+    "elo": 1484,
+    "createdAt": "2025-11-15T07:55:14.056Z",
+    "provenance": [
+      "Studies have shown that arginine can act as a stabilizing agent, decreasing the viscosity of protein solutions by reducing intermolecular interactions and aggregation.",
+      "Biophysical Journal, 2009, Volume 96, Issue 5, Pages 1965-1975."
+    ],
+    "metadata": {
+      "feasibility_score": 0.8,
+      "novelty_score": 0.5
+    }
+  },
+  {
+    "hypothesisId": "86da3518-012f-4ed0-9017-1f5d9798885e",
+    "planId": "bdadf945-238b-4775-8811-000b595bf5de",
+    "content": "Incorporating 0.05% (w/v) polysorbate 80 into a 180 mg/ml bispecific antibody solution will reduce its viscosity by at least 20% at 25°C.",
+    "explanation": "The phrase 'room temperature' was replaced with '25°C' to specify the temperature, and 'addition' was changed to 'incorporating' for more precise language.",
+    "elo": 1500,
+    "createdAt": "2025-11-15T07:56:35.445Z",
+    "provenance": [
+      "The addition of polysorbate 80 at a concentration of 0.05% (w/v) to a bispecific antibody formulation at 180 mg/ml will reduce its viscosity by at least 20% at room temperature."
+    ],
+    "metadata": {
+      "evolved_from": "eda37eed-7686-435f-bf4e-a9fe66497e75",
+      "improvement_type": "clarity"
+    }
+  },
+  {
+    "hypothesisId": "0f588ea4-08b8-4351-9ce7-c3cbc3859500",
+    "planId": "bdadf945-238b-4775-8811-000b595bf5de",
+    "content": "Polysorbate 80 at 0.05% (w/v) concentration can reduce viscosity by at least 20% in bispecific antibody formulations of high concentration (180 mg/ml), provided the temperature is maintained around room temperature.",
+    "explanation": "This variant generalizes the hypothesis slightly to include conditions 'around room temperature', acknowledging variability in lab conditions, and focuses on the reduction effect in high concentration formulations.",
+    "elo": 1500,
+    "createdAt": "2025-11-15T07:56:35.460Z",
+    "provenance": [
+      "The addition of polysorbate 80 at a concentration of 0.05% (w/v) to a bispecific antibody formulation at 180 mg/ml will reduce its viscosity by at least 20% at room temperature."
+    ],
+    "metadata": {
+      "evolved_from": "eda37eed-7686-435f-bf4e-a9fe66497e75",
+      "improvement_type": "scope"
+    }
+  },
+  {
+    "hypothesisId": "7f000ed9-b925-4c56-9c14-8d6a721fc2ff",
+    "planId": "bdadf945-238b-4775-8811-000b595bf5de",
+    "content": "The surfactant properties of polysorbate 80, when used at a concentration of 0.05% (w/v), are hypothesized to significantly lower the viscosity of a 180 mg/ml bispecific antibody solution by disrupting protein interactions at room temperature, resulting in at least a 20% reduction.",
+    "explanation": "Added details on the mechanism ('disrupting protein interactions') to provide better insight into how polysorbate 80 achieves viscosity reduction.",
+    "elo": 1500,
+    "createdAt": "2025-11-15T07:56:35.469Z",
+    "provenance": [
+      "The addition of polysorbate 80 at a concentration of 0.05% (w/v) to a bispecific antibody formulation at 180 mg/ml will reduce its viscosity by at least 20% at room temperature."
+    ],
+    "metadata": {
+      "evolved_from": "eda37eed-7686-435f-bf4e-a9fe66497e75",
+      "improvement_type": "specificity"
+    }
+  },
+  {
+    "hypothesisId": "b91d336d-46ab-4744-b55f-261dd8d5f7bb",
+    "planId": "bdadf945-238b-4775-8811-000b595bf5de",
+    "content": "Increasing the concentration of polysorbate 80 to 5% (w/v) will decrease the viscosity of a bispecific antibody formulation at 180 mg/ml by at least 20% by reducing protein aggregation.",
+    "explanation": "The variant highlights the mechanism by which polysorbate 80 reduces viscosity, namely by decreasing protein aggregation. This enhances understanding of the process and provides a clearer rationale for the hypothesis.",
+    "elo": 1500,
+    "createdAt": "2025-11-15T07:56:35.477Z",
+    "provenance": [
+      "The addition of polysorbate 80 at a concentration of 5% (w/v) will reduce the viscosity of a high concentration bispecific antibody formulation at 180 mg/ml by at least 20%."
+    ],
+    "metadata": {
+      "evolved_from": "8b62505f-4290-4484-b8ed-17c2d681ec85",
+      "improvement_type": "clarity"
+    }
+  },
+  {
+    "hypothesisId": "42c5dc9e-0f9a-438a-b9e3-d27c5851a68e",
+    "planId": "bdadf945-238b-4775-8811-000b595bf5de",
+    "content": "Introducing polysorbate 80 at a concentration range of 3-5% (w/v) in a high concentration bispecific antibody formulation at 180 mg/ml will reduce viscosity by up to 30%.",
+    "explanation": "This version broadens the scope by considering a range of surfactant concentrations and proposes a potential greater reduction in viscosity, allowing for exploration of optimal conditions.",
+    "elo": 1500,
+    "createdAt": "2025-11-15T07:56:35.507Z",
+    "provenance": [
+      "The addition of polysorbate 80 at a concentration of 5% (w/v) will reduce the viscosity of a high concentration bispecific antibody formulation at 180 mg/ml by at least 20%."
+    ],
+    "metadata": {
+      "evolved_from": "8b62505f-4290-4484-b8ed-17c2d681ec85",
+      "improvement_type": "scope"
+    }
+  },
+  {
+    "hypothesisId": "bc391d5a-de0d-4d6b-9a4a-ac9648b9a576",
+    "planId": "bdadf945-238b-4775-8811-000b595bf5de",
+    "content": "Polysorbate 80 at 5% (w/v) will reduce the viscosity of a 180 mg/ml bispecific antibody formulation by 20% or more, depending on the specific antibody characteristics and formulation conditions.",
+    "explanation": "The variant introduces the consideration of antibody-specific characteristics and formulation conditions, which may influence the efficacy of viscosity reduction. This adds specificity to the hypothesis.",
+    "elo": 1500,
+    "createdAt": "2025-11-15T07:56:35.674Z",
+    "provenance": [
+      "The addition of polysorbate 80 at a concentration of 5% (w/v) will reduce the viscosity of a high concentration bispecific antibody formulation at 180 mg/ml by at least 20%."
+    ],
+    "metadata": {
+      "evolved_from": "8b62505f-4290-4484-b8ed-17c2d681ec85",
+      "improvement_type": "specificity"
+    }
+  },
+  {
+    "hypothesisId": "9dab7463-0ce6-4a60-99bf-7fbeb2a343c1",
+    "planId": "bdadf945-238b-4775-8811-000b595bf5de",
+    "content": "Incorporating polyethylene glycol (PEG) at concentrations ranging from 1% to 5% as an excipient in bispecific antibody formulations can achieve a reduction in viscosity by at least 20% at a concentration of 180 mg/ml.",
+    "explanation": "This variant specifies the concentration range of PEG, providing a clearer experimental framework to test the hypothesis.",
+    "elo": 1500,
+    "createdAt": "2025-11-15T07:56:35.685Z",
+    "provenance": [
+      "Adding polyethylene glycol (PEG) as an excipient to a bispecific antibody formulation at 180 mg/ml will reduce its viscosity by at least 20%."
+    ],
+    "metadata": {
+      "evolved_from": "05d8ed15-b0e2-41bf-a5ee-83b88c21fb61",
+      "improvement_type": "specificity"
+    }
+  },
+  {
+    "hypothesisId": "050f3271-8ca5-41f9-bc0c-a9504cc3b0a5",
+    "planId": "bdadf945-238b-4775-8811-000b595bf5de",
+    "content": "Polyethylene glycol (PEG) added to bispecific antibody formulations at 180 mg/ml will result in a viscosity reduction of at least 20% by primarily disrupting protein-protein interactions.",
+    "explanation": "The hypothesis has been refined to focus on the mechanism of action—disruption of protein-protein interactions—providing more insight into how PEG reduces viscosity.",
+    "elo": 1500,
+    "createdAt": "2025-11-15T07:56:35.701Z",
+    "provenance": [
+      "Adding polyethylene glycol (PEG) as an excipient to a bispecific antibody formulation at 180 mg/ml will reduce its viscosity by at least 20%."
+    ],
+    "metadata": {
+      "evolved_from": "05d8ed15-b0e2-41bf-a5ee-83b88c21fb61",
+      "improvement_type": "clarity"
+    }
+  },
+  {
+    "hypothesisId": "c4336dae-2ba4-4e96-8c48-820d6ad74130",
+    "planId": "bdadf945-238b-4775-8811-000b595bf5de",
+    "content": "Using polyethylene glycol (PEG) as an excipient in bispecific antibody formulations enhances protein solubility at 180 mg/ml, leading to a decrease in viscosity by at least 20%, especially in formulations designed for subcutaneous injection.",
+    "explanation": "This variation narrows the application focus to formulations intended for subcutaneous injection, which is a relevant application for high-concentration antibody formulations.",
+    "elo": 1500,
+    "createdAt": "2025-11-15T07:56:35.713Z",
+    "provenance": [
+      "Adding polyethylene glycol (PEG) as an excipient to a bispecific antibody formulation at 180 mg/ml will reduce its viscosity by at least 20%."
+    ],
+    "metadata": {
+      "evolved_from": "05d8ed15-b0e2-41bf-a5ee-83b88c21fb61",
+      "improvement_type": "scope"
+    }
+  },
+  {
+    "hypothesisId": "3081ad13-56af-42e7-a132-dd75629ff871",
+    "planId": "bdadf945-238b-4775-8811-000b595bf5de",
+    "content": "Polysorbate 80, added at 0.1% (w/v), decreases the viscosity of bispecific antibody solutions of 180 mg/ml concentration by at least 20%, owing to its role in diminishing protein-protein interactions.",
+    "explanation": "Clarified the relationship between polysorbate 80 and its effect on viscosity by explicitly linking the compound's action to its role. This version also makes the concentration of the antibody solution clearer.",
+    "elo": 1500,
+    "createdAt": "2025-11-15T07:56:35.730Z",
+    "provenance": [
+      "The addition of polysorbate 80 at 0.1% (w/v) concentration to a high concentration bispecific antibody formulation reduces its viscosity by at least 20% at 180 mg/ml."
+    ],
+    "metadata": {
+      "evolved_from": "9be26cc1-d227-4022-8bdc-dc3d5c232a9c",
+      "improvement_type": "clarity"
+    }
+  },
+  {
+    "hypothesisId": "0041dd1a-69b7-48cb-abe1-6ec8aa1720a0",
+    "planId": "bdadf945-238b-4775-8811-000b595bf5de",
+    "content": "In bispecific antibody formulations with a concentration of 180 mg/ml, a 0.1% (w/v) inclusion of polysorbate 80 results in a viscosity reduction of 20% or more due to decreased protein aggregation.",
+    "explanation": "Focused more on the reduction of protein aggregation as a mechanism, enhancing the specificity of the interaction forms involved in viscosity reduction.",
+    "elo": 1500,
+    "createdAt": "2025-11-15T07:56:35.748Z",
+    "provenance": [
+      "The addition of polysorbate 80 at 0.1% (w/v) concentration to a high concentration bispecific antibody formulation reduces its viscosity by at least 20% at 180 mg/ml."
+    ],
+    "metadata": {
+      "evolved_from": "9be26cc1-d227-4022-8bdc-dc3d5c232a9c",
+      "improvement_type": "specificity"
+    }
+  },
+  {
+    "hypothesisId": "bf7ca2ea-2fd8-496a-92c7-299cff7670cf",
+    "planId": "bdadf945-238b-4775-8811-000b595bf5de",
+    "content": "The incorporation of 0.1% (w/v) polysorbate 80 into high concentration bispecific antibody formulations effectively lowers their viscosity by over 20% at 180 mg/ml, likely due to the surfactant's ability to mitigate intermolecular forces.",
+    "explanation": "Broadened the mechanistic explanation to include mitigation of intermolecular forces, providing a more comprehensive view of how polysorbate 80 functions.",
+    "elo": 1500,
+    "createdAt": "2025-11-15T07:56:35.998Z",
+    "provenance": [
+      "The addition of polysorbate 80 at 0.1% (w/v) concentration to a high concentration bispecific antibody formulation reduces its viscosity by at least 20% at 180 mg/ml."
+    ],
+    "metadata": {
+      "evolved_from": "9be26cc1-d227-4022-8bdc-dc3d5c232a9c",
+      "improvement_type": "scope"
+    }
+  },
+  {
+    "hypothesisId": "0beda6c1-9c52-4194-8911-e9f22c46a8ea",
+    "planId": "bdadf945-238b-4775-8811-000b595bf5de",
+    "content": "The inclusion of 50 mM arginine hydrochloride in bispecific antibody formulations at a concentration of 180 mg/ml will lower viscosity by disrupting protein-protein interactions.",
+    "explanation": "The language was refined to directly state the mechanism by which arginine hydrochloride reduces viscosity, providing clearer understanding.",
+    "elo": 1500,
+    "createdAt": "2025-11-15T07:56:36.014Z",
+    "provenance": [
+      "The addition of arginine hydrochloride at a concentration of 50 mM to a high concentration bispecific antibody formulation will reduce its viscosity at 180 mg/ml."
+    ],
+    "metadata": {
+      "evolved_from": "0a30447f-ef74-4264-bd55-39d82c7337b7",
+      "improvement_type": "clarity"
+    }
+  },
+  {
+    "hypothesisId": "e8b28af9-dad0-4fad-89f3-5265f5c28e03",
+    "planId": "bdadf945-238b-4775-8811-000b595bf5de",
+    "content": "Adding 50 mM arginine hydrochloride to antibody formulations with concentrations above 150 mg/ml will significantly decrease viscosity by altering protein interactions.",
+    "explanation": "The scope was adjusted to include formulations above 150 mg/ml, providing more general applicability and potential for broader experimental investigation.",
+    "elo": 1500,
+    "createdAt": "2025-11-15T07:56:36.027Z",
+    "provenance": [
+      "The addition of arginine hydrochloride at a concentration of 50 mM to a high concentration bispecific antibody formulation will reduce its viscosity at 180 mg/ml."
+    ],
+    "metadata": {
+      "evolved_from": "0a30447f-ef74-4264-bd55-39d82c7337b7",
+      "improvement_type": "scope"
+    }
+  },
+  {
+    "hypothesisId": "bed8a33a-e82c-4699-8f7a-83ea160a6994",
+    "planId": "bdadf945-238b-4775-8811-000b595bf5de",
+    "content": "Arginine hydrochloride at concentrations of 50 mM or higher will effectively reduce the viscosity of bispecific antibody solutions when these solutions are at high concentrations, such as 180 mg/ml, by mitigating protein aggregation.",
+    "explanation": "The hypothesis was expanded to suggest that higher concentrations of arginine hydrochloride might also be effective, offering a pathway for optimizing the formulation.",
+    "elo": 1500,
+    "createdAt": "2025-11-15T07:56:36.054Z",
+    "provenance": [
+      "The addition of arginine hydrochloride at a concentration of 50 mM to a high concentration bispecific antibody formulation will reduce its viscosity at 180 mg/ml."
+    ],
+    "metadata": {
+      "evolved_from": "0a30447f-ef74-4264-bd55-39d82c7337b7",
+      "improvement_type": "specificity"
+    }
+  },
+  {
+    "hypothesisId": "bfbcc395-8d8c-46c9-8dda-e8b5a73f0731",
+    "planId": "5cdb84d9-5be2-496c-818a-f9a4f167e00f",
+    "content": "The addition of 0.1% polysorbate 80 to a 180 mg/ml bispecific antibody formulation will reduce its viscosity by at least 20%.",
+    "explanation": "Polysorbate 80 is a surfactant known to reduce protein aggregation and potentially lower the viscosity of high concentration protein solutions by altering the protein-protein interactions.",
+    "elo": 1484,
+    "createdAt": "2025-11-18T09:06:42.181Z",
+    "provenance": [
+      "Surfactants like polysorbate 80 are commonly used in protein formulations to stabilize proteins and reduce viscosity.",
+      "Studies have shown that surfactants can alter intermolecular interactions in protein solutions, leading to reduced viscosity."
+    ],
+    "metadata": {
+      "feasibility_score": 0.9,
+      "novelty_score": 0.6
+    }
+  },
+  {
+    "hypothesisId": "5724a5d4-847a-4faa-b27b-6dfa08235ed9",
+    "planId": "5cdb84d9-5be2-496c-818a-f9a4f167e00f",
+    "content": "Increasing the ionic strength of a bispecific antibody solution by adding sodium chloride at concentrations ranging from 50 mM to 150 mM will decrease its viscosity at 180 mg/ml.",
+    "explanation": "The addition of salts like sodium chloride can shield the electrostatic interactions between protein molecules, potentially reducing intermolecular attractions that contribute to high viscosity.",
+    "elo": 1516,
+    "createdAt": "2025-11-18T09:06:42.202Z",
+    "provenance": [
+      "The effect of ionic strength on protein-protein interactions and viscosity is well-documented in protein chemistry literature, such as in studies on monoclonal antibody formulations."
+    ],
+    "metadata": {
+      "feasibility_score": 0.9,
+      "novelty_score": 0.5
+    }
+  },
+  {
+    "hypothesisId": "1ab562ab-d7c0-48a6-8f4f-f4121bff283f",
+    "planId": "5cdb84d9-5be2-496c-818a-f9a4f167e00f",
+    "content": "The addition of arginine at a concentration of 50 mM will lower the viscosity of a bispecific antibody formulation at 180 mg/ml by at least 20%.",
+    "explanation": "Arginine is known to interact with proteins and can reduce viscosity by disrupting intermolecular interactions that contribute to high viscosity in concentrated protein solutions.",
+    "elo": 1516,
+    "createdAt": "2025-11-18T09:06:42.215Z",
+    "provenance": [
+      "Previous studies have shown that arginine can reduce protein-protein interactions and lower viscosity in monoclonal antibody formulations.",
+      "Arginine's role in stabilizing protein formulations is well-documented in protein chemistry literature."
+    ],
+    "metadata": {
+      "feasibility_score": 0.9,
+      "novelty_score": 0.6
+    }
+  },
+  {
+    "hypothesisId": "ad886a22-b9ea-4d01-a480-af02ada34df3",
+    "planId": "5cdb84d9-5be2-496c-818a-f9a4f167e00f",
+    "content": "Addition of polysorbate 80 at a concentration of 0.05% will reduce the viscosity of a bispecific antibody formulation at 180 mg/ml by at least 10%.",
+    "explanation": "Polysorbate 80 is a surfactant commonly used to stabilize protein formulations and can reduce protein-protein interactions that increase viscosity.",
+    "elo": 1516,
+    "createdAt": "2025-11-18T09:06:42.260Z",
+    "provenance": [
+      "Polysorbate 80 is known to decrease viscosity in protein formulations by reducing hydrophobic interactions (Wang et al., 2010, Journal of Pharmaceutical Sciences).",
+      "Surfactants like polysorbate 80 are frequently used in biopharmaceutical formulations to enhance stability and reduce viscosity (Mahler et al., 2009, Pharmaceutical Research)."
+    ],
+    "metadata": {
+      "feasibility_score": 0.8,
+      "novelty_score": 0.3
+    }
+  },
+  {
+    "hypothesisId": "ace00b78-416c-4dbd-9b68-28b270a4f7e9",
+    "planId": "5cdb84d9-5be2-496c-818a-f9a4f167e00f",
+    "content": "The addition of 0.05% polysorbate 80 to a high concentration (180 mg/ml) bispecific antibody formulation will reduce its viscosity by at least 10%.",
+    "explanation": "Polysorbate 80 is a nonionic surfactant that can reduce protein-protein interactions, which are a major contributor to increased viscosity in high concentration antibody formulations.",
+    "elo": 1516,
+    "createdAt": "2025-11-18T09:06:42.581Z",
+    "provenance": [
+      "Polysorbates are commonly used in biopharmaceutical formulations to enhance solubility and reduce viscosity (Wang et al., 2008, Journal of Pharmaceutical Sciences).",
+      "Nonionic surfactants like polysorbate 80 decrease inter-molecular interactions that contribute to viscosity (Kamerzell et al., 2011, Biophysical Journal)."
+    ],
+    "metadata": {
+      "feasibility_score": 0.8,
+      "novelty_score": 0.4
+    }
+  },
+  {
+    "hypothesisId": "0b90f91e-ca42-4472-8c9c-790435f9f6d5",
+    "planId": "5cdb84d9-5be2-496c-818a-f9a4f167e00f",
+    "content": "The addition of arginine as an excipient to a high concentration bispecific antibody formulation at 180 mg/ml will decrease the solution's viscosity by at least 20% compared to the control without arginine.",
+    "explanation": "Arginine is known to interact with protein molecules, potentially disrupting intermolecular interactions that contribute to high viscosity in protein formulations. By adding arginine, we can test if it effectively reduces these interactions and thus lowers viscosity.",
+    "elo": 1516,
+    "createdAt": "2025-11-18T09:06:42.613Z",
+    "provenance": [
+      "Research studies have shown that arginine can reduce viscosity in protein formulations by disrupting intermolecular interactions.",
+      "Arginine is commonly used in protein formulations to improve solubility and stability."
+    ],
+    "metadata": {
+      "feasibility_score": 0.8,
+      "novelty_score": 0.6
+    }
+  },
+  {
+    "hypothesisId": "48afbca5-a103-4e24-a86c-610b08f48c0b",
+    "planId": "5cdb84d9-5be2-496c-818a-f9a4f167e00f",
+    "content": "The addition of a specific excipient, such as polysorbate 80, at a concentration of 0.1% will reduce the viscosity of a bispecific antibody formulation at 180 mg/ml by 20%.",
+    "explanation": "Polysorbates are known surfactants that can reduce protein-protein interactions, which are a major cause of increased viscosity in high concentration protein formulations.",
+    "elo": 1516,
+    "createdAt": "2025-11-18T09:06:42.622Z",
+    "provenance": [
+      "Review of literature on the use of surfactants in reducing viscosity of protein formulations",
+      "Studies showing the effect of polysorbate 80 on protein stability and viscosity"
+    ],
+    "metadata": {
+      "feasibility_score": 0.8,
+      "novelty_score": 0.6
+    }
+  },
+  {
+    "hypothesisId": "b261960e-0995-4cf5-a139-f2eab4494fdf",
+    "planId": "5cdb84d9-5be2-496c-818a-f9a4f167e00f",
+    "content": "Adding sodium chloride at a concentration of 150 mM to a high concentration bispecific antibody formulation at 180 mg/ml will reduce its viscosity by at least 20%.",
+    "explanation": "Sodium chloride is known to reduce protein-protein interactions in solution, which can decrease the viscosity of highly concentrated protein formulations. This hypothesis is based on the principle that ionic strength can influence the solubility and aggregation behavior of proteins.",
+    "elo": 1516,
+    "createdAt": "2025-11-18T09:06:42.636Z",
+    "provenance": [
+      "Wang et al. (2013) demonstrated that ionic strength affects protein viscosity",
+      "Rosenberg, A. (2012) discusses the role of excipients in protein formulations"
+    ],
+    "metadata": {
+      "feasibility_score": 0.8,
+      "novelty_score": 0.5
+    }
+  },
+  {
+    "hypothesisId": "3bfd0803-dcef-448a-a115-fd44e70b5e1a",
+    "planId": "5cdb84d9-5be2-496c-818a-f9a4f167e00f",
+    "content": "Adding a specific concentration of polysorbate 80 to a high concentration bispecific antibody formulation at 180 mg/ml will significantly reduce its viscosity.",
+    "explanation": "Polysorbate 80 is a nonionic surfactant commonly used to stabilize protein formulations and can reduce viscosity by modifying protein-protein interactions.",
+    "elo": 1516,
+    "createdAt": "2025-11-18T09:06:42.644Z",
+    "provenance": [
+      "Surfactants like polysorbate 80 are known to alter protein interactions and stabilize high concentration formulations (Mahler et al., Journal of Pharmaceutical Sciences, 2009)."
+    ],
+    "metadata": {
+      "feasibility_score": 0.9,
+      "novelty_score": 0.6
+    }
+  },
+  {
+    "hypothesisId": "880a019b-9316-4994-aac6-4f319e01c50d",
+    "planId": "5cdb84d9-5be2-496c-818a-f9a4f167e00f",
+    "content": "Altering the ionic strength of the formulation buffer by increasing sodium chloride concentration will decrease the viscosity of a 180 mg/ml bispecific antibody solution.",
+    "explanation": "Increasing ionic strength can reduce protein-protein interactions by shielding charges, potentially reducing viscosity in high concentration protein solutions.",
+    "elo": 1484,
+    "createdAt": "2025-11-18T09:06:42.650Z",
+    "provenance": [
+      "Studies on protein formulations have shown that ionic strength influences protein interactions and solution viscosity (Tzannis et al., 1996; Arakawa et al., 2007).",
+      "The Debye-Hückel theory suggests that ionic strength affects electrostatic interactions between charged molecules."
+    ],
+    "metadata": {
+      "feasibility_score": 0.8,
+      "novelty_score": 0.4
+    }
+  },
+  {
+    "hypothesisId": "24817520-5d76-4d6f-88f2-10aa379454a7",
+    "planId": "5cdb84d9-5be2-496c-818a-f9a4f167e00f",
+    "content": "Incorporating 0.1% polysorbate 80 into a 180 mg/ml bispecific antibody solution will decrease its viscosity by at least 20% through alteration of protein interactions.",
+    "explanation": "Refined the language to explicitly mention the mechanism by which polysorbate 80 is hypothesized to reduce viscosity, improving clarity.",
+    "elo": 1500,
+    "createdAt": "2025-11-18T09:07:52.931Z",
+    "provenance": [
+      "The addition of 0.1% polysorbate 80 to a 180 mg/ml bispecific antibody formulation will reduce its viscosity by at least 20%."
+    ],
+    "metadata": {
+      "evolved_from": "bfbcc395-8d8c-46c9-8dda-e8b5a73f0731",
+      "improvement_type": "clarity"
+    }
+  },
+  {
+    "hypothesisId": "1185c7c3-6cc5-4eaa-8f93-bca1b360a481",
+    "planId": "5cdb84d9-5be2-496c-818a-f9a4f167e00f",
+    "content": "The addition of polysorbate 80 at a concentration of 0.1% in formulations exceeding 150 mg/ml of bispecific antibodies will lead to a minimum 20% reduction in viscosity.",
+    "explanation": "Broadened the scope to include formulations above 150 mg/ml, allowing for generalization of findings to a wider range of concentrations.",
+    "elo": 1500,
+    "createdAt": "2025-11-18T09:07:52.952Z",
+    "provenance": [
+      "The addition of 0.1% polysorbate 80 to a 180 mg/ml bispecific antibody formulation will reduce its viscosity by at least 20%."
+    ],
+    "metadata": {
+      "evolved_from": "bfbcc395-8d8c-46c9-8dda-e8b5a73f0731",
+      "improvement_type": "scope"
+    }
+  },
+  {
+    "hypothesisId": "c96e4dc0-331f-4091-9760-65fe216e8bfe",
+    "planId": "5cdb84d9-5be2-496c-818a-f9a4f167e00f",
+    "content": "Introducing 0.1% polysorbate 80 to a 180 mg/ml bispecific antibody formulation will decrease its viscosity by at least 20% by mitigating protein aggregation and modifying protein interaction dynamics.",
+    "explanation": "Specified the dual role of polysorbate 80 in reducing protein aggregation and altering interaction dynamics, providing an enhanced explanation of the underlying mechanisms.",
+    "elo": 1500,
+    "createdAt": "2025-11-18T09:07:52.984Z",
+    "provenance": [
+      "The addition of 0.1% polysorbate 80 to a 180 mg/ml bispecific antibody formulation will reduce its viscosity by at least 20%."
+    ],
+    "metadata": {
+      "evolved_from": "bfbcc395-8d8c-46c9-8dda-e8b5a73f0731",
+      "improvement_type": "specificity"
+    }
+  },
+  {
+    "hypothesisId": "ad292df1-d71b-4b1a-844e-0206807590d5",
+    "planId": "5cdb84d9-5be2-496c-818a-f9a4f167e00f",
+    "content": "Increasing the ionic strength of a bispecific antibody solution by adding sodium chloride at concentrations ranging from 50 mM to 150 mM will decrease its viscosity when the protein concentration is maintained at 180 mg/ml.",
+    "explanation": "Clarified the context of protein concentration to make it clear that the concentration is a controlled variable.",
+    "elo": 1500,
+    "createdAt": "2025-11-18T09:07:53.022Z",
+    "provenance": [
+      "Increasing the ionic strength of a bispecific antibody solution by adding sodium chloride at concentrations ranging from 50 mM to 150 mM will decrease its viscosity at 180 mg/ml."
+    ],
+    "metadata": {
+      "evolved_from": "5724a5d4-847a-4faa-b27b-6dfa08235ed9",
+      "improvement_type": "clarity"
+    }
+  },
+  {
+    "hypothesisId": "d25e1b66-acaf-49ba-b243-89ff09c0d117",
+    "planId": "5cdb84d9-5be2-496c-818a-f9a4f167e00f",
+    "content": "Increasing the ionic strength of a bispecific antibody solution through the addition of sodium chloride in concentrations from 50 mM to 150 mM, and exploring the effects at incremental steps, will provide a detailed understanding of its impact on reducing viscosity at 180 mg/ml.",
+    "explanation": "Adjusted scope to emphasize a systematic investigation and the granularity of testing different salt concentrations.",
+    "elo": 1500,
+    "createdAt": "2025-11-18T09:07:53.076Z",
+    "provenance": [
+      "Increasing the ionic strength of a bispecific antibody solution by adding sodium chloride at concentrations ranging from 50 mM to 150 mM will decrease its viscosity at 180 mg/ml."
+    ],
+    "metadata": {
+      "evolved_from": "5724a5d4-847a-4faa-b27b-6dfa08235ed9",
+      "improvement_type": "scope"
+    }
+  },
+  {
+    "hypothesisId": "f4d1126b-924f-440d-9abb-022a522f8832",
+    "planId": "5cdb84d9-5be2-496c-818a-f9a4f167e00f",
+    "content": "By incrementally adding sodium chloride to a bispecific antibody solution at concentrations between 50 mM and 150 mM, the resulting increase in ionic strength is hypothesized to reduce viscosity through the attenuation of electrostatic interactions, specifically targeting intermolecular attractions at a concentration of 180 mg/ml.",
+    "explanation": "Enhanced specificity by describing the mechanism and targeted interactions in more detail.",
+    "elo": 1500,
+    "createdAt": "2025-11-18T09:07:53.256Z",
+    "provenance": [
+      "Increasing the ionic strength of a bispecific antibody solution by adding sodium chloride at concentrations ranging from 50 mM to 150 mM will decrease its viscosity at 180 mg/ml."
+    ],
+    "metadata": {
+      "evolved_from": "5724a5d4-847a-4faa-b27b-6dfa08235ed9",
+      "improvement_type": "specificity"
+    }
+  },
+  {
+    "hypothesisId": "cae2dc4c-b954-4ea6-b679-836a257d9fd0",
+    "planId": "5cdb84d9-5be2-496c-818a-f9a4f167e00f",
+    "content": "Incorporating 50 mM arginine into a bispecific antibody formulation at 180 mg/ml will decrease the formulation's viscosity by a minimum of 20% due to arginine’s protein interaction properties that interrupt intermolecular forces contributing to viscosity.",
+    "explanation": "The hypothesis was rephrased for enhanced clarity, ensuring that the cause-effect relationship is clearly articulated.",
+    "elo": 1500,
+    "createdAt": "2025-11-18T09:07:53.267Z",
+    "provenance": [
+      "The addition of arginine at a concentration of 50 mM will lower the viscosity of a bispecific antibody formulation at 180 mg/ml by at least 20%."
+    ],
+    "metadata": {
+      "evolved_from": "1ab562ab-d7c0-48a6-8f4f-f4121bff283f",
+      "improvement_type": "clarity"
+    }
+  },
+  {
+    "hypothesisId": "7d302cb0-bd45-4840-9c94-002414fff180",
+    "planId": "5cdb84d9-5be2-496c-818a-f9a4f167e00f",
+    "content": "The addition of 50 mM arginine will reduce the viscosity of various concentrated protein formulations, including a bispecific antibody at 180 mg/ml, by at least 20%, by disrupting intermolecular interactions.",
+    "explanation": "The scope was broadened to include various protein formulations, not just a specific antibody, to explore generalizability.",
+    "elo": 1500,
+    "createdAt": "2025-11-18T09:07:53.284Z",
+    "provenance": [
+      "The addition of arginine at a concentration of 50 mM will lower the viscosity of a bispecific antibody formulation at 180 mg/ml by at least 20%."
+    ],
+    "metadata": {
+      "evolved_from": "1ab562ab-d7c0-48a6-8f4f-f4121bff283f",
+      "improvement_type": "scope"
+    }
+  },
+  {
+    "hypothesisId": "74b00552-6a44-4079-97f4-faec1287ab79",
+    "planId": "5cdb84d9-5be2-496c-818a-f9a4f167e00f",
+    "content": "At a concentration of 50 mM, arginine will reduce the viscosity of a 180 mg/ml bispecific antibody formulation by disrupting specific intermolecular interactions responsible for high viscosity, potentially achieving a reduction of 20% or more.",
+    "explanation": "Specificity was improved by detailing the type of interactions arginine disrupts, providing a more precise understanding of the mechanism involved.",
+    "elo": 1500,
+    "createdAt": "2025-11-18T09:07:53.294Z",
+    "provenance": [
+      "The addition of arginine at a concentration of 50 mM will lower the viscosity of a bispecific antibody formulation at 180 mg/ml by at least 20%."
+    ],
+    "metadata": {
+      "evolved_from": "1ab562ab-d7c0-48a6-8f4f-f4121bff283f",
+      "improvement_type": "specificity"
+    }
+  },
+  {
+    "hypothesisId": "731b647c-b27b-47f1-9534-0a64cc132c3c",
+    "planId": "5cdb84d9-5be2-496c-818a-f9a4f167e00f",
+    "content": "Incorporating 0.05% polysorbate 80 into a bispecific antibody solution at 180 mg/ml will lower its viscosity by a minimum of 10%.",
+    "explanation": "The language is clarified to focus on the solution as a whole and emphasize the action of incorporating polysorbate 80.",
+    "elo": 1500,
+    "createdAt": "2025-11-18T09:07:53.331Z",
+    "provenance": [
+      "Content: Addition of polysorbate 80 at a concentration of 0.05% will reduce the viscosity of a bispecific antibody formulation at 180 mg/ml by at least 10%."
+    ],
+    "metadata": {
+      "evolved_from": "ad886a22-b9ea-4d01-a480-af02ada34df3",
+      "improvement_type": "clarity"
+    }
+  },
+  {
+    "hypothesisId": "cb93721e-8b34-4010-b1c7-5577c47825c0",
+    "planId": "5cdb84d9-5be2-496c-818a-f9a4f167e00f",
+    "content": "A concentration of 0.05% polysorbate 80 is hypothesized to reduce the viscosity of a 180 mg/ml bispecific antibody formulation by at least 10% through its role in minimizing protein-protein interactions.",
+    "explanation": "The hypothesis now emphasizes the mechanism of action of polysorbate 80, providing more context for why the viscosity is expected to decrease.",
+    "elo": 1500,
+    "createdAt": "2025-11-18T09:07:53.577Z",
+    "provenance": [
+      "Content: Addition of polysorbate 80 at a concentration of 0.05% will reduce the viscosity of a bispecific antibody formulation at 180 mg/ml by at least 10%."
+    ],
+    "metadata": {
+      "evolved_from": "ad886a22-b9ea-4d01-a480-af02ada34df3",
+      "improvement_type": "specificity"
+    }
+  },
+  {
+    "hypothesisId": "c609d21a-d128-4fc0-b477-a20503ca6338",
+    "planId": "5cdb84d9-5be2-496c-818a-f9a4f167e00f",
+    "content": "Increasing polysorbate 80 concentration to 0.1% may lead to a more significant reduction in the viscosity of a bispecific antibody solution at 180 mg/ml, potentially exceeding 15% reduction.",
+    "explanation": "The scope has been expanded to explore a higher concentration of polysorbate 80, which might lead to a larger reduction in viscosity, thus testing the limits of its efficacy.",
+    "elo": 1500,
+    "createdAt": "2025-11-18T09:07:53.590Z",
+    "provenance": [
+      "Content: Addition of polysorbate 80 at a concentration of 0.05% will reduce the viscosity of a bispecific antibody formulation at 180 mg/ml by at least 10%."
+    ],
+    "metadata": {
+      "evolved_from": "ad886a22-b9ea-4d01-a480-af02ada34df3",
+      "improvement_type": "scope"
+    }
+  },
+  {
+    "hypothesisId": "0c3ee3c8-9a1e-44c0-8f23-86475bd16ea2",
+    "planId": "5cdb84d9-5be2-496c-818a-f9a4f167e00f",
+    "content": "Incorporating 0.05% polysorbate 80 into a 180 mg/ml bispecific antibody solution will decrease its viscosity by a minimum of 10%, by mitigating protein-protein interactions.",
+    "explanation": "The language was refined for clarity and conciseness while maintaining the original scope.",
+    "elo": 1500,
+    "createdAt": "2025-11-18T09:07:53.603Z",
+    "provenance": [
+      "The addition of 0.05% polysorbate 80 to a high concentration (180 mg/ml) bispecific antibody formulation will reduce its viscosity by at least 10%.",
+      "Polysorbate 80 is a nonionic surfactant that can reduce protein-protein interactions, which are a major contributor to increased viscosity in high concentration antibody formulations."
+    ],
+    "metadata": {
+      "evolved_from": "ace00b78-416c-4dbd-9b68-28b270a4f7e9",
+      "improvement_type": "clarity"
+    }
+  },
+  {
+    "hypothesisId": "62e128fa-ac4c-42bb-9efd-345d1af9c953",
+    "planId": "5cdb84d9-5be2-496c-818a-f9a4f167e00f",
+    "content": "The addition of 0.05% polysorbate 80 to bispecific antibody formulations at concentrations greater than 150 mg/ml will result in at least a 10% reduction in viscosity.",
+    "explanation": "The scope was adjusted to consider a range of high concentrations rather than a single fixed concentration, making the hypothesis more generalizable.",
+    "elo": 1500,
+    "createdAt": "2025-11-18T09:07:53.630Z",
+    "provenance": [
+      "The addition of 0.05% polysorbate 80 to a high concentration (180 mg/ml) bispecific antibody formulation will reduce its viscosity by at least 10%.",
+      "Polysorbate 80 is a nonionic surfactant that can reduce protein-protein interactions, which are a major contributor to increased viscosity in high concentration antibody formulations."
+    ],
+    "metadata": {
+      "evolved_from": "ace00b78-416c-4dbd-9b68-28b270a4f7e9",
+      "improvement_type": "scope"
+    }
+  },
+  {
+    "hypothesisId": "315a6661-3733-4aa3-943c-ca959f4e73d6",
+    "planId": "5cdb84d9-5be2-496c-818a-f9a4f167e00f",
+    "content": "Adding polysorbate 80 at a concentration of 0.05% to a high-concentration bispecific antibody formulation effectively reduces viscosity by at least 10% through the reduction of intermolecular protein interactions.",
+    "explanation": "The hypothesis was reformulated to emphasize the mechanism by which polysorbate 80 acts, enhancing the specificity of the explanation.",
+    "elo": 1500,
+    "createdAt": "2025-11-18T09:07:53.658Z",
+    "provenance": [
+      "The addition of 0.05% polysorbate 80 to a high concentration (180 mg/ml) bispecific antibody formulation will reduce its viscosity by at least 10%.",
+      "Polysorbate 80 is a nonionic surfactant that can reduce protein-protein interactions, which are a major contributor to increased viscosity in high concentration antibody formulations."
+    ],
+    "metadata": {
+      "evolved_from": "ace00b78-416c-4dbd-9b68-28b270a4f7e9",
+      "improvement_type": "specificity"
+    }
   }
 ]
