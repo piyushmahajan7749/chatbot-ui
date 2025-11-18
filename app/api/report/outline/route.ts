@@ -4,7 +4,7 @@ import OpenAI from "openai"
 import { zodResponseFormat } from "openai/helpers/zod"
 import { z } from "zod"
 import * as d3 from "d3"
-import { createCanvas } from "canvas"
+import { createCanvas } from "@napi-rs/canvas"
 
 import { tool } from "@langchain/core/tools"
 import { NextResponse } from "next/server"
