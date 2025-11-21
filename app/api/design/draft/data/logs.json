@@ -1349,5 +1349,87 @@
       "hypothesisId": "332d955a-fa07-46ff-873f-3ce98dc5c326",
       "totalTimeMs": 63594
     }
+  },
+  {
+    "timestamp": "2025-11-21T19:31:16.672Z",
+    "actor": "supervisor",
+    "level": "info",
+    "message": "Starting sequential experiment design pipeline for hypothesis 332d955a-fa07-46ff-873f-3ce98dc5c326",
+    "context": {
+      "planId": "73bd6e86-bcc0-477d-91c0-f6d4f443e79a",
+      "hypothesisId": "332d955a-fa07-46ff-873f-3ce98dc5c326"
+    }
+  },
+  {
+    "timestamp": "2025-11-21T19:32:28.320Z",
+    "actor": "supervisor",
+    "level": "info",
+    "message": "Experiment design pipeline completed for hypothesis 332d955a-fa07-46ff-873f-3ce98dc5c326",
+    "context": {
+      "planId": "73bd6e86-bcc0-477d-91c0-f6d4f443e79a",
+      "hypothesisId": "332d955a-fa07-46ff-873f-3ce98dc5c326",
+      "totalTimeMs": 71648
+    }
+  },
+  {
+    "timestamp": "2025-11-21T19:39:57.381Z",
+    "actor": "supervisor",
+    "level": "info",
+    "message": "Starting sequential experiment design pipeline for hypothesis 332d955a-fa07-46ff-873f-3ce98dc5c326",
+    "context": {
+      "planId": "73bd6e86-bcc0-477d-91c0-f6d4f443e79a",
+      "hypothesisId": "332d955a-fa07-46ff-873f-3ce98dc5c326"
+    }
+  },
+  {
+    "timestamp": "2025-11-21T19:41:11.636Z",
+    "actor": "supervisor",
+    "level": "error",
+    "message": "Experiment design pipeline failed for hypothesis 332d955a-fa07-46ff-873f-3ce98dc5c326",
+    "context": {
+      "hypothesisId": "332d955a-fa07-46ff-873f-3ce98dc5c326",
+      "error": "Cannot read properties of undefined (reading 'length')"
+    }
+  },
+  {
+    "timestamp": "2025-11-21T19:43:15.211Z",
+    "actor": "supervisor",
+    "level": "info",
+    "message": "Starting sequential experiment design pipeline for hypothesis 61ed0d70-c81d-412b-b43a-ef21c1774353",
+    "context": {
+      "planId": "73bd6e86-bcc0-477d-91c0-f6d4f443e79a",
+      "hypothesisId": "61ed0d70-c81d-412b-b43a-ef21c1774353"
+    }
+  },
+  {
+    "timestamp": "2025-11-21T19:44:50.241Z",
+    "actor": "supervisor",
+    "level": "error",
+    "message": "Experiment design pipeline failed for hypothesis 61ed0d70-c81d-412b-b43a-ef21c1774353",
+    "context": {
+      "hypothesisId": "61ed0d70-c81d-412b-b43a-ef21c1774353",
+      "error": "Cannot read properties of undefined (reading 'length')"
+    }
+  },
+  {
+    "timestamp": "2025-11-21T19:49:20.807Z",
+    "actor": "supervisor",
+    "level": "info",
+    "message": "Starting sequential experiment design pipeline for hypothesis 332d955a-fa07-46ff-873f-3ce98dc5c326",
+    "context": {
+      "planId": "73bd6e86-bcc0-477d-91c0-f6d4f443e79a",
+      "hypothesisId": "332d955a-fa07-46ff-873f-3ce98dc5c326"
+    }
+  },
+  {
+    "timestamp": "2025-11-21T19:50:55.117Z",
+    "actor": "supervisor",
+    "level": "info",
+    "message": "Experiment design pipeline completed for hypothesis 332d955a-fa07-46ff-873f-3ce98dc5c326",
+    "context": {
+      "planId": "73bd6e86-bcc0-477d-91c0-f6d4f443e79a",
+      "hypothesisId": "332d955a-fa07-46ff-873f-3ce98dc5c326",
+      "totalTimeMs": 94310
+    }
   }
 ]

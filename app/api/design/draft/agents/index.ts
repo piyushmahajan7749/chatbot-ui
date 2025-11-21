@@ -28,7 +28,7 @@ import {
   normalizePaperFinderResults,
   runPaperFinder
 } from "../utils/paper-finder"
-import { AgentPromptOverrides } from "@/types/design-prompts"
+import { AgentPromptOverrides, AgentPromptUsage } from "@/types/design-prompts"
 
 function buildCitationsDetailed(searchResults?: any): CitationItem[] {
   if (!searchResults) return []
@@ -63,10 +63,15 @@ const openai = new OpenAI({
   apiKey: process.env.OPENAI_KEY
 })
 
+type AgentCallResult<T> = {
+  output: T
+  prompt: AgentPromptUsage
+}
+
 export async function callLiteratureScoutAgent(
   state: ExperimentDesignState,
   overrides?: AgentPromptOverrides["literatureScout"]
-): Promise<LiteratureScoutOutput> {
+): Promise<AgentCallResult<LiteratureScoutOutput>> {
   const startTime = Date.now()
   console.log("\n" + "=".repeat(80))
   console.log("📚 [LITERATURE_SCOUT_AGENT] Starting Agent Execution")
@@ -235,7 +240,14 @@ export async function callLiteratureScoutAgent(
     console.log("  ⏱️  Total Execution Time:", totalTime, "ms")
     console.log("=".repeat(80))
 
-    return result
+    return {
+      output: result,
+      prompt: {
+        agentId: "literatureScout",
+        systemPrompt,
+        userPrompt
+      }
+    }
   } catch (error) {
     const totalTime = Date.now() - startTime
     console.error(
@@ -333,7 +345,7 @@ export async function callHypothesisBuilderAgent(
 export async function callExperimentDesignerAgent(
   state: ExperimentDesignState,
   overrides?: AgentPromptOverrides["experimentDesigner"]
-): Promise<ExperimentDesignerOutput> {
+): Promise<AgentCallResult<ExperimentDesignerOutput>> {
   const startTime = Date.now()
   console.log("\n" + "=".repeat(80))
   console.log("🧪 [EXPERIMENT_DESIGNER_AGENT] Starting Agent Execution")
@@ -506,7 +518,14 @@ export async function callExperimentDesignerAgent(
     console.log("  ⏱️  Total Execution Time:", totalTime, "ms")
     console.log("=".repeat(80))
 
-    return result
+    return {
+      output: result,
+      prompt: {
+        agentId: "experimentDesigner",
+        systemPrompt,
+        userPrompt
+      }
+    }
   } catch (error) {
     const totalTime = Date.now() - startTime
     console.error(
@@ -521,7 +540,7 @@ export async function callExperimentDesignerAgent(
 export async function callStatCheckAgent(
   state: ExperimentDesignState,
   overrides?: AgentPromptOverrides["statCheck"]
-): Promise<StatCheckOutput> {
+): Promise<AgentCallResult<StatCheckOutput>> {
   const startTime = Date.now()
   console.log("\n" + "=".repeat(80))
   console.log("📊 [STAT_CHECK_AGENT] Starting Agent Execution")
@@ -604,7 +623,14 @@ export async function callStatCheckAgent(
     console.log("  ⏱️  Total Execution Time:", totalTime, "ms")
     console.log("=".repeat(80))
 
-    return result
+    return {
+      output: result,
+      prompt: {
+        agentId: "statCheck",
+        systemPrompt,
+        userPrompt
+      }
+    }
   } catch (error) {
     const totalTime = Date.now() - startTime
     console.error(
@@ -619,7 +645,7 @@ export async function callStatCheckAgent(
 export async function callReportWriterAgent(
   state: ExperimentDesignState,
   overrides?: AgentPromptOverrides["reportWriter"]
-): Promise<ReportWriterOutput> {
+): Promise<AgentCallResult<ReportWriterOutput>> {
   const startTime = Date.now()
   console.log("\n" + "=".repeat(80))
   console.log("📝 [REPORT_WRITER_AGENT] Starting Agent Execution")
@@ -680,96 +706,6 @@ export async function callReportWriterAgent(
     )
 
     const parsed = completion.choices[0].message.parsed!
-    return {
-      researchObjective:
-        parsed.researchObjective || "No research objective available",
-      literatureSummary: {
-        whatOthersHaveDone:
-          parsed.literatureSummary?.whatOthersHaveDone ||
-          "No information available",
-        goodMethodsAndTools:
-          parsed.literatureSummary?.goodMethodsAndTools ||
-          "No information available",
-        potentialPitfalls:
-          parsed.literatureSummary?.potentialPitfalls ||
-          "No information available",
-        citations: parsed.literatureSummary?.citations || []
-      },
-      hypothesis: {
-        hypothesis: parsed.hypothesis?.hypothesis || "No hypothesis available",
-        explanation:
-          parsed.hypothesis?.explanation || "No explanation available"
-      },
-      experimentDesign: {
-        experimentDesign: {
-          whatWillBeTested:
-            parsed.experimentDesign?.experimentDesign?.whatWillBeTested ||
-            "Not specified",
-          whatWillBeMeasured:
-            parsed.experimentDesign?.experimentDesign?.whatWillBeMeasured ||
-            "Not specified",
-          controlGroups:
-            parsed.experimentDesign?.experimentDesign?.controlGroups ||
-            "Not specified",
-          experimentalGroups:
-            parsed.experimentDesign?.experimentDesign?.experimentalGroups ||
-            "Not specified",
-          sampleTypes:
-            parsed.experimentDesign?.experimentDesign?.sampleTypes ||
-            "Not specified",
-          toolsNeeded:
-            parsed.experimentDesign?.experimentDesign?.toolsNeeded ||
-            "Not specified",
-          replicatesAndConditions:
-            parsed.experimentDesign?.experimentDesign
-              ?.replicatesAndConditions || "Not specified",
-          specificRequirements:
-            parsed.experimentDesign?.experimentDesign?.specificRequirements ||
-            "Not specified"
-        },
-        executionPlan: {
-          materialsList:
-            parsed.experimentDesign?.executionPlan?.materialsList ||
-            "Not specified",
-          materialPreparation:
-            parsed.experimentDesign?.executionPlan?.materialPreparation ||
-            "Not specified",
-          stepByStepProcedure:
-            parsed.experimentDesign?.executionPlan?.stepByStepProcedure ||
-            "Not specified",
-          timeline:
-            parsed.experimentDesign?.executionPlan?.timeline || "Not specified",
-          setupInstructions:
-            parsed.experimentDesign?.executionPlan?.setupInstructions ||
-            "Not specified",
-          dataCollectionPlan:
-            parsed.experimentDesign?.executionPlan?.dataCollectionPlan ||
-            "Not specified",
-          conditionsTable:
-            parsed.experimentDesign?.executionPlan?.conditionsTable ||
-            "Not specified",
-          storageDisposal:
-            parsed.experimentDesign?.executionPlan?.storageDisposal ||
-            "Not specified",
-          safetyNotes:
-            parsed.experimentDesign?.executionPlan?.safetyNotes ||
-            "Not specified"
-        },
-        rationale: parsed.experimentDesign?.rationale || "No rationale provided"
-      },
-      statisticalReview: {
-        whatLooksGood:
-          parsed.statisticalReview?.whatLooksGood || "No assessment available",
-        problemsOrRisks: parsed.statisticalReview?.problemsOrRisks || [],
-        suggestedImprovements:
-          parsed.statisticalReview?.suggestedImprovements || [],
-        overallAssessment:
-          parsed.statisticalReview?.overallAssessment ||
-          "No overall assessment available"
-      },
-      finalNotes: parsed.finalNotes || "No final notes available"
-    }
-
     const result = {
       researchObjective:
         parsed.researchObjective || "No research objective available",
@@ -786,7 +722,7 @@ export async function callReportWriterAgent(
         citations: parsed.literatureSummary?.citations || []
       },
       hypothesis: {
-        hypothesis: parsed.hypothesis?.hypothesis || "No hypothesis generated",
+        hypothesis: parsed.hypothesis?.hypothesis || "No hypothesis available",
         explanation:
           parsed.hypothesis?.explanation || "No explanation available"
       },
@@ -932,7 +868,14 @@ export async function callReportWriterAgent(
     console.log("  ⏱️  Total Execution Time:", totalTime, "ms")
     console.log("=".repeat(80))
 
-    return result
+    return {
+      output: result,
+      prompt: {
+        agentId: "reportWriter",
+        systemPrompt,
+        userPrompt
+      }
+    }
   } catch (error) {
     const totalTime = Date.now() - startTime
     console.error(

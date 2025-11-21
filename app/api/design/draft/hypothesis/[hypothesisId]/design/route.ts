@@ -12,7 +12,7 @@ import {
   getResearchPlan,
   saveLog
 } from "../../../utils/persistence"
-import { AgentPromptOverrides } from "@/types/design-prompts"
+import { AgentPromptOverrides, AgentPromptUsage } from "@/types/design-prompts"
 import { designAgentPromptOrder } from "@/lib/design/prompt-schemas"
 
 const agentKeys = designAgentPromptOrder
@@ -131,6 +131,7 @@ export async function POST(
     }
 
     const pipelineStart = Date.now()
+    const promptsUsed: AgentPromptUsage[] = []
 
     await saveLog({
       timestamp: new Date().toISOString(),
@@ -168,11 +169,11 @@ export async function POST(
       })
     }
 
-    state.literatureScoutOutput = await trackStep(
-      "literature_scout",
-      async () =>
-        callLiteratureScoutAgent(state, promptOverrides?.literatureScout)
+    const literatureResult = await trackStep("literature_scout", async () =>
+      callLiteratureScoutAgent(state, promptOverrides?.literatureScout)
     )
+    state.literatureScoutOutput = literatureResult.output
+    promptsUsed.push(literatureResult.prompt)
 
     state.hypothesisBuilderOutput = {
       hypothesis: hypothesis.content,
@@ -181,19 +182,23 @@ export async function POST(
         "User-selected hypothesis from tournament stage."
     }
 
-    state.experimentDesignerOutput = await trackStep(
-      "experiment_designer",
-      async () =>
-        callExperimentDesignerAgent(state, promptOverrides?.experimentDesigner)
+    const experimentResult = await trackStep("experiment_designer", async () =>
+      callExperimentDesignerAgent(state, promptOverrides?.experimentDesigner)
     )
+    state.experimentDesignerOutput = experimentResult.output
+    promptsUsed.push(experimentResult.prompt)
 
-    state.statCheckOutput = await trackStep("stat_check", async () =>
+    const statResult = await trackStep("stat_check", async () =>
       callStatCheckAgent(state, promptOverrides?.statCheck)
     )
+    state.statCheckOutput = statResult.output
+    promptsUsed.push(statResult.prompt)
 
-    state.reportWriterOutput = await trackStep("report_writer", async () =>
+    const reportResult = await trackStep("report_writer", async () =>
       callReportWriterAgent(state, promptOverrides?.reportWriter)
     )
+    state.reportWriterOutput = reportResult.output
+    promptsUsed.push(reportResult.prompt)
 
     const totalTimeMs = Date.now() - pipelineStart
 
@@ -220,7 +225,8 @@ export async function POST(
       metrics: {
         totalTimeMs,
         steps: stepTimings
-      }
+      },
+      promptsUsed
     })
   } catch (error: any) {
     console.error("[HYPOTHESIS-DESIGN] Error generating design:", error)

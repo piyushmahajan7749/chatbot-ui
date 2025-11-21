@@ -34,7 +34,7 @@ import {
 } from "@/components/ui/dialog"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Textarea } from "@/components/ui/textarea"
-import { ScrollArea, ScrollBar } from "@/components/ui/scroll-area"
+import { ScrollArea } from "@/components/ui/scroll-area"
 
 const sectionComponentMap: Record<
   PromptSectionType,
@@ -199,7 +199,7 @@ const PromptOverridesDialog = ({
       open={open}
       onOpenChange={value => !isSubmitting && onOpenChange(value)}
     >
-      <DialogContent className="max-w-5xl p-0 gap-0">
+      <DialogContent className="max-w-5xl p-0 gap-0 overflow-hidden">
         <DialogHeader className="border-b border-border/60 px-6 py-4 space-y-2">
           <DialogTitle>Customize Agent Prompts</DialogTitle>
           <DialogDescription className="text-muted-foreground text-sm">
@@ -212,10 +212,10 @@ const PromptOverridesDialog = ({
             )}
           </DialogDescription>
         </DialogHeader>
-        <div className="h-[70vh] flex flex-col">
+        <div className="h-[70vh] flex flex-col overflow-hidden">
           <Tabs
             defaultValue={designAgentPromptOrder[0]}
-            className="h-full flex flex-col"
+            className="h-full flex flex-col overflow-hidden"
           >
             <TabsList className="flex flex-wrap gap-2 px-6 py-3">
               {designAgentPromptOrder.map(agentId => {
@@ -231,16 +231,19 @@ const PromptOverridesDialog = ({
                 )
               })}
             </TabsList>
-            <div className="flex-1 px-6 pb-6">
+            <div className="flex-1 px-6 pb-6 min-h-0">
               {designAgentPromptOrder.map(agentId => {
                 const schema = designAgentPromptSchemas[agentId]
                 return (
                   <TabsContent
                     key={agentId}
                     value={agentId}
-                    className="h-full pt-2"
+                    className="h-full min-h-0 pt-2 data-[state=active]:flex data-[state=active]:flex-col"
                   >
-                    <ScrollArea className="h-full pr-2">
+                    <ScrollArea
+                      className="h-full min-h-0 rounded-lg pr-3"
+                      type="always"
+                    >
                       <div className="space-y-4 pb-10">
                         <div>
                           <p className="font-semibold text-foreground text-lg">
@@ -293,7 +296,6 @@ const PromptOverridesDialog = ({
                           </div>
                         )}
                       </div>
-                      <ScrollBar orientation="vertical" />
                     </ScrollArea>
                   </TabsContent>
                 )

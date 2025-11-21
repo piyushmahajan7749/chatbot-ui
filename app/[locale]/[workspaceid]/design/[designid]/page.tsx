@@ -10,7 +10,7 @@ import {
   DesignPlanStatus,
   DesignPlanHypothesis
 } from "@/types/design-plan"
-import { AgentPromptOverrides } from "@/types/design-prompts"
+import { AgentPromptOverrides, AgentPromptUsage } from "@/types/design-prompts"
 import { toast } from "sonner"
 import { Textarea } from "@/components/ui/textarea"
 import { Loader2, EyeOff, PanelTopOpen, Save, CheckCircle2 } from "lucide-react"
@@ -78,6 +78,9 @@ export default function DesignIDPage({
   const [isSavingDesign, setIsSavingDesign] = useState(false)
   const [lastSavedPayloadSignature, setLastSavedPayloadSignature] = useState<
     string | null
+  >(null)
+  const [latestPromptsUsed, setLatestPromptsUsed] = useState<
+    AgentPromptUsage[] | null
   >(null)
   const applySavedPayload = useCallback((rawPayload: any) => {
     if (!rawPayload || typeof rawPayload !== "object") {
@@ -368,6 +371,7 @@ export default function DesignIDPage({
       setDesignError(null)
       setLastSavedPayloadSignature(null)
       setSavedHypothesisSnapshot(null)
+      setLatestPromptsUsed(null)
 
       try {
         const fetchOptions: RequestInit = { method: "POST" }
@@ -404,6 +408,7 @@ export default function DesignIDPage({
         setGeneratedStatReview(
           data.statReview || data.report?.statisticalReview || null
         )
+        setLatestPromptsUsed(data.promptsUsed || null)
         toast.success("Experiment design generated.")
       } catch (error: any) {
         console.error("❌ [DESIGN_PAGE] Design generation error:", error)
@@ -467,13 +472,14 @@ export default function DesignIDPage({
         toast.error("Select a hypothesis to customize prompts.")
         return
       }
+      const targetHypothesis = promptOverridesHypothesis
+      setPromptOverridesDialogOpen(false)
+      setPromptOverridesHypothesis(null)
       setIsPromptOverridesSubmitting(true)
       try {
-        await handleGenerateDesign(promptOverridesHypothesis, {
+        await handleGenerateDesign(targetHypothesis, {
           promptOverrides: overrides
         })
-        setPromptOverridesDialogOpen(false)
-        setPromptOverridesHypothesis(null)
       } finally {
         setIsPromptOverridesSubmitting(false)
       }
@@ -621,6 +627,7 @@ export default function DesignIDPage({
             generatedStatReview={generatedStatReview}
             designError={designError}
             onRegenerateDesign={handleRegenerateSelected}
+            promptsUsed={latestPromptsUsed}
           />
         </div>
       </div>

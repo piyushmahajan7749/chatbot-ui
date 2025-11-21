@@ -39,3 +39,9 @@ export interface PromptSectionOverrides {
 export type AgentPromptOverrides = Partial<
   Record<DesignAgentPromptId, PromptSectionOverrides>
 >
+
+export interface AgentPromptUsage {
+  agentId: DesignAgentPromptId
+  systemPrompt: string
+  userPrompt: string
+}

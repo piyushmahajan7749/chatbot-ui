@@ -7,7 +7,7 @@ import {
   DesignPlanStatus,
   DesignPlanHypothesis
 } from "@/types/design-plan"
-import { type ReactNode, useEffect, useState } from "react"
+import { type ReactNode, useCallback, useEffect, useState } from "react"
 import { formatDistanceToNow } from "date-fns"
 import {
   AlertTriangle,
@@ -16,6 +16,7 @@ import {
   ClipboardList,
   Clock,
   Copy,
+  Download,
   Layers,
   Loader2,
   RefreshCw,
@@ -29,6 +30,9 @@ import {
   TooltipProvider,
   TooltipTrigger
 } from "@/components/ui/tooltip"
+import { designAgentPromptSchemas } from "@/lib/design/prompt-schemas"
+import { AgentPromptUsage } from "@/types/design-prompts"
+import { Document, HeadingLevel, Packer, Paragraph, TextRun } from "docx"
 
 interface DesignReviewProps {
   designData: {
@@ -51,6 +55,7 @@ interface DesignReviewProps {
   designError?: string | null
   onRegenerateDesign?: () => Promise<void> | void
   onCustomizePrompts?: (hypothesis: DesignPlanHypothesis) => void
+  promptsUsed?: AgentPromptUsage[] | null
 }
 
 const markdownClasses =
@@ -332,7 +337,8 @@ export function DesignReview({
   generatedLiteratureSummary,
   generatedStatReview,
   designError,
-  onRegenerateDesign
+  onRegenerateDesign,
+  promptsUsed
 }: DesignReviewProps) {
   const [showAllHypotheses, setShowAllHypotheses] =
     useState(!selectedHypothesisId)
@@ -353,6 +359,137 @@ export function DesignReview({
     generatingHypothesisId === selectedHypothesisId &&
     !generatedDesign
   const isDesignComplete = !!generatedDesign && !!selectedHypothesis
+  const promptsAvailable =
+    !!generatedDesign && !!promptsUsed && promptsUsed.length > 0
+
+  const handleDownloadPrompts = useCallback(async () => {
+    if (!promptsAvailable || !promptsUsed) {
+      return
+    }
+
+    const fileBaseName = `experiment-prompts-${
+      selectedHypothesis?.hypothesisId || "design"
+    }`
+
+    const downloadBlob = (blob: Blob, extension: string) => {
+      const url = URL.createObjectURL(blob)
+      const link = document.createElement("a")
+      link.href = url
+      link.download = `${fileBaseName}.${extension}`
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      URL.revokeObjectURL(url)
+    }
+
+    const fallbackPlainText = () => {
+      const lines: string[] = []
+      lines.push("Experiment Prompt Pack")
+      lines.push(
+        `Hypothesis: ${selectedHypothesis?.content || "No hypothesis selected"}`
+      )
+      lines.push(`Generated: ${new Date().toLocaleString()}`)
+      lines.push("")
+      promptsUsed.forEach(entry => {
+        const schema = designAgentPromptSchemas[entry.agentId]
+        lines.push(
+          `${schema?.title || entry.agentId} (${entry.agentId
+            .replace(/([A-Z])/g, " $1")
+            .trim()})`
+        )
+        lines.push("")
+        lines.push("System Prompt:")
+        lines.push(entry.systemPrompt.trim())
+        if (entry.userPrompt) {
+          lines.push("")
+          lines.push("User Prompt:")
+          lines.push(entry.userPrompt.trim())
+        }
+        lines.push("")
+      })
+      return lines.join("\n")
+    }
+
+    try {
+      const docChildren: Paragraph[] = []
+      const now = new Date()
+      docChildren.push(
+        new Paragraph({
+          text: "Experiment Prompt Pack",
+          heading: HeadingLevel.TITLE
+        })
+      )
+      docChildren.push(
+        new Paragraph({
+          text: `Hypothesis: ${
+            selectedHypothesis?.content || "No hypothesis selected"
+          }`
+        })
+      )
+      docChildren.push(
+        new Paragraph({
+          text: `Generated: ${now.toLocaleString()}`
+        })
+      )
+      docChildren.push(new Paragraph({ text: "" }))
+
+      const addMultiline = (text?: string) => {
+        if (!text) {
+          docChildren.push(new Paragraph({ text: "—" }))
+          return
+        }
+        text.split(/\r?\n/).forEach(line => {
+          docChildren.push(new Paragraph({ text: line || " " }))
+        })
+      }
+
+      promptsUsed.forEach(entry => {
+        const schema = designAgentPromptSchemas[entry.agentId]
+        const headingLabel = schema
+          ? `${schema.title} (${schema.id})`
+          : entry.agentId
+        docChildren.push(
+          new Paragraph({
+            text: headingLabel,
+            heading: HeadingLevel.HEADING_2
+          })
+        )
+        docChildren.push(
+          new Paragraph({
+            children: [new TextRun({ text: "System Prompt:", bold: true })]
+          })
+        )
+        addMultiline(entry.systemPrompt)
+        if (entry.userPrompt) {
+          docChildren.push(new Paragraph({ text: "" }))
+          docChildren.push(
+            new Paragraph({
+              children: [new TextRun({ text: "User Prompt:", bold: true })]
+            })
+          )
+          addMultiline(entry.userPrompt)
+        }
+        docChildren.push(new Paragraph({ text: "" }))
+      })
+
+      const doc = new Document({
+        sections: [
+          {
+            children: docChildren
+          }
+        ]
+      })
+
+      const docBlob = await Packer.toBlob(doc)
+      downloadBlob(docBlob, "docx")
+    } catch (error) {
+      console.error("[DESIGN_REVIEW] Failed to build DOCX:", error)
+      const fallbackBlob = new Blob([fallbackPlainText()], {
+        type: "text/plain"
+      })
+      downloadBlob(fallbackBlob, "txt")
+    }
+  }, [promptsAvailable, promptsUsed, selectedHypothesis])
 
   const designReportCard = generatedDesign &&
     typeof generatedDesign === "object" && (
@@ -361,6 +498,16 @@ export function DesignReview({
           <CardTitle>Experiment Design</CardTitle>
           {generatedDesign && (
             <div className="flex flex-wrap gap-2 pt-3">
+              {promptsAvailable && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleDownloadPrompts}
+                >
+                  <Download className="mr-2 size-4" />
+                  Download Prompts (.doc)
+                </Button>
+              )}
               <TooltipProvider>
                 <Tooltip>
                   <TooltipTrigger asChild>
