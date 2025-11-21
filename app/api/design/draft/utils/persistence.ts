@@ -9,14 +9,19 @@ import {
   LogEntry
 } from "../types/interfaces"
 
-const DATA_DIR = path.join(
-  process.cwd(),
-  "app",
-  "api",
-  "design",
-  "draft",
-  "data"
-)
+const DATA_DIR = (() => {
+  // Vercel and other serverless providers mount the application directory as read-only.
+  // Fall back to /tmp (or platform-provided temp dir) when running in those environments.
+  const tempRoot =
+    process.env.TMPDIR || process.env.TEMP || process.env.TMP || "/tmp"
+
+  const baseDir =
+    process.env.VERCEL || process.env.NODE_ENV === "production"
+      ? tempRoot
+      : path.join(process.cwd(), "app", "api", "design", "draft")
+
+  return path.join(baseDir, "data")
+})()
 
 const useSupabasePersistence =
   Boolean(process.env.NEXT_PUBLIC_SUPABASE_URL) &&
