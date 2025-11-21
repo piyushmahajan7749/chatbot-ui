@@ -218,30 +218,55 @@ export const processDesignDraft = inngest.createFunction(
       for (let i = 0; i < topHypotheses.length; i++) {
         for (let j = i + 1; j < topHypotheses.length; j++) {
           const result = rankingResults[matchIndex]
-          if (result.status === "success" && result.output) {
-            const winner = result.output.winner as "A" | "B"
-            const hypoA = topHypotheses[i]
-            const hypoB = topHypotheses[j]
 
-            const [newEloA, newEloB] = updateElo(
-              hypoA.elo || INITIAL_ELO,
-              hypoB.elo || INITIAL_ELO,
-              winner
+          if (!result) {
+            throw new Error(`Ranking task ${matchIndex} returned no result`)
+          }
+
+          if (result.status !== "success" || !result.output) {
+            const errorDetails =
+              result.error ||
+              (result.output
+                ? JSON.stringify(result.output)
+                : "no-ranking-output")
+
+            console.error(
+              `[TOURNAMENT] Ranking task ${rankingTasks[matchIndex]?.taskId} failed: ${errorDetails}`
             )
 
-            await updateHypothesis(hypoA.hypothesisId, { elo: newEloA })
-            await updateHypothesis(hypoB.hypothesisId, { elo: newEloB })
-
-            await saveTournamentMatch({
-              matchId: uuidv4(),
-              planId: plan.planId,
-              hypothesisA: hypoA.hypothesisId,
-              hypothesisB: hypoB.hypothesisId,
-              winner: winner === "A" ? hypoA.hypothesisId : hypoB.hypothesisId,
-              createdAt: new Date().toISOString(),
-              rankingOutput: result.output
-            })
+            throw new Error(
+              `Ranking task failed for pair ${i}-${j}: ${errorDetails}`
+            )
           }
+
+          const winner = result.output.winner as "A" | "B"
+          if (winner !== "A" && winner !== "B") {
+            throw new Error(
+              `Ranking task returned invalid winner (${winner}) for pair ${i}-${j}`
+            )
+          }
+
+          const hypoA = topHypotheses[i]
+          const hypoB = topHypotheses[j]
+
+          const [newEloA, newEloB] = updateElo(
+            hypoA.elo || INITIAL_ELO,
+            hypoB.elo || INITIAL_ELO,
+            winner
+          )
+
+          await updateHypothesis(hypoA.hypothesisId, { elo: newEloA })
+          await updateHypothesis(hypoB.hypothesisId, { elo: newEloB })
+
+          await saveTournamentMatch({
+            matchId: uuidv4(),
+            planId: plan.planId,
+            hypothesisA: hypoA.hypothesisId,
+            hypothesisB: hypoB.hypothesisId,
+            winner: winner === "A" ? hypoA.hypothesisId : hypoB.hypothesisId,
+            createdAt: new Date().toISOString(),
+            rankingOutput: result.output
+          })
           matchIndex++
         }
       }
