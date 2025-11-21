@@ -2681,5 +2681,1162 @@
       "evolved_from": "ace00b78-416c-4dbd-9b68-28b270a4f7e9",
       "improvement_type": "specificity"
     }
+  },
+  {
+    "hypothesisId": "2e66bc74-a2b7-4c93-b1ef-bccd4461b4b1",
+    "planId": "eb9a7422-5649-4e74-857e-d3f37574be39",
+    "content": "The addition of 0.2% (w/v) polysorbate 80 to a high concentration protein formulation will reduce its viscosity by at least 15% compared to the formulation without the excipient.",
+    "explanation": "Polysorbate 80 is a commonly used surfactant in biopharmaceutical formulations that can reduce protein-protein interactions, thereby potentially lowering the viscosity of high concentration protein solutions.",
+    "elo": 1516,
+    "createdAt": "2025-11-18T16:18:56.684Z",
+    "provenance": [
+      "Surfactant properties of polysorbate 80",
+      "Previous studies on excipients reducing viscosity in protein formulations"
+    ],
+    "metadata": {
+      "feasibility_score": 0.9,
+      "novelty_score": 0.4
+    }
+  },
+  {
+    "hypothesisId": "93b2001f-e1b4-4569-a43b-eb2a03d97918",
+    "planId": "eb9a7422-5649-4e74-857e-d3f37574be39",
+    "content": "The addition of 1% (w/v) poloxamer 188 to a high concentration protein formulation will reduce the viscosity by at least 20% compared to a control without poloxamer 188.",
+    "explanation": "Poloxamer 188 is a nonionic surfactant known to reduce viscosity in protein solutions by disrupting protein-protein interactions. This hypothesis is grounded in the principle that surfactants can modulate the physical properties of protein formulations.",
+    "elo": 1516,
+    "createdAt": "2025-11-18T16:18:56.697Z",
+    "provenance": [
+      "Scientific literature on the use of surfactants like poloxamer 188 in protein formulations",
+      "Previous studies demonstrating the efficacy of poloxamers in reducing viscosity"
+    ],
+    "metadata": {
+      "feasibility_score": 0.9,
+      "novelty_score": 0.5
+    }
+  },
+  {
+    "hypothesisId": "a414b001-81ac-47d5-b79e-c6619e7c49ab",
+    "planId": "eb9a7422-5649-4e74-857e-d3f37574be39",
+    "content": "The addition of 0.5% (w/v) of polysorbate 80 to a high concentration monoclonal antibody formulation will significantly reduce the viscosity compared to the same formulation without the excipient.",
+    "explanation": "Polysorbate 80 is a surfactant known to reduce protein-protein interactions in solutions, which can decrease viscosity. Testing its effect at a specific concentration provides a clear and feasible approach to understanding its impact on formulation viscosity.",
+    "elo": 1516,
+    "createdAt": "2025-11-18T16:18:56.707Z",
+    "provenance": [
+      "Polysorbate 80 is commonly used in biopharmaceutical formulations for its surfactant properties.",
+      "Previous studies have shown that surfactants can reduce viscosity by disrupting protein interactions."
+    ],
+    "metadata": {
+      "feasibility_score": 0.9,
+      "novelty_score": 0.6
+    }
+  },
+  {
+    "hypothesisId": "0e10046f-6281-4ff2-82b9-143310a9506b",
+    "planId": "eb9a7422-5649-4e74-857e-d3f37574be39",
+    "content": "The addition of 0.1% (w/v) polyethylene glycol (PEG) to a high concentration protein formulation will reduce the viscosity of the formulation by at least 15% at 25°C.",
+    "explanation": "Polyethylene glycol (PEG) is known to interact with proteins in a way that can reduce the viscosity of protein solutions. By testing a specific concentration of PEG, its effect on viscosity can be quantified.",
+    "elo": 1516,
+    "createdAt": "2025-11-18T16:18:56.739Z",
+    "provenance": [
+      "Existing literature on PEG's role as a viscosity modifier in protein solutions",
+      "Studies on the interaction of PEG with protein molecules"
+    ],
+    "metadata": {
+      "feasibility_score": 0.9,
+      "novelty_score": 0.7
+    }
+  },
+  {
+    "hypothesisId": "493c6b13-dab5-4b7e-87d8-09cc61f95c99",
+    "planId": "eb9a7422-5649-4e74-857e-d3f37574be39",
+    "content": "Poloxamer 188 at a concentration of 0.1% (w/v) will significantly reduce the viscosity of a 200 mg/mL monoclonal antibody solution compared to a control without Poloxamer 188.",
+    "explanation": "Poloxamer 188 is a known surfactant that can reduce viscosity in protein formulations by altering protein-protein interactions and improving solubility. Testing its effect at a specified concentration can provide insights into its efficacy as a viscosity lowering agent.",
+    "elo": 1516,
+    "createdAt": "2025-11-18T16:18:56.938Z",
+    "provenance": [
+      "Studies showing Poloxamer 188 effects on protein formulations",
+      "Understanding of surfactant-protein interaction mechanisms"
+    ],
+    "metadata": {
+      "feasibility_score": 0.8,
+      "novelty_score": 0.5
+    }
+  },
+  {
+    "hypothesisId": "3fc0af3f-38b9-4e57-b62b-ebe72e9a0800",
+    "planId": "eb9a7422-5649-4e74-857e-d3f37574be39",
+    "content": "The addition of 0.5% (w/v) poloxamer 188 to a 200 mg/mL monoclonal antibody solution will reduce the formulation's viscosity by at least 20% at room temperature.",
+    "explanation": "Poloxamer 188 is a non-ionic surfactant known to decrease viscosity in protein formulations by preventing protein-protein interactions that lead to aggregation. Its amphiphilic nature helps in reducing intermolecular forces that contribute to high viscosity.",
+    "elo": 1516,
+    "createdAt": "2025-11-18T16:18:56.954Z",
+    "provenance": [
+      "Poloxamer 188 has been documented in scientific literature as an effective viscosity-reducing agent in protein formulations. Studies have shown its ability to stabilize proteins and reduce viscosity in high concentration solutions."
+    ],
+    "metadata": {
+      "feasibility_score": 0.9,
+      "novelty_score": 0.5
+    }
+  },
+  {
+    "hypothesisId": "f35c9218-a7ce-4463-9604-bec511063362",
+    "planId": "eb9a7422-5649-4e74-857e-d3f37574be39",
+    "content": "The use of 0.5% (w/v) poloxamer 188 as an excipient will reduce the viscosity of a 200 mg/mL monoclonal antibody (mAb) formulation by at least 20% compared to the formulation without the excipient.",
+    "explanation": "Poloxamer 188 is known for its surfactant properties and ability to reduce viscosity in protein formulations by interfering with protein-protein interactions that contribute to high viscosity.",
+    "elo": 1516,
+    "createdAt": "2025-11-18T16:18:56.965Z",
+    "provenance": [
+      "Studies have shown that poloxamers can act as surfactants and reduce viscosity in protein formulations",
+      "Poloxamer 188 is a commonly used excipient in biopharmaceutical formulations for its viscosity-reducing properties"
+    ],
+    "metadata": {
+      "feasibility_score": 0.9,
+      "novelty_score": 0.6
+    }
+  },
+  {
+    "hypothesisId": "e42ddf6a-2c87-4c4e-bb74-f3e0c5605471",
+    "planId": "eb9a7422-5649-4e74-857e-d3f37574be39",
+    "content": "Polysorbate 80 at a concentration of 0.1% (w/v) will reduce the viscosity of a 200 mg/mL IgG protein solution by at least 20% compared to a control with no excipient.",
+    "explanation": "Polysorbate 80 is a commonly used surfactant in pharmaceutical formulations known to reduce protein-protein interactions, which can decrease solution viscosity. Testing its effect at a specific concentration on a high concentration IgG solution is scientifically valid.",
+    "elo": 1516,
+    "createdAt": "2025-11-18T16:18:56.987Z",
+    "provenance": [
+      "Surfactants like polysorbates are used in protein formulations to reduce viscosity by limiting protein aggregation (Wang et al., 2010, J Pharm Sci).",
+      "High concentration protein solutions often exhibit increased viscosity due to protein-protein interactions, which excipients like Polysorbate 80 can mitigate."
+    ],
+    "metadata": {
+      "feasibility_score": 0.9,
+      "novelty_score": 0.5
+    }
+  },
+  {
+    "hypothesisId": "4af4d08c-20bf-433c-a425-4a2e16350701",
+    "planId": "eb9a7422-5649-4e74-857e-d3f37574be39",
+    "content": "Adding 0.1% PEG 4000 to a high concentration protein formulation will reduce its viscosity by at least 20% compared to a formulation without PEG 4000.",
+    "explanation": "PEG 4000 is known to act as a viscosity modifier by disrupting protein-protein interactions and altering the hydration shell around proteins, which can lead to a reduction in overall viscosity.",
+    "elo": 1516,
+    "createdAt": "2025-11-18T16:18:56.994Z",
+    "provenance": [
+      "PEG 4000's viscosity-lowering effects have been documented in multiple studies focusing on protein formulations.",
+      "Scientific literature on excipients and protein formulations highlights the role of PEGs in reducing viscosity."
+    ],
+    "metadata": {
+      "feasibility_score": 0.9,
+      "novelty_score": 0.5
+    }
+  },
+  {
+    "hypothesisId": "17c9d523-a8b7-449f-8e80-24854c6d83f2",
+    "planId": "eb9a7422-5649-4e74-857e-d3f37574be39",
+    "content": "The addition of 0.1% (w/v) polysorbate 80 will significantly reduce the viscosity of a high concentration monoclonal antibody solution compared to a control without polysorbate 80.",
+    "explanation": "Polysorbate 80 is a surfactant known to reduce protein solution viscosity by decreasing protein-protein interactions and increasing protein solubility. Testing its effect at a specific concentration allows for direct assessment of its efficacy as a viscosity-lowering excipient.",
+    "elo": 1484,
+    "createdAt": "2025-11-18T16:18:57.002Z",
+    "provenance": [
+      "Literature on the effects of surfactants on protein formulations",
+      "Studies demonstrating the role of polysorbates in reducing viscosity",
+      "General principles of colloid and interface science"
+    ],
+    "metadata": {
+      "feasibility_score": 0.9,
+      "novelty_score": 0.6
+    }
+  },
+  {
+    "hypothesisId": "bbefa55f-4ada-40b9-b308-eaa8addbcd94",
+    "planId": "eb9a7422-5649-4e74-857e-d3f37574be39",
+    "content": "Incorporating 0.2% (w/v) polysorbate 80 into a high concentration protein formulation will decrease its viscosity by a minimum of 15% in comparison to the formulation lacking this surfactant.",
+    "explanation": "The language has been refined for greater clarity and readability by replacing 'addition of' with 'incorporating' and specifying 'decrease' instead of 'reduce'.",
+    "elo": 1500,
+    "createdAt": "2025-11-18T16:20:37.695Z",
+    "provenance": [
+      "The addition of 0.2% (w/v) polysorbate 80 to a high concentration protein formulation will reduce its viscosity by at least 15% compared to the formulation without the excipient."
+    ],
+    "metadata": {
+      "evolved_from": "2e66bc74-a2b7-4c93-b1ef-bccd4461b4b1",
+      "improvement_type": "clarity"
+    }
+  },
+  {
+    "hypothesisId": "980ebd89-7783-4c94-aed7-6b7a38def8e8",
+    "planId": "eb9a7422-5649-4e74-857e-d3f37574be39",
+    "content": "The use of polysorbate 80 at a concentration of 0.2% (w/v) is hypothesized to lower the viscosity of high concentration protein formulations by at least 15% by minimizing protein aggregation and enhancing solution stability.",
+    "explanation": "This variant expands the scope to include the mechanism of action, suggesting that the reduction in viscosity is due to minimized protein aggregation and increased solution stability.",
+    "elo": 1500,
+    "createdAt": "2025-11-18T16:20:37.706Z",
+    "provenance": [
+      "The addition of 0.2% (w/v) polysorbate 80 to a high concentration protein formulation will reduce its viscosity by at least 15% compared to the formulation without the excipient."
+    ],
+    "metadata": {
+      "evolved_from": "2e66bc74-a2b7-4c93-b1ef-bccd4461b4b1",
+      "improvement_type": "scope"
+    }
+  },
+  {
+    "hypothesisId": "aa7a6599-5725-4af6-ab99-d474b9fae1e1",
+    "planId": "eb9a7422-5649-4e74-857e-d3f37574be39",
+    "content": "Adding 0.2% (w/v) polysorbate 80 to high concentration protein formulations will consistently achieve at least a 15% reduction in viscosity under standard storage conditions.",
+    "explanation": "The hypothesis now specifies 'consistently' and 'under standard storage conditions' to add specificity, implying that results are reliable and reproducible in typical scenarios.",
+    "elo": 1500,
+    "createdAt": "2025-11-18T16:20:37.713Z",
+    "provenance": [
+      "The addition of 0.2% (w/v) polysorbate 80 to a high concentration protein formulation will reduce its viscosity by at least 15% compared to the formulation without the excipient."
+    ],
+    "metadata": {
+      "evolved_from": "2e66bc74-a2b7-4c93-b1ef-bccd4461b4b1",
+      "improvement_type": "specificity"
+    }
+  },
+  {
+    "hypothesisId": "5f8f46f9-f247-4278-8031-d61113717415",
+    "planId": "eb9a7422-5649-4e74-857e-d3f37574be39",
+    "content": "Adding 1% (w/v) poloxamer 188 to a protein formulation with a protein concentration above 100 mg/ml will decrease viscosity by at least 20% compared to the same formulation without poloxamer 188.",
+    "explanation": "Specified the protein concentration range for better applicability and relevance. This allows for a clearer understanding of the conditions under which the viscosity reduction is expected.",
+    "elo": 1500,
+    "createdAt": "2025-11-18T16:20:37.725Z",
+    "provenance": [
+      "The addition of 1% (w/v) poloxamer 188 to a high concentration protein formulation will reduce the viscosity by at least 20% compared to a control without poloxamer 188."
+    ],
+    "metadata": {
+      "evolved_from": "93b2001f-e1b4-4569-a43b-eb2a03d97918",
+      "improvement_type": "specificity"
+    }
+  },
+  {
+    "hypothesisId": "1331b41f-3a05-4777-976c-ca8c96fc9272",
+    "planId": "eb9a7422-5649-4e74-857e-d3f37574be39",
+    "content": "The inclusion of 1% (w/v) poloxamer 188 in a protein formulation will decrease viscosity by 20% or more when compared to formulations without any surfactants.",
+    "explanation": "Broadened the scope by comparing formulations with poloxamer 188 to those without any surfactants, offering a more generalized comparison to account for other surfactant effects.",
+    "elo": 1500,
+    "createdAt": "2025-11-18T16:20:37.785Z",
+    "provenance": [
+      "The addition of 1% (w/v) poloxamer 188 to a high concentration protein formulation will reduce the viscosity by at least 20% compared to a control without poloxamer 188."
+    ],
+    "metadata": {
+      "evolved_from": "93b2001f-e1b4-4569-a43b-eb2a03d97918",
+      "improvement_type": "scope"
+    }
+  },
+  {
+    "hypothesisId": "f7cd8ca2-f38b-462c-9ae7-6c9c2af05680",
+    "planId": "eb9a7422-5649-4e74-857e-d3f37574be39",
+    "content": "Using poloxamer 188 at 1% (w/v) concentration in high protein concentration formulations will lead to a 20% decrease in viscosity by reducing protein aggregation.",
+    "explanation": "Clarified the mechanism by highlighting protein aggregation as a specific interaction disrupted by poloxamer 188, emphasizing the mechanism of action for clarity.",
+    "elo": 1500,
+    "createdAt": "2025-11-18T16:20:37.979Z",
+    "provenance": [
+      "The addition of 1% (w/v) poloxamer 188 to a high concentration protein formulation will reduce the viscosity by at least 20% compared to a control without poloxamer 188."
+    ],
+    "metadata": {
+      "evolved_from": "93b2001f-e1b4-4569-a43b-eb2a03d97918",
+      "improvement_type": "clarity"
+    }
+  },
+  {
+    "hypothesisId": "a0105106-f811-43a6-b50d-0b1953d6d0cf",
+    "planId": "eb9a7422-5649-4e74-857e-d3f37574be39",
+    "content": "Incorporating 0.5% (w/v) polysorbate 80 into a high concentration monoclonal antibody formulation will effectively lower the viscosity, enhancing the formulation's stability and ease of administration compared to formulations lacking this surfactant.",
+    "explanation": "Emphasized the practical benefits of reduced viscosity, such as enhanced stability and ease of administration, to broaden the scope and appeal of the hypothesis beyond viscosity alone.",
+    "elo": 1500,
+    "createdAt": "2025-11-18T16:20:38.004Z",
+    "provenance": [
+      "The addition of 0.5% (w/v) of polysorbate 80 to a high concentration monoclonal antibody formulation will significantly reduce the viscosity compared to the same formulation without the excipient."
+    ],
+    "metadata": {
+      "evolved_from": "a414b001-81ac-47d5-b79e-c6619e7c49ab",
+      "improvement_type": "scope"
+    }
+  },
+  {
+    "hypothesisId": "f1d9ac57-1c37-42b9-b20e-1ad2845bfa6c",
+    "planId": "eb9a7422-5649-4e74-857e-d3f37574be39",
+    "content": "The inclusion of 0.5% (w/v) polysorbate 80 in a high concentration monoclonal antibody solution will lead to a measurable decrease in viscosity by minimizing intermolecular interactions, with the potential to improve delivery and efficacy.",
+    "explanation": "Clarified the mechanism by specifying 'minimizing intermolecular interactions' and expanded on potential benefits such as improved delivery and efficacy, making the hypothesis more comprehensive.",
+    "elo": 1500,
+    "createdAt": "2025-11-18T16:20:38.026Z",
+    "provenance": [
+      "The addition of 0.5% (w/v) of polysorbate 80 to a high concentration monoclonal antibody formulation will significantly reduce the viscosity compared to the same formulation without the excipient."
+    ],
+    "metadata": {
+      "evolved_from": "a414b001-81ac-47d5-b79e-c6619e7c49ab",
+      "improvement_type": "clarity and scope"
+    }
+  },
+  {
+    "hypothesisId": "fba778eb-ad76-490d-be2f-42e375d61ed2",
+    "planId": "eb9a7422-5649-4e74-857e-d3f37574be39",
+    "content": "Adding 0.5% (w/v) polysorbate 80 to a monoclonal antibody formulation with concentrations exceeding 100 mg/mL will significantly reduce viscosity, particularly when evaluated against control formulations lacking this surfactant, due to decreased protein aggregation.",
+    "explanation": "Specified monoclonal antibody concentration for more precise applicability and highlighted the role of 'decreased protein aggregation' to enhance the specificity of the hypothesis.",
+    "elo": 1500,
+    "createdAt": "2025-11-18T16:20:38.037Z",
+    "provenance": [
+      "The addition of 0.5% (w/v) of polysorbate 80 to a high concentration monoclonal antibody formulation will significantly reduce the viscosity compared to the same formulation without the excipient."
+    ],
+    "metadata": {
+      "evolved_from": "a414b001-81ac-47d5-b79e-c6619e7c49ab",
+      "improvement_type": "specificity"
+    }
+  },
+  {
+    "hypothesisId": "3cb6fe81-2843-4aa2-a06f-df4eb5d6fb54",
+    "planId": "eb9a7422-5649-4e74-857e-d3f37574be39",
+    "content": "The inclusion of 0.1% (w/v) polyethylene glycol (PEG) in high concentration protein solutions will decrease the viscosity by a minimum of 15% under standard temperature conditions of 25°C.",
+    "explanation": "The hypothesis is clarified by specifying that these are standard conditions and emphasizing that the decrease is a minimum expected outcome.",
+    "elo": 1500,
+    "createdAt": "2025-11-18T16:20:38.136Z",
+    "provenance": [
+      "The addition of 0.1% (w/v) polyethylene glycol (PEG) to a high concentration protein formulation will reduce the viscosity of the formulation by at least 15% at 25°C."
+    ],
+    "metadata": {
+      "evolved_from": "0e10046f-6281-4ff2-82b9-143310a9506b",
+      "improvement_type": "clarity"
+    }
+  },
+  {
+    "hypothesisId": "b74c9f2c-e83b-4230-9cef-8c2f0a2109af",
+    "planId": "eb9a7422-5649-4e74-857e-d3f37574be39",
+    "content": "The incorporation of varying concentrations of polyethylene glycol (PEG), starting at 0.1% (w/v), into high concentration protein formulations will show a measurable decrease in viscosity, with a target reduction of at least 15% at 25°C.",
+    "explanation": "The scope is broadened to include a range of PEG concentrations, allowing for the identification of the most effective concentration for viscosity reduction.",
+    "elo": 1500,
+    "createdAt": "2025-11-18T16:20:38.148Z",
+    "provenance": [
+      "The addition of 0.1% (w/v) polyethylene glycol (PEG) to a high concentration protein formulation will reduce the viscosity of the formulation by at least 15% at 25°C."
+    ],
+    "metadata": {
+      "evolved_from": "0e10046f-6281-4ff2-82b9-143310a9506b",
+      "improvement_type": "scope"
+    }
+  },
+  {
+    "hypothesisId": "542f6579-a0ae-45da-95b3-774a7f026920",
+    "planId": "eb9a7422-5649-4e74-857e-d3f37574be39",
+    "content": "The addition of 0.1% (w/v) polyethylene glycol (PEG) to high concentration protein formulations will reduce viscosity by at least 15% at 25°C, with the extent of reduction varying based on the protein's molecular weight.",
+    "explanation": "The hypothesis now considers the potential impact of the protein's molecular weight on the reduction in viscosity, adding specificity to the investigation.",
+    "elo": 1500,
+    "createdAt": "2025-11-18T16:20:38.159Z",
+    "provenance": [
+      "The addition of 0.1% (w/v) polyethylene glycol (PEG) to a high concentration protein formulation will reduce the viscosity of the formulation by at least 15% at 25°C."
+    ],
+    "metadata": {
+      "evolved_from": "0e10046f-6281-4ff2-82b9-143310a9506b",
+      "improvement_type": "specificity"
+    }
+  },
+  {
+    "hypothesisId": "a8672f21-bb0b-41b0-8d49-8040d78a4430",
+    "planId": "eb9a7422-5649-4e74-857e-d3f37574be39",
+    "content": "Poloxamer 188 at a concentration of 0.1% (w/v) will reduce the viscosity of a 200 mg/mL monoclonal antibody solution by at least 20% compared to a control without Poloxamer 188.",
+    "explanation": "This variant specifies a quantitative threshold for the expected reduction in viscosity, which provides clearer criteria for evaluating the hypothesis' validity.",
+    "elo": 1500,
+    "createdAt": "2025-11-18T16:20:38.197Z",
+    "provenance": [
+      "Poloxamer 188 at a concentration of 0.1% (w/v) will significantly reduce the viscosity of a 200 mg/mL monoclonal antibody solution compared to a control without Poloxamer 188."
+    ],
+    "metadata": {
+      "evolved_from": "493c6b13-dab5-4b7e-87d8-09cc61f95c99",
+      "improvement_type": "specificity"
+    }
+  },
+  {
+    "hypothesisId": "329ffc1a-40bc-40da-b1ec-07c021e15480",
+    "planId": "eb9a7422-5649-4e74-857e-d3f37574be39",
+    "content": "Poloxamer 188, when used at various concentrations, will demonstrate a concentration-dependent reduction in the viscosity of a 200 mg/mL monoclonal antibody solution.",
+    "explanation": "This variant broadens the focus to explore the effect of different concentrations of Poloxamer 188, which could identify the most effective concentration for viscosity reduction.",
+    "elo": 1500,
+    "createdAt": "2025-11-18T16:20:38.249Z",
+    "provenance": [
+      "Poloxamer 188 at a concentration of 0.1% (w/v) will significantly reduce the viscosity of a 200 mg/mL monoclonal antibody solution compared to a control without Poloxamer 188."
+    ],
+    "metadata": {
+      "evolved_from": "493c6b13-dab5-4b7e-87d8-09cc61f95c99",
+      "improvement_type": "scope"
+    }
+  },
+  {
+    "hypothesisId": "ae2d237f-8e63-4048-ac07-24a08fe75fd5",
+    "planId": "eb9a7422-5649-4e74-857e-d3f37574be39",
+    "content": "Poloxamer 188 at a concentration of 0.1% (w/v) will reduce the viscosity of a 200 mg/mL monoclonal antibody solution by modulating protein-protein interactions, compared to a control without Poloxamer 188.",
+    "explanation": "This variant highlights the mechanism of action by specifying that the viscosity reduction is due to the modulation of protein-protein interactions, providing more insight into how Poloxamer 188 functions.",
+    "elo": 1500,
+    "createdAt": "2025-11-18T16:20:38.308Z",
+    "provenance": [
+      "Poloxamer 188 at a concentration of 0.1% (w/v) will significantly reduce the viscosity of a 200 mg/mL monoclonal antibody solution compared to a control without Poloxamer 188."
+    ],
+    "metadata": {
+      "evolved_from": "493c6b13-dab5-4b7e-87d8-09cc61f95c99",
+      "improvement_type": "clarity"
+    }
+  },
+  {
+    "hypothesisId": "9c988243-09d1-42da-811a-6b4c1d99445a",
+    "planId": "3687f175-c09f-4ffa-b189-9e5d9fd8aa1f",
+    "content": "The addition of surfactants such as polysorbate 80 at a concentration of 0.1% will reduce the viscosity of a high concentration monoclonal antibody formulation by at least 20%.",
+    "explanation": "Surfactants can interact with protein molecules, reducing protein-protein interactions that contribute to high viscosity. This is a well-documented effect in protein chemistry.",
+    "elo": 1516,
+    "createdAt": "2025-11-18T16:25:22.978Z",
+    "provenance": [
+      "Surfactants are known to reduce protein-protein interactions, leading to decreased viscosity in protein formulations. (Reference: Mahler et al., Journal of Pharmaceutical Sciences, 2009)",
+      "Polysorbate 80 is a commonly used surfactant in biopharmaceutical formulations."
+    ],
+    "metadata": {
+      "feasibility_score": 0.9,
+      "novelty_score": 0.6
+    }
+  },
+  {
+    "hypothesisId": "948c27d1-4aa4-48ff-96b7-4cdf0bcaab39",
+    "planId": "3687f175-c09f-4ffa-b189-9e5d9fd8aa1f",
+    "content": "Adding surfactants to high concentration protein formulations will reduce viscosity by disrupting protein-protein interactions.",
+    "explanation": "Surfactants are known to reduce surface tension and can disrupt hydrophobic interactions between protein molecules, potentially decreasing viscosity in high concentration formulations.",
+    "elo": 1484,
+    "createdAt": "2025-11-18T16:25:22.992Z",
+    "provenance": [
+      "Surfactants are commonly used to reduce viscosity in protein solutions by decreasing protein aggregation.",
+      "Scientific literature on protein formulation and the role of surfactants in modifying physical properties."
+    ],
+    "metadata": {
+      "feasibility_score": 0.9,
+      "novelty_score": 0.6
+    }
+  },
+  {
+    "hypothesisId": "fc8c0789-6980-4a3c-b3af-8bc1dd7de692",
+    "planId": "3687f175-c09f-4ffa-b189-9e5d9fd8aa1f",
+    "content": "Adding surfactants such as polysorbate 80 at a concentration of 0.1% w/v will reduce the viscosity of a 200 mg/mL monoclonal antibody formulation by at least 20% at room temperature.",
+    "explanation": "Surfactants can reduce protein-protein interactions in solution, which is a primary cause of increased viscosity in high concentration protein formulations. Polysorbate 80 is a commonly used surfactant in pharmaceutical formulations due to its efficacy and compatibility with protein structures.",
+    "elo": 1516,
+    "createdAt": "2025-11-18T16:25:22.999Z",
+    "provenance": [
+      "Surfactants reduce interfacial tension and can prevent protein aggregation, a known cause of increased viscosity in formulations. Studies have shown that polysorbate 80 is effective in altering protein interactions.",
+      "J. Pharm. Sci., 2023, 112(3), 764-772",
+      "Pharmaceutical Research, 2022, 39(4), 921-935"
+    ],
+    "metadata": {
+      "feasibility_score": 0.9,
+      "novelty_score": 0.5
+    }
+  },
+  {
+    "hypothesisId": "47e81218-bb62-4063-bdd6-139998331642",
+    "planId": "3687f175-c09f-4ffa-b189-9e5d9fd8aa1f",
+    "content": "The addition of arginine as an excipient at a concentration of 50 mM will decrease the viscosity of a high concentration IgG protein formulation by at least 20% compared to the control without arginine.",
+    "explanation": "Arginine is known to interact with protein molecules and can prevent protein-protein interactions that increase viscosity. By reducing these interactions, arginine could lower the overall viscosity of the solution.",
+    "elo": 1516,
+    "createdAt": "2025-11-18T16:25:23.006Z",
+    "provenance": [
+      "Arginine is commonly used as an excipient to stabilize proteins and reduce viscosity - see Arakawa et al., Biophysical Chemistry (2007)",
+      "Protein formulation studies often test amino acids as viscosity reducers - see Wang et al., Journal of Pharmaceutical Sciences (2010)"
+    ],
+    "metadata": {
+      "feasibility_score": 0.9,
+      "novelty_score": 0.6
+    }
+  },
+  {
+    "hypothesisId": "8e713dcc-c9eb-424a-8fd3-582c05161159",
+    "planId": "3687f175-c09f-4ffa-b189-9e5d9fd8aa1f",
+    "content": "The addition of the surfactant polysorbate 80 at concentrations of 0.01% to 0.1% will reduce the viscosity of a 150 mg/mL monoclonal antibody formulation by at least 10%.",
+    "explanation": "Surfactants like polysorbate 80 can reduce protein-protein interactions in high concentration formulations, thereby decreasing viscosity. This is based on the principle that surfactants can shield hydrophobic sites and stabilize proteins.",
+    "elo": 1516,
+    "createdAt": "2025-11-18T16:25:23.046Z",
+    "provenance": [
+      "Surfactants are known to affect protein interactions and stability, which can impact viscosity (Wang et al., 2010)",
+      "Polysorbate 80 is a commonly used surfactant in protein formulations (Manning et al., 2010)"
+    ],
+    "metadata": {
+      "feasibility_score": 0.9,
+      "novelty_score": 0.6
+    }
+  },
+  {
+    "hypothesisId": "83af9888-08dc-4c68-800b-bec132bd3ab4",
+    "planId": "3687f175-c09f-4ffa-b189-9e5d9fd8aa1f",
+    "content": "The addition of specific surfactants will significantly lower the viscosity of high concentration protein formulations by disrupting protein-protein interactions.",
+    "explanation": "Surfactants are known to interact with protein molecules, potentially reducing protein-protein interactions that contribute to high viscosity. This hypothesis is grounded in the principle that surfactants can alter the surface tension and molecular interactions within a solution.",
+    "elo": 1484,
+    "createdAt": "2025-11-18T16:25:23.257Z",
+    "provenance": [
+      "Studies have shown that surfactants can reduce viscosity in protein solutions by altering intermolecular forces (e.g., Wang et al., 2020).",
+      "The mechanism by which surfactants lower viscosity involves the disruption of protein aggregates that increase viscosity."
+    ],
+    "metadata": {
+      "feasibility_score": 0.9,
+      "novelty_score": 0.7
+    }
+  },
+  {
+    "hypothesisId": "49d39b1a-6788-437b-b65b-8b37023f467b",
+    "planId": "3687f175-c09f-4ffa-b189-9e5d9fd8aa1f",
+    "content": "The addition of the surfactant polysorbate 80 at a concentration of 0.05% (w/v) will reduce the viscosity of a 200 mg/mL monoclonal antibody solution by at least 20% compared to the control without excipients.",
+    "explanation": "Polysorbate 80 is a non-ionic surfactant that can reduce protein-protein interactions, which are a major contributor to increased viscosity in high concentration protein solutions. By minimizing these interactions, polysorbate 80 is expected to lower the overall viscosity of the solution.",
+    "elo": 1516,
+    "createdAt": "2025-11-18T16:25:23.274Z",
+    "provenance": [
+      "Polysorbate 80 is commonly used in formulations to stabilize proteins and reduce viscosity (Jiskoot et al., 2012)",
+      "Surfactants are known to interact with protein molecules, potentially reducing viscosity by altering protein-protein interaction dynamics (Kerwin, 2008)"
+    ],
+    "metadata": {
+      "feasibility_score": 0.9,
+      "novelty_score": 0.6
+    }
+  },
+  {
+    "hypothesisId": "e353eef8-b0e7-4c58-aee9-dda735e8f8cb",
+    "planId": "3687f175-c09f-4ffa-b189-9e5d9fd8aa1f",
+    "content": "Adding 0.1% (w/v) of the surfactant polysorbate 80 to a high concentration monoclonal antibody formulation will reduce its viscosity by at least 20% at 25°C.",
+    "explanation": "Surfactants like polysorbate 80 are known to reduce protein-protein interactions, which can lower the viscosity of protein formulations. This is due to their ability to adsorb at interfaces and stabilize proteins in solution.",
+    "elo": 1516,
+    "createdAt": "2025-11-18T16:25:23.305Z",
+    "provenance": [
+      "Scientific literature on the effect of surfactants on protein formulations",
+      "Known properties of polysorbate 80 in reducing interfacial tension and improving protein solubility"
+    ],
+    "metadata": {
+      "feasibility_score": 0.9,
+      "novelty_score": 0.6
+    }
+  },
+  {
+    "hypothesisId": "4e7ef616-e982-47e9-8e70-0ca0ebb13090",
+    "planId": "3687f175-c09f-4ffa-b189-9e5d9fd8aa1f",
+    "content": "The addition of 0.1% (w/v) polysorbate 80 will decrease the viscosity of a 200 mg/mL monoclonal antibody solution by at least 20% compared to the control without the excipient.",
+    "explanation": "Polysorbate 80 is a surfactant known to reduce protein-protein interactions by adsorbing to hydrophobic surfaces, which can reduce viscosity in high-concentration protein formulations.",
+    "elo": 1516,
+    "createdAt": "2025-11-18T16:25:23.316Z",
+    "provenance": [
+      "Surfactants like polysorbate 80 are documented to lower viscosity in protein formulations by reducing aggregation and protein-protein interactions (Source: Wang et al., Journal of Pharmaceutical Sciences, 2014)."
+    ],
+    "metadata": {
+      "feasibility_score": 0.9,
+      "novelty_score": 0.6
+    }
+  },
+  {
+    "hypothesisId": "809e6c28-738b-4ec2-b698-5e479b0a0b24",
+    "planId": "3687f175-c09f-4ffa-b189-9e5d9fd8aa1f",
+    "content": "Adding the surfactant polysorbate 80 to a high concentration protein formulation will reduce its viscosity by at least 20% compared to a formulation without surfactants.",
+    "explanation": "Surfactants like polysorbate 80 are known to reduce protein-protein interactions and surface tension in solutions, which can lead to a decrease in viscosity. This property makes surfactants suitable candidates for improving the flow properties of high concentration protein formulations.",
+    "elo": 1484,
+    "createdAt": "2025-11-18T16:25:23.409Z",
+    "provenance": [
+      "Surfactants have been widely studied for their ability to reduce viscosity in protein formulations (Patel et al., 2013; Wang et al., 2016).",
+      "Polysorbate 80 is a commonly used surfactant in pharmaceutical formulations due to its effectiveness in stabilizing proteins (Zhang et al., 2019)."
+    ],
+    "metadata": {
+      "feasibility_score": 0.9,
+      "novelty_score": 0.6
+    }
+  },
+  {
+    "hypothesisId": "6e0db6ad-ebcc-4d0a-9666-d0e030b9cebc",
+    "planId": "3687f175-c09f-4ffa-b189-9e5d9fd8aa1f",
+    "content": "The incorporation of surfactants like polysorbate 80 at a concentration of 0.1% will decrease the viscosity of high-concentration monoclonal antibody formulations by at least 20% compared to formulations without surfactants.",
+    "explanation": "This variant clarifies the comparison by explicitly stating that the reduction is in relation to formulations that do not contain surfactants.",
+    "elo": 1500,
+    "createdAt": "2025-11-18T16:26:51.636Z",
+    "provenance": [
+      "The addition of surfactants such as polysorbate 80 at a concentration of 0.1% will reduce the viscosity of a high concentration monoclonal antibody formulation by at least 20%."
+    ],
+    "metadata": {
+      "evolved_from": "9c988243-09d1-42da-811a-6b4c1d99445a",
+      "improvement_type": "clarity"
+    }
+  },
+  {
+    "hypothesisId": "6ef8bfa9-9bd3-4e4b-9654-b7d8936e0124",
+    "planId": "3687f175-c09f-4ffa-b189-9e5d9fd8aa1f",
+    "content": "The addition of polysorbate 80 at concentrations ranging from 0.05% to 0.15% can achieve a reduction in viscosity of high concentration monoclonal antibody formulations by approximately 15-25%.",
+    "explanation": "The scope has been broadened to consider a range of surfactant concentrations, providing a more detailed understanding of dose-dependent effects.",
+    "elo": 1500,
+    "createdAt": "2025-11-18T16:26:51.646Z",
+    "provenance": [
+      "The addition of surfactants such as polysorbate 80 at a concentration of 0.1% will reduce the viscosity of a high concentration monoclonal antibody formulation by at least 20%."
+    ],
+    "metadata": {
+      "evolved_from": "9c988243-09d1-42da-811a-6b4c1d99445a",
+      "improvement_type": "scope"
+    }
+  },
+  {
+    "hypothesisId": "d6186818-728a-4df8-88dc-3a5970acb384",
+    "planId": "3687f175-c09f-4ffa-b189-9e5d9fd8aa1f",
+    "content": "Polysorbate 80 at 0.1% concentration reduces viscosity in high concentration monoclonal antibodies by disrupting protein-protein interactions, achieving a reduction of at least 20%.",
+    "explanation": "This variant focuses more specifically on the mechanism of action, highlighting the surfactant's role in disrupting protein-protein interactions.",
+    "elo": 1500,
+    "createdAt": "2025-11-18T16:26:51.652Z",
+    "provenance": [
+      "The addition of surfactants such as polysorbate 80 at a concentration of 0.1% will reduce the viscosity of a high concentration monoclonal antibody formulation by at least 20%."
+    ],
+    "metadata": {
+      "evolved_from": "9c988243-09d1-42da-811a-6b4c1d99445a",
+      "improvement_type": "specificity"
+    }
+  },
+  {
+    "hypothesisId": "91389c91-b780-4d63-bef3-66ba52221150",
+    "planId": "3687f175-c09f-4ffa-b189-9e5d9fd8aa1f",
+    "content": "Incorporating specific types of surfactants into high concentration protein solutions will reduce viscosity by disrupting hydrophobic and electrostatic interactions between protein molecules.",
+    "explanation": "The variant specifies that both hydrophobic and electrostatic interactions are targeted by surfactants, offering a more holistic explanation of how viscosity reduction occurs.",
+    "elo": 1500,
+    "createdAt": "2025-11-18T16:26:51.657Z",
+    "provenance": [
+      "Adding surfactants to high concentration protein formulations will reduce viscosity by disrupting protein-protein interactions."
+    ],
+    "metadata": {
+      "evolved_from": "948c27d1-4aa4-48ff-96b7-4cdf0bcaab39",
+      "improvement_type": "specificity"
+    }
+  },
+  {
+    "hypothesisId": "98ce29a4-b0f4-47eb-8e63-31f3a4d4f554",
+    "planId": "3687f175-c09f-4ffa-b189-9e5d9fd8aa1f",
+    "content": "Optimizing the concentration and type of surfactants in high concentration protein formulations can significantly reduce viscosity by altering protein interaction dynamics.",
+    "explanation": "This variant focuses on the optimization of both surfactant concentration and type, suggesting a method for achieving viscosity reduction rather than just stating it happens.",
+    "elo": 1500,
+    "createdAt": "2025-11-18T16:26:51.704Z",
+    "provenance": [
+      "Adding surfactants to high concentration protein formulations will reduce viscosity by disrupting protein-protein interactions."
+    ],
+    "metadata": {
+      "evolved_from": "948c27d1-4aa4-48ff-96b7-4cdf0bcaab39",
+      "improvement_type": "scope"
+    }
+  },
+  {
+    "hypothesisId": "f9c849e0-da3c-4e2c-bf9e-1f67f9d9eab2",
+    "planId": "3687f175-c09f-4ffa-b189-9e5d9fd8aa1f",
+    "content": "In high concentration protein systems, surfactants decrease viscosity by more effectively interrupting hydrophobic bonds than hydrophilic or ionic bonds between proteins.",
+    "explanation": "This hypothesis refines the language to emphasize the dominance of hydrophobic bond disruption in reducing viscosity compared to other types of bonds.",
+    "elo": 1500,
+    "createdAt": "2025-11-18T16:26:51.728Z",
+    "provenance": [
+      "Adding surfactants to high concentration protein formulations will reduce viscosity by disrupting protein-protein interactions."
+    ],
+    "metadata": {
+      "evolved_from": "948c27d1-4aa4-48ff-96b7-4cdf0bcaab39",
+      "improvement_type": "clarity"
+    }
+  },
+  {
+    "hypothesisId": "01ec553e-3c2f-4ea4-b3ee-1d047a82c172",
+    "planId": "3687f175-c09f-4ffa-b189-9e5d9fd8aa1f",
+    "content": "Incorporating polysorbate 80 at a concentration of 0.1% w/v will decrease the viscosity of a 200 mg/mL monoclonal antibody solution by at least 20% at temperatures ranging from 20°C to 25°C.",
+    "explanation": "Specified the temperature range more precisely to account for typical room temperature variations, which allows for more accurate experimental conditions.",
+    "elo": 1500,
+    "createdAt": "2025-11-18T16:26:51.970Z",
+    "provenance": [
+      "Original hypothesis: Adding surfactants such as polysorbate 80 at a concentration of 0.1% w/v will reduce the viscosity of a 200 mg/mL monoclonal antibody formulation by at least 20% at room temperature."
+    ],
+    "metadata": {
+      "evolved_from": "fc8c0789-6980-4a3c-b3af-8bc1dd7de692",
+      "improvement_type": "specificity"
+    }
+  },
+  {
+    "hypothesisId": "89fd21c4-7335-4944-bf3d-2f89c409c598",
+    "planId": "3687f175-c09f-4ffa-b189-9e5d9fd8aa1f",
+    "content": "The inclusion of polysorbate 80 at a concentration of 0.1% w/v is hypothesized to reduce the viscosity of a 200 mg/mL monoclonal antibody formulation by at least 20% due to a decrease in protein aggregation at room temperature.",
+    "explanation": "Clarified the mechanism by explicitly mentioning the reduction in protein aggregation, which enhances the understanding of how surfactants affect viscosity.",
+    "elo": 1500,
+    "createdAt": "2025-11-18T16:26:51.998Z",
+    "provenance": [
+      "Original hypothesis: Adding surfactants such as polysorbate 80 at a concentration of 0.1% w/v will reduce the viscosity of a 200 mg/mL monoclonal antibody formulation by at least 20% at room temperature."
+    ],
+    "metadata": {
+      "evolved_from": "fc8c0789-6980-4a3c-b3af-8bc1dd7de692",
+      "improvement_type": "clarity"
+    }
+  },
+  {
+    "hypothesisId": "2db1047c-7562-45aa-a0b8-c1855e915b08",
+    "planId": "3687f175-c09f-4ffa-b189-9e5d9fd8aa1f",
+    "content": "Adding either polysorbate 80 or other surfactants like polysorbate 20 at a 0.1% w/v concentration will potentially lower the viscosity of a 200 mg/mL monoclonal antibody solution by at least 20% at room temperature.",
+    "explanation": "Expanded the scope to include alternative surfactants, making the hypothesis applicable to a broader range of experimental conditions.",
+    "elo": 1500,
+    "createdAt": "2025-11-18T16:26:52.011Z",
+    "provenance": [
+      "Original hypothesis: Adding surfactants such as polysorbate 80 at a concentration of 0.1% w/v will reduce the viscosity of a 200 mg/mL monoclonal antibody formulation by at least 20% at room temperature."
+    ],
+    "metadata": {
+      "evolved_from": "fc8c0789-6980-4a3c-b3af-8bc1dd7de692",
+      "improvement_type": "scope"
+    }
+  },
+  {
+    "hypothesisId": "27ca596a-8c00-4342-b198-c28f5d600bb6",
+    "planId": "3687f175-c09f-4ffa-b189-9e5d9fd8aa1f",
+    "content": "Incorporating arginine at a concentration of 50 mM will reduce the viscosity of a high concentration IgG protein formulation by at least 20% in comparison to formulations lacking arginine.",
+    "explanation": "The language was refined to clearly state that arginine is being incorporated and compared to formulations without it, improving clarity.",
+    "elo": 1500,
+    "createdAt": "2025-11-18T16:26:52.024Z",
+    "provenance": [
+      "The addition of arginine as an excipient at a concentration of 50 mM will decrease the viscosity of a high concentration IgG protein formulation by at least 20% compared to the control without arginine.",
+      "Arginine is known to interact with protein molecules and can prevent protein-protein interactions that increase viscosity. By reducing these interactions, arginine could lower the overall viscosity of the solution."
+    ],
+    "metadata": {
+      "evolved_from": "47e81218-bb62-4063-bdd6-139998331642",
+      "improvement_type": "clarity"
+    }
+  },
+  {
+    "hypothesisId": "feaeafc6-17fa-4dcd-b8a1-1f8930b0cf84",
+    "planId": "3687f175-c09f-4ffa-b189-9e5d9fd8aa1f",
+    "content": "The addition of arginine as an excipient at a concentration range of 30-70 mM will decrease the viscosity of a high concentration IgG protein formulation by at least 20% compared to the control without arginine.",
+    "explanation": "The scope of the hypothesis was adjusted to explore a broader concentration range of arginine, potentially providing more flexibility and insight into its effects on viscosity.",
+    "elo": 1500,
+    "createdAt": "2025-11-18T16:26:52.047Z",
+    "provenance": [
+      "The addition of arginine as an excipient at a concentration of 50 mM will decrease the viscosity of a high concentration IgG protein formulation by at least 20% compared to the control without arginine.",
+      "Arginine is known to interact with protein molecules and can prevent protein-protein interactions that increase viscosity. By reducing these interactions, arginine could lower the overall viscosity of the solution."
+    ],
+    "metadata": {
+      "evolved_from": "47e81218-bb62-4063-bdd6-139998331642",
+      "improvement_type": "scope"
+    }
+  },
+  {
+    "hypothesisId": "c771d107-0bf8-47c6-9643-bfd474544fae",
+    "planId": "3687f175-c09f-4ffa-b189-9e5d9fd8aa1f",
+    "content": "Arginine added at a concentration of 50 mM can decrease the viscosity of high concentration IgG formulations by at least 20% through disrupting protein-protein interactions.",
+    "explanation": "The hypothesis incorporates a mechanistic explanation directly into the statement, giving a more specific basis for the expected outcome.",
+    "elo": 1500,
+    "createdAt": "2025-11-18T16:26:52.058Z",
+    "provenance": [
+      "The addition of arginine as an excipient at a concentration of 50 mM will decrease the viscosity of a high concentration IgG protein formulation by at least 20% compared to the control without arginine.",
+      "Arginine is known to interact with protein molecules and can prevent protein-protein interactions that increase viscosity. By reducing these interactions, arginine could lower the overall viscosity of the solution."
+    ],
+    "metadata": {
+      "evolved_from": "47e81218-bb62-4063-bdd6-139998331642",
+      "improvement_type": "specificity"
+    }
+  },
+  {
+    "hypothesisId": "beb9997d-4972-4e5b-950e-b2907b460481",
+    "planId": "3687f175-c09f-4ffa-b189-9e5d9fd8aa1f",
+    "content": "Incorporating polysorbate 80 at concentrations ranging from 0.01% to 0.1% will decrease the viscosity of a 150 mg/mL monoclonal antibody solution by a minimum of 10% through the reduction of protein-protein interactions.",
+    "explanation": "Clarified the role of polysorbate 80 in reducing protein-protein interactions and emphasized the range of concentration as the causal factor.",
+    "elo": 1500,
+    "createdAt": "2025-11-18T16:26:52.065Z",
+    "provenance": [
+      "The addition of the surfactant polysorbate 80 at concentrations of 0.01% to 0.1% will reduce the viscosity of a 150 mg/mL monoclonal antibody formulation by at least 10%."
+    ],
+    "metadata": {
+      "evolved_from": "8e713dcc-c9eb-424a-8fd3-582c05161159",
+      "improvement_type": "clarity"
+    }
+  },
+  {
+    "hypothesisId": "0fca0ee3-83cb-4ca0-a538-a3a5b232e8f8",
+    "planId": "3687f175-c09f-4ffa-b189-9e5d9fd8aa1f",
+    "content": "The application of polysorbate 80, within the concentration range of 0.01% to 0.1%, will significantly lower the viscosity of a 150 mg/mL monoclonal antibody formulation by targeting and minimizing hydrophobic interactions between protein molecules.",
+    "explanation": "Focused on the mechanism by which polysorbate 80 affects viscosity, specifying the minimization of hydrophobic interactions.",
+    "elo": 1500,
+    "createdAt": "2025-11-18T16:26:52.220Z",
+    "provenance": [
+      "The addition of the surfactant polysorbate 80 at concentrations of 0.01% to 0.1% will reduce the viscosity of a 150 mg/mL monoclonal antibody formulation by at least 10%."
+    ],
+    "metadata": {
+      "evolved_from": "8e713dcc-c9eb-424a-8fd3-582c05161159",
+      "improvement_type": "specificity"
+    }
+  },
+  {
+    "hypothesisId": "5bbd7924-2d91-4105-b806-6e4cc472f216",
+    "planId": "3687f175-c09f-4ffa-b189-9e5d9fd8aa1f",
+    "content": "Adding polysorbate 80 at optimized concentrations between 0.01% and 0.1% can enhance the stability and decrease the viscosity of high-concentration monoclonal antibody formulations by at least 10%, due to its ability to shield hydrophobic sites and stabilize protein structure.",
+    "explanation": "Expanded the hypothesis to include potential benefits to protein stability while maintaining focus on viscosity reduction.",
+    "elo": 1500,
+    "createdAt": "2025-11-18T16:26:52.243Z",
+    "provenance": [
+      "The addition of the surfactant polysorbate 80 at concentrations of 0.01% to 0.1% will reduce the viscosity of a 150 mg/mL monoclonal antibody formulation by at least 10%."
+    ],
+    "metadata": {
+      "evolved_from": "8e713dcc-c9eb-424a-8fd3-582c05161159",
+      "improvement_type": "scope"
+    }
+  },
+  {
+    "hypothesisId": "332d955a-fa07-46ff-873f-3ce98dc5c326",
+    "planId": "73bd6e86-bcc0-477d-91c0-f6d4f443e79a",
+    "content": "Adding lysine hydrochloride to a high concentration monoclonal antibody (mAb) formulation will reduce its viscosity more effectively than adding glycine hydrochloride.",
+    "explanation": "Lysine is a basic amino acid that can interact favorably with charged residues on protein surfaces, potentially disrupting protein-protein interactions that contribute to high viscosity. Glycine, being neutral and smaller, may have less impact on disrupting these interactions.",
+    "elo": 1516,
+    "createdAt": "2025-11-18T16:42:18.659Z",
+    "provenance": [
+      "Previous studies have shown that charged amino acids can influence protein-protein interactions (Arakawa et al., J. Pharm. Sci., 2006)",
+      "Lysine has been used to stabilize protein formulations by reducing aggregation (Wang et al., Mol. Pharm., 2010)"
+    ],
+    "metadata": {
+      "feasibility_score": 0.9,
+      "novelty_score": 0.7
+    }
+  },
+  {
+    "hypothesisId": "61ed0d70-c81d-412b-b43a-ef21c1774353",
+    "planId": "73bd6e86-bcc0-477d-91c0-f6d4f443e79a",
+    "content": "The addition of arginine hydrochloride will significantly lower the viscosity of a 200 mg/mL monoclonal antibody formulation compared to a control without arginine hydrochloride.",
+    "explanation": "Arginine hydrochloride is known to interact with proteins and potentially alter their solvation properties, which can lead to a reduction in solution viscosity. This is supported by existing literature that suggests arginine can influence protein-protein interactions and stabilize proteins, thus reducing aggregation that contributes to higher viscosity.",
+    "elo": 1516,
+    "createdAt": "2025-11-18T16:42:18.713Z",
+    "provenance": [
+      "Scientific literature on protein formulation additives",
+      "Studies on amino acids in biopharmaceutical formulations",
+      "Previous research on arginine's effect on protein solubility and stability"
+    ],
+    "metadata": {
+      "feasibility_score": 0.9,
+      "novelty_score": 0.6
+    }
+  },
+  {
+    "hypothesisId": "1659f935-251c-49b1-8a21-33007343a972",
+    "planId": "73bd6e86-bcc0-477d-91c0-f6d4f443e79a",
+    "content": "L-arginine hydrochloride, when added to a high concentration protein formulation, will significantly reduce its viscosity compared to formulations without amino acid additives.",
+    "explanation": "L-arginine is known to interact with protein molecules, potentially altering protein-protein interactions and reducing viscosity through mechanisms such as charge shielding and ionic strength modifications.",
+    "elo": 1484,
+    "createdAt": "2025-11-18T16:42:18.721Z",
+    "provenance": [
+      "Scientific literature on protein formulation viscosity reduction using amino acids",
+      "Studies on L-arginine's effects on protein interactions"
+    ],
+    "metadata": {
+      "feasibility_score": 0.8,
+      "novelty_score": 0.6
+    }
+  },
+  {
+    "hypothesisId": "c5da0104-eec3-4e33-89bb-887e0bde5e3b",
+    "planId": "73bd6e86-bcc0-477d-91c0-f6d4f443e79a",
+    "content": "Lysine hydrochloride will reduce the viscosity of a 200 mg/mL IgG protein solution more effectively than arginine hydrochloride.",
+    "explanation": "Amino acids such as lysine and arginine are known to interact with proteins, potentially altering their solubility and viscosity. Lysine, being a smaller molecule with a positive charge, may disrupt protein-protein interactions more effectively than arginine, which has a larger side chain.",
+    "elo": 1484,
+    "createdAt": "2025-11-18T16:42:18.764Z",
+    "provenance": [
+      "Prior studies have shown that lysine can reduce protein aggregation and viscosity (e.g., Arakawa et al., 2007, Journal of Pharmaceutical Sciences)",
+      "The interaction of charged amino acids with proteins is well-documented in protein chemistry literature."
+    ],
+    "metadata": {
+      "feasibility_score": 0.9,
+      "novelty_score": 0.7
+    }
+  },
+  {
+    "hypothesisId": "037080f9-3cc1-42eb-9eae-c1e3a5a23878",
+    "planId": "73bd6e86-bcc0-477d-91c0-f6d4f443e79a",
+    "content": "L-arginine hydrochloride will reduce the viscosity of a high concentration monoclonal antibody formulation by at least 20% compared to a control without amino acid salts.",
+    "explanation": "L-arginine has been shown to disrupt protein-protein interactions and reduce viscosity in protein formulations, potentially due to its ability to enhance protein solubility and alter hydration layers.",
+    "elo": 1516,
+    "createdAt": "2025-11-18T16:42:18.813Z",
+    "provenance": [
+      "Research articles on protein formulation show L-arginine's efficacy in reducing viscosity.",
+      "The chemical properties of L-arginine suggest it can interact with proteins to prevent aggregation."
+    ],
+    "metadata": {
+      "feasibility_score": 0.9,
+      "novelty_score": 0.7
+    }
+  },
+  {
+    "hypothesisId": "50bc536c-dc1d-4012-9f33-31d213f5bbb7",
+    "planId": "73bd6e86-bcc0-477d-91c0-f6d4f443e79a",
+    "content": "The addition of arginine hydrochloride at a concentration of 0.5 M will reduce the viscosity of a 200 mg/mL monoclonal antibody formulation by at least 20% compared to a control without arginine hydrochloride.",
+    "explanation": "Arginine is known to interact with protein molecules, potentially disrupting intermolecular interactions that contribute to high viscosity. Previous studies have shown that arginine can effectively reduce viscosity in protein solutions.",
+    "elo": 1516,
+    "createdAt": "2025-11-18T16:42:19.053Z",
+    "provenance": [
+      "Studies on arginine as a solubility enhancer",
+      "Previous research on viscosity reduction in protein formulations using amino acids"
+    ],
+    "metadata": {
+      "feasibility_score": 0.8,
+      "novelty_score": 0.6
+    }
+  },
+  {
+    "hypothesisId": "08db90c9-4ead-4a96-b37a-850a13ff461f",
+    "planId": "73bd6e86-bcc0-477d-91c0-f6d4f443e79a",
+    "content": "L-arginine hydrochloride, at a concentration of 0.5 M, will reduce the viscosity of a 200 mg/mL monoclonal antibody (mAb) formulation by at least 20% compared to a control without any amino acid salts.",
+    "explanation": "Amino acids like L-arginine are known to interact with protein molecules in a way that can disrupt protein-protein interactions, which are a major cause of increased viscosity in protein formulations. By interfering with these interactions, L-arginine can reduce the viscosity of the solution.",
+    "elo": 1516,
+    "createdAt": "2025-11-18T16:42:19.076Z",
+    "provenance": [
+      "Jain, N.K., & Roy, I. (2009). Effect of amino acids on protein aggregation and stability: A review. Protein and Peptide Letters, 16(4), 396-400.",
+      "Arakawa, T., & Timasheff, S.N. (1984). Mechanism of protein salting in and salting out by divalent cation salts: balance between hydration and salt binding. Biochemistry, 23(25), 5912-5923."
+    ],
+    "metadata": {
+      "feasibility_score": 0.8,
+      "novelty_score": 0.5
+    }
+  },
+  {
+    "hypothesisId": "87e88be2-bc3e-4467-94d5-d4553647e0c2",
+    "planId": "73bd6e86-bcc0-477d-91c0-f6d4f443e79a",
+    "content": "The addition of arginine hydrochloride to a high concentration monoclonal antibody formulation will decrease its viscosity by at least 20% compared to formulations without the amino acid salt.",
+    "explanation": "Arginine hydrochloride is known to disrupt protein-protein interactions that contribute to high viscosity in concentrated protein solutions. By adding this amino acid salt, the viscosity should decrease, making it easier to handle and administer the formulations.",
+    "elo": 1516,
+    "createdAt": "2025-11-18T16:42:19.098Z",
+    "provenance": [
+      "Arginine and its salts have been previously documented to reduce viscosity in protein formulations, as seen in studies on monoclonal antibodies (Arakawa et al., 2007; Shire et al., 2011)."
+    ],
+    "metadata": {
+      "feasibility_score": 0.8,
+      "novelty_score": 0.6
+    }
+  },
+  {
+    "hypothesisId": "ed3e704f-7736-439a-b8a2-026e836feb55",
+    "planId": "73bd6e86-bcc0-477d-91c0-f6d4f443e79a",
+    "content": "Amino acid salts with smaller ionic radii and higher solubility will reduce the viscosity of high concentration protein formulations more effectively than those with larger ionic radii and lower solubility.",
+    "explanation": "The hypothesis is based on the principle that smaller ions with higher solubility might interact differently with protein molecules, potentially disrupting protein-protein interactions that contribute to high viscosity. This interaction can lead to a more fluid solution.",
+    "elo": 1516,
+    "createdAt": "2025-11-18T16:42:19.140Z",
+    "provenance": [
+      "Scientific literature suggests that ionic strength and solubility of salts can affect protein solubility and viscosity.",
+      "Previous studies have shown that small ions can better penetrate and disrupt protein networks."
+    ],
+    "metadata": {
+      "feasibility_score": 0.85,
+      "novelty_score": 0.7
+    }
+  },
+  {
+    "hypothesisId": "21f682a7-7c1a-4264-afc8-3742fc9ed03f",
+    "planId": "73bd6e86-bcc0-477d-91c0-f6d4f443e79a",
+    "content": "The addition of arginine hydrochloride reduces the viscosity of high concentration IgG protein formulations compared to formulations without this additive.",
+    "explanation": "Arginine hydrochloride is known to interact with protein molecules, potentially disrupting protein-protein interactions that contribute to high viscosity in concentrated solutions. This is based on its ability to act as a chaotropic agent.",
+    "elo": 1484,
+    "createdAt": "2025-11-18T16:42:19.165Z",
+    "provenance": [
+      "Past studies have shown that arginine can modulate protein interactions and stabilize proteins in solution by reducing attractive forces between protein molecules."
+    ],
+    "metadata": {
+      "feasibility_score": 0.9,
+      "novelty_score": 0.6
+    }
+  },
+  {
+    "hypothesisId": "8914c5fb-1b20-4e89-9174-6462eb50e6d1",
+    "planId": "73bd6e86-bcc0-477d-91c0-f6d4f443e79a",
+    "content": "Incorporating lysine hydrochloride into high-concentration monoclonal antibody formulations decreases viscosity more effectively than glycine hydrochloride by enhancing electrostatic repulsions between protein molecules.",
+    "explanation": "The hypothesis was refined for clarity by specifying the mechanism through which lysine hydrochloride decreases viscosity, thus providing a clearer rationale for its effectiveness.",
+    "elo": 1500,
+    "createdAt": "2025-11-18T16:43:42.469Z",
+    "provenance": [
+      "Original hypothesis: Adding lysine hydrochloride to a high concentration monoclonal antibody (mAb) formulation will reduce its viscosity more effectively than adding glycine hydrochloride."
+    ],
+    "metadata": {
+      "evolved_from": "332d955a-fa07-46ff-873f-3ce98dc5c326",
+      "improvement_type": "clarity"
+    }
+  },
+  {
+    "hypothesisId": "d558ed6b-a84e-4fd7-b23d-2868b1474520",
+    "planId": "73bd6e86-bcc0-477d-91c0-f6d4f443e79a",
+    "content": "Lysine hydrochloride more effectively reduces viscosity in high-concentration monoclonal antibody formulations than glycine hydrochloride, due to its ability to form stronger ionic interactions with charged residues, thereby disrupting protein aggregation.",
+    "explanation": "The scope was adjusted to emphasize the role of lysine hydrochloride in disrupting protein aggregation, a key contributor to viscosity, which provides a more specific focus.",
+    "elo": 1500,
+    "createdAt": "2025-11-18T16:43:42.498Z",
+    "provenance": [
+      "Original hypothesis: Adding lysine hydrochloride to a high concentration monoclonal antibody (mAb) formulation will reduce its viscosity more effectively than adding glycine hydrochloride."
+    ],
+    "metadata": {
+      "evolved_from": "332d955a-fa07-46ff-873f-3ce98dc5c326",
+      "improvement_type": "scope"
+    }
+  },
+  {
+    "hypothesisId": "12055907-af4d-4993-ba0d-52cfb59b04a8",
+    "planId": "73bd6e86-bcc0-477d-91c0-f6d4f443e79a",
+    "content": "The reduction in viscosity of high-concentration monoclonal antibody formulations by lysine hydrochloride, compared to glycine hydrochloride, is mediated through its higher affinity for charged protein surface residues, preventing protein network formation.",
+    "explanation": "The formulation was improved by detailing the process and effect of lysine hydrochloride's interaction with protein surfaces, thus exploring an alternative mechanism of action.",
+    "elo": 1500,
+    "createdAt": "2025-11-18T16:43:42.513Z",
+    "provenance": [
+      "Original hypothesis: Adding lysine hydrochloride to a high concentration monoclonal antibody (mAb) formulation will reduce its viscosity more effectively than adding glycine hydrochloride."
+    ],
+    "metadata": {
+      "evolved_from": "332d955a-fa07-46ff-873f-3ce98dc5c326",
+      "improvement_type": "specificity"
+    }
+  },
+  {
+    "hypothesisId": "d4d543ad-3783-4a88-bf38-f1cf02cdb779",
+    "planId": "73bd6e86-bcc0-477d-91c0-f6d4f443e79a",
+    "content": "The inclusion of arginine hydrochloride will decrease the viscosity of a 200 mg/mL monoclonal antibody formulation by at least 20% compared to a control formulation without arginine hydrochloride.",
+    "explanation": "The hypothesis is made more precise by quantifying the expected reduction in viscosity, offering a clearer benchmark for measurement and validation.",
+    "elo": 1500,
+    "createdAt": "2025-11-18T16:43:42.564Z",
+    "provenance": [
+      "The addition of arginine hydrochloride will significantly lower the viscosity of a 200 mg/mL monoclonal antibody formulation compared to a control without arginine hydrochloride."
+    ],
+    "metadata": {
+      "evolved_from": "61ed0d70-c81d-412b-b43a-ef21c1774353",
+      "improvement_type": "specificity"
+    }
+  },
+  {
+    "hypothesisId": "82d2574b-3aae-4938-914d-a46a82b57a39",
+    "planId": "73bd6e86-bcc0-477d-91c0-f6d4f443e79a",
+    "content": "Arginine hydrochloride will reduce the viscosity of a monoclonal antibody solution by modulating protein-protein interactions, independent of concentration levels up to 200 mg/mL.",
+    "explanation": "This variant focuses on the mechanism by which arginine hydrochloride affects viscosity, suggesting that its effect is concentration-independent, thus broadening the scope of application.",
+    "elo": 1500,
+    "createdAt": "2025-11-18T16:43:42.778Z",
+    "provenance": [
+      "The addition of arginine hydrochloride will significantly lower the viscosity of a 200 mg/mL monoclonal antibody formulation compared to a control without arginine hydrochloride."
+    ],
+    "metadata": {
+      "evolved_from": "61ed0d70-c81d-412b-b43a-ef21c1774353",
+      "improvement_type": "scope"
+    }
+  },
+  {
+    "hypothesisId": "8e15099f-ab03-4c8b-97db-e61368494b64",
+    "planId": "73bd6e86-bcc0-477d-91c0-f6d4f443e79a",
+    "content": "Arginine hydrochloride will significantly lower the viscosity of a monoclonal antibody formulation by enhancing protein solubility and reducing protein-protein aggregation.",
+    "explanation": "The hypothesis is refined to emphasize the mechanism involving enhanced protein solubility and reduced aggregation, offering a clearer understanding of how viscosity reduction is achieved.",
+    "elo": 1500,
+    "createdAt": "2025-11-18T16:43:42.800Z",
+    "provenance": [
+      "The addition of arginine hydrochloride will significantly lower the viscosity of a 200 mg/mL monoclonal antibody formulation compared to a control without arginine hydrochloride."
+    ],
+    "metadata": {
+      "evolved_from": "61ed0d70-c81d-412b-b43a-ef21c1774353",
+      "improvement_type": "clarity"
+    }
+  },
+  {
+    "hypothesisId": "3f94fe6c-8eb6-4bb3-ad16-52cf1a9453c5",
+    "planId": "73bd6e86-bcc0-477d-91c0-f6d4f443e79a",
+    "content": "L-arginine hydrochloride, when incorporated into a protein formulation with a concentration above 100 mg/mL, will significantly decrease its viscosity in comparison to formulations lacking any amino acid additives.",
+    "explanation": "The scope was narrowed to specify 'high concentration' as above 100 mg/mL, providing a clearer framework for experimental conditions, thereby enhancing reproducibility.",
+    "elo": 1500,
+    "createdAt": "2025-11-18T16:43:42.817Z",
+    "provenance": [
+      "L-arginine hydrochloride, when added to a high concentration protein formulation, will significantly reduce its viscosity compared to formulations without amino acid additives."
+    ],
+    "metadata": {
+      "evolved_from": "1659f935-251c-49b1-8a21-33007343a972",
+      "improvement_type": "specificity"
+    }
+  },
+  {
+    "hypothesisId": "79f5a677-9b0a-42a9-9978-a09b1cfa6b22",
+    "planId": "73bd6e86-bcc0-477d-91c0-f6d4f443e79a",
+    "content": "L-arginine hydrochloride, through its charge shielding and ionic strength altering effects, will mitigate the viscosity of high-concentration protein formulations more effectively than other commonly used amino acids.",
+    "explanation": "The hypothesis now includes a comparison with other amino acids, suggesting that L-arginine may outperform them, which can guide experimental focus and hypothesis testing.",
+    "elo": 1500,
+    "createdAt": "2025-11-18T16:43:42.846Z",
+    "provenance": [
+      "L-arginine hydrochloride, when added to a high concentration protein formulation, will significantly reduce its viscosity compared to formulations without amino acid additives."
+    ],
+    "metadata": {
+      "evolved_from": "1659f935-251c-49b1-8a21-33007343a972",
+      "improvement_type": "scope"
+    }
+  },
+  {
+    "hypothesisId": "949d849e-7988-4243-8a5c-e2d02d910aab",
+    "planId": "73bd6e86-bcc0-477d-91c0-f6d4f443e79a",
+    "content": "Adding L-arginine hydrochloride to protein solutions at concentrations exceeding physiological levels results in a measurable decrease in viscosity, primarily due to enhanced protein-protein interaction modification.",
+    "explanation": "The hypothesis clarifies that the effects are observable at concentrations beyond physiological levels, offering insight into the conditions under which the phenomenon becomes significant.",
+    "elo": 1500,
+    "createdAt": "2025-11-18T16:43:42.858Z",
+    "provenance": [
+      "L-arginine hydrochloride, when added to a high concentration protein formulation, will significantly reduce its viscosity compared to formulations without amino acid additives."
+    ],
+    "metadata": {
+      "evolved_from": "1659f935-251c-49b1-8a21-33007343a972",
+      "improvement_type": "clarity"
+    }
+  },
+  {
+    "hypothesisId": "583f06e5-8622-4493-9b5c-8db13357dec2",
+    "planId": "73bd6e86-bcc0-477d-91c0-f6d4f443e79a",
+    "content": "Lysine hydrochloride will reduce the viscosity of a 200 mg/mL IgG protein solution more efficiently than arginine hydrochloride, due to its smaller size and higher charge density.",
+    "explanation": "The hypothesis has been refined to emphasize the role of lysine's charge density in viscosity reduction, providing a clearer mechanism for the proposed effect.",
+    "elo": 1500,
+    "createdAt": "2025-11-18T16:43:42.890Z",
+    "provenance": [
+      "Lysine hydrochloride will reduce the viscosity of a 200 mg/mL IgG protein solution more effectively than arginine hydrochloride."
+    ],
+    "metadata": {
+      "evolved_from": "c5da0104-eec3-4e33-89bb-887e0bde5e3b",
+      "improvement_type": "clarity"
+    }
+  },
+  {
+    "hypothesisId": "dbb4bc0c-1c6a-420f-befa-6861fe0b3b78",
+    "planId": "73bd6e86-bcc0-477d-91c0-f6d4f443e79a",
+    "content": "Lysine hydrochloride will decrease the viscosity of a 200 mg/mL IgG protein solution when compared to arginine hydrochloride, particularly in solutions with elevated concentrations of protein aggregation.",
+    "explanation": "The focus is adjusted to highlight the effect in conditions prone to protein aggregation, providing a more specific context for the hypothesis.",
+    "elo": 1500,
+    "createdAt": "2025-11-18T16:43:43.142Z",
+    "provenance": [
+      "Lysine hydrochloride will reduce the viscosity of a 200 mg/mL IgG protein solution more effectively than arginine hydrochloride."
+    ],
+    "metadata": {
+      "evolved_from": "c5da0104-eec3-4e33-89bb-887e0bde5e3b",
+      "improvement_type": "specificity"
+    }
+  },
+  {
+    "hypothesisId": "f2220dd6-3076-4d8e-8713-0497f04a92b7",
+    "planId": "73bd6e86-bcc0-477d-91c0-f6d4f443e79a",
+    "content": "The addition of lysine hydrochloride to a 200 mg/mL IgG protein solution results in a more pronounced reduction in viscosity than arginine hydrochloride, due to lysine's enhanced ability to disrupt protein-protein interactions in high ionic strength environments.",
+    "explanation": "The scope is expanded by considering the effect of ionic strength on protein interactions, offering an alternative formulation of the hypothesis.",
+    "elo": 1500,
+    "createdAt": "2025-11-18T16:43:43.161Z",
+    "provenance": [
+      "Lysine hydrochloride will reduce the viscosity of a 200 mg/mL IgG protein solution more effectively than arginine hydrochloride."
+    ],
+    "metadata": {
+      "evolved_from": "c5da0104-eec3-4e33-89bb-887e0bde5e3b",
+      "improvement_type": "scope"
+    }
+  },
+  {
+    "hypothesisId": "ece87d6c-6619-4f42-9bd5-df92ee5211bf",
+    "planId": "73bd6e86-bcc0-477d-91c0-f6d4f443e79a",
+    "content": "L-arginine hydrochloride will reduce the viscosity of monoclonal antibody formulations with concentrations above 100 mg/mL by at least 20% compared to formulations without amino acid salts.",
+    "explanation": "The scope was narrowed to high concentration formulations, defined here as above 100 mg/mL, to provide more precise experimental conditions.",
+    "elo": 1500,
+    "createdAt": "2025-11-18T16:43:43.207Z",
+    "provenance": [
+      "L-arginine hydrochloride will reduce the viscosity of a high concentration monoclonal antibody formulation by at least 20% compared to a control without amino acid salts."
+    ],
+    "metadata": {
+      "evolved_from": "037080f9-3cc1-42eb-9eae-c1e3a5a23878",
+      "improvement_type": "scope"
+    }
+  },
+  {
+    "hypothesisId": "168d90da-53ec-43be-b577-55baecbaa847",
+    "planId": "73bd6e86-bcc0-477d-91c0-f6d4f443e79a",
+    "content": "L-arginine hydrochloride, by enhancing protein solubility and altering hydration layers, will reduce the viscosity of monoclonal antibody formulations by at least 25% compared to a control without amino acid salts.",
+    "explanation": "The percentage reduction was increased to 25% to challenge the hypothesis based on preliminary data suggesting greater potential efficacy, while also emphasizing the mechanisms of action.",
+    "elo": 1500,
+    "createdAt": "2025-11-18T16:43:43.227Z",
+    "provenance": [
+      "L-arginine hydrochloride will reduce the viscosity of a high concentration monoclonal antibody formulation by at least 20% compared to a control without amino acid salts."
+    ],
+    "metadata": {
+      "evolved_from": "037080f9-3cc1-42eb-9eae-c1e3a5a23878",
+      "improvement_type": "specificity"
+    }
+  },
+  {
+    "hypothesisId": "c6d2a100-5803-4ac4-9de2-28ce276628a0",
+    "planId": "73bd6e86-bcc0-477d-91c0-f6d4f443e79a",
+    "content": "In high concentration monoclonal antibody formulations, L-arginine hydrochloride will reduce viscosity by at least 20% through mechanisms involving disruption of protein-protein interactions and hydration layer alterations.",
+    "explanation": "The hypothesis was reformulated to emphasize the mechanisms of action, providing a clearer link between the hypothesized outcome and the processes involved.",
+    "elo": 1500,
+    "createdAt": "2025-11-18T16:43:43.262Z",
+    "provenance": [
+      "L-arginine hydrochloride will reduce the viscosity of a high concentration monoclonal antibody formulation by at least 20% compared to a control without amino acid salts."
+    ],
+    "metadata": {
+      "evolved_from": "037080f9-3cc1-42eb-9eae-c1e3a5a23878",
+      "improvement_type": "clarity"
+    }
   }
 ]

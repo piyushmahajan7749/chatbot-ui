@@ -103,5 +103,50 @@
     },
     "createdAt": "2025-11-18T09:06:29.555Z",
     "status": "completed"
+  },
+  {
+    "planId": "eb9a7422-5649-4e74-857e-d3f37574be39",
+    "title": "I want to test different viscosity lowering excipients for high concentration protein formulations. ",
+    "description": "Give me different excipients and their concentrations to be used",
+    "constraints": {
+      "objectives": [],
+      "variables": [],
+      "specialConsiderations": []
+    },
+    "preferences": {
+      "max_hypotheses": 10
+    },
+    "createdAt": "2025-11-18T16:18:39.878Z",
+    "status": "completed"
+  },
+  {
+    "planId": "3687f175-c09f-4ffa-b189-9e5d9fd8aa1f",
+    "title": "How to lower viscosity of high concentration protein formulation with the use of excipients",
+    "description": "You can check for different types of exciopients like surfactants, changing ionic strength and amino acids",
+    "constraints": {
+      "objectives": [],
+      "variables": [],
+      "specialConsiderations": []
+    },
+    "preferences": {
+      "max_hypotheses": 10
+    },
+    "createdAt": "2025-11-18T16:25:11.247Z",
+    "status": "completed"
+  },
+  {
+    "planId": "73bd6e86-bcc0-477d-91c0-f6d4f443e79a",
+    "title": "Which are the best amino acid salts to lower viscosity of high concentration protein formulations?",
+    "description": "lower viscosity using amino acid based viscosity lowering agents",
+    "constraints": {
+      "objectives": [],
+      "variables": [],
+      "specialConsiderations": []
+    },
+    "preferences": {
+      "max_hypotheses": 10
+    },
+    "createdAt": "2025-11-18T16:42:04.076Z",
+    "status": "completed"
   }
 ]

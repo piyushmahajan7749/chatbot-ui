@@ -72,22 +72,33 @@ export async function POST(req: Request) {
       "characters"
     )
 
-    // Enqueue plan with supervisor (non-blocking)
+    // Run supervisor synchronously (with timeout protection)
     try {
-      // For POC, we'll run synchronously but return 202 immediately
-      // In production, this would be queued and run asynchronously
-      supervisorEnqueue(plan).catch(error => {
-        console.error(
-          `[DESIGN_DRAFT] Supervisor error for plan ${plan.planId}:`,
-          error
-        )
-      })
-
       const statusUrl = `/api/design/draft/status/${plan.planId}`
+
+      console.log("\n⏳ [DESIGN_DRAFT] Starting supervisor execution...")
+      console.log("  📊 Plan ID:", plan.planId)
+      console.log("  🔗 Status URL:", statusUrl)
+
+      // Run supervisor and await completion
+      // This will use the full 300 second timeout configured in vercel.json
+      try {
+        await supervisorEnqueue(plan)
+        console.log(
+          `✅ [DESIGN_DRAFT] Supervisor completed for plan ${plan.planId}`
+        )
+      } catch (supervisorError: any) {
+        console.error(
+          `❌ [DESIGN_DRAFT] Supervisor error for plan ${plan.planId}:`,
+          supervisorError
+        )
+        // Don't throw - we've already saved the error state in the plan
+      }
 
       console.log("\n📤 [DESIGN_DRAFT_RESPONSE] Response Summary:")
       console.log("  📊 Plan ID:", plan.planId)
       console.log("  🔗 Status URL:", statusUrl)
+      console.log("  ✅ Supervisor execution completed")
       console.log("=".repeat(100))
 
       return NextResponse.json(
@@ -95,9 +106,9 @@ export async function POST(req: Request) {
           success: true,
           planId: plan.planId,
           statusUrl,
-          message: "Research plan enqueued successfully"
+          message: "Research plan completed"
         },
-        { status: 202 }
+        { status: 200 }
       )
     } catch (error: any) {
       console.error("❌ [DESIGN_DRAFT] Supervisor enqueue error:", error)

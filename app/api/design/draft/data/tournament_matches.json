@@ -9763,5 +9763,4190 @@
         }
       }
     }
+  },
+  {
+    "matchId": "e7c558fe-e394-4f85-b8a0-b4c64945366f",
+    "planId": "eb9a7422-5649-4e74-857e-d3f37574be39",
+    "hypothesisA": "2e66bc74-a2b7-4c93-b1ef-bccd4461b4b1",
+    "hypothesisB": "93b2001f-e1b4-4569-a43b-eb2a03d97918",
+    "winner": "2e66bc74-a2b7-4c93-b1ef-bccd4461b4b1",
+    "createdAt": "2025-11-18T16:20:07.420Z",
+    "rankingOutput": {
+      "winner": "A",
+      "reasoning": "Hypothesis A is more scientifically rigorous and feasible because it uses a lower concentration of an excipient (polysorbate 80) that is known for its surfactant properties, making it more likely to reduce viscosity effectively at lower concentrations. This hypothesis is also more practical as it involves a smaller addition to the formulation, which is often desirable in pharmaceutical applications. Furthermore, the impact of a 15% reduction in viscosity with a lower excipient concentration can be significant for high concentration protein formulations, balancing novelty and practicality.",
+      "confidence": 0.8,
+      "criteria_scores": {
+        "rigor": {
+          "A": 0.8,
+          "B": 0.7
+        },
+        "feasibility": {
+          "A": 0.9,
+          "B": 0.7
+        },
+        "novelty": {
+          "A": 0.7,
+          "B": 0.8
+        },
+        "clarity": {
+          "A": 0.8,
+          "B": 0.8
+        }
+      }
+    }
+  },
+  {
+    "matchId": "82693c0b-a495-4606-9a0b-11b6d57f8cf6",
+    "planId": "eb9a7422-5649-4e74-857e-d3f37574be39",
+    "hypothesisA": "2e66bc74-a2b7-4c93-b1ef-bccd4461b4b1",
+    "hypothesisB": "a414b001-81ac-47d5-b79e-c6619e7c49ab",
+    "winner": "2e66bc74-a2b7-4c93-b1ef-bccd4461b4b1",
+    "createdAt": "2025-11-18T16:20:07.775Z",
+    "rankingOutput": {
+      "winner": "A",
+      "reasoning": "Hypothesis A is more specific in terms of the expected outcome (a reduction in viscosity by at least 15%), which makes it more testable and scientifically rigorous. It also specifies the concentration of polysorbate 80, making it clearer and more feasible to test. Hypothesis B, while similar, is less specific about the expected reduction in viscosity and uses the term 'significantly,' which is more subjective.",
+      "confidence": 0.85,
+      "criteria_scores": {
+        "rigor": {
+          "A": 8,
+          "B": 6
+        },
+        "feasibility": {
+          "A": 8,
+          "B": 7
+        },
+        "novelty": {
+          "A": 6,
+          "B": 6
+        },
+        "clarity": {
+          "A": 9,
+          "B": 7
+        }
+      }
+    }
+  },
+  {
+    "matchId": "5414f431-e340-4b8f-b4ca-38edc6d0aae7",
+    "planId": "eb9a7422-5649-4e74-857e-d3f37574be39",
+    "hypothesisA": "2e66bc74-a2b7-4c93-b1ef-bccd4461b4b1",
+    "hypothesisB": "0e10046f-6281-4ff2-82b9-143310a9506b",
+    "winner": "2e66bc74-a2b7-4c93-b1ef-bccd4461b4b1",
+    "createdAt": "2025-11-18T16:20:08.215Z",
+    "rankingOutput": {
+      "winner": "A",
+      "reasoning": "Hypothesis A is more specific in terms of the concentration of the additive and its expected effect on viscosity. While both hypotheses are scientifically rigorous and testable, Hypothesis A provides a more precise concentration and a clear expected outcome, making it slightly more feasible and clear. Additionally, polysorbate 80 is a well-known surfactant used in formulations, which might make its application more novel compared to PEG, which is commonly used in various formulations.",
+      "confidence": 0.7,
+      "criteria_scores": {
+        "rigor": {
+          "A": 0.8,
+          "B": 0.8
+        },
+        "feasibility": {
+          "A": 0.8,
+          "B": 0.7
+        },
+        "novelty": {
+          "A": 0.7,
+          "B": 0.6
+        },
+        "clarity": {
+          "A": 0.9,
+          "B": 0.8
+        }
+      }
+    }
+  },
+  {
+    "matchId": "1417945f-d490-4f80-817f-6e9f7090c650",
+    "planId": "eb9a7422-5649-4e74-857e-d3f37574be39",
+    "hypothesisA": "2e66bc74-a2b7-4c93-b1ef-bccd4461b4b1",
+    "hypothesisB": "493c6b13-dab5-4b7e-87d8-09cc61f95c99",
+    "winner": "2e66bc74-a2b7-4c93-b1ef-bccd4461b4b1",
+    "createdAt": "2025-11-18T16:20:08.361Z",
+    "rankingOutput": {
+      "winner": "A",
+      "reasoning": "Hypothesis A is more specific and provides a clear quantitative expectation (15% reduction), which enhances its testability and scientific rigor. It also specifies the excipient and its concentration, making it more feasible to test. Hypothesis B, while addressing a similar issue, lacks specificity in terms of expected outcome ('significantly reduce') and does not provide a clear benchmark for success.",
+      "confidence": 0.85,
+      "criteria_scores": {
+        "rigor": {
+          "A": 9,
+          "B": 7
+        },
+        "feasibility": {
+          "A": 8,
+          "B": 7
+        },
+        "novelty": {
+          "A": 7,
+          "B": 7
+        },
+        "clarity": {
+          "A": 9,
+          "B": 6
+        }
+      }
+    }
+  },
+  {
+    "matchId": "3e3b38c0-b177-4e72-877e-2d3b87783536",
+    "planId": "eb9a7422-5649-4e74-857e-d3f37574be39",
+    "hypothesisA": "2e66bc74-a2b7-4c93-b1ef-bccd4461b4b1",
+    "hypothesisB": "3fc0af3f-38b9-4e57-b62b-ebe72e9a0800",
+    "winner": "2e66bc74-a2b7-4c93-b1ef-bccd4461b4b1",
+    "createdAt": "2025-11-18T16:20:08.475Z",
+    "rankingOutput": {
+      "winner": "A",
+      "reasoning": "Hypothesis A is more specific and testable as it defines a precise concentration of polysorbate 80 and a quantifiable reduction in viscosity. It is also more feasible due to the lower concentration of excipient required, which is likely to have fewer side effects on the formulation. While both hypotheses are novel in their approach to reducing viscosity, Hypothesis A is clearer and more detailed in its experimental setup.",
+      "confidence": 0.85,
+      "criteria_scores": {
+        "rigor": {
+          "A": 4.5,
+          "B": 4
+        },
+        "feasibility": {
+          "A": 4.5,
+          "B": 4
+        },
+        "novelty": {
+          "A": 4,
+          "B": 4
+        },
+        "clarity": {
+          "A": 4.5,
+          "B": 4
+        }
+      }
+    }
+  },
+  {
+    "matchId": "c5f0a7b6-e340-455f-9dc3-a2fdc264b461",
+    "planId": "eb9a7422-5649-4e74-857e-d3f37574be39",
+    "hypothesisA": "2e66bc74-a2b7-4c93-b1ef-bccd4461b4b1",
+    "hypothesisB": "f35c9218-a7ce-4463-9604-bec511063362",
+    "winner": "f35c9218-a7ce-4463-9604-bec511063362",
+    "createdAt": "2025-11-18T16:20:08.684Z",
+    "rankingOutput": {
+      "winner": "B",
+      "reasoning": "Hypothesis B is more specific and testable, as it specifies the concentration of the monoclonal antibody formulation and provides a clear expected outcome. It also suggests a higher reduction in viscosity, which, if proven, could have a greater impact. Both hypotheses are feasible, but Hypothesis B's specificity in terms of application to mAb formulations makes it more rigorous and impactful.",
+      "confidence": 0.85,
+      "criteria_scores": {
+        "rigor": {
+          "A": 6,
+          "B": 8
+        },
+        "feasibility": {
+          "A": 7,
+          "B": 7
+        },
+        "novelty": {
+          "A": 6,
+          "B": 7
+        },
+        "clarity": {
+          "A": 6,
+          "B": 8
+        }
+      }
+    }
+  },
+  {
+    "matchId": "095ea21b-b6d7-4e1b-92c3-5e8963884527",
+    "planId": "eb9a7422-5649-4e74-857e-d3f37574be39",
+    "hypothesisA": "2e66bc74-a2b7-4c93-b1ef-bccd4461b4b1",
+    "hypothesisB": "e42ddf6a-2c87-4c4e-bb74-f3e0c5605471",
+    "winner": "e42ddf6a-2c87-4c4e-bb74-f3e0c5605471",
+    "createdAt": "2025-11-18T16:20:09.060Z",
+    "rankingOutput": {
+      "winner": "B",
+      "reasoning": "Hypothesis B is more specific and testable as it provides specific conditions (0.1% w/v polysorbate 80, 200 mg/mL IgG protein solution) and a clear expected outcome (20% reduction in viscosity). It is also more novel as it targets a specific protein solution, which can have a significant impact in protein formulation research. Hypothesis A, while rigorous, is more general and less impactful.",
+      "confidence": 0.85,
+      "criteria_scores": {
+        "rigor": {
+          "A": 7,
+          "B": 8
+        },
+        "feasibility": {
+          "A": 7,
+          "B": 8
+        },
+        "novelty": {
+          "A": 6,
+          "B": 8
+        },
+        "clarity": {
+          "A": 7,
+          "B": 9
+        }
+      }
+    }
+  },
+  {
+    "matchId": "f9a86734-87b8-4a26-ac33-8c13b893f553",
+    "planId": "eb9a7422-5649-4e74-857e-d3f37574be39",
+    "hypothesisA": "2e66bc74-a2b7-4c93-b1ef-bccd4461b4b1",
+    "hypothesisB": "4af4d08c-20bf-433c-a425-4a2e16350701",
+    "winner": "2e66bc74-a2b7-4c93-b1ef-bccd4461b4b1",
+    "createdAt": "2025-11-18T16:20:09.163Z",
+    "rankingOutput": {
+      "winner": "A",
+      "reasoning": "Hypothesis A is better due to higher scientific rigor and testability, as polysorbate 80 is a well-studied excipient with known effects on protein formulations. It is more feasible and practical given its established use in the industry. Although both hypotheses are novel, Hypothesis A is more specific and clear in its concentration and expected outcome.",
+      "confidence": 0.85,
+      "criteria_scores": {
+        "rigor": {
+          "A": 8,
+          "B": 7
+        },
+        "feasibility": {
+          "A": 8,
+          "B": 6
+        },
+        "novelty": {
+          "A": 6,
+          "B": 6
+        },
+        "clarity": {
+          "A": 9,
+          "B": 7
+        }
+      }
+    }
+  },
+  {
+    "matchId": "c6fde41d-0c07-487e-8b02-2f5452f1dd38",
+    "planId": "eb9a7422-5649-4e74-857e-d3f37574be39",
+    "hypothesisA": "2e66bc74-a2b7-4c93-b1ef-bccd4461b4b1",
+    "hypothesisB": "17c9d523-a8b7-449f-8e80-24854c6d83f2",
+    "winner": "2e66bc74-a2b7-4c93-b1ef-bccd4461b4b1",
+    "createdAt": "2025-11-18T16:20:09.346Z",
+    "rankingOutput": {
+      "winner": "A",
+      "reasoning": "Hypothesis A is more specific in its expected outcome, providing a quantifiable measure of viscosity reduction (15%), which enhances its testability and scientific rigor. It also specifies the concentration of polysorbate 80, making it clear and specific. Hypothesis B, while novel in focusing on monoclonal antibodies, lacks specificity in the expected outcome ('significantly reduce'), making it less rigorous.",
+      "confidence": 0.85,
+      "criteria_scores": {
+        "rigor": {
+          "A": 0.9,
+          "B": 0.6
+        },
+        "feasibility": {
+          "A": 0.8,
+          "B": 0.7
+        },
+        "novelty": {
+          "A": 0.6,
+          "B": 0.7
+        },
+        "clarity": {
+          "A": 0.9,
+          "B": 0.6
+        }
+      }
+    }
+  },
+  {
+    "matchId": "fb8d71b6-6538-443d-8b42-dd2f5046625d",
+    "planId": "eb9a7422-5649-4e74-857e-d3f37574be39",
+    "hypothesisA": "93b2001f-e1b4-4569-a43b-eb2a03d97918",
+    "hypothesisB": "a414b001-81ac-47d5-b79e-c6619e7c49ab",
+    "winner": "93b2001f-e1b4-4569-a43b-eb2a03d97918",
+    "createdAt": "2025-11-18T16:20:09.740Z",
+    "rankingOutput": {
+      "winner": "A",
+      "reasoning": "Hypothesis A is more specific in its expected outcome by quantifying the reduction in viscosity (at least 20%), which enhances its testability and rigor. It also uses a specific concentration (1%) of poloxamer 188, a well-known surfactant in protein formulations, which supports its feasibility. Hypothesis B, while potentially impactful, lacks specificity in the expected outcome ('significantly reduce') and uses a lower concentration (0.5%) of polysorbate 80, which might be less effective. Hypothesis A's clarity and specificity in expected results make it a stronger hypothesis.",
+      "confidence": 0.85,
+      "criteria_scores": {
+        "rigor": {
+          "A": 8,
+          "B": 6
+        },
+        "feasibility": {
+          "A": 8,
+          "B": 7
+        },
+        "novelty": {
+          "A": 6,
+          "B": 6
+        },
+        "clarity": {
+          "A": 9,
+          "B": 7
+        }
+      }
+    }
+  },
+  {
+    "matchId": "c47f4782-5c6f-449f-a3bd-f96b004554bb",
+    "planId": "eb9a7422-5649-4e74-857e-d3f37574be39",
+    "hypothesisA": "93b2001f-e1b4-4569-a43b-eb2a03d97918",
+    "hypothesisB": "0e10046f-6281-4ff2-82b9-143310a9506b",
+    "winner": "93b2001f-e1b4-4569-a43b-eb2a03d97918",
+    "createdAt": "2025-11-18T16:20:10.024Z",
+    "rankingOutput": {
+      "winner": "A",
+      "reasoning": "Hypothesis A demonstrates greater scientific rigor and testability by specifying a more substantial expected effect (20% reduction) and a specific concentration of poloxamer 188. It is more feasible as poloxamer 188 is a well-known surfactant used in protein formulations. Although both hypotheses are similar in novelty, Hypothesis A has a clearer impact potential due to its higher reduction target. Hypothesis A is also more specific in its formulation details, making it clearer.",
+      "confidence": 0.85,
+      "criteria_scores": {
+        "rigor": {
+          "A": 0.8,
+          "B": 0.7
+        },
+        "feasibility": {
+          "A": 0.8,
+          "B": 0.7
+        },
+        "novelty": {
+          "A": 0.7,
+          "B": 0.7
+        },
+        "clarity": {
+          "A": 0.8,
+          "B": 0.7
+        }
+      }
+    }
+  },
+  {
+    "matchId": "0fc2171b-1d24-4686-8cc7-a69513ac4ba9",
+    "planId": "eb9a7422-5649-4e74-857e-d3f37574be39",
+    "hypothesisA": "93b2001f-e1b4-4569-a43b-eb2a03d97918",
+    "hypothesisB": "493c6b13-dab5-4b7e-87d8-09cc61f95c99",
+    "winner": "493c6b13-dab5-4b7e-87d8-09cc61f95c99",
+    "createdAt": "2025-11-18T16:20:10.136Z",
+    "rankingOutput": {
+      "winner": "B",
+      "reasoning": "Hypothesis B is better because it is more specific in terms of the protein concentration and type (200 mg/mL monoclonal antibody solution), making it more scientifically rigorous and testable. It also focuses on a lower concentration of Poloxamer 188, which is more feasible and practical for potential applications.",
+      "confidence": 0.85,
+      "criteria_scores": {
+        "rigor": {
+          "A": 3,
+          "B": 4
+        },
+        "feasibility": {
+          "A": 3,
+          "B": 4
+        },
+        "novelty": {
+          "A": 3,
+          "B": 3
+        },
+        "clarity": {
+          "A": 3,
+          "B": 4
+        }
+      }
+    }
+  },
+  {
+    "matchId": "4b85bcea-848b-4925-9d6e-b63c0c618e26",
+    "planId": "eb9a7422-5649-4e74-857e-d3f37574be39",
+    "hypothesisA": "93b2001f-e1b4-4569-a43b-eb2a03d97918",
+    "hypothesisB": "3fc0af3f-38b9-4e57-b62b-ebe72e9a0800",
+    "winner": "93b2001f-e1b4-4569-a43b-eb2a03d97918",
+    "createdAt": "2025-11-18T16:20:10.378Z",
+    "rankingOutput": {
+      "winner": "A",
+      "reasoning": "Hypothesis A is better because it is more broadly applicable to high concentration protein formulations, not limited to just monoclonal antibodies. This increases its potential impact and applicability. Additionally, it specifies a higher concentration of poloxamer 188, which may have a greater effect on viscosity reduction, making it more feasible. Both hypotheses are clear and specific, but A's broader scope makes it more novel and impactful.",
+      "confidence": 0.85,
+      "criteria_scores": {
+        "rigor": {
+          "A": 0.8,
+          "B": 0.8
+        },
+        "feasibility": {
+          "A": 0.9,
+          "B": 0.8
+        },
+        "novelty": {
+          "A": 0.9,
+          "B": 0.7
+        },
+        "clarity": {
+          "A": 0.8,
+          "B": 0.8
+        }
+      }
+    }
+  },
+  {
+    "matchId": "d8f05fff-a0c2-4dd3-86c2-9b59d4d996be",
+    "planId": "eb9a7422-5649-4e74-857e-d3f37574be39",
+    "hypothesisA": "93b2001f-e1b4-4569-a43b-eb2a03d97918",
+    "hypothesisB": "f35c9218-a7ce-4463-9604-bec511063362",
+    "winner": "f35c9218-a7ce-4463-9604-bec511063362",
+    "createdAt": "2025-11-18T16:20:10.680Z",
+    "rankingOutput": {
+      "winner": "B",
+      "reasoning": "Hypothesis B is more specific, detailing the concentration of the protein (200 mg/mL monoclonal antibody) and the exact concentration of poloxamer 188 (0.5%) to be tested. This specificity enhances its scientific rigor and testability. Additionally, the use of monoclonal antibodies is a practical and relevant application in current pharmaceutical research, increasing its feasibility and potential impact.",
+      "confidence": 0.85,
+      "criteria_scores": {
+        "rigor": {
+          "A": 7,
+          "B": 8
+        },
+        "feasibility": {
+          "A": 7,
+          "B": 8
+        },
+        "novelty": {
+          "A": 6,
+          "B": 6
+        },
+        "clarity": {
+          "A": 7,
+          "B": 9
+        }
+      }
+    }
+  },
+  {
+    "matchId": "1bf39e3e-6ce8-4cd1-a86c-33fb52bb30b1",
+    "planId": "eb9a7422-5649-4e74-857e-d3f37574be39",
+    "hypothesisA": "93b2001f-e1b4-4569-a43b-eb2a03d97918",
+    "hypothesisB": "e42ddf6a-2c87-4c4e-bb74-f3e0c5605471",
+    "winner": "93b2001f-e1b4-4569-a43b-eb2a03d97918",
+    "createdAt": "2025-11-18T16:20:10.916Z",
+    "rankingOutput": {
+      "winner": "A",
+      "reasoning": "Hypothesis A is more specific and provides a clear experimental setup with a defined concentration of poloxamer 188 and a specific expected outcome. It also uses a common excipient in protein formulations, which makes it feasible and practical. Hypothesis B, while also specific, uses a lower concentration of an excipient that may not be as effective in reducing viscosity in high concentration protein formulations. Additionally, Poloxamer 188 is known for its effectiveness in reducing viscosity, making Hypothesis A more scientifically rigorous and promising in terms of impact.",
+      "confidence": 0.85,
+      "criteria_scores": {
+        "rigor": {
+          "A": 0.9,
+          "B": 0.7
+        },
+        "feasibility": {
+          "A": 0.9,
+          "B": 0.8
+        },
+        "novelty": {
+          "A": 0.7,
+          "B": 0.6
+        },
+        "clarity": {
+          "A": 0.9,
+          "B": 0.8
+        }
+      }
+    }
+  },
+  {
+    "matchId": "c6f3809a-c2f9-401d-b349-95162a593efd",
+    "planId": "eb9a7422-5649-4e74-857e-d3f37574be39",
+    "hypothesisA": "93b2001f-e1b4-4569-a43b-eb2a03d97918",
+    "hypothesisB": "4af4d08c-20bf-433c-a425-4a2e16350701",
+    "winner": "93b2001f-e1b4-4569-a43b-eb2a03d97918",
+    "createdAt": "2025-11-18T16:20:11.114Z",
+    "rankingOutput": {
+      "winner": "A",
+      "reasoning": "Hypothesis A is better because it is more scientifically rigorous and testable. Poloxamer 188 is a well-known surfactant used to reduce viscosity, and its effects can be measured accurately. The 1% concentration is also a standard, feasible amount for testing. While both hypotheses are novel and have potential impact, Hypothesis A is clearer and more specific about the expected outcome and the substance used.",
+      "confidence": 0.85,
+      "criteria_scores": {
+        "rigor": {
+          "A": 4,
+          "B": 3
+        },
+        "feasibility": {
+          "A": 4,
+          "B": 3
+        },
+        "novelty": {
+          "A": 3,
+          "B": 3
+        },
+        "clarity": {
+          "A": 4,
+          "B": 3
+        }
+      }
+    }
+  },
+  {
+    "matchId": "63ee07e4-c2a6-4b0f-87c4-0062677da548",
+    "planId": "eb9a7422-5649-4e74-857e-d3f37574be39",
+    "hypothesisA": "93b2001f-e1b4-4569-a43b-eb2a03d97918",
+    "hypothesisB": "17c9d523-a8b7-449f-8e80-24854c6d83f2",
+    "winner": "93b2001f-e1b4-4569-a43b-eb2a03d97918",
+    "createdAt": "2025-11-18T16:20:11.406Z",
+    "rankingOutput": {
+      "winner": "A",
+      "reasoning": "Hypothesis A is more specific in terms of the expected quantitative outcome (a 20% reduction in viscosity), which increases its testability and scientific rigor. It is also novel in its approach to use poloxamer 188, which is less commonly discussed compared to polysorbate 80, potentially leading to significant impacts in formulation science. Hypothesis B, while feasible and practical, is less specific in its expected outcome ('significantly reduce'), which makes it less rigorous.",
+      "confidence": 0.85,
+      "criteria_scores": {
+        "rigor": {
+          "A": 8,
+          "B": 6
+        },
+        "feasibility": {
+          "A": 7,
+          "B": 7
+        },
+        "novelty": {
+          "A": 7,
+          "B": 6
+        },
+        "clarity": {
+          "A": 8,
+          "B": 6
+        }
+      }
+    }
+  },
+  {
+    "matchId": "ffe96ed8-68a3-41a5-8232-c90cc731201f",
+    "planId": "eb9a7422-5649-4e74-857e-d3f37574be39",
+    "hypothesisA": "a414b001-81ac-47d5-b79e-c6619e7c49ab",
+    "hypothesisB": "0e10046f-6281-4ff2-82b9-143310a9506b",
+    "winner": "a414b001-81ac-47d5-b79e-c6619e7c49ab",
+    "createdAt": "2025-11-18T16:20:11.552Z",
+    "rankingOutput": {
+      "winner": "A",
+      "reasoning": "Hypothesis A is more specific and testable, as it defines the concentration of polysorbate 80 and directly compares the viscosity to a control without the excipient. It is feasible to test with standard laboratory equipment. Hypothesis B, while also testable, is less specific in terms of the protein type and concentration, making it less clear. Additionally, hypothesis A uses polysorbate 80, a common excipient known for its stabilizing properties in formulations, which might make it more impactful if it demonstrates a significant viscosity reduction.",
+      "confidence": 0.8,
+      "criteria_scores": {
+        "rigor": {
+          "A": 4,
+          "B": 3
+        },
+        "feasibility": {
+          "A": 4,
+          "B": 3
+        },
+        "novelty": {
+          "A": 3,
+          "B": 3
+        },
+        "clarity": {
+          "A": 4,
+          "B": 3
+        }
+      }
+    }
+  },
+  {
+    "matchId": "230e3874-6e79-4fba-b4f8-66bf43471940",
+    "planId": "eb9a7422-5649-4e74-857e-d3f37574be39",
+    "hypothesisA": "a414b001-81ac-47d5-b79e-c6619e7c49ab",
+    "hypothesisB": "493c6b13-dab5-4b7e-87d8-09cc61f95c99",
+    "winner": "a414b001-81ac-47d5-b79e-c6619e7c49ab",
+    "createdAt": "2025-11-18T16:20:11.718Z",
+    "rankingOutput": {
+      "winner": "A",
+      "reasoning": "Hypothesis A is more specific and clear about the concentration of both the excipient and the monoclonal antibody, which allows for more precise experimental design and analysis. It also uses a commonly studied excipient (polysorbate 80) in protein formulations, contributing to its feasibility and scientific rigor. Hypothesis B, while also feasible, is less specific about the monoclonal antibody concentration and uses a less common excipient, which may impact its novelty and clarity.",
+      "confidence": 0.85,
+      "criteria_scores": {
+        "rigor": {
+          "A": 0.8,
+          "B": 0.7
+        },
+        "feasibility": {
+          "A": 0.9,
+          "B": 0.8
+        },
+        "novelty": {
+          "A": 0.7,
+          "B": 0.6
+        },
+        "clarity": {
+          "A": 0.9,
+          "B": 0.7
+        }
+      }
+    }
+  },
+  {
+    "matchId": "978bea15-fab3-4af7-877b-e7be009add5f",
+    "planId": "eb9a7422-5649-4e74-857e-d3f37574be39",
+    "hypothesisA": "a414b001-81ac-47d5-b79e-c6619e7c49ab",
+    "hypothesisB": "3fc0af3f-38b9-4e57-b62b-ebe72e9a0800",
+    "winner": "a414b001-81ac-47d5-b79e-c6619e7c49ab",
+    "createdAt": "2025-11-18T16:20:11.842Z",
+    "rankingOutput": {
+      "winner": "A",
+      "reasoning": "Hypothesis A is better due to its broader applicability and potentially higher impact. It does not specify a concentration limit like Hypothesis B, making it more generally applicable to high concentration formulations. Additionally, polysorbate 80 is a well-known and widely used excipient, which may make the hypothesis more feasible and practical to test. While both hypotheses are clear and specific, Hypothesis A has a slight edge in novelty and potential impact due to its broader scope.",
+      "confidence": 0.8,
+      "criteria_scores": {
+        "rigor": {
+          "A": 8,
+          "B": 8
+        },
+        "feasibility": {
+          "A": 7,
+          "B": 6
+        },
+        "novelty": {
+          "A": 7,
+          "B": 6
+        },
+        "clarity": {
+          "A": 8,
+          "B": 8
+        }
+      }
+    }
+  },
+  {
+    "matchId": "c11f5a9a-8534-4b4a-8d0a-2371da2ba20a",
+    "planId": "eb9a7422-5649-4e74-857e-d3f37574be39",
+    "hypothesisA": "a414b001-81ac-47d5-b79e-c6619e7c49ab",
+    "hypothesisB": "f35c9218-a7ce-4463-9604-bec511063362",
+    "winner": "f35c9218-a7ce-4463-9604-bec511063362",
+    "createdAt": "2025-11-18T16:20:11.865Z",
+    "rankingOutput": {
+      "winner": "B",
+      "reasoning": "Hypothesis B is more specific in its expected outcome, stating a quantifiable reduction in viscosity (by at least 20%), which enhances its testability and clarity. Additionally, it specifies the concentration of the monoclonal antibody formulation (200 mg/mL), providing more context for experimental design. While both hypotheses are feasible and novel, Hypothesis B's specificity and potential impact, due to its quantifiable claim, make it a stronger hypothesis overall.",
+      "confidence": 0.85,
+      "criteria_scores": {
+        "rigor": {
+          "A": 4,
+          "B": 5
+        },
+        "feasibility": {
+          "A": 4,
+          "B": 4
+        },
+        "novelty": {
+          "A": 4,
+          "B": 4
+        },
+        "clarity": {
+          "A": 3,
+          "B": 5
+        }
+      }
+    }
+  },
+  {
+    "matchId": "fe720aaf-785c-4f85-82dd-b3a15988d5b3",
+    "planId": "eb9a7422-5649-4e74-857e-d3f37574be39",
+    "hypothesisA": "a414b001-81ac-47d5-b79e-c6619e7c49ab",
+    "hypothesisB": "e42ddf6a-2c87-4c4e-bb74-f3e0c5605471",
+    "winner": "a414b001-81ac-47d5-b79e-c6619e7c49ab",
+    "createdAt": "2025-11-18T16:20:12.038Z",
+    "rankingOutput": {
+      "winner": "A",
+      "reasoning": "Hypothesis A is more specific about the concentration of polysorbate 80 and its role in reducing viscosity in a high concentration monoclonal antibody formulation. It is scientifically rigorous and testable as it provides a specific concentration (0.5% w/v) and a clear comparison to a control. While Hypothesis B is also clear and specific, Hypothesis A has a slight edge in feasibility and practicality due to its broader application to 'high concentration monoclonal antibody formulations', which could imply a wider range of applications, thus having a potentially greater impact.",
+      "confidence": 0.8,
+      "criteria_scores": {
+        "rigor": {
+          "A": 4.5,
+          "B": 4
+        },
+        "feasibility": {
+          "A": 4.5,
+          "B": 4
+        },
+        "novelty": {
+          "A": 4,
+          "B": 4
+        },
+        "clarity": {
+          "A": 4.5,
+          "B": 4.5
+        }
+      }
+    }
+  },
+  {
+    "matchId": "9d86e1e4-c9a0-481b-af6b-26f74185dfef",
+    "planId": "eb9a7422-5649-4e74-857e-d3f37574be39",
+    "hypothesisA": "a414b001-81ac-47d5-b79e-c6619e7c49ab",
+    "hypothesisB": "4af4d08c-20bf-433c-a425-4a2e16350701",
+    "winner": "a414b001-81ac-47d5-b79e-c6619e7c49ab",
+    "createdAt": "2025-11-18T16:20:12.195Z",
+    "rankingOutput": {
+      "winner": "A",
+      "reasoning": "Hypothesis A is more specific and rigorous as it provides a precise concentration of polysorbate 80 and clearly states the expected outcome (reduction in viscosity). It is testable and practical, as polysorbate 80 is a well-known excipient used in pharmaceutical formulations. While both hypotheses are novel in the context of reducing viscosity of high concentration formulations, Hypothesis A is more specific about the expected outcome, which makes it easier to design experiments around. Hypothesis B lacks specificity in the expected reduction percentage and the choice of excipient is less common, potentially affecting feasibility.",
+      "confidence": 0.85,
+      "criteria_scores": {
+        "rigor": {
+          "A": 8,
+          "B": 6
+        },
+        "feasibility": {
+          "A": 8,
+          "B": 6
+        },
+        "novelty": {
+          "A": 7,
+          "B": 7
+        },
+        "clarity": {
+          "A": 8,
+          "B": 6
+        }
+      }
+    }
+  },
+  {
+    "matchId": "496bdc88-ae3f-4c5f-a2ee-469008075d27",
+    "planId": "eb9a7422-5649-4e74-857e-d3f37574be39",
+    "hypothesisA": "a414b001-81ac-47d5-b79e-c6619e7c49ab",
+    "hypothesisB": "17c9d523-a8b7-449f-8e80-24854c6d83f2",
+    "winner": "a414b001-81ac-47d5-b79e-c6619e7c49ab",
+    "createdAt": "2025-11-18T16:20:12.338Z",
+    "rankingOutput": {
+      "winner": "A",
+      "reasoning": "Hypothesis A is more specific and rigorous because it clearly defines the concentration of polysorbate 80 and the context of a high concentration monoclonal antibody formulation, which is crucial for reproducibility and scientific rigor. It also implies a comparative analysis within a specified context, enhancing its testability. Hypothesis B, while similar, uses a lower concentration of polysorbate 80 and is less specific about the formulation context, making it slightly less rigorous and clear.",
+      "confidence": 0.85,
+      "criteria_scores": {
+        "rigor": {
+          "A": 8,
+          "B": 7
+        },
+        "feasibility": {
+          "A": 8,
+          "B": 8
+        },
+        "novelty": {
+          "A": 6,
+          "B": 6
+        },
+        "clarity": {
+          "A": 8,
+          "B": 7
+        }
+      }
+    }
+  },
+  {
+    "matchId": "cb32ff6d-1857-4cff-878f-1e26db6dc9dd",
+    "planId": "eb9a7422-5649-4e74-857e-d3f37574be39",
+    "hypothesisA": "0e10046f-6281-4ff2-82b9-143310a9506b",
+    "hypothesisB": "493c6b13-dab5-4b7e-87d8-09cc61f95c99",
+    "winner": "493c6b13-dab5-4b7e-87d8-09cc61f95c99",
+    "createdAt": "2025-11-18T16:20:12.548Z",
+    "rankingOutput": {
+      "winner": "B",
+      "reasoning": "Hypothesis B is more specific and testable, focusing on a specific protein (monoclonal antibody) and providing a clear comparison to a control. It also specifies the concentration of the protein solution, which adds to its clarity and specificity. Hypothesis A is broader and less specific about the protein formulation, making it less rigorous.",
+      "confidence": 0.85,
+      "criteria_scores": {
+        "rigor": {
+          "A": 6,
+          "B": 8
+        },
+        "feasibility": {
+          "A": 7,
+          "B": 8
+        },
+        "novelty": {
+          "A": 7,
+          "B": 7
+        },
+        "clarity": {
+          "A": 6,
+          "B": 9
+        }
+      }
+    }
+  },
+  {
+    "matchId": "4fcc9985-b0f5-420f-a585-4d53e25d5111",
+    "planId": "eb9a7422-5649-4e74-857e-d3f37574be39",
+    "hypothesisA": "0e10046f-6281-4ff2-82b9-143310a9506b",
+    "hypothesisB": "3fc0af3f-38b9-4e57-b62b-ebe72e9a0800",
+    "winner": "0e10046f-6281-4ff2-82b9-143310a9506b",
+    "createdAt": "2025-11-18T16:20:12.715Z",
+    "rankingOutput": {
+      "winner": "A",
+      "reasoning": "Hypothesis A is more scientifically rigorous and testable as it specifies a precise concentration of PEG and a specific temperature, making it easier to design experiments. It is also more feasible as PEG is commonly used in protein formulations. Hypothesis B, while novel, involves a higher concentration of poloxamer 188, which might affect protein stability, and is less specific about the temperature, using 'room temperature' instead of a precise value.",
+      "confidence": 0.8,
+      "criteria_scores": {
+        "rigor": {
+          "A": 8,
+          "B": 6
+        },
+        "feasibility": {
+          "A": 8,
+          "B": 5
+        },
+        "novelty": {
+          "A": 6,
+          "B": 7
+        },
+        "clarity": {
+          "A": 8,
+          "B": 6
+        }
+      }
+    }
+  },
+  {
+    "matchId": "47cd1d17-74e6-401d-a8a6-e73393969d46",
+    "planId": "eb9a7422-5649-4e74-857e-d3f37574be39",
+    "hypothesisA": "0e10046f-6281-4ff2-82b9-143310a9506b",
+    "hypothesisB": "f35c9218-a7ce-4463-9604-bec511063362",
+    "winner": "f35c9218-a7ce-4463-9604-bec511063362",
+    "createdAt": "2025-11-18T16:20:12.857Z",
+    "rankingOutput": {
+      "winner": "B",
+      "reasoning": "Hypothesis B is more specific and testable, focusing on a particular concentration of monoclonal antibody formulation and a specific excipient, poloxamer 188, with a clear expected outcome. It is also more novel as it targets a specific challenge in pharmaceutical formulations. Hypothesis A, while scientifically rigorous, is less specific about the protein type and concentration, making it less clear and potentially less impactful.",
+      "confidence": 0.85,
+      "criteria_scores": {
+        "rigor": {
+          "A": 7,
+          "B": 8
+        },
+        "feasibility": {
+          "A": 7,
+          "B": 8
+        },
+        "novelty": {
+          "A": 6,
+          "B": 8
+        },
+        "clarity": {
+          "A": 6,
+          "B": 9
+        }
+      }
+    }
+  },
+  {
+    "matchId": "072e1be4-afb2-44ee-9f46-e457fed00345",
+    "planId": "eb9a7422-5649-4e74-857e-d3f37574be39",
+    "hypothesisA": "0e10046f-6281-4ff2-82b9-143310a9506b",
+    "hypothesisB": "e42ddf6a-2c87-4c4e-bb74-f3e0c5605471",
+    "winner": "e42ddf6a-2c87-4c4e-bb74-f3e0c5605471",
+    "createdAt": "2025-11-18T16:20:12.974Z",
+    "rankingOutput": {
+      "winner": "B",
+      "reasoning": "Hypothesis B is more specific and testable as it defines both the concentration of the protein solution and the expected reduction in viscosity. It also specifies the type of protein, IgG, making it more scientifically rigorous. Furthermore, polysorbate 80 is a well-known surfactant used in protein formulations, which adds to the feasibility and practicality of the study. While both hypotheses are novel in their specific contexts, B has a more significant potential impact due to its higher expected reduction in viscosity.",
+      "confidence": 0.85,
+      "criteria_scores": {
+        "rigor": {
+          "A": 0.7,
+          "B": 0.9
+        },
+        "feasibility": {
+          "A": 0.8,
+          "B": 0.9
+        },
+        "novelty": {
+          "A": 0.7,
+          "B": 0.7
+        },
+        "clarity": {
+          "A": 0.7,
+          "B": 0.9
+        }
+      }
+    }
+  },
+  {
+    "matchId": "5e08e2e5-f290-4fe8-8f3c-d6aa6545938e",
+    "planId": "eb9a7422-5649-4e74-857e-d3f37574be39",
+    "hypothesisA": "0e10046f-6281-4ff2-82b9-143310a9506b",
+    "hypothesisB": "4af4d08c-20bf-433c-a425-4a2e16350701",
+    "winner": "0e10046f-6281-4ff2-82b9-143310a9506b",
+    "createdAt": "2025-11-18T16:20:13.233Z",
+    "rankingOutput": {
+      "winner": "A",
+      "reasoning": "Hypothesis A is more scientifically rigorous and testable because it specifies the concentration of PEG and provides a specific temperature condition, which allows for controlled experimentation. It is also more feasible as it uses a general term 'PEG' without specifying a molecular weight, making it applicable to a broader range of PEG types. Hypothesis B, while slightly more ambitious in its expected outcome, is less clear as it does not specify the temperature condition, which is crucial for viscosity measurements. Additionally, Hypothesis A is more novel as it does not limit the type of PEG, potentially opening up new avenues for research.",
+      "confidence": 0.85,
+      "criteria_scores": {
+        "rigor": {
+          "A": 4,
+          "B": 3
+        },
+        "feasibility": {
+          "A": 4,
+          "B": 3
+        },
+        "novelty": {
+          "A": 4,
+          "B": 3
+        },
+        "clarity": {
+          "A": 4,
+          "B": 3
+        }
+      }
+    }
+  },
+  {
+    "matchId": "a7a367bc-dac7-4c3b-bd1b-0e8b430ef59f",
+    "planId": "eb9a7422-5649-4e74-857e-d3f37574be39",
+    "hypothesisA": "0e10046f-6281-4ff2-82b9-143310a9506b",
+    "hypothesisB": "17c9d523-a8b7-449f-8e80-24854c6d83f2",
+    "winner": "0e10046f-6281-4ff2-82b9-143310a9506b",
+    "createdAt": "2025-11-18T16:20:13.469Z",
+    "rankingOutput": {
+      "winner": "A",
+      "reasoning": "Hypothesis A is more specific in its prediction, providing a quantifiable outcome (15% reduction in viscosity) and a specific temperature (25°C), making it more testable and rigorous. Hypothesis B, while potentially impactful, lacks specificity in the expected outcome ('significantly reduce') and does not specify conditions like temperature, making it less rigorous and clear.",
+      "confidence": 0.85,
+      "criteria_scores": {
+        "rigor": {
+          "A": 8,
+          "B": 6
+        },
+        "feasibility": {
+          "A": 7,
+          "B": 7
+        },
+        "novelty": {
+          "A": 6,
+          "B": 7
+        },
+        "clarity": {
+          "A": 9,
+          "B": 6
+        }
+      }
+    }
+  },
+  {
+    "matchId": "ec216e11-ef02-442b-a518-14e00cd361d9",
+    "planId": "eb9a7422-5649-4e74-857e-d3f37574be39",
+    "hypothesisA": "493c6b13-dab5-4b7e-87d8-09cc61f95c99",
+    "hypothesisB": "3fc0af3f-38b9-4e57-b62b-ebe72e9a0800",
+    "winner": "3fc0af3f-38b9-4e57-b62b-ebe72e9a0800",
+    "createdAt": "2025-11-18T16:20:13.717Z",
+    "rankingOutput": {
+      "winner": "B",
+      "reasoning": "Hypothesis B is more specific and provides a quantifiable measure of the expected outcome (a 20% reduction in viscosity), which enhances its testability and clarity. It also specifies the condition (room temperature), making it more rigorous and feasible to test under controlled conditions.",
+      "confidence": 0.85,
+      "criteria_scores": {
+        "rigor": {
+          "A": 7,
+          "B": 8
+        },
+        "feasibility": {
+          "A": 7,
+          "B": 8
+        },
+        "novelty": {
+          "A": 6,
+          "B": 6
+        },
+        "clarity": {
+          "A": 6,
+          "B": 8
+        }
+      }
+    }
+  },
+  {
+    "matchId": "16608179-1f51-48dd-8543-3a918895dacc",
+    "planId": "eb9a7422-5649-4e74-857e-d3f37574be39",
+    "hypothesisA": "493c6b13-dab5-4b7e-87d8-09cc61f95c99",
+    "hypothesisB": "f35c9218-a7ce-4463-9604-bec511063362",
+    "winner": "f35c9218-a7ce-4463-9604-bec511063362",
+    "createdAt": "2025-11-18T16:20:13.959Z",
+    "rankingOutput": {
+      "winner": "B",
+      "reasoning": "Hypothesis B is more specific and provides a quantifiable target for viscosity reduction, which enhances its testability and clarity. It also specifies a higher concentration of poloxamer 188, which might be more feasible in achieving a significant viscosity reduction, and thus is more practical. Although both hypotheses are similar in novelty, B's specificity and clear target make it more scientifically rigorous.",
+      "confidence": 0.85,
+      "criteria_scores": {
+        "rigor": {
+          "A": 6,
+          "B": 8
+        },
+        "feasibility": {
+          "A": 7,
+          "B": 8
+        },
+        "novelty": {
+          "A": 7,
+          "B": 7
+        },
+        "clarity": {
+          "A": 6,
+          "B": 9
+        }
+      }
+    }
+  },
+  {
+    "matchId": "c48eb476-c8a6-4a40-bac8-98ca02581bf4",
+    "planId": "eb9a7422-5649-4e74-857e-d3f37574be39",
+    "hypothesisA": "493c6b13-dab5-4b7e-87d8-09cc61f95c99",
+    "hypothesisB": "e42ddf6a-2c87-4c4e-bb74-f3e0c5605471",
+    "winner": "493c6b13-dab5-4b7e-87d8-09cc61f95c99",
+    "createdAt": "2025-11-18T16:20:14.181Z",
+    "rankingOutput": {
+      "winner": "A",
+      "reasoning": "Hypothesis A is more specific and scientifically rigorous as it specifies the exact concentration of Poloxamer 188 and the type of solution (monoclonal antibody) it is applied to. It is also more testable with a clear control comparison. Hypothesis B, while also clear, lacks specificity regarding the percentage reduction in viscosity it aims to achieve and the type of protein solution, which could affect the testability and clarity of the hypothesis.",
+      "confidence": 0.85,
+      "criteria_scores": {
+        "rigor": {
+          "A": 4,
+          "B": 3
+        },
+        "feasibility": {
+          "A": 4,
+          "B": 4
+        },
+        "novelty": {
+          "A": 3,
+          "B": 3
+        },
+        "clarity": {
+          "A": 4,
+          "B": 3
+        }
+      }
+    }
+  },
+  {
+    "matchId": "f3b4b571-0314-4b97-a570-f832619acce0",
+    "planId": "eb9a7422-5649-4e74-857e-d3f37574be39",
+    "hypothesisA": "493c6b13-dab5-4b7e-87d8-09cc61f95c99",
+    "hypothesisB": "4af4d08c-20bf-433c-a425-4a2e16350701",
+    "winner": "493c6b13-dab5-4b7e-87d8-09cc61f95c99",
+    "createdAt": "2025-11-18T16:20:14.340Z",
+    "rankingOutput": {
+      "winner": "A",
+      "reasoning": "Hypothesis A is more specific and testable as it clearly defines the concentration of both the monoclonal antibody and Poloxamer 188, as well as the expected outcome. It is also more feasible, given that Poloxamer 188 is a well-studied surfactant in pharmaceutical applications. Hypothesis B, while similar, lacks specificity in the protein concentration and the expected outcome is less precise, making it slightly less rigorous.",
+      "confidence": 0.85,
+      "criteria_scores": {
+        "rigor": {
+          "A": 0.8,
+          "B": 0.7
+        },
+        "feasibility": {
+          "A": 0.9,
+          "B": 0.8
+        },
+        "novelty": {
+          "A": 0.6,
+          "B": 0.6
+        },
+        "clarity": {
+          "A": 0.9,
+          "B": 0.7
+        }
+      }
+    }
+  },
+  {
+    "matchId": "e6fc4a10-20a5-486c-adea-4efe26fa2096",
+    "planId": "eb9a7422-5649-4e74-857e-d3f37574be39",
+    "hypothesisA": "493c6b13-dab5-4b7e-87d8-09cc61f95c99",
+    "hypothesisB": "17c9d523-a8b7-449f-8e80-24854c6d83f2",
+    "winner": "493c6b13-dab5-4b7e-87d8-09cc61f95c99",
+    "createdAt": "2025-11-18T16:20:14.445Z",
+    "rankingOutput": {
+      "winner": "A",
+      "reasoning": "Hypothesis A is more specific as it provides a precise concentration of both the monoclonal antibody and the Poloxamer 188, which enhances its scientific rigor and testability. It also focuses on a specific scenario, making it clearer and more practical to test. Hypothesis B, while similar, lacks specificity regarding the concentration of the monoclonal antibody solution, which affects its clarity and specificity.",
+      "confidence": 0.8,
+      "criteria_scores": {
+        "rigor": {
+          "A": 4,
+          "B": 3
+        },
+        "feasibility": {
+          "A": 4,
+          "B": 4
+        },
+        "novelty": {
+          "A": 3,
+          "B": 3
+        },
+        "clarity": {
+          "A": 4,
+          "B": 3
+        }
+      }
+    }
+  },
+  {
+    "matchId": "bdc061a0-436f-4bb3-b074-dab488000b86",
+    "planId": "eb9a7422-5649-4e74-857e-d3f37574be39",
+    "hypothesisA": "3fc0af3f-38b9-4e57-b62b-ebe72e9a0800",
+    "hypothesisB": "f35c9218-a7ce-4463-9604-bec511063362",
+    "winner": "f35c9218-a7ce-4463-9604-bec511063362",
+    "createdAt": "2025-11-18T16:20:14.641Z",
+    "rankingOutput": {
+      "winner": "B",
+      "reasoning": "Hypothesis B is better because it is more specific in describing the role of poloxamer 188 as an excipient and explicitly compares the formulation with and without the excipient. This provides a clearer basis for experimental comparison and testing.",
+      "confidence": 0.85,
+      "criteria_scores": {
+        "rigor": {
+          "A": 7,
+          "B": 8
+        },
+        "feasibility": {
+          "A": 8,
+          "B": 8
+        },
+        "novelty": {
+          "A": 6,
+          "B": 6
+        },
+        "clarity": {
+          "A": 7,
+          "B": 9
+        }
+      }
+    }
+  },
+  {
+    "matchId": "570045a0-0032-432c-882e-136c7bd074ca",
+    "planId": "eb9a7422-5649-4e74-857e-d3f37574be39",
+    "hypothesisA": "3fc0af3f-38b9-4e57-b62b-ebe72e9a0800",
+    "hypothesisB": "e42ddf6a-2c87-4c4e-bb74-f3e0c5605471",
+    "winner": "3fc0af3f-38b9-4e57-b62b-ebe72e9a0800",
+    "createdAt": "2025-11-18T16:20:14.885Z",
+    "rankingOutput": {
+      "winner": "A",
+      "reasoning": "Hypothesis A is more specific and testable, focusing on a particular additive (poloxamer 188) and its effect on monoclonal antibody viscosity. It is scientifically rigorous, with a clear quantitative measure (20% reduction) and a defined condition (room temperature). Hypothesis B, while similar, is less specific as it refers to a broader category of proteins (IgG) and lacks specificity in conditions such as temperature. Both hypotheses are feasible and novel, but A scores higher in clarity and specificity.",
+      "confidence": 0.85,
+      "criteria_scores": {
+        "rigor": {
+          "A": 0.9,
+          "B": 0.8
+        },
+        "feasibility": {
+          "A": 0.8,
+          "B": 0.8
+        },
+        "novelty": {
+          "A": 0.7,
+          "B": 0.7
+        },
+        "clarity": {
+          "A": 0.9,
+          "B": 0.7
+        }
+      }
+    }
+  },
+  {
+    "matchId": "58a51f25-9720-49dd-9de3-cea5c901aea0",
+    "planId": "eb9a7422-5649-4e74-857e-d3f37574be39",
+    "hypothesisA": "3fc0af3f-38b9-4e57-b62b-ebe72e9a0800",
+    "hypothesisB": "4af4d08c-20bf-433c-a425-4a2e16350701",
+    "winner": "3fc0af3f-38b9-4e57-b62b-ebe72e9a0800",
+    "createdAt": "2025-11-18T16:20:15.049Z",
+    "rankingOutput": {
+      "winner": "A",
+      "reasoning": "Hypothesis A is more specific and scientifically rigorous as it specifies both the concentration of poloxamer 188 and the monoclonal antibody, as well as the expected reduction in viscosity. It is also more feasible and practical to test due to the precise conditions described. Hypothesis B lacks specificity regarding the protein concentration and does not specify the conditions under which the viscosity reduction is expected, making it less rigorous and harder to test.",
+      "confidence": 0.85,
+      "criteria_scores": {
+        "rigor": {
+          "A": 0.9,
+          "B": 0.6
+        },
+        "feasibility": {
+          "A": 0.8,
+          "B": 0.7
+        },
+        "novelty": {
+          "A": 0.7,
+          "B": 0.7
+        },
+        "clarity": {
+          "A": 0.9,
+          "B": 0.6
+        }
+      }
+    }
+  },
+  {
+    "matchId": "2ea9a4d5-b17f-4491-a246-47cb9067a89c",
+    "planId": "eb9a7422-5649-4e74-857e-d3f37574be39",
+    "hypothesisA": "3fc0af3f-38b9-4e57-b62b-ebe72e9a0800",
+    "hypothesisB": "17c9d523-a8b7-449f-8e80-24854c6d83f2",
+    "winner": "3fc0af3f-38b9-4e57-b62b-ebe72e9a0800",
+    "createdAt": "2025-11-18T16:20:15.155Z",
+    "rankingOutput": {
+      "winner": "A",
+      "reasoning": "Hypothesis A is more specific and testable, as it provides exact concentrations and a quantifiable outcome (20% reduction in viscosity). It also specifies the temperature condition (room temperature). Hypothesis B, while potentially novel, is vague with the term 'significantly reduce' and does not provide specific conditions or expected outcomes.",
+      "confidence": 0.85,
+      "criteria_scores": {
+        "rigor": {
+          "A": 8,
+          "B": 6
+        },
+        "feasibility": {
+          "A": 8,
+          "B": 7
+        },
+        "novelty": {
+          "A": 7,
+          "B": 8
+        },
+        "clarity": {
+          "A": 9,
+          "B": 6
+        }
+      }
+    }
+  },
+  {
+    "matchId": "7cab1805-c9a5-4242-92a3-9d5757afcf6d",
+    "planId": "eb9a7422-5649-4e74-857e-d3f37574be39",
+    "hypothesisA": "f35c9218-a7ce-4463-9604-bec511063362",
+    "hypothesisB": "e42ddf6a-2c87-4c4e-bb74-f3e0c5605471",
+    "winner": "f35c9218-a7ce-4463-9604-bec511063362",
+    "createdAt": "2025-11-18T16:20:15.319Z",
+    "rankingOutput": {
+      "winner": "A",
+      "reasoning": "Hypothesis A is more specific and rigorous as it specifies the exact concentration of poloxamer 188 and its expected impact on reducing viscosity by at least 20%. It also focuses on a monoclonal antibody formulation, which is a well-defined system. Hypothesis B, while similar in its aim, is less specific because it refers to IgG protein solutions in general, potentially involving a broader range of variables. The clarity and specificity of Hypothesis A make it more scientifically rigorous and testable.",
+      "confidence": 0.8,
+      "criteria_scores": {
+        "rigor": {
+          "A": 4,
+          "B": 3
+        },
+        "feasibility": {
+          "A": 4,
+          "B": 4
+        },
+        "novelty": {
+          "A": 3,
+          "B": 3
+        },
+        "clarity": {
+          "A": 5,
+          "B": 4
+        }
+      }
+    }
+  },
+  {
+    "matchId": "cf8509f2-a5fa-49db-b02e-4ccbd2f7646a",
+    "planId": "eb9a7422-5649-4e74-857e-d3f37574be39",
+    "hypothesisA": "f35c9218-a7ce-4463-9604-bec511063362",
+    "hypothesisB": "4af4d08c-20bf-433c-a425-4a2e16350701",
+    "winner": "f35c9218-a7ce-4463-9604-bec511063362",
+    "createdAt": "2025-11-18T16:20:15.431Z",
+    "rankingOutput": {
+      "winner": "A",
+      "reasoning": "Hypothesis A is more specific and testable, as it clearly defines the concentration of both the excipient and the monoclonal antibody, which allows for precise experimental design. It also focuses on a specific excipient, poloxamer 188, which is well-known for its surfactant properties, making the hypothesis more feasible. Hypothesis B is less specific regarding the protein formulation and uses PEG 4000, which might not be as effective as poloxamer 188 in reducing viscosity. Additionally, Hypothesis A's use of poloxamer 188 is more novel in the context of viscosity reduction in mAb formulations.",
+      "confidence": 0.85,
+      "criteria_scores": {
+        "rigor": {
+          "A": 8,
+          "B": 6
+        },
+        "feasibility": {
+          "A": 8,
+          "B": 7
+        },
+        "novelty": {
+          "A": 7,
+          "B": 6
+        },
+        "clarity": {
+          "A": 9,
+          "B": 7
+        }
+      }
+    }
+  },
+  {
+    "matchId": "3c51ffbd-7752-41cf-8df5-400493c8cde6",
+    "planId": "eb9a7422-5649-4e74-857e-d3f37574be39",
+    "hypothesisA": "f35c9218-a7ce-4463-9604-bec511063362",
+    "hypothesisB": "17c9d523-a8b7-449f-8e80-24854c6d83f2",
+    "winner": "f35c9218-a7ce-4463-9604-bec511063362",
+    "createdAt": "2025-11-18T16:20:15.708Z",
+    "rankingOutput": {
+      "winner": "A",
+      "reasoning": "Hypothesis A is more specific in its claims, providing a clear concentration of the excipient and a quantifiable expected outcome (20% reduction in viscosity). This makes it more testable and rigorous. Hypothesis B, while potentially impactful, lacks specificity in the expected outcome ('significantly reduce') and does not specify the concentration of the monoclonal antibody solution, making it less rigorous and clear.",
+      "confidence": 0.85,
+      "criteria_scores": {
+        "rigor": {
+          "A": 8,
+          "B": 6
+        },
+        "feasibility": {
+          "A": 7,
+          "B": 7
+        },
+        "novelty": {
+          "A": 6,
+          "B": 6
+        },
+        "clarity": {
+          "A": 9,
+          "B": 5
+        }
+      }
+    }
+  },
+  {
+    "matchId": "0978215e-29c9-4de4-a780-fc4a764c90a0",
+    "planId": "eb9a7422-5649-4e74-857e-d3f37574be39",
+    "hypothesisA": "e42ddf6a-2c87-4c4e-bb74-f3e0c5605471",
+    "hypothesisB": "4af4d08c-20bf-433c-a425-4a2e16350701",
+    "winner": "e42ddf6a-2c87-4c4e-bb74-f3e0c5605471",
+    "createdAt": "2025-11-18T16:20:15.767Z",
+    "rankingOutput": {
+      "winner": "A",
+      "reasoning": "Hypothesis A is better because it is more specific in terms of both the excipient and protein concentration, making it more scientifically rigorous and testable. It also specifies the exact concentration of Polysorbate 80, which is a well-known surfactant with documented effects on protein solutions, enhancing its feasibility. Hypothesis A is clear and specific about the expected outcome, which improves its clarity. In contrast, Hypothesis B is less specific about the protein concentration and the characteristics of PEG 4000, making it less rigorous and less feasible.",
+      "confidence": 0.85,
+      "criteria_scores": {
+        "rigor": {
+          "A": 4,
+          "B": 3
+        },
+        "feasibility": {
+          "A": 4,
+          "B": 3
+        },
+        "novelty": {
+          "A": 3,
+          "B": 3
+        },
+        "clarity": {
+          "A": 4,
+          "B": 3
+        }
+      }
+    }
+  },
+  {
+    "matchId": "c144f01c-c726-4d91-988a-1087612f154c",
+    "planId": "eb9a7422-5649-4e74-857e-d3f37574be39",
+    "hypothesisA": "e42ddf6a-2c87-4c4e-bb74-f3e0c5605471",
+    "hypothesisB": "17c9d523-a8b7-449f-8e80-24854c6d83f2",
+    "winner": "e42ddf6a-2c87-4c4e-bb74-f3e0c5605471",
+    "createdAt": "2025-11-18T16:20:16.127Z",
+    "rankingOutput": {
+      "winner": "A",
+      "reasoning": "Hypothesis A is more specific and testable because it provides a clear concentration of both the polysorbate 80 and the IgG protein solution, as well as a quantifiable expected outcome (20% reduction in viscosity). Hypothesis B is less specific because it does not define 'high concentration' or quantify the expected change in viscosity, making it less rigorous and harder to test.",
+      "confidence": 0.9,
+      "criteria_scores": {
+        "rigor": {
+          "A": 0.9,
+          "B": 0.6
+        },
+        "feasibility": {
+          "A": 0.8,
+          "B": 0.7
+        },
+        "novelty": {
+          "A": 0.6,
+          "B": 0.6
+        },
+        "clarity": {
+          "A": 0.9,
+          "B": 0.5
+        }
+      }
+    }
+  },
+  {
+    "matchId": "03dbc5ab-4210-47fd-9c77-182e4a95dcee",
+    "planId": "eb9a7422-5649-4e74-857e-d3f37574be39",
+    "hypothesisA": "4af4d08c-20bf-433c-a425-4a2e16350701",
+    "hypothesisB": "17c9d523-a8b7-449f-8e80-24854c6d83f2",
+    "winner": "4af4d08c-20bf-433c-a425-4a2e16350701",
+    "createdAt": "2025-11-18T16:20:16.273Z",
+    "rankingOutput": {
+      "winner": "A",
+      "reasoning": "Hypothesis A is more specific and testable as it provides a quantitative measure of the expected reduction in viscosity (at least 20%). This makes it easier to design an experiment to test the hypothesis. Hypothesis B, while it addresses the same problem, uses the term 'significantly reduce' which is less precise and could lead to ambiguity in experimental design and interpretation. Additionally, PEG 4000 is a common and well-studied excipient in protein formulations, which enhances the feasibility of the hypothesis.",
+      "confidence": 0.8,
+      "criteria_scores": {
+        "rigor": {
+          "A": 8,
+          "B": 6
+        },
+        "feasibility": {
+          "A": 8,
+          "B": 7
+        },
+        "novelty": {
+          "A": 6,
+          "B": 7
+        },
+        "clarity": {
+          "A": 9,
+          "B": 6
+        }
+      }
+    }
+  },
+  {
+    "matchId": "0acee396-6d76-4a9b-ae45-61507101084f",
+    "planId": "3687f175-c09f-4ffa-b189-9e5d9fd8aa1f",
+    "hypothesisA": "9c988243-09d1-42da-811a-6b4c1d99445a",
+    "hypothesisB": "948c27d1-4aa4-48ff-96b7-4cdf0bcaab39",
+    "winner": "9c988243-09d1-42da-811a-6b4c1d99445a",
+    "createdAt": "2025-11-18T16:26:18.177Z",
+    "rankingOutput": {
+      "winner": "A",
+      "reasoning": "Hypothesis A is more specific and testable as it provides a clear experimental condition (0.1% concentration of polysorbate 80) and a quantifiable outcome (20% reduction in viscosity). This specificity allows for a straightforward experimental design and clear validation of results. Hypothesis B, while potentially impactful, is more general and lacks specific parameters, making it less immediately testable.",
+      "confidence": 0.85,
+      "criteria_scores": {
+        "rigor": {
+          "A": 8,
+          "B": 6
+        },
+        "feasibility": {
+          "A": 8,
+          "B": 6
+        },
+        "novelty": {
+          "A": 6,
+          "B": 7
+        },
+        "clarity": {
+          "A": 9,
+          "B": 6
+        }
+      }
+    }
+  },
+  {
+    "matchId": "15fe9453-f9f6-4e59-bd28-4e3269ba815d",
+    "planId": "3687f175-c09f-4ffa-b189-9e5d9fd8aa1f",
+    "hypothesisA": "9c988243-09d1-42da-811a-6b4c1d99445a",
+    "hypothesisB": "fc8c0789-6980-4a3c-b3af-8bc1dd7de692",
+    "winner": "fc8c0789-6980-4a3c-b3af-8bc1dd7de692",
+    "createdAt": "2025-11-18T16:26:18.434Z",
+    "rankingOutput": {
+      "winner": "B",
+      "reasoning": "Hypothesis B is more specific and clear as it specifies the concentration of the monoclonal antibody formulation and the condition (room temperature) under which the hypothesis is tested. This makes it more rigorous and feasible for testing compared to Hypothesis A, which lacks these specifics.",
+      "confidence": 0.9,
+      "criteria_scores": {
+        "rigor": {
+          "A": 3,
+          "B": 4
+        },
+        "feasibility": {
+          "A": 3,
+          "B": 4
+        },
+        "novelty": {
+          "A": 3,
+          "B": 3
+        },
+        "clarity": {
+          "A": 2,
+          "B": 4
+        }
+      }
+    }
+  },
+  {
+    "matchId": "2a554007-f946-4329-a1f7-632b0e7b9df9",
+    "planId": "3687f175-c09f-4ffa-b189-9e5d9fd8aa1f",
+    "hypothesisA": "9c988243-09d1-42da-811a-6b4c1d99445a",
+    "hypothesisB": "47e81218-bb62-4063-bdd6-139998331642",
+    "winner": "9c988243-09d1-42da-811a-6b4c1d99445a",
+    "createdAt": "2025-11-18T16:26:18.593Z",
+    "rankingOutput": {
+      "winner": "A",
+      "reasoning": "Hypothesis A is better because it is more specific in terms of the surfactant used and its concentration, making it more scientifically rigorous and testable. It also has a clear and feasible experimental setup, as polysorbate 80 is a commonly used surfactant in pharmaceutical formulations. While both hypotheses address the same problem, Hypothesis A is clearer and more specific, which enhances its testability and potential impact.",
+      "confidence": 0.85,
+      "criteria_scores": {
+        "rigor": {
+          "A": 8,
+          "B": 7
+        },
+        "feasibility": {
+          "A": 8,
+          "B": 7
+        },
+        "novelty": {
+          "A": 7,
+          "B": 7
+        },
+        "clarity": {
+          "A": 9,
+          "B": 8
+        }
+      }
+    }
+  },
+  {
+    "matchId": "23b182a8-acbd-4591-80e9-06a4c8e528b8",
+    "planId": "3687f175-c09f-4ffa-b189-9e5d9fd8aa1f",
+    "hypothesisA": "9c988243-09d1-42da-811a-6b4c1d99445a",
+    "hypothesisB": "8e713dcc-c9eb-424a-8fd3-582c05161159",
+    "winner": "8e713dcc-c9eb-424a-8fd3-582c05161159",
+    "createdAt": "2025-11-18T16:26:18.735Z",
+    "rankingOutput": {
+      "winner": "B",
+      "reasoning": "Hypothesis B is better because it provides a more specific and testable range of concentrations (0.01% to 0.1%) and a defined antibody concentration (150 mg/mL), making it more scientifically rigorous and feasible. It also sets a more modest and achievable target for viscosity reduction (at least 10%), which is practical for testing. Additionally, it maintains clarity and specificity by detailing the conditions under which the hypothesis is tested.",
+      "confidence": 0.85,
+      "criteria_scores": {
+        "rigor": {
+          "A": 3,
+          "B": 4
+        },
+        "feasibility": {
+          "A": 3,
+          "B": 4
+        },
+        "novelty": {
+          "A": 3,
+          "B": 3
+        },
+        "clarity": {
+          "A": 3,
+          "B": 4
+        }
+      }
+    }
+  },
+  {
+    "matchId": "d64526e5-6129-4be9-a945-e99431e5ea03",
+    "planId": "3687f175-c09f-4ffa-b189-9e5d9fd8aa1f",
+    "hypothesisA": "9c988243-09d1-42da-811a-6b4c1d99445a",
+    "hypothesisB": "83af9888-08dc-4c68-800b-bec132bd3ab4",
+    "winner": "9c988243-09d1-42da-811a-6b4c1d99445a",
+    "createdAt": "2025-11-18T16:26:18.980Z",
+    "rankingOutput": {
+      "winner": "A",
+      "reasoning": "Hypothesis A is more specific and testable, as it provides a clear concentration of surfactant and a quantifiable outcome (20% reduction in viscosity). This makes it easier to design experiments to validate the hypothesis. Hypothesis B, while novel in suggesting a mechanism of action, lacks specificity in terms of the type and concentration of surfactants and does not provide a quantifiable outcome.",
+      "confidence": 0.85,
+      "criteria_scores": {
+        "rigor": {
+          "A": 8,
+          "B": 6
+        },
+        "feasibility": {
+          "A": 8,
+          "B": 7
+        },
+        "novelty": {
+          "A": 6,
+          "B": 7
+        },
+        "clarity": {
+          "A": 9,
+          "B": 6
+        }
+      }
+    }
+  },
+  {
+    "matchId": "fad2082a-7918-48c0-8640-f3eb35591002",
+    "planId": "3687f175-c09f-4ffa-b189-9e5d9fd8aa1f",
+    "hypothesisA": "9c988243-09d1-42da-811a-6b4c1d99445a",
+    "hypothesisB": "49d39b1a-6788-437b-b65b-8b37023f467b",
+    "winner": "49d39b1a-6788-437b-b65b-8b37023f467b",
+    "createdAt": "2025-11-18T16:26:19.343Z",
+    "rankingOutput": {
+      "winner": "B",
+      "reasoning": "Hypothesis B is more specific and clear, as it defines the concentration of the monoclonal antibody solution and specifies the comparison to a control without excipients. This increases its scientific rigor and testability. It also maintains feasibility and practicality similar to Hypothesis A while providing more detailed conditions.",
+      "confidence": 0.9,
+      "criteria_scores": {
+        "rigor": {
+          "A": 7,
+          "B": 8
+        },
+        "feasibility": {
+          "A": 8,
+          "B": 8
+        },
+        "novelty": {
+          "A": 6,
+          "B": 6
+        },
+        "clarity": {
+          "A": 6,
+          "B": 8
+        }
+      }
+    }
+  },
+  {
+    "matchId": "d39d909d-3f7d-44c9-86b4-bcd8829966ed",
+    "planId": "3687f175-c09f-4ffa-b189-9e5d9fd8aa1f",
+    "hypothesisA": "9c988243-09d1-42da-811a-6b4c1d99445a",
+    "hypothesisB": "e353eef8-b0e7-4c58-aee9-dda735e8f8cb",
+    "winner": "e353eef8-b0e7-4c58-aee9-dda735e8f8cb",
+    "createdAt": "2025-11-18T16:26:19.520Z",
+    "rankingOutput": {
+      "winner": "B",
+      "reasoning": "Hypothesis B is more specific and clear as it specifies the temperature condition (25°C) under which the viscosity reduction is expected. This adds clarity and testability to the hypothesis, making it easier to design experiments around it. Both hypotheses are similar in scientific rigor and feasibility, but the added specificity of Hypothesis B gives it an edge.",
+      "confidence": 0.85,
+      "criteria_scores": {
+        "rigor": {
+          "A": 0.8,
+          "B": 0.8
+        },
+        "feasibility": {
+          "A": 0.8,
+          "B": 0.8
+        },
+        "novelty": {
+          "A": 0.6,
+          "B": 0.6
+        },
+        "clarity": {
+          "A": 0.7,
+          "B": 0.9
+        }
+      }
+    }
+  },
+  {
+    "matchId": "5addda2f-1e3d-476f-9cb6-fa3da702763d",
+    "planId": "3687f175-c09f-4ffa-b189-9e5d9fd8aa1f",
+    "hypothesisA": "9c988243-09d1-42da-811a-6b4c1d99445a",
+    "hypothesisB": "4e7ef616-e982-47e9-8e70-0ca0ebb13090",
+    "winner": "4e7ef616-e982-47e9-8e70-0ca0ebb13090",
+    "createdAt": "2025-11-18T16:26:19.656Z",
+    "rankingOutput": {
+      "winner": "B",
+      "reasoning": "Hypothesis B is more specific as it specifies the concentration of the monoclonal antibody solution (200 mg/mL), making it clearer and more testable. It also provides a direct comparison to a control without the excipient, enhancing its scientific rigor.",
+      "confidence": 0.9,
+      "criteria_scores": {
+        "rigor": {
+          "A": 7,
+          "B": 9
+        },
+        "feasibility": {
+          "A": 8,
+          "B": 8
+        },
+        "novelty": {
+          "A": 7,
+          "B": 7
+        },
+        "clarity": {
+          "A": 6,
+          "B": 9
+        }
+      }
+    }
+  },
+  {
+    "matchId": "c7692478-1d89-4c79-a862-6131cc27545d",
+    "planId": "3687f175-c09f-4ffa-b189-9e5d9fd8aa1f",
+    "hypothesisA": "9c988243-09d1-42da-811a-6b4c1d99445a",
+    "hypothesisB": "809e6c28-738b-4ec2-b698-5e479b0a0b24",
+    "winner": "9c988243-09d1-42da-811a-6b4c1d99445a",
+    "createdAt": "2025-11-18T16:26:19.847Z",
+    "rankingOutput": {
+      "winner": "A",
+      "reasoning": "Hypothesis A is more specific and scientifically rigorous, as it specifies the concentration of polysorbate 80, which makes it more testable and clear. It also focuses on monoclonal antibody formulations, which is a specific type of protein formulation, providing a clearer context for its application and potential impact.",
+      "confidence": 0.85,
+      "criteria_scores": {
+        "rigor": {
+          "A": 4,
+          "B": 3
+        },
+        "feasibility": {
+          "A": 4,
+          "B": 4
+        },
+        "novelty": {
+          "A": 3,
+          "B": 3
+        },
+        "clarity": {
+          "A": 5,
+          "B": 3
+        }
+      }
+    }
+  },
+  {
+    "matchId": "e711619f-dacd-4268-b8f1-c6d292dc2423",
+    "planId": "3687f175-c09f-4ffa-b189-9e5d9fd8aa1f",
+    "hypothesisA": "948c27d1-4aa4-48ff-96b7-4cdf0bcaab39",
+    "hypothesisB": "fc8c0789-6980-4a3c-b3af-8bc1dd7de692",
+    "winner": "fc8c0789-6980-4a3c-b3af-8bc1dd7de692",
+    "createdAt": "2025-11-18T16:26:20.019Z",
+    "rankingOutput": {
+      "winner": "B",
+      "reasoning": "Hypothesis B is more specific and testable, providing clear parameters such as the type of surfactant, its concentration, and the expected outcome, which makes it more scientifically rigorous. It is also feasible and practical, as it specifies conditions that can be easily tested in a laboratory setting. While both hypotheses are novel, B has a more defined potential impact due to its specificity. Clarity and specificity are stronger in B because it provides exact details that guide experimental design.",
+      "confidence": 0.9,
+      "criteria_scores": {
+        "rigor": {
+          "A": 6,
+          "B": 9
+        },
+        "feasibility": {
+          "A": 7,
+          "B": 9
+        },
+        "novelty": {
+          "A": 8,
+          "B": 8
+        },
+        "clarity": {
+          "A": 6,
+          "B": 9
+        }
+      }
+    }
+  },
+  {
+    "matchId": "bc2702ed-a261-4e54-9bd1-783f286a81db",
+    "planId": "3687f175-c09f-4ffa-b189-9e5d9fd8aa1f",
+    "hypothesisA": "948c27d1-4aa4-48ff-96b7-4cdf0bcaab39",
+    "hypothesisB": "47e81218-bb62-4063-bdd6-139998331642",
+    "winner": "47e81218-bb62-4063-bdd6-139998331642",
+    "createdAt": "2025-11-18T16:26:20.148Z",
+    "rankingOutput": {
+      "winner": "B",
+      "reasoning": "Hypothesis B is more specific and testable as it provides a precise concentration and expected outcome, making it easier to design experiments and measure results. It also focuses on a specific protein (IgG), which enhances its clarity and specificity. While Hypothesis A is broader and potentially applicable to a wider range of proteins, it lacks the specificity and clear experimental framework provided by Hypothesis B.",
+      "confidence": 0.85,
+      "criteria_scores": {
+        "rigor": {
+          "A": 6,
+          "B": 8
+        },
+        "feasibility": {
+          "A": 7,
+          "B": 9
+        },
+        "novelty": {
+          "A": 7,
+          "B": 6
+        },
+        "clarity": {
+          "A": 6,
+          "B": 9
+        }
+      }
+    }
+  },
+  {
+    "matchId": "686135ec-2a61-44c0-8532-cf3302bb0187",
+    "planId": "3687f175-c09f-4ffa-b189-9e5d9fd8aa1f",
+    "hypothesisA": "948c27d1-4aa4-48ff-96b7-4cdf0bcaab39",
+    "hypothesisB": "8e713dcc-c9eb-424a-8fd3-582c05161159",
+    "winner": "8e713dcc-c9eb-424a-8fd3-582c05161159",
+    "createdAt": "2025-11-18T16:26:20.430Z",
+    "rankingOutput": {
+      "winner": "B",
+      "reasoning": "Hypothesis B is more specific and testable, as it provides exact concentrations and a quantifiable outcome, making it easier to design experiments to validate it. It also focuses on a particular surfactant and protein formulation, enhancing its clarity and specificity. While both hypotheses are feasible, B's specificity makes it more scientifically rigorous.",
+      "confidence": 0.9,
+      "criteria_scores": {
+        "rigor": {
+          "A": 6,
+          "B": 8
+        },
+        "feasibility": {
+          "A": 7,
+          "B": 7
+        },
+        "novelty": {
+          "A": 6,
+          "B": 6
+        },
+        "clarity": {
+          "A": 5,
+          "B": 9
+        }
+      }
+    }
+  },
+  {
+    "matchId": "acbee605-7015-4985-b883-658af9401ed5",
+    "planId": "3687f175-c09f-4ffa-b189-9e5d9fd8aa1f",
+    "hypothesisA": "948c27d1-4aa4-48ff-96b7-4cdf0bcaab39",
+    "hypothesisB": "83af9888-08dc-4c68-800b-bec132bd3ab4",
+    "winner": "83af9888-08dc-4c68-800b-bec132bd3ab4",
+    "createdAt": "2025-11-18T16:26:20.644Z",
+    "rankingOutput": {
+      "winner": "B",
+      "reasoning": "Hypothesis B is better because it specifies the use of specific surfactants, which adds clarity and specificity to the hypothesis. This makes it more testable and scientifically rigorous compared to Hypothesis A, which is more general. Hypothesis B's specificity allows for more targeted experiments and increases the feasibility of testing the hypothesis.",
+      "confidence": 0.8,
+      "criteria_scores": {
+        "rigor": {
+          "A": 3,
+          "B": 4
+        },
+        "feasibility": {
+          "A": 3,
+          "B": 4
+        },
+        "novelty": {
+          "A": 3,
+          "B": 3
+        },
+        "clarity": {
+          "A": 3,
+          "B": 4
+        }
+      }
+    }
+  },
+  {
+    "matchId": "156bf509-bad8-4c1d-aab3-324ba704a849",
+    "planId": "3687f175-c09f-4ffa-b189-9e5d9fd8aa1f",
+    "hypothesisA": "948c27d1-4aa4-48ff-96b7-4cdf0bcaab39",
+    "hypothesisB": "49d39b1a-6788-437b-b65b-8b37023f467b",
+    "winner": "49d39b1a-6788-437b-b65b-8b37023f467b",
+    "createdAt": "2025-11-18T16:26:20.859Z",
+    "rankingOutput": {
+      "winner": "B",
+      "reasoning": "Hypothesis B is more specific and testable, providing a clear experimental setup with defined variables and expected outcomes. It specifies the type of surfactant, its concentration, the protein solution concentration, and the expected quantitative reduction in viscosity, making it scientifically rigorous and feasible to test. Hypothesis A, while novel, lacks specificity in terms of experimental conditions and expected outcomes.",
+      "confidence": 0.9,
+      "criteria_scores": {
+        "rigor": {
+          "A": 6,
+          "B": 9
+        },
+        "feasibility": {
+          "A": 6,
+          "B": 9
+        },
+        "novelty": {
+          "A": 7,
+          "B": 6
+        },
+        "clarity": {
+          "A": 5,
+          "B": 9
+        }
+      }
+    }
+  },
+  {
+    "matchId": "83a31891-387b-42a4-92e8-c5379ccaa2b5",
+    "planId": "3687f175-c09f-4ffa-b189-9e5d9fd8aa1f",
+    "hypothesisA": "948c27d1-4aa4-48ff-96b7-4cdf0bcaab39",
+    "hypothesisB": "e353eef8-b0e7-4c58-aee9-dda735e8f8cb",
+    "winner": "e353eef8-b0e7-4c58-aee9-dda735e8f8cb",
+    "createdAt": "2025-11-18T16:26:20.945Z",
+    "rankingOutput": {
+      "winner": "B",
+      "reasoning": "Hypothesis B is more specific and testable as it provides a clear experimental condition (0.1% w/v polysorbate 80, 25°C) and a quantifiable outcome (20% reduction in viscosity). This specificity enhances its scientific rigor and feasibility. Additionally, it is more practical as it directly addresses a common formulation issue in a manner that can be readily evaluated. While Hypothesis A is more general and potentially novel, it lacks the specificity and clarity that make B more immediately actionable and testable.",
+      "confidence": 0.9,
+      "criteria_scores": {
+        "rigor": {
+          "A": 6,
+          "B": 9
+        },
+        "feasibility": {
+          "A": 6,
+          "B": 9
+        },
+        "novelty": {
+          "A": 7,
+          "B": 6
+        },
+        "clarity": {
+          "A": 5,
+          "B": 9
+        }
+      }
+    }
+  },
+  {
+    "matchId": "919dcd54-eefd-4af0-889d-ac57f86b4d6c",
+    "planId": "3687f175-c09f-4ffa-b189-9e5d9fd8aa1f",
+    "hypothesisA": "948c27d1-4aa4-48ff-96b7-4cdf0bcaab39",
+    "hypothesisB": "4e7ef616-e982-47e9-8e70-0ca0ebb13090",
+    "winner": "4e7ef616-e982-47e9-8e70-0ca0ebb13090",
+    "createdAt": "2025-11-18T16:26:21.174Z",
+    "rankingOutput": {
+      "winner": "B",
+      "reasoning": "Hypothesis B is more specific and testable as it provides a clear experimental condition with a specific concentration of polysorbate 80 and a quantifiable outcome (20% decrease in viscosity). It is also more feasible as it outlines a precise intervention and expected result. Hypothesis A is more general and lacks specificity regarding the type and concentration of surfactants, making it less rigorous and harder to test directly.",
+      "confidence": 0.9,
+      "criteria_scores": {
+        "rigor": {
+          "A": 6,
+          "B": 9
+        },
+        "feasibility": {
+          "A": 7,
+          "B": 9
+        },
+        "novelty": {
+          "A": 7,
+          "B": 7
+        },
+        "clarity": {
+          "A": 6,
+          "B": 9
+        }
+      }
+    }
+  },
+  {
+    "matchId": "00fd4bb5-48e9-454d-9356-9a380c4f29be",
+    "planId": "3687f175-c09f-4ffa-b189-9e5d9fd8aa1f",
+    "hypothesisA": "948c27d1-4aa4-48ff-96b7-4cdf0bcaab39",
+    "hypothesisB": "809e6c28-738b-4ec2-b698-5e479b0a0b24",
+    "winner": "809e6c28-738b-4ec2-b698-5e479b0a0b24",
+    "createdAt": "2025-11-18T16:26:21.346Z",
+    "rankingOutput": {
+      "winner": "B",
+      "reasoning": "Hypothesis B is more specific and testable, as it identifies a particular surfactant (polysorbate 80) and quantifies the expected reduction in viscosity (at least 20%). This makes it easier to design experiments to test the hypothesis. Hypothesis A is more general and lacks specificity, which makes it less rigorous and testable compared to Hypothesis B.",
+      "confidence": 0.9,
+      "criteria_scores": {
+        "rigor": {
+          "A": 6,
+          "B": 9
+        },
+        "feasibility": {
+          "A": 7,
+          "B": 8
+        },
+        "novelty": {
+          "A": 7,
+          "B": 7
+        },
+        "clarity": {
+          "A": 6,
+          "B": 9
+        }
+      }
+    }
+  },
+  {
+    "matchId": "f1411d27-1f1c-48e5-8e45-728f4b452e67",
+    "planId": "3687f175-c09f-4ffa-b189-9e5d9fd8aa1f",
+    "hypothesisA": "fc8c0789-6980-4a3c-b3af-8bc1dd7de692",
+    "hypothesisB": "47e81218-bb62-4063-bdd6-139998331642",
+    "winner": "fc8c0789-6980-4a3c-b3af-8bc1dd7de692",
+    "createdAt": "2025-11-18T16:26:21.625Z",
+    "rankingOutput": {
+      "winner": "A",
+      "reasoning": "Hypothesis A is more specific in terms of the type of surfactant (polysorbate 80) and its concentration, making it more scientifically rigorous and testable. It also specifies the target reduction in viscosity and the conditions under which the experiment should be conducted (room temperature). Hypothesis B, while also potentially impactful, is less specific about the conditions and type of protein formulation, which affects its clarity and testability.",
+      "confidence": 0.85,
+      "criteria_scores": {
+        "rigor": {
+          "A": 8,
+          "B": 7
+        },
+        "feasibility": {
+          "A": 8,
+          "B": 7
+        },
+        "novelty": {
+          "A": 6,
+          "B": 6
+        },
+        "clarity": {
+          "A": 9,
+          "B": 7
+        }
+      }
+    }
+  },
+  {
+    "matchId": "4cbf8b4f-dad2-4bde-a8c2-9547ce51671e",
+    "planId": "3687f175-c09f-4ffa-b189-9e5d9fd8aa1f",
+    "hypothesisA": "fc8c0789-6980-4a3c-b3af-8bc1dd7de692",
+    "hypothesisB": "8e713dcc-c9eb-424a-8fd3-582c05161159",
+    "winner": "fc8c0789-6980-4a3c-b3af-8bc1dd7de692",
+    "createdAt": "2025-11-18T16:26:21.803Z",
+    "rankingOutput": {
+      "winner": "A",
+      "reasoning": "Hypothesis A is more specific and testable, providing a clear concentration and expected outcome. It also targets a higher concentration of monoclonal antibody, which is more challenging and thus more impactful if successful. Hypothesis B is broader in its concentration range and has a lower target reduction in viscosity, making it less rigorous and impactful.",
+      "confidence": 0.8,
+      "criteria_scores": {
+        "rigor": {
+          "A": 4,
+          "B": 3
+        },
+        "feasibility": {
+          "A": 4,
+          "B": 4
+        },
+        "novelty": {
+          "A": 3,
+          "B": 3
+        },
+        "clarity": {
+          "A": 5,
+          "B": 4
+        }
+      }
+    }
+  },
+  {
+    "matchId": "2285ca98-f62b-485b-a770-267306bd4b10",
+    "planId": "3687f175-c09f-4ffa-b189-9e5d9fd8aa1f",
+    "hypothesisA": "fc8c0789-6980-4a3c-b3af-8bc1dd7de692",
+    "hypothesisB": "83af9888-08dc-4c68-800b-bec132bd3ab4",
+    "winner": "fc8c0789-6980-4a3c-b3af-8bc1dd7de692",
+    "createdAt": "2025-11-18T16:26:22.015Z",
+    "rankingOutput": {
+      "winner": "A",
+      "reasoning": "Hypothesis A is more specific and testable, as it provides clear parameters such as the type and concentration of surfactant and the expected outcome. This specificity allows for a well-defined experimental setup. Hypothesis B, while potentially impactful, lacks specificity in terms of which surfactants are used and what constitutes 'significant' reduction in viscosity, making it less rigorous and harder to test directly.",
+      "confidence": 0.85,
+      "criteria_scores": {
+        "rigor": {
+          "A": 8,
+          "B": 6
+        },
+        "feasibility": {
+          "A": 8,
+          "B": 7
+        },
+        "novelty": {
+          "A": 6,
+          "B": 7
+        },
+        "clarity": {
+          "A": 9,
+          "B": 5
+        }
+      }
+    }
+  },
+  {
+    "matchId": "ff7e95e3-fa22-469e-8273-cfd8cfb91dee",
+    "planId": "3687f175-c09f-4ffa-b189-9e5d9fd8aa1f",
+    "hypothesisA": "fc8c0789-6980-4a3c-b3af-8bc1dd7de692",
+    "hypothesisB": "49d39b1a-6788-437b-b65b-8b37023f467b",
+    "winner": "fc8c0789-6980-4a3c-b3af-8bc1dd7de692",
+    "createdAt": "2025-11-18T16:26:22.157Z",
+    "rankingOutput": {
+      "winner": "A",
+      "reasoning": "Hypothesis A is better because it provides a specific context (room temperature) for the experiment, which adds to its scientific rigor. It also uses a higher concentration of surfactant, which is more likely to achieve the hypothesized effect, making it more feasible. Both hypotheses are similar in novelty and potential impact, but Hypothesis A is slightly more specific.",
+      "confidence": 0.8,
+      "criteria_scores": {
+        "rigor": {
+          "A": 4,
+          "B": 3
+        },
+        "feasibility": {
+          "A": 4,
+          "B": 3
+        },
+        "novelty": {
+          "A": 3,
+          "B": 3
+        },
+        "clarity": {
+          "A": 4,
+          "B": 3
+        }
+      }
+    }
+  },
+  {
+    "matchId": "37cc672d-f0ca-4219-b11f-4ff617089e32",
+    "planId": "3687f175-c09f-4ffa-b189-9e5d9fd8aa1f",
+    "hypothesisA": "fc8c0789-6980-4a3c-b3af-8bc1dd7de692",
+    "hypothesisB": "e353eef8-b0e7-4c58-aee9-dda735e8f8cb",
+    "winner": "fc8c0789-6980-4a3c-b3af-8bc1dd7de692",
+    "createdAt": "2025-11-18T16:26:22.279Z",
+    "rankingOutput": {
+      "winner": "A",
+      "reasoning": "Hypothesis A is more specific and scientifically rigorous as it specifies the concentration of the monoclonal antibody formulation (200 mg/mL), while Hypothesis B only refers to a 'high concentration' which is less precise. This specificity makes Hypothesis A more testable. Both hypotheses are similar in feasibility, novelty, and clarity, but the added specificity in Hypothesis A gives it a slight edge.",
+      "confidence": 0.7,
+      "criteria_scores": {
+        "rigor": {
+          "A": 8,
+          "B": 7
+        },
+        "feasibility": {
+          "A": 7,
+          "B": 7
+        },
+        "novelty": {
+          "A": 6,
+          "B": 6
+        },
+        "clarity": {
+          "A": 8,
+          "B": 8
+        }
+      }
+    }
+  },
+  {
+    "matchId": "073da885-82ba-447c-a61c-ec3c53bbbcd0",
+    "planId": "3687f175-c09f-4ffa-b189-9e5d9fd8aa1f",
+    "hypothesisA": "fc8c0789-6980-4a3c-b3af-8bc1dd7de692",
+    "hypothesisB": "4e7ef616-e982-47e9-8e70-0ca0ebb13090",
+    "winner": "4e7ef616-e982-47e9-8e70-0ca0ebb13090",
+    "createdAt": "2025-11-18T16:26:22.389Z",
+    "rankingOutput": {
+      "winner": "B",
+      "reasoning": "Hypothesis B is more specific in its comparison by explicitly stating that the decrease in viscosity is compared to a control without the excipient, which provides a clearer basis for experimental design and evaluation. Both hypotheses are similar in scientific rigor, feasibility, and novelty, but Hypothesis B's clarity and specificity make it slightly better.",
+      "confidence": 0.85,
+      "criteria_scores": {
+        "rigor": {
+          "A": 0.8,
+          "B": 0.8
+        },
+        "feasibility": {
+          "A": 0.8,
+          "B": 0.8
+        },
+        "novelty": {
+          "A": 0.6,
+          "B": 0.6
+        },
+        "clarity": {
+          "A": 0.7,
+          "B": 0.9
+        }
+      }
+    }
+  },
+  {
+    "matchId": "e6a22275-e33e-4cbd-8d6c-9b7700eae5db",
+    "planId": "3687f175-c09f-4ffa-b189-9e5d9fd8aa1f",
+    "hypothesisA": "fc8c0789-6980-4a3c-b3af-8bc1dd7de692",
+    "hypothesisB": "809e6c28-738b-4ec2-b698-5e479b0a0b24",
+    "winner": "fc8c0789-6980-4a3c-b3af-8bc1dd7de692",
+    "createdAt": "2025-11-18T16:26:22.417Z",
+    "rankingOutput": {
+      "winner": "A",
+      "reasoning": "Hypothesis A is more specific and testable, providing exact concentrations and conditions, which enhances its scientific rigor and clarity. It is feasible to test with clear parameters and has practical implications in pharmaceutical formulations. Hypothesis B is less specific, lacking details such as concentration and temperature, which makes it less rigorous and testable.",
+      "confidence": 0.85,
+      "criteria_scores": {
+        "rigor": {
+          "A": 4,
+          "B": 3
+        },
+        "feasibility": {
+          "A": 4,
+          "B": 3
+        },
+        "novelty": {
+          "A": 3,
+          "B": 3
+        },
+        "clarity": {
+          "A": 5,
+          "B": 3
+        }
+      }
+    }
+  },
+  {
+    "matchId": "43f0313c-c2d1-44b6-951e-1401abe0cf27",
+    "planId": "3687f175-c09f-4ffa-b189-9e5d9fd8aa1f",
+    "hypothesisA": "47e81218-bb62-4063-bdd6-139998331642",
+    "hypothesisB": "8e713dcc-c9eb-424a-8fd3-582c05161159",
+    "winner": "47e81218-bb62-4063-bdd6-139998331642",
+    "createdAt": "2025-11-18T16:26:22.603Z",
+    "rankingOutput": {
+      "winner": "A",
+      "reasoning": "Hypothesis A is better because it is more specific in terms of the concentration of arginine and the expected effect on viscosity, making it more testable and rigorous. It also provides a clear quantitative target for the reduction in viscosity. While both hypotheses are feasible, Hypothesis A's use of arginine is slightly more novel in the context of reducing viscosity compared to the well-known use of polysorbate 80 as a surfactant. Additionally, Hypothesis A's potential impact is higher due to the significant reduction in viscosity it aims to achieve.",
+      "confidence": 0.85,
+      "criteria_scores": {
+        "rigor": {
+          "A": 0.9,
+          "B": 0.8
+        },
+        "feasibility": {
+          "A": 0.85,
+          "B": 0.85
+        },
+        "novelty": {
+          "A": 0.8,
+          "B": 0.7
+        },
+        "clarity": {
+          "A": 0.9,
+          "B": 0.75
+        }
+      }
+    }
+  },
+  {
+    "matchId": "5c9c2bef-53cc-44e1-942e-428b937486c8",
+    "planId": "3687f175-c09f-4ffa-b189-9e5d9fd8aa1f",
+    "hypothesisA": "47e81218-bb62-4063-bdd6-139998331642",
+    "hypothesisB": "83af9888-08dc-4c68-800b-bec132bd3ab4",
+    "winner": "47e81218-bb62-4063-bdd6-139998331642",
+    "createdAt": "2025-11-18T16:26:22.670Z",
+    "rankingOutput": {
+      "winner": "A",
+      "reasoning": "Hypothesis A is more specific and testable, as it provides a clear concentration of arginine and a quantifiable outcome (20% decrease in viscosity). This specificity allows for straightforward experimental design and measurement. Hypothesis B, while potentially impactful, is more vague, lacking details on which surfactants are used and what constitutes a significant reduction in viscosity.",
+      "confidence": 0.85,
+      "criteria_scores": {
+        "rigor": {
+          "A": 8,
+          "B": 6
+        },
+        "feasibility": {
+          "A": 8,
+          "B": 6
+        },
+        "novelty": {
+          "A": 6,
+          "B": 7
+        },
+        "clarity": {
+          "A": 9,
+          "B": 5
+        }
+      }
+    }
+  },
+  {
+    "matchId": "221d77d2-5768-4b98-9c51-11b3b928c163",
+    "planId": "3687f175-c09f-4ffa-b189-9e5d9fd8aa1f",
+    "hypothesisA": "47e81218-bb62-4063-bdd6-139998331642",
+    "hypothesisB": "49d39b1a-6788-437b-b65b-8b37023f467b",
+    "winner": "47e81218-bb62-4063-bdd6-139998331642",
+    "createdAt": "2025-11-18T16:26:22.876Z",
+    "rankingOutput": {
+      "winner": "A",
+      "reasoning": "Hypothesis A is better because it is more scientifically rigorous and testable, focusing on a specific concentration of arginine, a well-known excipient, and its effect on IgG protein formulations. It is also feasible and practical, as arginine is commonly used in protein formulations. While both hypotheses are novel, Hypothesis A has a clearer and more specific experimental setup, which enhances its clarity.",
+      "confidence": 0.85,
+      "criteria_scores": {
+        "rigor": {
+          "A": 8,
+          "B": 7
+        },
+        "feasibility": {
+          "A": 8,
+          "B": 7
+        },
+        "novelty": {
+          "A": 7,
+          "B": 7
+        },
+        "clarity": {
+          "A": 8,
+          "B": 7
+        }
+      }
+    }
+  },
+  {
+    "matchId": "69b41446-bf2c-42f3-9347-3bdba47f1b52",
+    "planId": "3687f175-c09f-4ffa-b189-9e5d9fd8aa1f",
+    "hypothesisA": "47e81218-bb62-4063-bdd6-139998331642",
+    "hypothesisB": "e353eef8-b0e7-4c58-aee9-dda735e8f8cb",
+    "winner": "47e81218-bb62-4063-bdd6-139998331642",
+    "createdAt": "2025-11-18T16:26:23.047Z",
+    "rankingOutput": {
+      "winner": "A",
+      "reasoning": "Hypothesis A is more specific and testable, as it provides a clear concentration of arginine and a specific expected outcome on viscosity. It also directly addresses a common issue in protein formulations, making it feasible and practical. Hypothesis B, while also addressing viscosity reduction, uses a common excipient (polysorbate 80) that may have more established effects, making it less novel. Furthermore, Hypothesis A's use of arginine may offer new insights into protein formulation strategies.",
+      "confidence": 0.85,
+      "criteria_scores": {
+        "rigor": {
+          "A": 8,
+          "B": 7
+        },
+        "feasibility": {
+          "A": 8,
+          "B": 7
+        },
+        "novelty": {
+          "A": 7,
+          "B": 6
+        },
+        "clarity": {
+          "A": 8,
+          "B": 7
+        }
+      }
+    }
+  },
+  {
+    "matchId": "fb77049d-b854-45f9-b8a3-c2685410d51a",
+    "planId": "3687f175-c09f-4ffa-b189-9e5d9fd8aa1f",
+    "hypothesisA": "47e81218-bb62-4063-bdd6-139998331642",
+    "hypothesisB": "4e7ef616-e982-47e9-8e70-0ca0ebb13090",
+    "winner": "47e81218-bb62-4063-bdd6-139998331642",
+    "createdAt": "2025-11-18T16:26:23.483Z",
+    "rankingOutput": {
+      "winner": "A",
+      "reasoning": "Hypothesis A is more specific and testable as it specifies the concentration of both the excipient (arginine) and the IgG protein formulation. It is also novel in exploring the effect of arginine on viscosity, which is less commonly studied compared to polysorbate 80. Additionally, arginine's impact on protein formulations is an emerging area of interest, potentially offering new insights into formulation science.",
+      "confidence": 0.8,
+      "criteria_scores": {
+        "rigor": {
+          "A": 8,
+          "B": 7
+        },
+        "feasibility": {
+          "A": 8,
+          "B": 8
+        },
+        "novelty": {
+          "A": 8,
+          "B": 6
+        },
+        "clarity": {
+          "A": 8,
+          "B": 7
+        }
+      }
+    }
+  },
+  {
+    "matchId": "37bb6899-276b-4673-b903-80d99358caa3",
+    "planId": "3687f175-c09f-4ffa-b189-9e5d9fd8aa1f",
+    "hypothesisA": "47e81218-bb62-4063-bdd6-139998331642",
+    "hypothesisB": "809e6c28-738b-4ec2-b698-5e479b0a0b24",
+    "winner": "47e81218-bb62-4063-bdd6-139998331642",
+    "createdAt": "2025-11-18T16:26:23.811Z",
+    "rankingOutput": {
+      "winner": "A",
+      "reasoning": "Hypothesis A is more specific and testable, providing a precise concentration of arginine and a clear expected outcome. It is also more scientifically rigorous as it specifies the excipient and its expected effect on viscosity, which is a well-studied area. Hypothesis B, while feasible, is less specific about the concentration of polysorbate 80 and lacks detail on the mechanism of action, making it less rigorous.",
+      "confidence": 0.85,
+      "criteria_scores": {
+        "rigor": {
+          "A": 0.9,
+          "B": 0.7
+        },
+        "feasibility": {
+          "A": 0.8,
+          "B": 0.8
+        },
+        "novelty": {
+          "A": 0.7,
+          "B": 0.7
+        },
+        "clarity": {
+          "A": 0.9,
+          "B": 0.6
+        }
+      }
+    }
+  },
+  {
+    "matchId": "1f8abe8c-e1cd-4bfa-8d9a-af3db250ef6a",
+    "planId": "3687f175-c09f-4ffa-b189-9e5d9fd8aa1f",
+    "hypothesisA": "8e713dcc-c9eb-424a-8fd3-582c05161159",
+    "hypothesisB": "83af9888-08dc-4c68-800b-bec132bd3ab4",
+    "winner": "8e713dcc-c9eb-424a-8fd3-582c05161159",
+    "createdAt": "2025-11-18T16:26:23.972Z",
+    "rankingOutput": {
+      "winner": "A",
+      "reasoning": "Hypothesis A is more specific and testable, as it clearly defines the surfactant (polysorbate 80), the concentration range, and the expected outcome (a 10% reduction in viscosity). This specificity allows for direct experimental validation. In contrast, Hypothesis B is more general, lacking specific details about which surfactants or concentrations to use, making it less rigorous and more challenging to test directly.",
+      "confidence": 0.85,
+      "criteria_scores": {
+        "rigor": {
+          "A": 0.9,
+          "B": 0.6
+        },
+        "feasibility": {
+          "A": 0.8,
+          "B": 0.7
+        },
+        "novelty": {
+          "A": 0.7,
+          "B": 0.8
+        },
+        "clarity": {
+          "A": 0.9,
+          "B": 0.6
+        }
+      }
+    }
+  },
+  {
+    "matchId": "78d94cb4-d48c-4251-9c97-72720643ce74",
+    "planId": "3687f175-c09f-4ffa-b189-9e5d9fd8aa1f",
+    "hypothesisA": "8e713dcc-c9eb-424a-8fd3-582c05161159",
+    "hypothesisB": "49d39b1a-6788-437b-b65b-8b37023f467b",
+    "winner": "49d39b1a-6788-437b-b65b-8b37023f467b",
+    "createdAt": "2025-11-18T16:26:24.065Z",
+    "rankingOutput": {
+      "winner": "B",
+      "reasoning": "Hypothesis B is more specific in its experimental conditions and provides a clearer, more rigorous testable claim. It specifies a single concentration and a clear comparison to a control without excipients, which makes it easier to test and validate. Additionally, it proposes a more significant reduction in viscosity, which could have a greater impact if proven true.",
+      "confidence": 0.85,
+      "criteria_scores": {
+        "rigor": {
+          "A": 7,
+          "B": 8
+        },
+        "feasibility": {
+          "A": 7,
+          "B": 7
+        },
+        "novelty": {
+          "A": 6,
+          "B": 6
+        },
+        "clarity": {
+          "A": 6,
+          "B": 8
+        }
+      }
+    }
+  },
+  {
+    "matchId": "e9dab69f-1f02-4bd5-88f8-77475565cf79",
+    "planId": "3687f175-c09f-4ffa-b189-9e5d9fd8aa1f",
+    "hypothesisA": "8e713dcc-c9eb-424a-8fd3-582c05161159",
+    "hypothesisB": "e353eef8-b0e7-4c58-aee9-dda735e8f8cb",
+    "winner": "e353eef8-b0e7-4c58-aee9-dda735e8f8cb",
+    "createdAt": "2025-11-18T16:26:24.419Z",
+    "rankingOutput": {
+      "winner": "B",
+      "reasoning": "Hypothesis B is more specific and provides a clear experimental condition (25°C) which enhances its scientific rigor and testability. It also proposes a more significant reduction in viscosity (20%), indicating a potentially higher impact. Although Hypothesis A covers a range of concentrations, it lacks the specificity of temperature conditions, which can significantly affect viscosity measurements.",
+      "confidence": 0.85,
+      "criteria_scores": {
+        "rigor": {
+          "A": 7,
+          "B": 8
+        },
+        "feasibility": {
+          "A": 8,
+          "B": 8
+        },
+        "novelty": {
+          "A": 6,
+          "B": 6
+        },
+        "clarity": {
+          "A": 7,
+          "B": 9
+        }
+      }
+    }
+  },
+  {
+    "matchId": "254c6105-2d0a-4381-8e61-18d3055b0cf2",
+    "planId": "3687f175-c09f-4ffa-b189-9e5d9fd8aa1f",
+    "hypothesisA": "8e713dcc-c9eb-424a-8fd3-582c05161159",
+    "hypothesisB": "4e7ef616-e982-47e9-8e70-0ca0ebb13090",
+    "winner": "4e7ef616-e982-47e9-8e70-0ca0ebb13090",
+    "createdAt": "2025-11-18T16:26:24.685Z",
+    "rankingOutput": {
+      "winner": "B",
+      "reasoning": "Hypothesis B is more specific and testable as it provides a precise concentration of polysorbate 80 and a clear expected outcome of a 20% reduction in viscosity. It also focuses on a higher concentration of monoclonal antibody, which could have more significant practical applications. Additionally, it is more rigorous because it sets a clear benchmark for comparison with a control.",
+      "confidence": 0.85,
+      "criteria_scores": {
+        "rigor": {
+          "A": 4,
+          "B": 5
+        },
+        "feasibility": {
+          "A": 4,
+          "B": 4
+        },
+        "novelty": {
+          "A": 3,
+          "B": 3
+        },
+        "clarity": {
+          "A": 3,
+          "B": 5
+        }
+      }
+    }
+  },
+  {
+    "matchId": "85358f5c-86ff-4147-a9e3-4ab49669bcbb",
+    "planId": "3687f175-c09f-4ffa-b189-9e5d9fd8aa1f",
+    "hypothesisA": "8e713dcc-c9eb-424a-8fd3-582c05161159",
+    "hypothesisB": "809e6c28-738b-4ec2-b698-5e479b0a0b24",
+    "winner": "8e713dcc-c9eb-424a-8fd3-582c05161159",
+    "createdAt": "2025-11-18T16:26:24.824Z",
+    "rankingOutput": {
+      "winner": "A",
+      "reasoning": "Hypothesis A is more specific and testable as it provides a clear concentration range for polysorbate 80 and a specific reduction target in viscosity. It is also likely to be more feasible as it focuses on a defined monoclonal antibody formulation. Hypothesis B, while potentially more impactful with a higher viscosity reduction target, lacks specificity in terms of concentration and the type of protein formulation, making it less rigorous and harder to test.",
+      "confidence": 0.85,
+      "criteria_scores": {
+        "rigor": {
+          "A": 8,
+          "B": 6
+        },
+        "feasibility": {
+          "A": 8,
+          "B": 6
+        },
+        "novelty": {
+          "A": 6,
+          "B": 7
+        },
+        "clarity": {
+          "A": 9,
+          "B": 6
+        }
+      }
+    }
+  },
+  {
+    "matchId": "7212ad93-fed1-4fd4-8d87-2a5154178321",
+    "planId": "3687f175-c09f-4ffa-b189-9e5d9fd8aa1f",
+    "hypothesisA": "83af9888-08dc-4c68-800b-bec132bd3ab4",
+    "hypothesisB": "49d39b1a-6788-437b-b65b-8b37023f467b",
+    "winner": "49d39b1a-6788-437b-b65b-8b37023f467b",
+    "createdAt": "2025-11-18T16:26:24.943Z",
+    "rankingOutput": {
+      "winner": "B",
+      "reasoning": "Hypothesis B is more specific and testable, providing a clear experimental setup with defined variables, such as the type of surfactant and its concentration, as well as a quantifiable outcome. This specificity enhances its scientific rigor and feasibility. While Hypothesis A is broader and potentially more novel, it lacks the specificity that makes Hypothesis B more immediately actionable and clear.",
+      "confidence": 0.9,
+      "criteria_scores": {
+        "rigor": {
+          "A": 6,
+          "B": 9
+        },
+        "feasibility": {
+          "A": 7,
+          "B": 9
+        },
+        "novelty": {
+          "A": 8,
+          "B": 6
+        },
+        "clarity": {
+          "A": 6,
+          "B": 9
+        }
+      }
+    }
+  },
+  {
+    "matchId": "02579ce9-6ba7-487c-8d0c-44f47c83194e",
+    "planId": "3687f175-c09f-4ffa-b189-9e5d9fd8aa1f",
+    "hypothesisA": "83af9888-08dc-4c68-800b-bec132bd3ab4",
+    "hypothesisB": "e353eef8-b0e7-4c58-aee9-dda735e8f8cb",
+    "winner": "e353eef8-b0e7-4c58-aee9-dda735e8f8cb",
+    "createdAt": "2025-11-18T16:26:25.133Z",
+    "rankingOutput": {
+      "winner": "B",
+      "reasoning": "Hypothesis B is more specific and testable, providing a clear and measurable parameter (20% reduction in viscosity) and specific conditions (0.1% polysorbate 80, 25°C). It is feasible and practical due to its precise formulation and conditions, which make it easier to test and validate. Hypothesis A, while potentially more novel, lacks specificity in terms of which surfactants and concentrations, making it less testable and rigorous.",
+      "confidence": 0.9,
+      "criteria_scores": {
+        "rigor": {
+          "A": 6,
+          "B": 8
+        },
+        "feasibility": {
+          "A": 5,
+          "B": 8
+        },
+        "novelty": {
+          "A": 7,
+          "B": 6
+        },
+        "clarity": {
+          "A": 5,
+          "B": 9
+        }
+      }
+    }
+  },
+  {
+    "matchId": "0ff302e7-1262-4a2d-9b50-8aff18f1b986",
+    "planId": "3687f175-c09f-4ffa-b189-9e5d9fd8aa1f",
+    "hypothesisA": "83af9888-08dc-4c68-800b-bec132bd3ab4",
+    "hypothesisB": "4e7ef616-e982-47e9-8e70-0ca0ebb13090",
+    "winner": "4e7ef616-e982-47e9-8e70-0ca0ebb13090",
+    "createdAt": "2025-11-18T16:26:25.271Z",
+    "rankingOutput": {
+      "winner": "B",
+      "reasoning": "Hypothesis B is better because it is more specific and testable. It provides a clear concentration of the surfactant (0.1% w/v polysorbate 80) and a specific expected outcome (20% decrease in viscosity) in a defined system (200 mg/mL monoclonal antibody solution). This makes it easier to design experiments to test the hypothesis. Hypothesis A, while potentially more novel, lacks specificity in terms of which surfactants and protein formulations are being considered, making it less testable.",
+      "confidence": 0.9,
+      "criteria_scores": {
+        "rigor": {
+          "A": 6,
+          "B": 9
+        },
+        "feasibility": {
+          "A": 6,
+          "B": 9
+        },
+        "novelty": {
+          "A": 8,
+          "B": 7
+        },
+        "clarity": {
+          "A": 5,
+          "B": 9
+        }
+      }
+    }
+  },
+  {
+    "matchId": "0f95d3e3-886c-460e-a1dc-d876977359b8",
+    "planId": "3687f175-c09f-4ffa-b189-9e5d9fd8aa1f",
+    "hypothesisA": "83af9888-08dc-4c68-800b-bec132bd3ab4",
+    "hypothesisB": "809e6c28-738b-4ec2-b698-5e479b0a0b24",
+    "winner": "809e6c28-738b-4ec2-b698-5e479b0a0b24",
+    "createdAt": "2025-11-18T16:26:25.401Z",
+    "rankingOutput": {
+      "winner": "B",
+      "reasoning": "Hypothesis B is more specific and testable, as it identifies a particular surfactant (polysorbate 80) and provides a quantifiable outcome (20% reduction in viscosity). This specificity allows for a clear experimental design and measurement of results. Hypothesis A, while potentially more novel, is broader and less specific, making it harder to test directly.",
+      "confidence": 0.85,
+      "criteria_scores": {
+        "rigor": {
+          "A": 6,
+          "B": 8
+        },
+        "feasibility": {
+          "A": 6,
+          "B": 9
+        },
+        "novelty": {
+          "A": 7,
+          "B": 6
+        },
+        "clarity": {
+          "A": 6,
+          "B": 9
+        }
+      }
+    }
+  },
+  {
+    "matchId": "124f54da-af01-430f-a3a2-ad869fb57ef7",
+    "planId": "3687f175-c09f-4ffa-b189-9e5d9fd8aa1f",
+    "hypothesisA": "49d39b1a-6788-437b-b65b-8b37023f467b",
+    "hypothesisB": "e353eef8-b0e7-4c58-aee9-dda735e8f8cb",
+    "winner": "49d39b1a-6788-437b-b65b-8b37023f467b",
+    "createdAt": "2025-11-18T16:26:25.626Z",
+    "rankingOutput": {
+      "winner": "A",
+      "reasoning": "Hypothesis A is more specific in terms of the concentration of both the monoclonal antibody and the surfactant, as well as the expected outcome, making it more scientifically rigorous and testable. It also clearly defines the control condition, enhancing its clarity. Hypothesis B, while similar, lacks specificity in the concentration of the monoclonal antibody and does not clearly define a control condition.",
+      "confidence": 0.85,
+      "criteria_scores": {
+        "rigor": {
+          "A": 8,
+          "B": 6
+        },
+        "feasibility": {
+          "A": 7,
+          "B": 7
+        },
+        "novelty": {
+          "A": 6,
+          "B": 6
+        },
+        "clarity": {
+          "A": 9,
+          "B": 7
+        }
+      }
+    }
+  },
+  {
+    "matchId": "710840d5-a005-4277-90c7-156d40a265e1",
+    "planId": "3687f175-c09f-4ffa-b189-9e5d9fd8aa1f",
+    "hypothesisA": "49d39b1a-6788-437b-b65b-8b37023f467b",
+    "hypothesisB": "4e7ef616-e982-47e9-8e70-0ca0ebb13090",
+    "winner": "49d39b1a-6788-437b-b65b-8b37023f467b",
+    "createdAt": "2025-11-18T16:26:25.741Z",
+    "rankingOutput": {
+      "winner": "A",
+      "reasoning": "Hypothesis A is better because it uses a lower concentration of polysorbate 80, which is more efficient and potentially less costly, while still aiming for the same reduction in viscosity. This suggests a more precise approach and a better understanding of the minimal effective concentration needed, which enhances its scientific rigor and feasibility.",
+      "confidence": 0.85,
+      "criteria_scores": {
+        "rigor": {
+          "A": 8,
+          "B": 7
+        },
+        "feasibility": {
+          "A": 8,
+          "B": 7
+        },
+        "novelty": {
+          "A": 6,
+          "B": 6
+        },
+        "clarity": {
+          "A": 8,
+          "B": 8
+        }
+      }
+    }
+  },
+  {
+    "matchId": "087bdb27-2bb5-4a8e-a5a3-1e9982add56d",
+    "planId": "3687f175-c09f-4ffa-b189-9e5d9fd8aa1f",
+    "hypothesisA": "49d39b1a-6788-437b-b65b-8b37023f467b",
+    "hypothesisB": "809e6c28-738b-4ec2-b698-5e479b0a0b24",
+    "winner": "49d39b1a-6788-437b-b65b-8b37023f467b",
+    "createdAt": "2025-11-18T16:26:25.900Z",
+    "rankingOutput": {
+      "winner": "A",
+      "reasoning": "Hypothesis A is better because it is more scientifically rigorous and testable, with specific concentrations and conditions defined, making it feasible to test. It is also clear and specific, providing a precise measure of the expected outcome. Hypothesis B, while similar in premise, lacks specificity in terms of protein concentration and surfactant amount, making it less rigorous and clear.",
+      "confidence": 0.9,
+      "criteria_scores": {
+        "rigor": {
+          "A": 9,
+          "B": 6
+        },
+        "feasibility": {
+          "A": 8,
+          "B": 6
+        },
+        "novelty": {
+          "A": 6,
+          "B": 6
+        },
+        "clarity": {
+          "A": 9,
+          "B": 5
+        }
+      }
+    }
+  },
+  {
+    "matchId": "fd9951d7-3f17-4d23-afad-5c7d2c9e2fc8",
+    "planId": "3687f175-c09f-4ffa-b189-9e5d9fd8aa1f",
+    "hypothesisA": "e353eef8-b0e7-4c58-aee9-dda735e8f8cb",
+    "hypothesisB": "4e7ef616-e982-47e9-8e70-0ca0ebb13090",
+    "winner": "4e7ef616-e982-47e9-8e70-0ca0ebb13090",
+    "createdAt": "2025-11-18T16:26:26.007Z",
+    "rankingOutput": {
+      "winner": "B",
+      "reasoning": "Hypothesis B is more specific in terms of the concentration of the monoclonal antibody solution, which makes it more testable and clear. It also provides a direct comparison to a control, enhancing its scientific rigor.",
+      "confidence": 0.85,
+      "criteria_scores": {
+        "rigor": {
+          "A": 7,
+          "B": 8
+        },
+        "feasibility": {
+          "A": 8,
+          "B": 8
+        },
+        "novelty": {
+          "A": 6,
+          "B": 6
+        },
+        "clarity": {
+          "A": 6,
+          "B": 8
+        }
+      }
+    }
+  },
+  {
+    "matchId": "0edc3696-f530-4225-a3e8-e7ae03a4ae87",
+    "planId": "3687f175-c09f-4ffa-b189-9e5d9fd8aa1f",
+    "hypothesisA": "e353eef8-b0e7-4c58-aee9-dda735e8f8cb",
+    "hypothesisB": "809e6c28-738b-4ec2-b698-5e479b0a0b24",
+    "winner": "e353eef8-b0e7-4c58-aee9-dda735e8f8cb",
+    "createdAt": "2025-11-18T16:26:26.033Z",
+    "rankingOutput": {
+      "winner": "A",
+      "reasoning": "Hypothesis A is more specific and testable as it provides a precise concentration of polysorbate 80 and a specific temperature condition, allowing for controlled experimentation. It also specifies the type of formulation (monoclonal antibody), which adds clarity. Hypothesis B is broader and lacks specificity in terms of concentration, temperature, and type of protein, making it less rigorous.",
+      "confidence": 0.85,
+      "criteria_scores": {
+        "rigor": {
+          "A": 8,
+          "B": 6
+        },
+        "feasibility": {
+          "A": 8,
+          "B": 7
+        },
+        "novelty": {
+          "A": 7,
+          "B": 7
+        },
+        "clarity": {
+          "A": 9,
+          "B": 6
+        }
+      }
+    }
+  },
+  {
+    "matchId": "17ca7f87-6db0-448c-aa1d-920544162bd5",
+    "planId": "3687f175-c09f-4ffa-b189-9e5d9fd8aa1f",
+    "hypothesisA": "4e7ef616-e982-47e9-8e70-0ca0ebb13090",
+    "hypothesisB": "809e6c28-738b-4ec2-b698-5e479b0a0b24",
+    "winner": "4e7ef616-e982-47e9-8e70-0ca0ebb13090",
+    "createdAt": "2025-11-18T16:26:26.224Z",
+    "rankingOutput": {
+      "winner": "A",
+      "reasoning": "Hypothesis A is better because it is more specific and testable. It specifies the concentration of polysorbate 80 and the monoclonal antibody solution, which allows for a clear experimental setup. Hypothesis B is more general and lacks specific details, making it less rigorous and harder to test directly.",
+      "confidence": 0.9,
+      "criteria_scores": {
+        "rigor": {
+          "A": 8,
+          "B": 6
+        },
+        "feasibility": {
+          "A": 7,
+          "B": 6
+        },
+        "novelty": {
+          "A": 6,
+          "B": 6
+        },
+        "clarity": {
+          "A": 9,
+          "B": 7
+        }
+      }
+    }
+  },
+  {
+    "matchId": "7d3914f1-9b6e-4885-88db-805d919ad1dd",
+    "planId": "73bd6e86-bcc0-477d-91c0-f6d4f443e79a",
+    "hypothesisA": "332d955a-fa07-46ff-873f-3ce98dc5c326",
+    "hypothesisB": "61ed0d70-c81d-412b-b43a-ef21c1774353",
+    "winner": "332d955a-fa07-46ff-873f-3ce98dc5c326",
+    "createdAt": "2025-11-18T16:43:13.508Z",
+    "rankingOutput": {
+      "winner": "A",
+      "reasoning": "Hypothesis A is more specific in its comparison between lysine hydrochloride and glycine hydrochloride, providing a clear basis for experimental design and testing. It also offers broader insight into formulation optimization by comparing two potential additives. Hypothesis B, while clear, is less rigorous as it only compares the presence of arginine hydrochloride to a control, without considering other potential additives.",
+      "confidence": 0.8,
+      "criteria_scores": {
+        "rigor": {
+          "A": 0.8,
+          "B": 0.6
+        },
+        "feasibility": {
+          "A": 0.7,
+          "B": 0.7
+        },
+        "novelty": {
+          "A": 0.7,
+          "B": 0.6
+        },
+        "clarity": {
+          "A": 0.8,
+          "B": 0.7
+        }
+      }
+    }
+  },
+  {
+    "matchId": "624be652-e3ca-49a0-89f3-ec80062a1836",
+    "planId": "73bd6e86-bcc0-477d-91c0-f6d4f443e79a",
+    "hypothesisA": "332d955a-fa07-46ff-873f-3ce98dc5c326",
+    "hypothesisB": "1659f935-251c-49b1-8a21-33007343a972",
+    "winner": "332d955a-fa07-46ff-873f-3ce98dc5c326",
+    "createdAt": "2025-11-18T16:43:13.960Z",
+    "rankingOutput": {
+      "winner": "A",
+      "reasoning": "Hypothesis A is more specific and testable as it directly compares the effect of two specific amino acids on mAb formulation viscosity, which is a well-defined and measurable outcome. Hypothesis B is broader and less specific, as it does not specify the type of protein and lacks a comparative element, making it less rigorous and novel.",
+      "confidence": 0.85,
+      "criteria_scores": {
+        "rigor": {
+          "A": 0.9,
+          "B": 0.7
+        },
+        "feasibility": {
+          "A": 0.85,
+          "B": 0.75
+        },
+        "novelty": {
+          "A": 0.8,
+          "B": 0.7
+        },
+        "clarity": {
+          "A": 0.9,
+          "B": 0.6
+        }
+      }
+    }
+  },
+  {
+    "matchId": "dd1220f8-c033-494b-a7a2-2da32f8b795c",
+    "planId": "73bd6e86-bcc0-477d-91c0-f6d4f443e79a",
+    "hypothesisA": "332d955a-fa07-46ff-873f-3ce98dc5c326",
+    "hypothesisB": "c5da0104-eec3-4e33-89bb-887e0bde5e3b",
+    "winner": "332d955a-fa07-46ff-873f-3ce98dc5c326",
+    "createdAt": "2025-11-18T16:43:14.192Z",
+    "rankingOutput": {
+      "winner": "A",
+      "reasoning": "Hypothesis A is more specific and testable as it directly compares two specific additives (lysine hydrochloride and glycine hydrochloride) in the context of a high concentration mAb formulation. This makes it easier to design an experiment to test the hypothesis. Hypothesis B, while also specific, compares lysine hydrochloride to arginine hydrochloride but does not specify the context of the formulation as clearly as Hypothesis A does. Additionally, the focus on monoclonal antibodies in Hypothesis A may have broader implications in the biopharmaceutical industry.",
+      "confidence": 0.85,
+      "criteria_scores": {
+        "rigor": {
+          "A": 0.8,
+          "B": 0.7
+        },
+        "feasibility": {
+          "A": 0.9,
+          "B": 0.8
+        },
+        "novelty": {
+          "A": 0.7,
+          "B": 0.7
+        },
+        "clarity": {
+          "A": 0.9,
+          "B": 0.8
+        }
+      }
+    }
+  },
+  {
+    "matchId": "ff9f2044-e016-418b-9a43-cf794434266f",
+    "planId": "73bd6e86-bcc0-477d-91c0-f6d4f443e79a",
+    "hypothesisA": "332d955a-fa07-46ff-873f-3ce98dc5c326",
+    "hypothesisB": "037080f9-3cc1-42eb-9eae-c1e3a5a23878",
+    "winner": "037080f9-3cc1-42eb-9eae-c1e3a5a23878",
+    "createdAt": "2025-11-18T16:43:14.312Z",
+    "rankingOutput": {
+      "winner": "B",
+      "reasoning": "Hypothesis B is more specific and testable because it provides a quantifiable target (20% reduction) and a clear control group. It also has a clear independent variable (L-arginine hydrochloride) and dependent variable (viscosity reduction), making it easier to design experiments and measure outcomes. Hypothesis A, while also scientifically valid, is less specific as it compares two substances without specifying expected outcomes or a control group.",
+      "confidence": 0.85,
+      "criteria_scores": {
+        "rigor": {
+          "A": 7,
+          "B": 8
+        },
+        "feasibility": {
+          "A": 7,
+          "B": 8
+        },
+        "novelty": {
+          "A": 6,
+          "B": 6
+        },
+        "clarity": {
+          "A": 6,
+          "B": 9
+        }
+      }
+    }
+  },
+  {
+    "matchId": "5a8f4eb6-e806-468b-a6a1-37e3c9e6cf4d",
+    "planId": "73bd6e86-bcc0-477d-91c0-f6d4f443e79a",
+    "hypothesisA": "332d955a-fa07-46ff-873f-3ce98dc5c326",
+    "hypothesisB": "50bc536c-dc1d-4012-9f33-31d213f5bbb7",
+    "winner": "50bc536c-dc1d-4012-9f33-31d213f5bbb7",
+    "createdAt": "2025-11-18T16:43:14.547Z",
+    "rankingOutput": {
+      "winner": "B",
+      "reasoning": "Hypothesis B is more specific and testable, providing a clear concentration and expected outcome, which makes it more scientifically rigorous. It also focuses on a single variable (arginine hydrochloride) with a quantifiable impact (20% reduction in viscosity), enhancing its clarity and specificity. While Hypothesis A compares two substances, it lacks specific concentrations and expected outcomes, making it less testable and specific.",
+      "confidence": 0.85,
+      "criteria_scores": {
+        "rigor": {
+          "A": 6,
+          "B": 8
+        },
+        "feasibility": {
+          "A": 7,
+          "B": 8
+        },
+        "novelty": {
+          "A": 6,
+          "B": 7
+        },
+        "clarity": {
+          "A": 5,
+          "B": 9
+        }
+      }
+    }
+  },
+  {
+    "matchId": "44f46307-f541-4538-85e1-cfad04fa8a4f",
+    "planId": "73bd6e86-bcc0-477d-91c0-f6d4f443e79a",
+    "hypothesisA": "332d955a-fa07-46ff-873f-3ce98dc5c326",
+    "hypothesisB": "08db90c9-4ead-4a96-b37a-850a13ff461f",
+    "winner": "08db90c9-4ead-4a96-b37a-850a13ff461f",
+    "createdAt": "2025-11-18T16:43:14.743Z",
+    "rankingOutput": {
+      "winner": "B",
+      "reasoning": "Hypothesis B is more specific and testable, providing a clear concentration and expected outcome, which makes it easier to design experiments to validate it. It also has a clear control for comparison. Hypothesis A, while potentially novel, lacks specificity in concentration and expected outcome, making it less rigorous and harder to test.",
+      "confidence": 0.85,
+      "criteria_scores": {
+        "rigor": {
+          "A": 6,
+          "B": 8
+        },
+        "feasibility": {
+          "A": 7,
+          "B": 8
+        },
+        "novelty": {
+          "A": 7,
+          "B": 6
+        },
+        "clarity": {
+          "A": 6,
+          "B": 9
+        }
+      }
+    }
+  },
+  {
+    "matchId": "4efe4b62-5d7e-441d-85f6-1c1b46763a3c",
+    "planId": "73bd6e86-bcc0-477d-91c0-f6d4f443e79a",
+    "hypothesisA": "332d955a-fa07-46ff-873f-3ce98dc5c326",
+    "hypothesisB": "87e88be2-bc3e-4467-94d5-d4553647e0c2",
+    "winner": "87e88be2-bc3e-4467-94d5-d4553647e0c2",
+    "createdAt": "2025-11-18T16:43:14.908Z",
+    "rankingOutput": {
+      "winner": "B",
+      "reasoning": "Hypothesis B is more specific and testable as it provides a quantifiable outcome (a decrease in viscosity by at least 20%), making it easier to design experiments and measure results. It also implies a clear comparison to a control (formulations without the amino acid salt), which enhances its scientific rigor. Hypothesis A, while novel in comparing two compounds, lacks specificity in expected outcomes and does not provide a clear baseline for comparison.",
+      "confidence": 0.85,
+      "criteria_scores": {
+        "rigor": {
+          "A": 6,
+          "B": 8
+        },
+        "feasibility": {
+          "A": 7,
+          "B": 8
+        },
+        "novelty": {
+          "A": 8,
+          "B": 7
+        },
+        "clarity": {
+          "A": 6,
+          "B": 9
+        }
+      }
+    }
+  },
+  {
+    "matchId": "1d64331f-07e2-4d54-8565-b8869c89776f",
+    "planId": "73bd6e86-bcc0-477d-91c0-f6d4f443e79a",
+    "hypothesisA": "332d955a-fa07-46ff-873f-3ce98dc5c326",
+    "hypothesisB": "ed3e704f-7736-439a-b8a2-026e836feb55",
+    "winner": "ed3e704f-7736-439a-b8a2-026e836feb55",
+    "createdAt": "2025-11-18T16:43:15.141Z",
+    "rankingOutput": {
+      "winner": "B",
+      "reasoning": "Hypothesis B is more comprehensive and generalizable, as it provides a broader framework for understanding the impact of amino acid salts on protein formulation viscosity based on ionic radii and solubility. This makes it more novel and potentially impactful. It also appears to be more scientifically rigorous, as it considers specific physicochemical properties that can be systematically tested across different amino acids.",
+      "confidence": 0.85,
+      "criteria_scores": {
+        "rigor": {
+          "A": 6,
+          "B": 8
+        },
+        "feasibility": {
+          "A": 7,
+          "B": 7
+        },
+        "novelty": {
+          "A": 6,
+          "B": 9
+        },
+        "clarity": {
+          "A": 7,
+          "B": 8
+        }
+      }
+    }
+  },
+  {
+    "matchId": "7bca4278-cb64-48f3-b574-e9d177e1d400",
+    "planId": "73bd6e86-bcc0-477d-91c0-f6d4f443e79a",
+    "hypothesisA": "332d955a-fa07-46ff-873f-3ce98dc5c326",
+    "hypothesisB": "21f682a7-7c1a-4264-afc8-3742fc9ed03f",
+    "winner": "332d955a-fa07-46ff-873f-3ce98dc5c326",
+    "createdAt": "2025-11-18T16:43:15.220Z",
+    "rankingOutput": {
+      "winner": "A",
+      "reasoning": "Hypothesis A is more specific as it directly compares the effectiveness of lysine hydrochloride with glycine hydrochloride in reducing viscosity, allowing for a clear comparative test. It also focuses on monoclonal antibody formulations, which are highly relevant in biopharmaceuticals. Hypothesis B, while feasible, is less novel as the effect of arginine hydrochloride on protein viscosity has been explored in various studies. Hypothesis A's direct comparison provides a clearer, more specific testable prediction.",
+      "confidence": 0.85,
+      "criteria_scores": {
+        "rigor": {
+          "A": 8,
+          "B": 7
+        },
+        "feasibility": {
+          "A": 8,
+          "B": 8
+        },
+        "novelty": {
+          "A": 7,
+          "B": 6
+        },
+        "clarity": {
+          "A": 9,
+          "B": 7
+        }
+      }
+    }
+  },
+  {
+    "matchId": "c73b9e7e-0b47-43fd-9d8d-1a0ebcfffe01",
+    "planId": "73bd6e86-bcc0-477d-91c0-f6d4f443e79a",
+    "hypothesisA": "61ed0d70-c81d-412b-b43a-ef21c1774353",
+    "hypothesisB": "1659f935-251c-49b1-8a21-33007343a972",
+    "winner": "61ed0d70-c81d-412b-b43a-ef21c1774353",
+    "createdAt": "2025-11-18T16:43:15.414Z",
+    "rankingOutput": {
+      "winner": "A",
+      "reasoning": "Hypothesis A is more specific and clear as it specifies the concentration of the monoclonal antibody formulation and the specific additive (arginine hydrochloride) being tested. It also clearly defines the control condition. Hypothesis B, while similar, is more general and lacks specific details such as the concentration of the protein formulation, making it less rigorous and testable.",
+      "confidence": 0.85,
+      "criteria_scores": {
+        "rigor": {
+          "A": 8,
+          "B": 6
+        },
+        "feasibility": {
+          "A": 7,
+          "B": 7
+        },
+        "novelty": {
+          "A": 6,
+          "B": 6
+        },
+        "clarity": {
+          "A": 9,
+          "B": 7
+        }
+      }
+    }
+  },
+  {
+    "matchId": "a5dd0093-fc3f-48e2-84b2-15b26dbb98fa",
+    "planId": "73bd6e86-bcc0-477d-91c0-f6d4f443e79a",
+    "hypothesisA": "61ed0d70-c81d-412b-b43a-ef21c1774353",
+    "hypothesisB": "c5da0104-eec3-4e33-89bb-887e0bde5e3b",
+    "winner": "61ed0d70-c81d-412b-b43a-ef21c1774353",
+    "createdAt": "2025-11-18T16:43:15.539Z",
+    "rankingOutput": {
+      "winner": "A",
+      "reasoning": "Hypothesis A is more specific and testable, focusing on a single variable (arginine hydrochloride) and its effect on viscosity in a monoclonal antibody formulation. It is clear and has practical implications for formulation science. Hypothesis B, while interesting, compares two substances without a clear control or baseline, making it less rigorous and more complex to test.",
+      "confidence": 0.85,
+      "criteria_scores": {
+        "rigor": {
+          "A": 8,
+          "B": 6
+        },
+        "feasibility": {
+          "A": 8,
+          "B": 7
+        },
+        "novelty": {
+          "A": 6,
+          "B": 7
+        },
+        "clarity": {
+          "A": 9,
+          "B": 6
+        }
+      }
+    }
+  },
+  {
+    "matchId": "36151e5c-4ff6-4ec5-9fa2-67b33fa95f5e",
+    "planId": "73bd6e86-bcc0-477d-91c0-f6d4f443e79a",
+    "hypothesisA": "61ed0d70-c81d-412b-b43a-ef21c1774353",
+    "hypothesisB": "037080f9-3cc1-42eb-9eae-c1e3a5a23878",
+    "winner": "037080f9-3cc1-42eb-9eae-c1e3a5a23878",
+    "createdAt": "2025-11-18T16:43:15.891Z",
+    "rankingOutput": {
+      "winner": "B",
+      "reasoning": "Hypothesis B is more specific and provides a quantifiable measure of the expected outcome, making it more testable and rigorous. It specifies the reduction percentage, which allows for clear experimental validation. Hypothesis A, while similar, lacks this level of specificity.",
+      "confidence": 0.85,
+      "criteria_scores": {
+        "rigor": {
+          "A": 7,
+          "B": 9
+        },
+        "feasibility": {
+          "A": 8,
+          "B": 8
+        },
+        "novelty": {
+          "A": 6,
+          "B": 6
+        },
+        "clarity": {
+          "A": 7,
+          "B": 9
+        }
+      }
+    }
+  },
+  {
+    "matchId": "c8fb8f13-12d0-4704-ae6c-865ab6e2c39f",
+    "planId": "73bd6e86-bcc0-477d-91c0-f6d4f443e79a",
+    "hypothesisA": "61ed0d70-c81d-412b-b43a-ef21c1774353",
+    "hypothesisB": "50bc536c-dc1d-4012-9f33-31d213f5bbb7",
+    "winner": "50bc536c-dc1d-4012-9f33-31d213f5bbb7",
+    "createdAt": "2025-11-18T16:43:15.996Z",
+    "rankingOutput": {
+      "winner": "B",
+      "reasoning": "Hypothesis B is more specific and testable as it provides a quantifiable measure (20% reduction) and a specific concentration (0.5 M) of arginine hydrochloride, making it clearer and more rigorous. Hypothesis A lacks this specificity, making it less testable and rigorous.",
+      "confidence": 0.9,
+      "criteria_scores": {
+        "rigor": {
+          "A": 6,
+          "B": 9
+        },
+        "feasibility": {
+          "A": 7,
+          "B": 8
+        },
+        "novelty": {
+          "A": 6,
+          "B": 6
+        },
+        "clarity": {
+          "A": 5,
+          "B": 9
+        }
+      }
+    }
+  },
+  {
+    "matchId": "1a729b59-ca97-427a-8969-488222b3b411",
+    "planId": "73bd6e86-bcc0-477d-91c0-f6d4f443e79a",
+    "hypothesisA": "61ed0d70-c81d-412b-b43a-ef21c1774353",
+    "hypothesisB": "08db90c9-4ead-4a96-b37a-850a13ff461f",
+    "winner": "08db90c9-4ead-4a96-b37a-850a13ff461f",
+    "createdAt": "2025-11-18T16:43:16.187Z",
+    "rankingOutput": {
+      "winner": "B",
+      "reasoning": "Hypothesis B is better because it is more specific and testable, providing a clear concentration of L-arginine hydrochloride and a quantifiable outcome of a 20% reduction in viscosity. This specificity enhances its scientific rigor and clarity. Hypothesis A is less specific about the expected outcome and lacks a defined concentration, making it less testable and clear.",
+      "confidence": 0.85,
+      "criteria_scores": {
+        "rigor": {
+          "A": 6,
+          "B": 8
+        },
+        "feasibility": {
+          "A": 7,
+          "B": 7
+        },
+        "novelty": {
+          "A": 6,
+          "B": 6
+        },
+        "clarity": {
+          "A": 6,
+          "B": 9
+        }
+      }
+    }
+  },
+  {
+    "matchId": "6980d4df-6b84-4721-aa61-a784def5714d",
+    "planId": "73bd6e86-bcc0-477d-91c0-f6d4f443e79a",
+    "hypothesisA": "61ed0d70-c81d-412b-b43a-ef21c1774353",
+    "hypothesisB": "87e88be2-bc3e-4467-94d5-d4553647e0c2",
+    "winner": "87e88be2-bc3e-4467-94d5-d4553647e0c2",
+    "createdAt": "2025-11-18T16:43:16.336Z",
+    "rankingOutput": {
+      "winner": "B",
+      "reasoning": "Hypothesis B is more specific and provides a quantifiable measure of the expected outcome (20% decrease in viscosity), which allows for clearer testing and validation. Hypothesis A is less specific about the degree of viscosity reduction, making it less rigorous. Both hypotheses are feasible and novel, but the specificity of Hypothesis B gives it an edge in clarity and testability.",
+      "confidence": 0.85,
+      "criteria_scores": {
+        "rigor": {
+          "A": 6,
+          "B": 8
+        },
+        "feasibility": {
+          "A": 8,
+          "B": 8
+        },
+        "novelty": {
+          "A": 7,
+          "B": 7
+        },
+        "clarity": {
+          "A": 6,
+          "B": 9
+        }
+      }
+    }
+  },
+  {
+    "matchId": "7a264e97-8005-4b90-9b45-1b4f1a98ac1d",
+    "planId": "73bd6e86-bcc0-477d-91c0-f6d4f443e79a",
+    "hypothesisA": "61ed0d70-c81d-412b-b43a-ef21c1774353",
+    "hypothesisB": "ed3e704f-7736-439a-b8a2-026e836feb55",
+    "winner": "ed3e704f-7736-439a-b8a2-026e836feb55",
+    "createdAt": "2025-11-18T16:43:16.449Z",
+    "rankingOutput": {
+      "winner": "B",
+      "reasoning": "Hypothesis B is more comprehensive as it explores a broader range of amino acid salts and their properties, making it more scientifically rigorous and novel. It also has a higher potential impact by providing a generalized understanding that can be applied to various formulations, not just specific to arginine hydrochloride. While Hypothesis A is clear and specific, it is more limited in scope and novelty.",
+      "confidence": 0.85,
+      "criteria_scores": {
+        "rigor": {
+          "A": 7,
+          "B": 9
+        },
+        "feasibility": {
+          "A": 8,
+          "B": 8
+        },
+        "novelty": {
+          "A": 6,
+          "B": 9
+        },
+        "clarity": {
+          "A": 9,
+          "B": 8
+        }
+      }
+    }
+  },
+  {
+    "matchId": "4ffbb2d6-ad6a-4676-9528-6a3b9cf691c3",
+    "planId": "73bd6e86-bcc0-477d-91c0-f6d4f443e79a",
+    "hypothesisA": "61ed0d70-c81d-412b-b43a-ef21c1774353",
+    "hypothesisB": "21f682a7-7c1a-4264-afc8-3742fc9ed03f",
+    "winner": "61ed0d70-c81d-412b-b43a-ef21c1774353",
+    "createdAt": "2025-11-18T16:43:16.644Z",
+    "rankingOutput": {
+      "winner": "A",
+      "reasoning": "Hypothesis A is more specific and testable as it provides exact concentrations and a specific context, which enhances its scientific rigor. It also clearly defines the variable being tested (200 mg/mL monoclonal antibody formulation) and the expected outcome, making it easier to design experiments around. Hypothesis B, while broader and potentially more novel, lacks specificity and clarity in terms of concentration and protein type, which could complicate experimental design and interpretation.",
+      "confidence": 0.85,
+      "criteria_scores": {
+        "rigor": {
+          "A": 8,
+          "B": 6
+        },
+        "feasibility": {
+          "A": 8,
+          "B": 7
+        },
+        "novelty": {
+          "A": 6,
+          "B": 7
+        },
+        "clarity": {
+          "A": 9,
+          "B": 6
+        }
+      }
+    }
+  },
+  {
+    "matchId": "17d96af2-b53f-4e7c-8e73-e44c7ea9348e",
+    "planId": "73bd6e86-bcc0-477d-91c0-f6d4f443e79a",
+    "hypothesisA": "1659f935-251c-49b1-8a21-33007343a972",
+    "hypothesisB": "c5da0104-eec3-4e33-89bb-887e0bde5e3b",
+    "winner": "1659f935-251c-49b1-8a21-33007343a972",
+    "createdAt": "2025-11-18T16:43:16.787Z",
+    "rankingOutput": {
+      "winner": "A",
+      "reasoning": "Hypothesis A is broader and more general, allowing for a wider range of applications and testing across different protein formulations. It focuses on the effect of L-arginine hydrochloride on viscosity, which is a specific and testable hypothesis. Hypothesis B, while specific, is narrower and assumes a comparison between lysine and arginine without providing a broader context or rationale for why lysine would be more effective.",
+      "confidence": 0.7,
+      "criteria_scores": {
+        "rigor": {
+          "A": 0.7,
+          "B": 0.6
+        },
+        "feasibility": {
+          "A": 0.8,
+          "B": 0.7
+        },
+        "novelty": {
+          "A": 0.6,
+          "B": 0.5
+        },
+        "clarity": {
+          "A": 0.8,
+          "B": 0.7
+        }
+      }
+    }
+  },
+  {
+    "matchId": "f18775e4-6b08-4ad3-b177-b0f9ebf27c62",
+    "planId": "73bd6e86-bcc0-477d-91c0-f6d4f443e79a",
+    "hypothesisA": "1659f935-251c-49b1-8a21-33007343a972",
+    "hypothesisB": "037080f9-3cc1-42eb-9eae-c1e3a5a23878",
+    "winner": "037080f9-3cc1-42eb-9eae-c1e3a5a23878",
+    "createdAt": "2025-11-18T16:43:16.992Z",
+    "rankingOutput": {
+      "winner": "B",
+      "reasoning": "Hypothesis B is more specific and testable, as it provides a quantifiable target for viscosity reduction (20%) and specifies the use of monoclonal antibody formulations. This specificity enhances its scientific rigor and clarity compared to Hypothesis A, which is more general. Both hypotheses have similar feasibility, but B's specificity makes it easier to design experiments and measure outcomes.",
+      "confidence": 0.85,
+      "criteria_scores": {
+        "rigor": {
+          "A": 7,
+          "B": 9
+        },
+        "feasibility": {
+          "A": 8,
+          "B": 8
+        },
+        "novelty": {
+          "A": 7,
+          "B": 7
+        },
+        "clarity": {
+          "A": 6,
+          "B": 9
+        }
+      }
+    }
+  },
+  {
+    "matchId": "3a9bbe08-70f2-4c4a-a55e-340caa98cafe",
+    "planId": "73bd6e86-bcc0-477d-91c0-f6d4f443e79a",
+    "hypothesisA": "1659f935-251c-49b1-8a21-33007343a972",
+    "hypothesisB": "50bc536c-dc1d-4012-9f33-31d213f5bbb7",
+    "winner": "50bc536c-dc1d-4012-9f33-31d213f5bbb7",
+    "createdAt": "2025-11-18T16:43:17.157Z",
+    "rankingOutput": {
+      "winner": "B",
+      "reasoning": "Hypothesis B is more specific and testable as it provides exact concentrations and expected outcomes, making it easier to design experiments. It also addresses a specific formulation type, which enhances its clarity and practical applicability.",
+      "confidence": 0.9,
+      "criteria_scores": {
+        "rigor": {
+          "A": 6,
+          "B": 9
+        },
+        "feasibility": {
+          "A": 7,
+          "B": 8
+        },
+        "novelty": {
+          "A": 7,
+          "B": 7
+        },
+        "clarity": {
+          "A": 6,
+          "B": 9
+        }
+      }
+    }
+  },
+  {
+    "matchId": "062a0b8b-0607-43d1-90f6-33f811f652ed",
+    "planId": "73bd6e86-bcc0-477d-91c0-f6d4f443e79a",
+    "hypothesisA": "1659f935-251c-49b1-8a21-33007343a972",
+    "hypothesisB": "08db90c9-4ead-4a96-b37a-850a13ff461f",
+    "winner": "08db90c9-4ead-4a96-b37a-850a13ff461f",
+    "createdAt": "2025-11-18T16:43:17.515Z",
+    "rankingOutput": {
+      "winner": "B",
+      "reasoning": "Hypothesis B is more specific and testable as it provides exact concentrations and expected outcomes, making it easier to design experiments and verify results. It also clearly defines the context and parameters, enhancing scientific rigor.",
+      "confidence": 0.9,
+      "criteria_scores": {
+        "rigor": {
+          "A": 6,
+          "B": 9
+        },
+        "feasibility": {
+          "A": 7,
+          "B": 8
+        },
+        "novelty": {
+          "A": 6,
+          "B": 6
+        },
+        "clarity": {
+          "A": 5,
+          "B": 9
+        }
+      }
+    }
+  },
+  {
+    "matchId": "60edf261-5692-41f0-80a7-28f40e9e3c05",
+    "planId": "73bd6e86-bcc0-477d-91c0-f6d4f443e79a",
+    "hypothesisA": "1659f935-251c-49b1-8a21-33007343a972",
+    "hypothesisB": "87e88be2-bc3e-4467-94d5-d4553647e0c2",
+    "winner": "87e88be2-bc3e-4467-94d5-d4553647e0c2",
+    "createdAt": "2025-11-18T16:43:17.678Z",
+    "rankingOutput": {
+      "winner": "B",
+      "reasoning": "Hypothesis B is more specific as it quantifies the expected reduction in viscosity (at least 20%) and specifies the type of protein formulation (monoclonal antibody), making it more testable and clear. This specificity enhances its scientific rigor and clarity compared to Hypothesis A, which is more general and lacks quantitative predictions.",
+      "confidence": 0.85,
+      "criteria_scores": {
+        "rigor": {
+          "A": 7,
+          "B": 9
+        },
+        "feasibility": {
+          "A": 8,
+          "B": 8
+        },
+        "novelty": {
+          "A": 7,
+          "B": 7
+        },
+        "clarity": {
+          "A": 6,
+          "B": 9
+        }
+      }
+    }
+  },
+  {
+    "matchId": "71ac5847-bb0d-40ef-965e-60a9a941ae4b",
+    "planId": "73bd6e86-bcc0-477d-91c0-f6d4f443e79a",
+    "hypothesisA": "1659f935-251c-49b1-8a21-33007343a972",
+    "hypothesisB": "ed3e704f-7736-439a-b8a2-026e836feb55",
+    "winner": "ed3e704f-7736-439a-b8a2-026e836feb55",
+    "createdAt": "2025-11-18T16:43:17.790Z",
+    "rankingOutput": {
+      "winner": "B",
+      "reasoning": "Hypothesis B is more comprehensive as it considers a broader range of variables (ionic radii and solubility) that could affect viscosity, making it more scientifically rigorous and testable. It also has greater novelty and potential impact by proposing a general principle rather than focusing on a single compound, as Hypothesis A does.",
+      "confidence": 0.85,
+      "criteria_scores": {
+        "rigor": {
+          "A": 6,
+          "B": 8
+        },
+        "feasibility": {
+          "A": 7,
+          "B": 7
+        },
+        "novelty": {
+          "A": 5,
+          "B": 8
+        },
+        "clarity": {
+          "A": 7,
+          "B": 7
+        }
+      }
+    }
+  },
+  {
+    "matchId": "8fe1ed92-8057-436d-81fd-6dd2c9a33f6a",
+    "planId": "73bd6e86-bcc0-477d-91c0-f6d4f443e79a",
+    "hypothesisA": "1659f935-251c-49b1-8a21-33007343a972",
+    "hypothesisB": "21f682a7-7c1a-4264-afc8-3742fc9ed03f",
+    "winner": "21f682a7-7c1a-4264-afc8-3742fc9ed03f",
+    "createdAt": "2025-11-18T16:43:17.998Z",
+    "rankingOutput": {
+      "winner": "B",
+      "reasoning": "Hypothesis B is more specific by focusing on IgG protein formulations, which makes it more testable and clear. It also directly addresses a practical application in the pharmaceutical industry, potentially leading to significant impact in drug formulation. Hypothesis A is broader but lacks specificity regarding the type of protein, reducing its clarity and testability.",
+      "confidence": 0.85,
+      "criteria_scores": {
+        "rigor": {
+          "A": 7,
+          "B": 8
+        },
+        "feasibility": {
+          "A": 7,
+          "B": 8
+        },
+        "novelty": {
+          "A": 7,
+          "B": 7
+        },
+        "clarity": {
+          "A": 6,
+          "B": 9
+        }
+      }
+    }
+  },
+  {
+    "matchId": "82ccfbc7-9f9d-4837-bc71-4a0ecef3bfcb",
+    "planId": "73bd6e86-bcc0-477d-91c0-f6d4f443e79a",
+    "hypothesisA": "c5da0104-eec3-4e33-89bb-887e0bde5e3b",
+    "hypothesisB": "037080f9-3cc1-42eb-9eae-c1e3a5a23878",
+    "winner": "037080f9-3cc1-42eb-9eae-c1e3a5a23878",
+    "createdAt": "2025-11-18T16:43:18.131Z",
+    "rankingOutput": {
+      "winner": "B",
+      "reasoning": "Hypothesis B is more specific and testable as it provides a quantifiable metric (20% reduction) and a clear control condition. It also addresses a broader range of monoclonal antibody formulations, potentially increasing its impact.",
+      "confidence": 0.85,
+      "criteria_scores": {
+        "rigor": {
+          "A": 6,
+          "B": 8
+        },
+        "feasibility": {
+          "A": 7,
+          "B": 7
+        },
+        "novelty": {
+          "A": 6,
+          "B": 6
+        },
+        "clarity": {
+          "A": 6,
+          "B": 9
+        }
+      }
+    }
+  },
+  {
+    "matchId": "3f3096ec-f6de-4320-a0a7-dd443296e49c",
+    "planId": "73bd6e86-bcc0-477d-91c0-f6d4f443e79a",
+    "hypothesisA": "c5da0104-eec3-4e33-89bb-887e0bde5e3b",
+    "hypothesisB": "50bc536c-dc1d-4012-9f33-31d213f5bbb7",
+    "winner": "50bc536c-dc1d-4012-9f33-31d213f5bbb7",
+    "createdAt": "2025-11-18T16:43:18.272Z",
+    "rankingOutput": {
+      "winner": "B",
+      "reasoning": "Hypothesis B is more specific and clear, providing a precise concentration of arginine hydrochloride and a quantifiable expected outcome (20% reduction in viscosity). This makes it more testable and rigorous compared to Hypothesis A, which lacks specific metrics for comparison and outcome. While both hypotheses are feasible and novel, Hypothesis B's clarity in expected results and conditions gives it an edge.",
+      "confidence": 0.85,
+      "criteria_scores": {
+        "rigor": {
+          "A": 6,
+          "B": 8
+        },
+        "feasibility": {
+          "A": 7,
+          "B": 7
+        },
+        "novelty": {
+          "A": 7,
+          "B": 7
+        },
+        "clarity": {
+          "A": 5,
+          "B": 9
+        }
+      }
+    }
+  },
+  {
+    "matchId": "ca268c7f-1974-45d9-a686-ef5717825932",
+    "planId": "73bd6e86-bcc0-477d-91c0-f6d4f443e79a",
+    "hypothesisA": "c5da0104-eec3-4e33-89bb-887e0bde5e3b",
+    "hypothesisB": "08db90c9-4ead-4a96-b37a-850a13ff461f",
+    "winner": "08db90c9-4ead-4a96-b37a-850a13ff461f",
+    "createdAt": "2025-11-18T16:43:18.393Z",
+    "rankingOutput": {
+      "winner": "B",
+      "reasoning": "Hypothesis B is more specific and testable, providing a clear concentration for L-arginine hydrochloride and a quantifiable reduction in viscosity. It also clearly defines the control condition, which enhances its scientific rigor. Hypothesis A lacks specificity in terms of concentration and does not provide a clear control or expected outcome, making it less rigorous and testable.",
+      "confidence": 0.85,
+      "criteria_scores": {
+        "rigor": {
+          "A": 5,
+          "B": 8
+        },
+        "feasibility": {
+          "A": 6,
+          "B": 7
+        },
+        "novelty": {
+          "A": 6,
+          "B": 6
+        },
+        "clarity": {
+          "A": 5,
+          "B": 8
+        }
+      }
+    }
+  },
+  {
+    "matchId": "78a73d50-35c4-4937-ace5-4fdc8451aaf0",
+    "planId": "73bd6e86-bcc0-477d-91c0-f6d4f443e79a",
+    "hypothesisA": "c5da0104-eec3-4e33-89bb-887e0bde5e3b",
+    "hypothesisB": "87e88be2-bc3e-4467-94d5-d4553647e0c2",
+    "winner": "87e88be2-bc3e-4467-94d5-d4553647e0c2",
+    "createdAt": "2025-11-18T16:43:18.557Z",
+    "rankingOutput": {
+      "winner": "B",
+      "reasoning": "Hypothesis B is more specific and provides a clear quantitative measure (20% decrease in viscosity) which makes it more testable and scientifically rigorous. It also clearly defines its context (high concentration monoclonal antibody formulation), making it more feasible to test. Hypothesis A, while comparing two substances, lacks specificity in expected outcomes and doesn't provide a clear context or quantitative measure.",
+      "confidence": 0.85,
+      "criteria_scores": {
+        "rigor": {
+          "A": 6,
+          "B": 8
+        },
+        "feasibility": {
+          "A": 6,
+          "B": 7
+        },
+        "novelty": {
+          "A": 6,
+          "B": 6
+        },
+        "clarity": {
+          "A": 5,
+          "B": 8
+        }
+      }
+    }
+  },
+  {
+    "matchId": "f8a12f6b-1d94-4084-b88b-203993c3aaeb",
+    "planId": "73bd6e86-bcc0-477d-91c0-f6d4f443e79a",
+    "hypothesisA": "c5da0104-eec3-4e33-89bb-887e0bde5e3b",
+    "hypothesisB": "ed3e704f-7736-439a-b8a2-026e836feb55",
+    "winner": "ed3e704f-7736-439a-b8a2-026e836feb55",
+    "createdAt": "2025-11-18T16:43:18.729Z",
+    "rankingOutput": {
+      "winner": "B",
+      "reasoning": "Hypothesis B is more comprehensive and generalizable, offering a broader framework that can be applied to various amino acid salts, not just lysine and arginine. It is scientifically rigorous as it considers ionic radii and solubility, which are key factors in protein solution viscosity. Hypothesis B also has greater potential impact and novelty as it can lead to a deeper understanding of the factors affecting protein formulation viscosity.",
+      "confidence": 0.85,
+      "criteria_scores": {
+        "rigor": {
+          "A": 7,
+          "B": 8
+        },
+        "feasibility": {
+          "A": 7,
+          "B": 7
+        },
+        "novelty": {
+          "A": 6,
+          "B": 8
+        },
+        "clarity": {
+          "A": 7,
+          "B": 7
+        }
+      }
+    }
+  },
+  {
+    "matchId": "936603d2-4fbf-4787-b0e2-c287ed7894d6",
+    "planId": "73bd6e86-bcc0-477d-91c0-f6d4f443e79a",
+    "hypothesisA": "c5da0104-eec3-4e33-89bb-887e0bde5e3b",
+    "hypothesisB": "21f682a7-7c1a-4264-afc8-3742fc9ed03f",
+    "winner": "21f682a7-7c1a-4264-afc8-3742fc9ed03f",
+    "createdAt": "2025-11-18T16:43:18.868Z",
+    "rankingOutput": {
+      "winner": "B",
+      "reasoning": "Hypothesis B is better because it is more scientifically rigorous and testable, focusing on a direct comparison between the presence and absence of arginine hydrochloride in reducing viscosity. It is also more feasible and practical as it does not require a comparative analysis with another compound, making it easier to design experiments. Additionally, Hypothesis B is clearer and more specific in its scope, focusing on the effect of arginine hydrochloride alone.",
+      "confidence": 0.85,
+      "criteria_scores": {
+        "rigor": {
+          "A": 6,
+          "B": 8
+        },
+        "feasibility": {
+          "A": 6,
+          "B": 8
+        },
+        "novelty": {
+          "A": 7,
+          "B": 6
+        },
+        "clarity": {
+          "A": 6,
+          "B": 8
+        }
+      }
+    }
+  },
+  {
+    "matchId": "023f3670-577b-47e4-ac79-decfa502d630",
+    "planId": "73bd6e86-bcc0-477d-91c0-f6d4f443e79a",
+    "hypothesisA": "037080f9-3cc1-42eb-9eae-c1e3a5a23878",
+    "hypothesisB": "50bc536c-dc1d-4012-9f33-31d213f5bbb7",
+    "winner": "50bc536c-dc1d-4012-9f33-31d213f5bbb7",
+    "createdAt": "2025-11-18T16:43:19.069Z",
+    "rankingOutput": {
+      "winner": "B",
+      "reasoning": "Hypothesis B is more specific and testable than Hypothesis A. It specifies the concentration of both the arginine hydrochloride and the monoclonal antibody formulation, making it easier to design an experiment to test the hypothesis. This specificity improves the scientific rigor and clarity of the hypothesis.",
+      "confidence": 0.9,
+      "criteria_scores": {
+        "rigor": {
+          "A": 6,
+          "B": 8
+        },
+        "feasibility": {
+          "A": 7,
+          "B": 8
+        },
+        "novelty": {
+          "A": 6,
+          "B": 6
+        },
+        "clarity": {
+          "A": 6,
+          "B": 9
+        }
+      }
+    }
+  },
+  {
+    "matchId": "b51bda7f-f04b-4c91-ba99-68dfa5b10069",
+    "planId": "73bd6e86-bcc0-477d-91c0-f6d4f443e79a",
+    "hypothesisA": "037080f9-3cc1-42eb-9eae-c1e3a5a23878",
+    "hypothesisB": "08db90c9-4ead-4a96-b37a-850a13ff461f",
+    "winner": "08db90c9-4ead-4a96-b37a-850a13ff461f",
+    "createdAt": "2025-11-18T16:43:19.204Z",
+    "rankingOutput": {
+      "winner": "B",
+      "reasoning": "Hypothesis B is more specific and testable than Hypothesis A. It provides a specific concentration for L-arginine hydrochloride and a specific concentration for the monoclonal antibody formulation, which makes it more rigorous and feasible to test. The clarity and specificity of Hypothesis B make it a stronger hypothesis overall.",
+      "confidence": 0.9,
+      "criteria_scores": {
+        "rigor": {
+          "A": 6,
+          "B": 8
+        },
+        "feasibility": {
+          "A": 7,
+          "B": 8
+        },
+        "novelty": {
+          "A": 6,
+          "B": 6
+        },
+        "clarity": {
+          "A": 6,
+          "B": 9
+        }
+      }
+    }
+  },
+  {
+    "matchId": "c8c85f8e-faa0-47c4-a765-0542b5185ef7",
+    "planId": "73bd6e86-bcc0-477d-91c0-f6d4f443e79a",
+    "hypothesisA": "037080f9-3cc1-42eb-9eae-c1e3a5a23878",
+    "hypothesisB": "87e88be2-bc3e-4467-94d5-d4553647e0c2",
+    "winner": "037080f9-3cc1-42eb-9eae-c1e3a5a23878",
+    "createdAt": "2025-11-18T16:43:19.357Z",
+    "rankingOutput": {
+      "winner": "A",
+      "reasoning": "Hypothesis A is more specific and rigorous as it clearly defines the experimental condition, stating 'L-arginine hydrochloride' as the compound used, which adds specificity. It also explicitly mentions 'compared to a control without amino acid salts,' which implies a direct comparison and a control setup, enhancing scientific rigor. Both hypotheses are similar in feasibility, novelty, and potential impact, but the clarity and specificity of Hypothesis A give it an edge.",
+      "confidence": 0.8,
+      "criteria_scores": {
+        "rigor": {
+          "A": 4,
+          "B": 3
+        },
+        "feasibility": {
+          "A": 4,
+          "B": 4
+        },
+        "novelty": {
+          "A": 3,
+          "B": 3
+        },
+        "clarity": {
+          "A": 5,
+          "B": 4
+        }
+      }
+    }
+  },
+  {
+    "matchId": "0c7451fe-135a-4626-acfd-8ed81b763305",
+    "planId": "73bd6e86-bcc0-477d-91c0-f6d4f443e79a",
+    "hypothesisA": "037080f9-3cc1-42eb-9eae-c1e3a5a23878",
+    "hypothesisB": "ed3e704f-7736-439a-b8a2-026e836feb55",
+    "winner": "ed3e704f-7736-439a-b8a2-026e836feb55",
+    "createdAt": "2025-11-18T16:43:19.483Z",
+    "rankingOutput": {
+      "winner": "B",
+      "reasoning": "Hypothesis B is better because it offers a broader and more generalizable approach to reducing viscosity in protein formulations by considering multiple variables (ionic radii and solubility), which can lead to a more comprehensive understanding and potentially greater impact. It is also more novel as it explores a range of amino acid salts rather than focusing on a single compound. Hypothesis A is more specific but less novel and potentially less impactful.",
+      "confidence": 0.85,
+      "criteria_scores": {
+        "rigor": {
+          "A": 7,
+          "B": 8
+        },
+        "feasibility": {
+          "A": 8,
+          "B": 7
+        },
+        "novelty": {
+          "A": 6,
+          "B": 9
+        },
+        "clarity": {
+          "A": 8,
+          "B": 7
+        }
+      }
+    }
+  },
+  {
+    "matchId": "25103c36-f0a8-48cc-a21e-b42d3c012b6f",
+    "planId": "73bd6e86-bcc0-477d-91c0-f6d4f443e79a",
+    "hypothesisA": "037080f9-3cc1-42eb-9eae-c1e3a5a23878",
+    "hypothesisB": "21f682a7-7c1a-4264-afc8-3742fc9ed03f",
+    "winner": "037080f9-3cc1-42eb-9eae-c1e3a5a23878",
+    "createdAt": "2025-11-18T16:43:19.683Z",
+    "rankingOutput": {
+      "winner": "A",
+      "reasoning": "Hypothesis A is more specific and testable as it provides a quantifiable measure of reduction in viscosity (at least 20%) and specifies the type of formulation (monoclonal antibody), making it easier to design experiments and validate results. Hypothesis B is more general and lacks specificity in the expected outcome, making it less rigorous.",
+      "confidence": 0.85,
+      "criteria_scores": {
+        "rigor": {
+          "A": 8,
+          "B": 6
+        },
+        "feasibility": {
+          "A": 8,
+          "B": 7
+        },
+        "novelty": {
+          "A": 7,
+          "B": 7
+        },
+        "clarity": {
+          "A": 9,
+          "B": 7
+        }
+      }
+    }
+  },
+  {
+    "matchId": "29db9a07-9a4e-46b5-b9d0-d04bfacb3e40",
+    "planId": "73bd6e86-bcc0-477d-91c0-f6d4f443e79a",
+    "hypothesisA": "50bc536c-dc1d-4012-9f33-31d213f5bbb7",
+    "hypothesisB": "08db90c9-4ead-4a96-b37a-850a13ff461f",
+    "winner": "08db90c9-4ead-4a96-b37a-850a13ff461f",
+    "createdAt": "2025-11-18T16:43:19.804Z",
+    "rankingOutput": {
+      "winner": "B",
+      "reasoning": "Hypothesis B is more specific in its comparison by clearly stating that the control lacks any amino acid salts, which improves the scientific rigor and clarity of the hypothesis. This specificity allows for a more controlled experiment, ensuring that the observed effects are due to L-arginine hydrochloride alone.",
+      "confidence": 0.85,
+      "criteria_scores": {
+        "rigor": {
+          "A": 7,
+          "B": 8
+        },
+        "feasibility": {
+          "A": 8,
+          "B": 8
+        },
+        "novelty": {
+          "A": 6,
+          "B": 6
+        },
+        "clarity": {
+          "A": 7,
+          "B": 9
+        }
+      }
+    }
+  },
+  {
+    "matchId": "1997fd25-6293-4060-af8a-97ebb06e4777",
+    "planId": "73bd6e86-bcc0-477d-91c0-f6d4f443e79a",
+    "hypothesisA": "50bc536c-dc1d-4012-9f33-31d213f5bbb7",
+    "hypothesisB": "87e88be2-bc3e-4467-94d5-d4553647e0c2",
+    "winner": "50bc536c-dc1d-4012-9f33-31d213f5bbb7",
+    "createdAt": "2025-11-18T16:43:19.993Z",
+    "rankingOutput": {
+      "winner": "A",
+      "reasoning": "Hypothesis A is more specific and testable than Hypothesis B. It provides a precise concentration of arginine hydrochloride and a specific concentration of the monoclonal antibody formulation, which allows for a clearer experimental setup and reproducibility. Hypothesis B is more general and lacks specific details on the concentrations involved, making it less rigorous and harder to test systematically.",
+      "confidence": 0.9,
+      "criteria_scores": {
+        "rigor": {
+          "A": 9,
+          "B": 6
+        },
+        "feasibility": {
+          "A": 8,
+          "B": 7
+        },
+        "novelty": {
+          "A": 7,
+          "B": 7
+        },
+        "clarity": {
+          "A": 9,
+          "B": 6
+        }
+      }
+    }
+  },
+  {
+    "matchId": "4b655995-7c00-42d7-91b0-b5f6e3038607",
+    "planId": "73bd6e86-bcc0-477d-91c0-f6d4f443e79a",
+    "hypothesisA": "50bc536c-dc1d-4012-9f33-31d213f5bbb7",
+    "hypothesisB": "ed3e704f-7736-439a-b8a2-026e836feb55",
+    "winner": "50bc536c-dc1d-4012-9f33-31d213f5bbb7",
+    "createdAt": "2025-11-18T16:43:20.099Z",
+    "rankingOutput": {
+      "winner": "A",
+      "reasoning": "Hypothesis A is more specific and testable, providing a clear experimental setup and measurable outcome. It is practical and feasible to test with a defined concentration and target reduction in viscosity. Hypothesis B, while novel, is less specific and would require further refinement to be directly testable, as it involves multiple variables (ionic radii and solubility) without specifying conditions or outcomes.",
+      "confidence": 0.85,
+      "criteria_scores": {
+        "rigor": {
+          "A": 8,
+          "B": 6
+        },
+        "feasibility": {
+          "A": 9,
+          "B": 6
+        },
+        "novelty": {
+          "A": 6,
+          "B": 8
+        },
+        "clarity": {
+          "A": 9,
+          "B": 5
+        }
+      }
+    }
+  },
+  {
+    "matchId": "3f0cda3d-5a09-4e7c-a028-3702f4a9e859",
+    "planId": "73bd6e86-bcc0-477d-91c0-f6d4f443e79a",
+    "hypothesisA": "50bc536c-dc1d-4012-9f33-31d213f5bbb7",
+    "hypothesisB": "21f682a7-7c1a-4264-afc8-3742fc9ed03f",
+    "winner": "50bc536c-dc1d-4012-9f33-31d213f5bbb7",
+    "createdAt": "2025-11-18T16:43:20.352Z",
+    "rankingOutput": {
+      "winner": "A",
+      "reasoning": "Hypothesis A is more specific and testable, providing clear parameters such as the concentration of arginine hydrochloride and the expected reduction in viscosity, which allows for straightforward experimental validation. Hypothesis B, while potentially impactful, lacks specificity in terms of concentration and the extent of viscosity reduction, making it less rigorous and harder to test directly.",
+      "confidence": 0.85,
+      "criteria_scores": {
+        "rigor": {
+          "A": 9,
+          "B": 6
+        },
+        "feasibility": {
+          "A": 8,
+          "B": 7
+        },
+        "novelty": {
+          "A": 7,
+          "B": 7
+        },
+        "clarity": {
+          "A": 9,
+          "B": 6
+        }
+      }
+    }
+  },
+  {
+    "matchId": "970d97f7-114c-47ef-bcfd-77b3f6f949ab",
+    "planId": "73bd6e86-bcc0-477d-91c0-f6d4f443e79a",
+    "hypothesisA": "08db90c9-4ead-4a96-b37a-850a13ff461f",
+    "hypothesisB": "87e88be2-bc3e-4467-94d5-d4553647e0c2",
+    "winner": "08db90c9-4ead-4a96-b37a-850a13ff461f",
+    "createdAt": "2025-11-18T16:43:20.473Z",
+    "rankingOutput": {
+      "winner": "A",
+      "reasoning": "Hypothesis A is more specific and rigorous as it specifies the concentration of L-arginine hydrochloride and the exact concentration of the monoclonal antibody formulation, making it more testable and clear. Hypothesis B is more general and lacks specificity in terms of concentrations, which makes it less rigorous and harder to test definitively.",
+      "confidence": 0.85,
+      "criteria_scores": {
+        "rigor": {
+          "A": 8,
+          "B": 6
+        },
+        "feasibility": {
+          "A": 7,
+          "B": 7
+        },
+        "novelty": {
+          "A": 6,
+          "B": 6
+        },
+        "clarity": {
+          "A": 9,
+          "B": 6
+        }
+      }
+    }
+  },
+  {
+    "matchId": "2f99054f-d357-42c0-8e5d-4345b98fd3cb",
+    "planId": "73bd6e86-bcc0-477d-91c0-f6d4f443e79a",
+    "hypothesisA": "08db90c9-4ead-4a96-b37a-850a13ff461f",
+    "hypothesisB": "ed3e704f-7736-439a-b8a2-026e836feb55",
+    "winner": "ed3e704f-7736-439a-b8a2-026e836feb55",
+    "createdAt": "2025-11-18T16:43:20.622Z",
+    "rankingOutput": {
+      "winner": "B",
+      "reasoning": "Hypothesis B is broader and more generalizable, allowing for a wider range of testable conditions and potential discoveries. It addresses a broader principle regarding the relationship between ionic radii, solubility, and viscosity reduction, which could have a significant impact on formulation science. Hypothesis A, while specific and testable, is limited to a single compound and concentration, reducing its potential impact and novelty.",
+      "confidence": 0.85,
+      "criteria_scores": {
+        "rigor": {
+          "A": 8,
+          "B": 9
+        },
+        "feasibility": {
+          "A": 8,
+          "B": 9
+        },
+        "novelty": {
+          "A": 6,
+          "B": 9
+        },
+        "clarity": {
+          "A": 9,
+          "B": 8
+        }
+      }
+    }
+  },
+  {
+    "matchId": "9d54e75b-b419-4091-916f-6029abba35b3",
+    "planId": "73bd6e86-bcc0-477d-91c0-f6d4f443e79a",
+    "hypothesisA": "08db90c9-4ead-4a96-b37a-850a13ff461f",
+    "hypothesisB": "21f682a7-7c1a-4264-afc8-3742fc9ed03f",
+    "winner": "08db90c9-4ead-4a96-b37a-850a13ff461f",
+    "createdAt": "2025-11-18T16:43:20.743Z",
+    "rankingOutput": {
+      "winner": "A",
+      "reasoning": "Hypothesis A is more specific and testable as it provides exact concentrations and a quantifiable outcome, making it easier to design an experiment. It also focuses on a specific type of protein (monoclonal antibody) and a specific effect (20% reduction in viscosity), which enhances its scientific rigor and clarity. Hypothesis B, while potentially impactful, is vague and lacks specificity in terms of concentration, type of protein, and expected outcome.",
+      "confidence": 0.9,
+      "criteria_scores": {
+        "rigor": {
+          "A": 0.9,
+          "B": 0.6
+        },
+        "feasibility": {
+          "A": 0.8,
+          "B": 0.7
+        },
+        "novelty": {
+          "A": 0.7,
+          "B": 0.7
+        },
+        "clarity": {
+          "A": 0.9,
+          "B": 0.5
+        }
+      }
+    }
+  },
+  {
+    "matchId": "1bc2f248-6195-44a1-82eb-07510bc343d1",
+    "planId": "73bd6e86-bcc0-477d-91c0-f6d4f443e79a",
+    "hypothesisA": "87e88be2-bc3e-4467-94d5-d4553647e0c2",
+    "hypothesisB": "ed3e704f-7736-439a-b8a2-026e836feb55",
+    "winner": "87e88be2-bc3e-4467-94d5-d4553647e0c2",
+    "createdAt": "2025-11-18T16:43:20.934Z",
+    "rankingOutput": {
+      "winner": "A",
+      "reasoning": "Hypothesis A is more specific and testable, focusing on a particular amino acid salt (arginine hydrochloride) and a quantifiable outcome (20% reduction in viscosity), making it easier to design experiments around. Hypothesis B, while potentially impactful, is broader and less specific, making it harder to test directly.",
+      "confidence": 0.8,
+      "criteria_scores": {
+        "rigor": {
+          "A": 8,
+          "B": 6
+        },
+        "feasibility": {
+          "A": 9,
+          "B": 7
+        },
+        "novelty": {
+          "A": 6,
+          "B": 7
+        },
+        "clarity": {
+          "A": 9,
+          "B": 6
+        }
+      }
+    }
+  },
+  {
+    "matchId": "59e1f6ca-8964-4af4-a944-75c1a09e677f",
+    "planId": "73bd6e86-bcc0-477d-91c0-f6d4f443e79a",
+    "hypothesisA": "87e88be2-bc3e-4467-94d5-d4553647e0c2",
+    "hypothesisB": "21f682a7-7c1a-4264-afc8-3742fc9ed03f",
+    "winner": "87e88be2-bc3e-4467-94d5-d4553647e0c2",
+    "createdAt": "2025-11-18T16:43:21.116Z",
+    "rankingOutput": {
+      "winner": "A",
+      "reasoning": "Hypothesis A is more specific and testable as it provides a quantifiable metric (20% decrease in viscosity) which allows for clear experimental validation. It also specifies the type of formulation (monoclonal antibody), making it more rigorous. Hypothesis B is more general and lacks a specific measurable outcome, making it less testable.",
+      "confidence": 0.85,
+      "criteria_scores": {
+        "rigor": {
+          "A": 8,
+          "B": 6
+        },
+        "feasibility": {
+          "A": 7,
+          "B": 7
+        },
+        "novelty": {
+          "A": 6,
+          "B": 6
+        },
+        "clarity": {
+          "A": 8,
+          "B": 6
+        }
+      }
+    }
+  },
+  {
+    "matchId": "00b46580-6e5c-4b62-bdd6-bf174e70e2cd",
+    "planId": "73bd6e86-bcc0-477d-91c0-f6d4f443e79a",
+    "hypothesisA": "ed3e704f-7736-439a-b8a2-026e836feb55",
+    "hypothesisB": "21f682a7-7c1a-4264-afc8-3742fc9ed03f",
+    "winner": "ed3e704f-7736-439a-b8a2-026e836feb55",
+    "createdAt": "2025-11-18T16:43:21.264Z",
+    "rankingOutput": {
+      "winner": "A",
+      "reasoning": "Hypothesis A is more comprehensive and generalizable as it proposes a mechanism based on ionic radii and solubility, which can be applied to a variety of amino acid salts and protein formulations. This makes it more scientifically rigorous and testable across different conditions. Hypothesis B is specific to arginine hydrochloride and IgG protein formulations, making it less novel and with limited applicability.",
+      "confidence": 0.85,
+      "criteria_scores": {
+        "rigor": {
+          "A": 0.9,
+          "B": 0.7
+        },
+        "feasibility": {
+          "A": 0.8,
+          "B": 0.9
+        },
+        "novelty": {
+          "A": 0.9,
+          "B": 0.6
+        },
+        "clarity": {
+          "A": 0.8,
+          "B": 0.8
+        }
+      }
+    }
   }
 ]
