@@ -22,11 +22,17 @@
 
 ## Current Status
 
-The code is ready to deploy, but you're seeing **"Invalid JSON in response"** because:
+✅ **READY TO DEPLOY**
 
-1. The Inngest client needs `INNGEST_EVENT_KEY` to send events
-2. I've added this to the code: `eventKey: process.env.INNGEST_EVENT_KEY`
-3. You need to ensure this environment variable is set in Vercel
+The code has been updated with:
+1. ✅ Inngest client with `eventKey` configured
+2. ✅ Supervisor broken into 4 checkpointed steps:
+   - Step 1: Fetch and validate plan (~1 second)
+   - Step 2: Generate seed hypotheses (5 LLM calls, ~30-60 seconds)
+   - Step 3: Run tournament (10-45 ranking calls, ~2-5 minutes)
+   - Step 4: Complete plan (~1 second)
+3. ✅ Each step completes under timeout limits
+4. ✅ Progress is checkpointed between steps
 
 ## Deployment Steps
 

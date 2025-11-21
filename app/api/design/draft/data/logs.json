@@ -1328,5 +1328,26 @@
       "hypothesisId": "332d955a-fa07-46ff-873f-3ce98dc5c326",
       "totalTimeMs": 87108
     }
+  },
+  {
+    "timestamp": "2025-11-21T17:54:21.243Z",
+    "actor": "supervisor",
+    "level": "info",
+    "message": "Starting sequential experiment design pipeline for hypothesis 332d955a-fa07-46ff-873f-3ce98dc5c326",
+    "context": {
+      "planId": "73bd6e86-bcc0-477d-91c0-f6d4f443e79a",
+      "hypothesisId": "332d955a-fa07-46ff-873f-3ce98dc5c326"
+    }
+  },
+  {
+    "timestamp": "2025-11-21T17:55:24.837Z",
+    "actor": "supervisor",
+    "level": "info",
+    "message": "Experiment design pipeline completed for hypothesis 332d955a-fa07-46ff-873f-3ce98dc5c326",
+    "context": {
+      "planId": "73bd6e86-bcc0-477d-91c0-f6d4f443e79a",
+      "hypothesisId": "332d955a-fa07-46ff-873f-3ce98dc5c326",
+      "totalTimeMs": 63594
+    }
   }
 ]
