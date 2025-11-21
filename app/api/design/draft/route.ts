@@ -89,16 +89,19 @@ export async function POST(req: Request) {
     }
 
     // Trigger Inngest function to process in background
+    const statusUrl = `/api/design/draft/status/${plan.planId}`
+
     try {
-      await inngest.send({
+      console.log("🚀 [DESIGN_DRAFT] Sending event to Inngest...")
+
+      const eventResult = await inngest.send({
         name: "design/draft.requested",
         data: {
           planId: plan.planId
         }
       })
 
-      const statusUrl = `/api/design/draft/status/${plan.planId}`
-
+      console.log("✅ [DESIGN_DRAFT] Inngest event sent:", eventResult)
       console.log("\n📤 [DESIGN_DRAFT_RESPONSE] Response Summary:")
       console.log("  📊 Plan ID:", plan.planId)
       console.log("  🔗 Status URL:", statusUrl)
@@ -115,11 +118,19 @@ export async function POST(req: Request) {
         { status: 202 }
       )
     } catch (error: any) {
-      console.error("❌ [DESIGN_DRAFT] Supervisor enqueue error:", error)
+      console.error("❌ [DESIGN_DRAFT] Inngest send error:", error)
+      console.error("❌ [DESIGN_DRAFT] Error details:", {
+        message: error.message,
+        stack: error.stack,
+        name: error.name
+      })
+
       return NextResponse.json(
         {
           success: false,
-          error: error.message || "Failed to enqueue research plan"
+          error: error.message || "Failed to enqueue research plan",
+          details:
+            process.env.NODE_ENV === "development" ? error.stack : undefined
         },
         { status: 500 }
       )
