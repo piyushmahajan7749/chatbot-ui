@@ -54,8 +54,8 @@ export async function POST(req: Request) {
     if (fileError)
       throw new Error(`Failed to retrieve file: ${fileError.message}`)
 
-    const fileBuffer = Buffer.from(await file.arrayBuffer())
-    const blob = new Blob([fileBuffer])
+    const fileBuffer = Buffer.from(await file.arrayBuffer()) as Buffer
+    const blob = new Blob([fileBuffer as BlobPart])
     const fileExtension = fileMetadata.name.split(".").pop()?.toLowerCase()
 
     if (embeddingsProvider === "openai") {

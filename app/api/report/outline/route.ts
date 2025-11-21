@@ -321,7 +321,7 @@ const chartTool = tool(
     ctx.strokeRect(0, 0, width, height)
 
     // Convert canvas to a buffer containing a PNG image
-    const buffer = canvas.toBuffer("image/png")
+    const buffer = canvas.toBuffer("image/png") as Buffer
 
     // Convert buffer to base64 string
     const base64Image = buffer.toString("base64")
