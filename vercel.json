@@ -6,7 +6,28 @@
     "app/api/design/draft/route.ts": {
       "maxDuration": 300
     },
+    "app/api/design/draft/status/[planId]/route.ts": {
+      "maxDuration": 300
+    },
     "app/api/inngest/route.ts": {
+      "maxDuration": 300
+    },
+    "app/api/design/draft/hypothesis/[hypothesisId]/design/route.ts": {
+      "maxDuration": 300
+    },
+    "app/api/design/[designid]/route.ts": {
+      "maxDuration": 300
+    },
+    "app/api/design/mock/route.ts": {
+      "maxDuration": 300
+    },
+    "app/api/design/mock-regenerate/route.ts": {
+      "maxDuration": 300
+    },
+    "app/api/design/regenerate/route.ts": {
+      "maxDuration": 300
+    },
+    "app/api/report/regenerate/route.ts": {
       "maxDuration": 300
     }
   }
