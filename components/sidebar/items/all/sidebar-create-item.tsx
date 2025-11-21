@@ -308,7 +308,7 @@ export const SidebarCreateItem: FC<SidebarCreateItemProps> = ({
               specialConsiderations: designState.specialConsiderations || []
             },
             preferences: {
-              max_hypotheses: 10
+              max_hypotheses: 5
             }
           }
 

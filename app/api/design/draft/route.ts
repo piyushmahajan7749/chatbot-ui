@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server"
-import { supervisorEnqueue } from "./supervisor"
 import { ResearchPlan } from "./types/interfaces"
 import { v4 as uuidv4 } from "uuid"
+import { inngest } from "@/lib/inngest/client"
+import { saveResearchPlan } from "./utils/persistence"
 
 export async function POST(req: Request) {
   const requestStartTime = Date.now()
@@ -39,7 +40,7 @@ export async function POST(req: Request) {
         specialConsiderations: requestData.specialConsiderations || []
       }
       preferences = {
-        max_hypotheses: 10
+        max_hypotheses: 5
       }
     }
 
@@ -72,33 +73,36 @@ export async function POST(req: Request) {
       "characters"
     )
 
-    // Run supervisor synchronously (with timeout protection)
+    // Save plan to database first
     try {
+      await saveResearchPlan(plan)
+      console.log("✅ [DESIGN_DRAFT] Plan saved to database")
+    } catch (error: any) {
+      console.error("❌ [DESIGN_DRAFT] Failed to save plan:", error)
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Failed to save research plan"
+        },
+        { status: 500 }
+      )
+    }
+
+    // Trigger Inngest function to process in background
+    try {
+      await inngest.send({
+        name: "design/draft.requested",
+        data: {
+          planId: plan.planId
+        }
+      })
+
       const statusUrl = `/api/design/draft/status/${plan.planId}`
-
-      console.log("\n⏳ [DESIGN_DRAFT] Starting supervisor execution...")
-      console.log("  📊 Plan ID:", plan.planId)
-      console.log("  🔗 Status URL:", statusUrl)
-
-      // Run supervisor and await completion
-      // This will use the full 300 second timeout configured in vercel.json
-      try {
-        await supervisorEnqueue(plan)
-        console.log(
-          `✅ [DESIGN_DRAFT] Supervisor completed for plan ${plan.planId}`
-        )
-      } catch (supervisorError: any) {
-        console.error(
-          `❌ [DESIGN_DRAFT] Supervisor error for plan ${plan.planId}:`,
-          supervisorError
-        )
-        // Don't throw - we've already saved the error state in the plan
-      }
 
       console.log("\n📤 [DESIGN_DRAFT_RESPONSE] Response Summary:")
       console.log("  📊 Plan ID:", plan.planId)
       console.log("  🔗 Status URL:", statusUrl)
-      console.log("  ✅ Supervisor execution completed")
+      console.log("  🚀 Inngest background function triggered")
       console.log("=".repeat(100))
 
       return NextResponse.json(
@@ -106,9 +110,9 @@ export async function POST(req: Request) {
           success: true,
           planId: plan.planId,
           statusUrl,
-          message: "Research plan completed"
+          message: "Research plan enqueued successfully"
         },
-        { status: 200 }
+        { status: 202 }
       )
     } catch (error: any) {
       console.error("❌ [DESIGN_DRAFT] Supervisor enqueue error:", error)
