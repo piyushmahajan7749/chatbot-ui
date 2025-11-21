@@ -19,7 +19,8 @@ import {
   createHypothesisBuilderPrompt,
   createExperimentDesignerPrompt,
   createStatCheckPrompt,
-  createReportWriterPrompt
+  createReportWriterPrompt,
+  getAgentUserPrompt
 } from "../prompts/agent-prompts"
 import { optimizeSearchQuery } from "../utils/search-utils"
 import { buildCuratedAggregatedResults } from "../utils/deepscholar-ops"
@@ -27,6 +28,7 @@ import {
   normalizePaperFinderResults,
   runPaperFinder
 } from "../utils/paper-finder"
+import { AgentPromptOverrides } from "@/types/design-prompts"
 
 function buildCitationsDetailed(searchResults?: any): CitationItem[] {
   if (!searchResults) return []
@@ -62,7 +64,8 @@ const openai = new OpenAI({
 })
 
 export async function callLiteratureScoutAgent(
-  state: ExperimentDesignState
+  state: ExperimentDesignState,
+  overrides?: AgentPromptOverrides["literatureScout"]
 ): Promise<LiteratureScoutOutput> {
   const startTime = Date.now()
   console.log("\n" + "=".repeat(80))
@@ -176,8 +179,8 @@ export async function callLiteratureScoutAgent(
     )
 
     console.log("\n🤖 [LITERATURE_SCOUT_AI] Calling OpenAI for analysis...")
-    const systemPrompt = createLiteratureScoutPrompt(state, curated)
-    const userPrompt = `Please analyze these research papers and provide insights organized into the three sections: what others have done, good methods/tools, and potential pitfalls. Include proper citations.`
+    const systemPrompt = createLiteratureScoutPrompt(state, curated, overrides)
+    const userPrompt = getAgentUserPrompt("literatureScout", overrides)
 
     console.log("📝 [LITERATURE_SCOUT_AI] Prompt lengths:")
     console.log("  📏 System prompt:", systemPrompt.length, "characters")
@@ -328,7 +331,8 @@ export async function callHypothesisBuilderAgent(
 }
 
 export async function callExperimentDesignerAgent(
-  state: ExperimentDesignState
+  state: ExperimentDesignState,
+  overrides?: AgentPromptOverrides["experimentDesigner"]
 ): Promise<ExperimentDesignerOutput> {
   const startTime = Date.now()
   console.log("\n" + "=".repeat(80))
@@ -366,8 +370,8 @@ export async function callExperimentDesignerAgent(
   console.log(
     "\n🤖 [EXPERIMENT_DESIGNER_AI] Calling OpenAI for experiment design..."
   )
-  const systemPrompt = createExperimentDesignerPrompt(state)
-  const userPrompt = `Design a complete, lab-ready experiment with detailed execution plan based on the hypothesis and research context provided.`
+  const systemPrompt = createExperimentDesignerPrompt(state, overrides)
+  const userPrompt = getAgentUserPrompt("experimentDesigner", overrides)
 
   console.log("📝 [EXPERIMENT_DESIGNER_AI] Prompt lengths:")
   console.log("  📏 System prompt:", systemPrompt.length, "characters")
@@ -515,7 +519,8 @@ export async function callExperimentDesignerAgent(
 }
 
 export async function callStatCheckAgent(
-  state: ExperimentDesignState
+  state: ExperimentDesignState,
+  overrides?: AgentPromptOverrides["statCheck"]
 ): Promise<StatCheckOutput> {
   const startTime = Date.now()
   console.log("\n" + "=".repeat(80))
@@ -547,8 +552,8 @@ export async function callStatCheckAgent(
   )
 
   console.log("\n🤖 [STAT_CHECK_AI] Calling OpenAI for statistical review...")
-  const systemPrompt = createStatCheckPrompt(state)
-  const userPrompt = `Review this experiment design and execution plan for statistical and logical soundness. Provide feedback on what looks good, what problems or risks exist, and suggest improvements.`
+  const systemPrompt = createStatCheckPrompt(state, overrides)
+  const userPrompt = getAgentUserPrompt("statCheck", overrides)
 
   console.log("📝 [STAT_CHECK_AI] Prompt lengths:")
   console.log("  📏 System prompt:", systemPrompt.length, "characters")
@@ -612,7 +617,8 @@ export async function callStatCheckAgent(
 }
 
 export async function callReportWriterAgent(
-  state: ExperimentDesignState
+  state: ExperimentDesignState,
+  overrides?: AgentPromptOverrides["reportWriter"]
 ): Promise<ReportWriterOutput> {
   const startTime = Date.now()
   console.log("\n" + "=".repeat(80))
@@ -651,8 +657,8 @@ export async function callReportWriterAgent(
   console.log(
     "\n🤖 [REPORT_WRITER_AI] Calling OpenAI for final report synthesis..."
   )
-  const systemPrompt = createReportWriterPrompt(state)
-  const userPrompt = `Create a comprehensive, structured report that synthesizes all the agent outputs into a clear, actionable experimental design document.`
+  const systemPrompt = createReportWriterPrompt(state, overrides)
+  const userPrompt = getAgentUserPrompt("reportWriter", overrides)
 
   console.log("📝 [REPORT_WRITER_AI] Prompt lengths:")
   console.log("  📏 System prompt:", systemPrompt.length, "characters")

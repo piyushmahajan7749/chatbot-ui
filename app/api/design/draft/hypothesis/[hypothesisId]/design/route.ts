@@ -12,6 +12,60 @@ import {
   getResearchPlan,
   saveLog
 } from "../../../utils/persistence"
+import { AgentPromptOverrides } from "@/types/design-prompts"
+import { designAgentPromptOrder } from "@/lib/design/prompt-schemas"
+
+const agentKeys = designAgentPromptOrder
+
+const sanitizePromptOverrides = (
+  rawOverrides: unknown
+): AgentPromptOverrides | undefined => {
+  if (!rawOverrides || typeof rawOverrides !== "object") {
+    return undefined
+  }
+
+  const cleanOverrides: AgentPromptOverrides = {}
+  let hasAnyOverrides = false
+
+  for (const key of agentKeys) {
+    const agentOverride = (rawOverrides as Record<string, unknown>)[key]
+    if (!agentOverride || typeof agentOverride !== "object") {
+      continue
+    }
+
+    const sectionsInput = (agentOverride as Record<string, unknown>).sections
+    const userPromptInput = (agentOverride as Record<string, unknown>)
+      .userPrompt
+
+    const cleanSections =
+      sectionsInput && typeof sectionsInput === "object"
+        ? Object.entries(sectionsInput as Record<string, unknown>).reduce<
+            Record<string, string>
+          >((acc, [sectionId, value]) => {
+            if (typeof value === "string") {
+              acc[sectionId] = value
+            }
+            return acc
+          }, {})
+        : undefined
+
+    const cleanUserPrompt =
+      typeof userPromptInput === "string" ? userPromptInput : undefined
+
+    if (
+      (cleanSections && Object.keys(cleanSections).length > 0) ||
+      cleanUserPrompt
+    ) {
+      cleanOverrides[key] = {
+        ...(cleanSections ? { sections: cleanSections } : {}),
+        ...(cleanUserPrompt ? { userPrompt: cleanUserPrompt } : {})
+      }
+      hasAnyOverrides = true
+    }
+  }
+
+  return hasAnyOverrides ? cleanOverrides : undefined
+}
 
 export async function POST(
   req: Request,
@@ -36,6 +90,7 @@ export async function POST(
       typeof requestBody.instructions === "string"
         ? requestBody.instructions.trim()
         : undefined
+    const promptOverrides = sanitizePromptOverrides(requestBody.promptOverrides)
 
     const hypothesis = await getHypothesisById(hypothesisId)
     if (!hypothesis) {
@@ -115,7 +170,8 @@ export async function POST(
 
     state.literatureScoutOutput = await trackStep(
       "literature_scout",
-      async () => callLiteratureScoutAgent(state)
+      async () =>
+        callLiteratureScoutAgent(state, promptOverrides?.literatureScout)
     )
 
     state.hypothesisBuilderOutput = {
@@ -127,15 +183,16 @@ export async function POST(
 
     state.experimentDesignerOutput = await trackStep(
       "experiment_designer",
-      async () => callExperimentDesignerAgent(state)
+      async () =>
+        callExperimentDesignerAgent(state, promptOverrides?.experimentDesigner)
     )
 
     state.statCheckOutput = await trackStep("stat_check", async () =>
-      callStatCheckAgent(state)
+      callStatCheckAgent(state, promptOverrides?.statCheck)
     )
 
     state.reportWriterOutput = await trackStep("report_writer", async () =>
-      callReportWriterAgent(state)
+      callReportWriterAgent(state, promptOverrides?.reportWriter)
     )
 
     const totalTimeMs = Date.now() - pipelineStart

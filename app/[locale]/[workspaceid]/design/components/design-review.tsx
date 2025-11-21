@@ -50,6 +50,7 @@ interface DesignReviewProps {
   generatedStatReview?: any | null
   designError?: string | null
   onRegenerateDesign?: () => Promise<void> | void
+  onCustomizePrompts?: (hypothesis: DesignPlanHypothesis) => void
 }
 
 const markdownClasses =
@@ -324,6 +325,7 @@ export function DesignReview({
   topHypotheses,
   logs,
   onGenerateDesign,
+  onCustomizePrompts,
   generatingHypothesisId,
   selectedHypothesisId,
   generatedDesign,
@@ -838,20 +840,30 @@ export function DesignReview({
                               Elo: {Math.round(hypothesis.elo)}
                             </span>
                           )}
-                          <Button
-                            size="sm"
-                            disabled={isGenerating}
-                            onClick={() => onGenerateDesign?.(hypothesis)}
-                          >
-                            {isGenerating ? (
-                              <>
-                                <Loader2 className="mr-2 size-4 animate-spin" />
-                                Generating…
-                              </>
-                            ) : (
-                              "Generate Experiment Design"
-                            )}
-                          </Button>
+                          <div className="flex flex-col items-end gap-2">
+                            <Button
+                              size="sm"
+                              disabled={isGenerating}
+                              onClick={() => onGenerateDesign?.(hypothesis)}
+                            >
+                              {isGenerating ? (
+                                <>
+                                  <Loader2 className="mr-2 size-4 animate-spin" />
+                                  Generating…
+                                </>
+                              ) : (
+                                "Generate Experiment Design"
+                              )}
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              disabled={isGenerating}
+                              onClick={() => onCustomizePrompts?.(hypothesis)}
+                            >
+                              Customize Prompts
+                            </Button>
+                          </div>
                         </div>
                       </div>
                       {isSelected && isGenerating && (

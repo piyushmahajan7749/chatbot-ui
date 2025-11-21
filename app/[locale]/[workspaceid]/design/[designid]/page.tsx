@@ -3,12 +3,14 @@
 import { useCallback, useEffect, useMemo, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { DesignReview } from "../components/design-review"
+import PromptOverridesDialog from "@/components/design/prompt-overrides-dialog"
 import { DesignProgress } from "@/components/ui/design-progress"
 import {
   DesignPlanMetadata,
   DesignPlanStatus,
   DesignPlanHypothesis
 } from "@/types/design-plan"
+import { AgentPromptOverrides } from "@/types/design-prompts"
 import { toast } from "sonner"
 import { Textarea } from "@/components/ui/textarea"
 import { Loader2, EyeOff, PanelTopOpen, Save, CheckCircle2 } from "lucide-react"
@@ -64,6 +66,12 @@ export default function DesignIDPage({
   const [designError, setDesignError] = useState<string | null>(null)
   const [promptInput, setPromptInput] = useState("")
   const [isPromptSubmitting, setIsPromptSubmitting] = useState(false)
+  const [promptOverridesDialogOpen, setPromptOverridesDialogOpen] =
+    useState(false)
+  const [promptOverridesHypothesis, setPromptOverridesHypothesis] =
+    useState<DesignPlanHypothesis | null>(null)
+  const [isPromptOverridesSubmitting, setIsPromptOverridesSubmitting] =
+    useState(false)
   const [showPromptToolbar, setShowPromptToolbar] = useState(true)
   const [savedHypothesisSnapshot, setSavedHypothesisSnapshot] =
     useState<DesignPlanHypothesis | null>(null)
@@ -198,7 +206,7 @@ export default function DesignIDPage({
     if (storedMetadata) {
       setPlanMetadata(storedMetadata)
       setIsGenerating(true)
-      if (storedMetadata.request && !designData) {
+      if (storedMetadata.request) {
         setDesignData({
           name: storedMetadata.request.title,
           description: storedMetadata.request.description,
@@ -333,70 +341,89 @@ export default function DesignIDPage({
     setShowPromptToolbar(true)
   }, [selectedHypothesisId])
 
-  const handleGenerateDesign = async (
-    hypothesis: DesignPlanHypothesis,
-    options?: { instructions?: string }
-  ) => {
-    if (!hypothesis?.hypothesisId) {
-      return
-    }
-
-    if (!planStatus || planStatus.status !== "completed") {
-      toast.error(
-        "The research plan is still running. Please wait until it completes."
-      )
-      return
-    }
-
-    setSelectedHypothesisId(hypothesis.hypothesisId)
-    setGeneratingHypothesisId(hypothesis.hypothesisId)
-    setGeneratedDesign(null)
-    setGeneratedLiteratureSummary(null)
-    setGeneratedStatReview(null)
-    setDesignError(null)
-    setLastSavedPayloadSignature(null)
-    setSavedHypothesisSnapshot(null)
-
-    try {
-      const fetchOptions: RequestInit = { method: "POST" }
-      if (options?.instructions) {
-        fetchOptions.headers = { "Content-Type": "application/json" }
-        fetchOptions.body = JSON.stringify({
-          instructions: options.instructions
-        })
+  const handleGenerateDesign = useCallback(
+    async (
+      hypothesis: DesignPlanHypothesis,
+      options?: {
+        instructions?: string
+        promptOverrides?: AgentPromptOverrides
+      }
+    ) => {
+      if (!hypothesis?.hypothesisId) {
+        return
       }
 
-      const response = await fetch(
-        `/api/design/draft/hypothesis/${hypothesis.hypothesisId}/design`,
-        fetchOptions
-      )
-
-      const data = await response.json()
-
-      if (!response.ok || !data?.success) {
-        throw new Error(
-          data?.error ||
-            `Design generation failed with status ${response.status}`
+      if (!planStatus || planStatus.status !== "completed") {
+        toast.error(
+          "The research plan is still running. Please wait until it completes."
         )
+        return
       }
 
-      setGeneratedDesign(data.report)
-      setGeneratedLiteratureSummary(
-        data.literatureSummary || data.report?.literatureSummary || null
-      )
-      setGeneratedStatReview(
-        data.statReview || data.report?.statisticalReview || null
-      )
-      toast.success("Experiment design generated.")
-    } catch (error: any) {
-      console.error("❌ [DESIGN_PAGE] Design generation error:", error)
-      const message = error?.message || "Failed to generate experiment design"
-      setDesignError(message)
-      toast.error(message)
-    } finally {
-      setGeneratingHypothesisId(null)
-    }
-  }
+      setSelectedHypothesisId(hypothesis.hypothesisId)
+      setGeneratingHypothesisId(hypothesis.hypothesisId)
+      setGeneratedDesign(null)
+      setGeneratedLiteratureSummary(null)
+      setGeneratedStatReview(null)
+      setDesignError(null)
+      setLastSavedPayloadSignature(null)
+      setSavedHypothesisSnapshot(null)
+
+      try {
+        const fetchOptions: RequestInit = { method: "POST" }
+        const payload: Record<string, unknown> = {}
+        if (options?.instructions) {
+          payload.instructions = options.instructions
+        }
+        if (options?.promptOverrides) {
+          payload.promptOverrides = options.promptOverrides
+        }
+        if (Object.keys(payload).length > 0) {
+          fetchOptions.headers = { "Content-Type": "application/json" }
+          fetchOptions.body = JSON.stringify(payload)
+        }
+
+        const response = await fetch(
+          `/api/design/draft/hypothesis/${hypothesis.hypothesisId}/design`,
+          fetchOptions
+        )
+
+        const data = await response.json()
+
+        if (!response.ok || !data?.success) {
+          throw new Error(
+            data?.error ||
+              `Design generation failed with status ${response.status}`
+          )
+        }
+
+        setGeneratedDesign(data.report)
+        setGeneratedLiteratureSummary(
+          data.literatureSummary || data.report?.literatureSummary || null
+        )
+        setGeneratedStatReview(
+          data.statReview || data.report?.statisticalReview || null
+        )
+        toast.success("Experiment design generated.")
+      } catch (error: any) {
+        console.error("❌ [DESIGN_PAGE] Design generation error:", error)
+        const message = error?.message || "Failed to generate experiment design"
+        setDesignError(message)
+        toast.error(message)
+      } finally {
+        setGeneratingHypothesisId(null)
+      }
+    },
+    [planStatus]
+  )
+
+  const handleCustomizePrompts = useCallback(
+    (hypothesis: DesignPlanHypothesis) => {
+      setPromptOverridesHypothesis(hypothesis)
+      setPromptOverridesDialogOpen(true)
+    },
+    []
+  )
 
   const handleRegenerateSelected = useCallback(async () => {
     if (!selectedHypothesis) {
@@ -426,6 +453,33 @@ export default function DesignIDPage({
       setIsPromptSubmitting(false)
     }
   }, [selectedHypothesis, promptInput, handleGenerateDesign])
+
+  const handlePromptDialogOpenChange = useCallback((nextOpen: boolean) => {
+    if (!nextOpen) {
+      setPromptOverridesHypothesis(null)
+    }
+    setPromptOverridesDialogOpen(nextOpen)
+  }, [])
+
+  const handlePromptOverridesSubmit = useCallback(
+    async (overrides: AgentPromptOverrides) => {
+      if (!promptOverridesHypothesis) {
+        toast.error("Select a hypothesis to customize prompts.")
+        return
+      }
+      setIsPromptOverridesSubmitting(true)
+      try {
+        await handleGenerateDesign(promptOverridesHypothesis, {
+          promptOverrides: overrides
+        })
+        setPromptOverridesDialogOpen(false)
+        setPromptOverridesHypothesis(null)
+      } finally {
+        setIsPromptOverridesSubmitting(false)
+      }
+    },
+    [handleGenerateDesign, promptOverridesHypothesis]
+  )
 
   const currentDesignSnapshot = useMemo(() => {
     if (!generatedDesign) return null
@@ -559,6 +613,7 @@ export default function DesignIDPage({
             topHypotheses={displayHypotheses}
             logs={logs}
             onGenerateDesign={handleGenerateDesign}
+            onCustomizePrompts={handleCustomizePrompts}
             generatingHypothesisId={generatingHypothesisId}
             selectedHypothesisId={selectedHypothesisId}
             generatedDesign={generatedDesign}
@@ -672,6 +727,13 @@ export default function DesignIDPage({
             </Button>
           </div>
         )}
+      <PromptOverridesDialog
+        open={promptOverridesDialogOpen}
+        onOpenChange={handlePromptDialogOpenChange}
+        onSubmit={handlePromptOverridesSubmit}
+        isSubmitting={isPromptOverridesSubmitting}
+        hypothesis={promptOverridesHypothesis}
+      />
     </div>
   )
 }
