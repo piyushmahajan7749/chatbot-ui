@@ -1,4 +1,5 @@
 import { adminDb } from "@/lib/firebase/admin"
+import type { QueryDocumentSnapshot } from "firebase-admin/firestore"
 import {
   ResearchPlan,
   Hypothesis,
@@ -89,7 +90,7 @@ export async function getHypothesesByPlanId(
     .where("plan_id", "==", planId)
     .get()
 
-  return snapshot.docs.map(doc => {
+  return snapshot.docs.map((doc: QueryDocumentSnapshot) => {
     const data = doc.data()
     const metadata = (data.metadata ?? {}) as Partial<Hypothesis>
 
@@ -184,7 +185,7 @@ export async function getTournamentMatchesByPlanId(
     .orderBy("created_at", "asc")
     .get()
 
-  return snapshot.docs.map(doc => {
+  return snapshot.docs.map((doc: QueryDocumentSnapshot) => {
     const data = doc.data()
     const metadata = (data.metadata ?? {}) as Partial<TournamentMatch>
 
@@ -231,7 +232,7 @@ export async function getLogsByPlanId(
     .limit(limit)
     .get()
 
-  return snapshot.docs.map(doc => {
+  return snapshot.docs.map((doc: QueryDocumentSnapshot) => {
     const data = doc.data()
     const level = ["info", "warn", "error", "debug"].includes(data.level)
       ? data.level

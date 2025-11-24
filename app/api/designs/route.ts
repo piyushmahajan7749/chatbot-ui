@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { cookies } from "next/headers"
 import { adminDb } from "@/lib/firebase/admin"
+import type { QueryDocumentSnapshot } from "firebase-admin/firestore"
 
 export async function POST(request: Request) {
   try {
@@ -79,7 +80,10 @@ export async function GET(request: Request) {
     }
 
     const snapshot = await query.orderBy("created_at", "desc").get()
-    const designs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }))
+    const designs = snapshot.docs.map((doc: QueryDocumentSnapshot) => ({
+      id: doc.id,
+      ...doc.data()
+    }))
 
     return NextResponse.json({ designs })
   } catch (error) {
