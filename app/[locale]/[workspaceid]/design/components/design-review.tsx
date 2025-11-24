@@ -41,6 +41,7 @@ import {
 import { designAgentPromptSchemas } from "@/lib/design/prompt-schemas"
 import { AgentPromptUsage } from "@/types/design-prompts"
 import { Document, HeadingLevel, Packer, Paragraph, TextRun } from "docx"
+import { MaterialCalculator } from "@/components/design/material-calculator"
 
 interface DesignReviewProps {
   designData: {
@@ -516,7 +517,7 @@ export function DesignReview({
                   onClick={handleDownloadPrompts}
                 >
                   <Download className="mr-2 size-4" />
-                  Download Prompts (.doc)
+                  Download Prompts (.docx)
                 </Button>
               )}
               <TooltipProvider>
@@ -728,6 +729,27 @@ export function DesignReview({
               })()}
             </SectionCard>
           )}
+          {generatedDesign.experimentDesign &&
+            (generatedDesign.experimentDesign.executionPlan?.materialsList ||
+              generatedDesign.experimentDesign.executionPlan
+                ?.materialPreparation) && (
+              <MaterialCalculator
+                materialsListText={
+                  generatedDesign.experimentDesign.executionPlan.materialsList
+                }
+                materialPreparationText={
+                  generatedDesign.experimentDesign.executionPlan
+                    .materialPreparation
+                }
+                replicatesAndConditionsText={
+                  generatedDesign.experimentDesign.experimentDesign
+                    ?.replicatesAndConditions
+                }
+                conditionsTableText={
+                  generatedDesign.experimentDesign.executionPlan.conditionsTable
+                }
+              />
+            )}
           {generatedDesign.statisticalReview && (
             <SectionCard
               title="Statistical Review"
