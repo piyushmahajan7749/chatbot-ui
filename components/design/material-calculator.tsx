@@ -23,7 +23,8 @@ import {
   ChevronDown,
   ChevronUp,
   Info,
-  Loader2 as SpinnerIcon
+  Loader2 as SpinnerIcon,
+  RefreshCw
 } from "lucide-react"
 import {
   ExperimentMaterial,
@@ -63,13 +64,15 @@ interface MaterialCalculatorProps {
   materialPreparationText?: string
   replicatesAndConditionsText?: string
   conditionsTableText?: string
+  stepByStepProcedure?: string
 }
 
 export function MaterialCalculator({
   materialsListText,
   materialPreparationText,
   replicatesAndConditionsText,
-  conditionsTableText
+  conditionsTableText,
+  stepByStepProcedure
 }: MaterialCalculatorProps) {
   // Extract suggested number of runs from the design
   const suggestedRuns = useMemo(() => {
@@ -88,7 +91,7 @@ export function MaterialCalculator({
     return 3 // default
   }, [replicatesAndConditionsText, conditionsTableText, materialsListText])
 
-  // Parse initial materials from text
+  // Parse initial materials from text (fallback for basic parsing)
   const initialMaterials = useMemo(() => {
     const parsedFromList = materialsListText
       ? parseMaterialsFromText(materialsListText)
@@ -96,9 +99,16 @@ export function MaterialCalculator({
     const parsedFromPrep = materialPreparationText
       ? parseMaterialsFromText(materialPreparationText)
       : []
+    const parsedFromProcedure = stepByStepProcedure
+      ? parseMaterialsFromText(stepByStepProcedure)
+      : []
 
     // Combine and deduplicate by name+unit
-    const combined = [...parsedFromList, ...parsedFromPrep]
+    const combined = [
+      ...parsedFromList,
+      ...parsedFromPrep,
+      ...parsedFromProcedure
+    ]
     const deduped = new Map<string, ExperimentMaterial>()
 
     combined.forEach(mat => {
@@ -118,7 +128,7 @@ export function MaterialCalculator({
     })
 
     return Array.from(deduped.values())
-  }, [materialsListText, materialPreparationText])
+  }, [materialsListText, materialPreparationText, stepByStepProcedure])
 
   const [materials, setMaterials] = useState<ExperimentMaterial[]>([])
   const [numberOfRuns, setNumberOfRuns] = useState<number>(suggestedRuns)
@@ -134,7 +144,7 @@ export function MaterialCalculator({
       // Only run if we have text and haven't extracted yet
       if (
         materials.length === 0 &&
-        (materialsListText || materialPreparationText) &&
+        (materialsListText || materialPreparationText || stepByStepProcedure) &&
         !isExtracting
       ) {
         setIsExtracting(true)
@@ -145,10 +155,16 @@ export function MaterialCalculator({
             "@/lib/ai-material-extraction"
           )
 
-          const result = await extractMaterialsWithAI(
-            materialsListText || "",
-            materialPreparationText
-          )
+          // Combine all text sources for better extraction
+          const combinedText = [
+            materialsListText,
+            materialPreparationText,
+            stepByStepProcedure
+          ]
+            .filter(Boolean)
+            .join("\n\n=== NEXT SECTION ===\n\n")
+
+          const result = await extractMaterialsWithAI(combinedText, undefined)
 
           if (result.error) {
             // Fall back to basic parsing if AI fails
@@ -193,6 +209,7 @@ export function MaterialCalculator({
   }, [
     materialsListText,
     materialPreparationText,
+    stepByStepProcedure,
     materials.length,
     initialMaterials,
     isExtracting
@@ -284,6 +301,71 @@ export function MaterialCalculator({
       )
     ) {
       setMaterials(initialMaterials)
+    }
+  }
+
+  const handleReExtractWithAI = async () => {
+    if (
+      !materialsListText &&
+      !materialPreparationText &&
+      !stepByStepProcedure
+    ) {
+      return
+    }
+
+    if (
+      materials.length > 0 &&
+      !confirm(
+        "Re-extract materials with AI? This will replace your current materials and any manual changes will be lost."
+      )
+    ) {
+      return
+    }
+
+    setIsExtracting(true)
+    setExtractionError(null)
+
+    try {
+      const { extractMaterialsWithAI } = await import(
+        "@/lib/ai-material-extraction"
+      )
+
+      // Combine all text sources for better extraction
+      const combinedText = [
+        materialsListText,
+        materialPreparationText,
+        stepByStepProcedure
+      ]
+        .filter(Boolean)
+        .join("\n\n=== NEXT SECTION ===\n\n")
+
+      const result = await extractMaterialsWithAI(combinedText, undefined)
+
+      if (result.error) {
+        setExtractionError(result.error)
+        // Fall back to basic parsing if AI fails
+        if (initialMaterials.length > 0) {
+          setMaterials(initialMaterials)
+        }
+      } else if (result.materials.length > 0) {
+        const materialsWithIds = result.materials.map(mat => ({
+          ...mat,
+          id: generateMaterialId()
+        }))
+        setMaterials(materialsWithIds)
+        setShowPerRunTable(true) // Expand to show extracted materials
+      } else {
+        setExtractionError("No materials found in the text")
+      }
+    } catch (error) {
+      console.error("[MATERIAL_CALCULATOR] AI re-extraction error:", error)
+      setExtractionError(
+        error instanceof Error
+          ? error.message
+          : "Failed to re-extract materials"
+      )
+    } finally {
+      setIsExtracting(false)
     }
   }
 
@@ -441,6 +523,38 @@ export function MaterialCalculator({
                     </Button>
                   </CollapsibleTrigger>
                   <div className="flex gap-2">
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button
+                            size="sm"
+                            variant="default"
+                            onClick={handleReExtractWithAI}
+                            disabled={isExtracting}
+                            className="bg-gradient-to-r from-purple-500 to-blue-500 hover:from-purple-600 hover:to-blue-600"
+                          >
+                            {isExtracting ? (
+                              <>
+                                <SpinnerIcon className="mr-2 size-4 animate-spin" />
+                                Extracting...
+                              </>
+                            ) : (
+                              <>
+                                <RefreshCw className="mr-2 size-4" />
+                                Re-extract
+                              </>
+                            )}
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent className="max-w-xs">
+                          <p>
+                            Re-run AI extraction to refresh materials from the
+                            design text. Useful if you&apos;ve made changes or
+                            want to start over.
+                          </p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
                     {initialMaterials.length > 0 && (
                       <Button
                         size="sm"
@@ -480,9 +594,7 @@ export function MaterialCalculator({
                             <TableHead className="w-[45%]">
                               Material Name
                             </TableHead>
-                            <TableHead className="w-[25%]">
-                              Qty per Run
-                            </TableHead>
+                            <TableHead className="w-1/4">Qty per Run</TableHead>
                             <TableHead className="w-1/5">Unit</TableHead>
                             <TableHead className="w-[10%]"></TableHead>
                           </TableRow>

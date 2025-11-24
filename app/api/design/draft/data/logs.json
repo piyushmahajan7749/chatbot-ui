@@ -1674,5 +1674,68 @@
       "hypothesisId": "9f3e5731-a3c3-4fa5-8f0a-cc2cb8061fbf",
       "totalTimeMs": 49655
     }
+  },
+  {
+    "timestamp": "2025-11-24T08:29:03.143Z",
+    "actor": "supervisor",
+    "level": "info",
+    "message": "Starting sequential experiment design pipeline for hypothesis 95bd88c4-418b-455f-86c7-9c00b71c9d2c",
+    "context": {
+      "planId": "99bd57b9-a11d-4c6f-ba6c-b5a0c2134f4a",
+      "hypothesisId": "95bd88c4-418b-455f-86c7-9c00b71c9d2c"
+    }
+  },
+  {
+    "timestamp": "2025-11-24T08:29:55.118Z",
+    "actor": "supervisor",
+    "level": "info",
+    "message": "Experiment design pipeline completed for hypothesis 95bd88c4-418b-455f-86c7-9c00b71c9d2c",
+    "context": {
+      "planId": "99bd57b9-a11d-4c6f-ba6c-b5a0c2134f4a",
+      "hypothesisId": "95bd88c4-418b-455f-86c7-9c00b71c9d2c",
+      "totalTimeMs": 51975
+    }
+  },
+  {
+    "timestamp": "2025-11-24T08:40:36.107Z",
+    "actor": "supervisor",
+    "level": "info",
+    "message": "Starting sequential experiment design pipeline for hypothesis b55c1ee1-8c24-42db-bce2-2909c0638ad5",
+    "context": {
+      "planId": "99bd57b9-a11d-4c6f-ba6c-b5a0c2134f4a",
+      "hypothesisId": "b55c1ee1-8c24-42db-bce2-2909c0638ad5"
+    }
+  },
+  {
+    "timestamp": "2025-11-24T08:41:33.513Z",
+    "actor": "supervisor",
+    "level": "info",
+    "message": "Experiment design pipeline completed for hypothesis b55c1ee1-8c24-42db-bce2-2909c0638ad5",
+    "context": {
+      "planId": "99bd57b9-a11d-4c6f-ba6c-b5a0c2134f4a",
+      "hypothesisId": "b55c1ee1-8c24-42db-bce2-2909c0638ad5",
+      "totalTimeMs": 57406
+    }
+  },
+  {
+    "timestamp": "2025-11-24T08:50:03.146Z",
+    "actor": "supervisor",
+    "level": "info",
+    "message": "Starting sequential experiment design pipeline for hypothesis b55c1ee1-8c24-42db-bce2-2909c0638ad5",
+    "context": {
+      "planId": "99bd57b9-a11d-4c6f-ba6c-b5a0c2134f4a",
+      "hypothesisId": "b55c1ee1-8c24-42db-bce2-2909c0638ad5"
+    }
+  },
+  {
+    "timestamp": "2025-11-24T08:50:52.728Z",
+    "actor": "supervisor",
+    "level": "info",
+    "message": "Experiment design pipeline completed for hypothesis b55c1ee1-8c24-42db-bce2-2909c0638ad5",
+    "context": {
+      "planId": "99bd57b9-a11d-4c6f-ba6c-b5a0c2134f4a",
+      "hypothesisId": "b55c1ee1-8c24-42db-bce2-2909c0638ad5",
+      "totalTimeMs": 49582
+    }
   }
 ]

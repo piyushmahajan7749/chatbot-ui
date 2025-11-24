@@ -105,7 +105,8 @@ export default function DesignIDPage({
         rawPayload.generatedStatReview ||
         rawPayload.statReview ||
         rawPayload.report?.statisticalReview ||
-        null
+        null,
+      promptsUsed: rawPayload.promptsUsed || null
     }
 
     if (!normalized.generatedDesign) {
@@ -115,6 +116,7 @@ export default function DesignIDPage({
     setGeneratedDesign(normalized.generatedDesign)
     setGeneratedLiteratureSummary(normalized.generatedLiteratureSummary)
     setGeneratedStatReview(normalized.generatedStatReview)
+    setLatestPromptsUsed(normalized.promptsUsed)
 
     if (normalized.selectedHypothesisId) {
       setSelectedHypothesisId(normalized.selectedHypothesisId)
@@ -326,7 +328,19 @@ export default function DesignIDPage({
 
   const isDesignLoaded = !!designData
 
+  // Reset state when planId changes, BUT preserve saved designs that were loaded from DB
   useEffect(() => {
+    // Only reset if we don't have a saved design loaded
+    // This prevents wiping out restored designs when planStatus updates
+    if (lastSavedPayloadSignature) {
+      console.log("⏭️ [DESIGN_PAGE] Skipping reset - saved design loaded")
+      return
+    }
+
+    console.log(
+      "🔄 [DESIGN_PAGE] Resetting state for new plan:",
+      planStatus?.planId
+    )
     setSelectedHypothesisId(null)
     setGeneratingHypothesisId(null)
     setGeneratedDesign(null)
@@ -336,8 +350,8 @@ export default function DesignIDPage({
     setPromptInput("")
     setShowPromptToolbar(true)
     setSavedHypothesisSnapshot(null)
-    setLastSavedPayloadSignature(null)
-  }, [planStatus?.planId])
+    setLatestPromptsUsed(null)
+  }, [planStatus?.planId, lastSavedPayloadSignature])
 
   useEffect(() => {
     setPromptInput("")
@@ -497,7 +511,8 @@ export default function DesignIDPage({
       selectedHypothesis: selectedHypothesis || savedHypothesisSnapshot || null,
       generatedDesign,
       generatedLiteratureSummary,
-      generatedStatReview
+      generatedStatReview,
+      promptsUsed: latestPromptsUsed
     }
   }, [
     generatedDesign,
@@ -506,7 +521,8 @@ export default function DesignIDPage({
     planStatus?.planId,
     selectedHypothesis,
     selectedHypothesisId,
-    savedHypothesisSnapshot
+    savedHypothesisSnapshot,
+    latestPromptsUsed
   ])
 
   const currentSnapshotSignature = useMemo(() => {

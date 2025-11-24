@@ -748,6 +748,10 @@ export function DesignReview({
                 conditionsTableText={
                   generatedDesign.experimentDesign.executionPlan.conditionsTable
                 }
+                stepByStepProcedure={
+                  generatedDesign.experimentDesign.executionPlan
+                    .stepByStepProcedure
+                }
               />
             )}
           {generatedDesign.statisticalReview && (
