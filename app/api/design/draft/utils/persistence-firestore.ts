@@ -247,3 +247,115 @@ export async function getLogsByPlanId(
     }
   })
 }
+
+/**
+ * Save a generated design for a specific hypothesis
+ */
+export async function saveHypothesisDesign(
+  hypothesisId: string,
+  designData: {
+    generatedDesign: any
+    generatedLiteratureSummary?: any
+    generatedStatReview?: any
+    promptsUsed?: any[]
+  }
+): Promise<boolean> {
+  try {
+    console.log(
+      `[PERSISTENCE] Saving design for hypothesis ${hypothesisId.slice(0, 8)}...`
+    )
+
+    const hypothesis = await getHypothesisById(hypothesisId)
+    if (!hypothesis) {
+      console.error(
+        `[PERSISTENCE] Hypothesis ${hypothesisId.slice(0, 8)}... not found`
+      )
+      return false
+    }
+
+    const savedAt = new Date().toISOString()
+    const updatedMetadata = {
+      ...hypothesis.metadata,
+      saved_design: {
+        ...designData,
+        savedAt
+      }
+    }
+
+    await adminDb.collection("hypotheses").doc(hypothesisId).update({
+      metadata: updatedMetadata
+    })
+
+    console.log(
+      `[PERSISTENCE] ✅ Successfully saved design for hypothesis ${hypothesisId.slice(0, 8)}... at ${savedAt}`
+    )
+    return true
+  } catch (error) {
+    console.error(
+      `[PERSISTENCE] ❌ Error saving hypothesis design for ${hypothesisId.slice(0, 8)}...:`,
+      error
+    )
+    return false
+  }
+}
+
+/**
+ * Get saved design for a hypothesis (if exists)
+ */
+export async function getHypothesisSavedDesign(hypothesisId: string): Promise<{
+  generatedDesign: any
+  generatedLiteratureSummary?: any
+  generatedStatReview?: any
+  promptsUsed?: any[]
+  savedAt?: string
+} | null> {
+  try {
+    console.log(
+      `[PERSISTENCE] Getting saved design for hypothesis ${hypothesisId.slice(0, 8)}...`
+    )
+
+    const hypothesis = await getHypothesisById(hypothesisId)
+    if (!hypothesis) {
+      console.log(
+        `[PERSISTENCE] Hypothesis ${hypothesisId.slice(0, 8)}... not found`
+      )
+      return null
+    }
+
+    if (!hypothesis.metadata?.saved_design) {
+      console.log(
+        `[PERSISTENCE] No saved_design in metadata for hypothesis ${hypothesisId.slice(0, 8)}...`
+      )
+      return null
+    }
+
+    console.log(
+      `[PERSISTENCE] ✅ Found saved design for hypothesis ${hypothesisId.slice(0, 8)}... (saved at: ${hypothesis.metadata.saved_design.savedAt})`
+    )
+    return hypothesis.metadata.saved_design
+  } catch (error) {
+    console.error(
+      `[PERSISTENCE] ❌ Error getting hypothesis saved design for ${hypothesisId.slice(0, 8)}...:`,
+      error
+    )
+    return null
+  }
+}
+
+/**
+ * Check if a hypothesis has a saved design
+ */
+export async function hasHypothesisSavedDesign(
+  hypothesisId: string
+): Promise<boolean> {
+  try {
+    const savedDesign = await getHypothesisSavedDesign(hypothesisId)
+    return savedDesign !== null
+  } catch (error) {
+    console.error(
+      "[PERSISTENCE] Error checking hypothesis saved design:",
+      error
+    )
+    return false
+  }
+}

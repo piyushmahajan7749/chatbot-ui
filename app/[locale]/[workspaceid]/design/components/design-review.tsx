@@ -65,6 +65,7 @@ interface DesignReviewProps {
   onRegenerateDesign?: () => Promise<void> | void
   onCustomizePrompts?: (hypothesis: DesignPlanHypothesis) => void
   promptsUsed?: AgentPromptUsage[] | null
+  onLoadSavedDesign?: (hypothesis: DesignPlanHypothesis) => void
 }
 
 const markdownClasses =
@@ -347,17 +348,65 @@ export function DesignReview({
   generatedStatReview,
   designError,
   onRegenerateDesign,
-  promptsUsed
+  promptsUsed,
+  onLoadSavedDesign
 }: DesignReviewProps) {
   const [showAllHypotheses, setShowAllHypotheses] =
     useState(!selectedHypothesisId)
   const [reasoningDialogOpen, setReasoningDialogOpen] = useState(false)
   const [reasoningHypothesis, setReasoningHypothesis] =
     useState<DesignPlanHypothesis | null>(null)
+  const [hypothesesWithSavedDesigns, setHypothesesWithSavedDesigns] = useState<
+    Set<string>
+  >(new Set())
 
   useEffect(() => {
     setShowAllHypotheses(!selectedHypothesisId)
   }, [selectedHypothesisId])
+
+  // Check which hypotheses have saved designs
+  useEffect(() => {
+    const checkSavedDesigns = async () => {
+      if (!topHypotheses || topHypotheses.length === 0) {
+        console.log("[DESIGN_REVIEW] No hypotheses to check for saved designs")
+        return
+      }
+
+      console.log(
+        `[DESIGN_REVIEW] Checking ${topHypotheses.length} hypotheses for saved designs...`
+      )
+      const savedSet = new Set<string>()
+
+      await Promise.all(
+        topHypotheses.map(async hypothesis => {
+          try {
+            const response = await fetch(
+              `/api/design/draft/hypothesis/${hypothesis.hypothesisId}/saved-design`
+            )
+            console.log(
+              `[DESIGN_REVIEW] Hypothesis ${hypothesis.hypothesisId.slice(0, 8)}... saved design check:`,
+              response.ok ? "✅ HAS SAVED DESIGN" : "❌ No saved design"
+            )
+            if (response.ok) {
+              savedSet.add(hypothesis.hypothesisId)
+            }
+          } catch (error) {
+            console.error(
+              `[DESIGN_REVIEW] Error checking saved design for ${hypothesis.hypothesisId.slice(0, 8)}...:`,
+              error
+            )
+          }
+        })
+      )
+
+      console.log(
+        `[DESIGN_REVIEW] Found ${savedSet.size} hypotheses with saved designs`
+      )
+      setHypothesesWithSavedDesigns(savedSet)
+    }
+
+    checkSavedDesigns()
+  }, [topHypotheses])
 
   const objectives = designData?.objectives || []
   const variables = designData?.variables || []
@@ -1155,6 +1204,19 @@ export function DesignReview({
                                 "Generate Experiment Design"
                               )}
                             </Button>
+                            {hypothesesWithSavedDesigns.has(
+                              hypothesis.hypothesisId
+                            ) && (
+                              <Button
+                                size="sm"
+                                variant="secondary"
+                                disabled={isGenerating}
+                                onClick={() => onLoadSavedDesign?.(hypothesis)}
+                              >
+                                <Download className="mr-2 size-4" />
+                                Load Design
+                              </Button>
+                            )}
                             <Button
                               size="sm"
                               variant="outline"

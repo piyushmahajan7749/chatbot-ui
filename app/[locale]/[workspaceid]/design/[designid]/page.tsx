@@ -524,6 +524,45 @@ export default function DesignIDPage({
     []
   )
 
+  const handleLoadSavedDesign = useCallback(
+    async (hypothesis: DesignPlanHypothesis) => {
+      try {
+        setGeneratingHypothesisId(hypothesis.hypothesisId)
+        setSelectedHypothesisId(hypothesis.hypothesisId)
+        setDesignError(null)
+
+        const response = await fetch(
+          `/api/design/draft/hypothesis/${hypothesis.hypothesisId}/saved-design`
+        )
+
+        if (!response.ok) {
+          throw new Error("Failed to load saved design")
+        }
+
+        const data = await response.json()
+
+        if (!data.success) {
+          throw new Error(data.error || "Failed to load saved design")
+        }
+
+        setGeneratedDesign(data.generatedDesign)
+        setGeneratedLiteratureSummary(data.generatedLiteratureSummary || null)
+        setGeneratedStatReview(data.generatedStatReview || null)
+        setLatestPromptsUsed(data.promptsUsed || null)
+
+        toast.success("Design loaded successfully.")
+      } catch (error: any) {
+        console.error("❌ [DESIGN_PAGE] Load saved design error:", error)
+        const message = error?.message || "Failed to load saved design"
+        setDesignError(message)
+        toast.error(message)
+      } finally {
+        setGeneratingHypothesisId(null)
+      }
+    },
+    []
+  )
+
   const handleRegenerateSelected = useCallback(async () => {
     if (!selectedHypothesis) {
       toast.error("Select a hypothesis before regenerating.")
@@ -724,6 +763,7 @@ export default function DesignIDPage({
             designError={designError}
             onRegenerateDesign={handleRegenerateSelected}
             promptsUsed={latestPromptsUsed}
+            onLoadSavedDesign={handleLoadSavedDesign}
           />
         </div>
       </div>

@@ -10,7 +10,8 @@ import { ExperimentDesignState } from "../../../types"
 import {
   getHypothesisById,
   getResearchPlan,
-  saveLog
+  saveLog,
+  saveHypothesisDesign
 } from "../../../utils/persistence-firestore"
 import { AgentPromptOverrides, AgentPromptUsage } from "@/types/design-prompts"
 import { designAgentPromptOrder } from "@/lib/design/prompt-schemas"
@@ -213,6 +214,35 @@ export async function POST(
         totalTimeMs
       }
     })
+
+    // Auto-save the design for this hypothesis
+    console.log(
+      `[HYPOTHESIS-DESIGN] Starting auto-save for hypothesis ${hypothesis.hypothesisId.slice(0, 8)}...`
+    )
+    try {
+      const saveSuccess = await saveHypothesisDesign(hypothesis.hypothesisId, {
+        generatedDesign: state.reportWriterOutput,
+        generatedLiteratureSummary: state.literatureScoutOutput,
+        generatedStatReview: state.statCheckOutput,
+        promptsUsed
+      })
+
+      if (saveSuccess) {
+        console.log(
+          `✅ [HYPOTHESIS-DESIGN] Auto-saved design for hypothesis ${hypothesis.hypothesisId.slice(0, 8)}...`
+        )
+      } else {
+        console.error(
+          `⚠️ [HYPOTHESIS-DESIGN] Auto-save returned false for hypothesis ${hypothesis.hypothesisId.slice(0, 8)}...`
+        )
+      }
+    } catch (saveError) {
+      console.error(
+        `❌ [HYPOTHESIS-DESIGN] Failed to auto-save design for hypothesis ${hypothesis.hypothesisId.slice(0, 8)}...:`,
+        saveError
+      )
+      // Don't fail the request if auto-save fails
+    }
 
     return NextResponse.json({
       success: true,
