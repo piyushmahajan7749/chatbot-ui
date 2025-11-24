@@ -16,6 +16,8 @@ import {
 } from "@/app/api/design/draft/types/interfaces"
 import { checkPlan, checkHypothesis } from "@/app/api/design/draft/safety/gate"
 import { v4 as uuidv4 } from "uuid"
+import { callLiteratureScoutAgent } from "@/app/api/design/draft/agents"
+import { ExperimentDesignState } from "@/app/api/design/draft/types"
 
 const DEFAULT_CONCURRENCY = 4
 const INITIAL_ELO = 1500
@@ -82,6 +84,60 @@ export const processDesignDraft = inngest.createFunction(
       return fetchedPlan
     })
 
+    // Helper to ensure array
+    const ensureArray = (value: unknown): string[] => {
+      if (Array.isArray(value)) {
+        return value.filter(
+          (item): item is string =>
+            typeof item === "string" && item.trim().length > 0
+        )
+      }
+      if (typeof value === "string" && value.trim().length > 0) {
+        return [value.trim()]
+      }
+      return []
+    }
+
+    // Step 1.5: Literature Scout
+    const literatureContext = await step.run("literature-scout", async () => {
+      await saveLog({
+        timestamp: new Date().toISOString(),
+        actor: "supervisor",
+        message: `Starting literature scout for plan ${plan.planId}`,
+        level: "info",
+        context: { planId: plan.planId }
+      })
+
+      const planConstraints = plan.constraints || {}
+      const state: ExperimentDesignState = {
+        problem: plan.title || plan.description || "Untitled research problem",
+        objectives: ensureArray(planConstraints.objectives),
+        variables: ensureArray(planConstraints.variables),
+        specialConsiderations: ensureArray(
+          planConstraints.specialConsiderations
+        )
+      }
+
+      const result = await callLiteratureScoutAgent(state)
+
+      // Store literature context in the plan
+      plan.literatureContext = result.output
+      await saveResearchPlan(plan)
+
+      await saveLog({
+        timestamp: new Date().toISOString(),
+        actor: "supervisor",
+        message: `Literature scout completed for plan ${plan.planId}`,
+        level: "info",
+        context: {
+          planId: plan.planId,
+          citations: result.output.citations.length
+        }
+      })
+
+      return result.output
+    })
+
     // Step 2: Generate seed hypotheses
     const hypotheses = await step.run("generate-seed-hypotheses", async () => {
       const seedCount = plan.preferences?.max_hypotheses || 5
@@ -99,7 +155,8 @@ export const processDesignDraft = inngest.createFunction(
               title: plan.title,
               description: plan.description,
               constraints: plan.constraints
-            }
+            },
+            literatureContext
           }
         })
       }

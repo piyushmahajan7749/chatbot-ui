@@ -12,6 +12,22 @@ export interface ResearchPlan {
   }
   createdAt: string
   status?: "pending" | "seed_in_progress" | "completed" | "failed"
+  literatureContext?: {
+    whatOthersHaveDone: string
+    goodMethodsAndTools: string
+    potentialPitfalls: string
+    citations: string[]
+    citationsDetailed?: Array<{
+      index: number
+      title: string
+      url: string
+      source: string
+      authors: string[]
+      year?: string
+      journal?: string
+      doi?: string
+    }>
+  }
 }
 
 export type AgentType =
@@ -81,6 +97,22 @@ export interface PlanStatus {
   logs?: LogEntry[]
   createdAt: string
   completedAt?: string
+  literatureContext?: {
+    whatOthersHaveDone: string
+    goodMethodsAndTools: string
+    potentialPitfalls: string
+    citations: string[]
+    citationsDetailed?: Array<{
+      index: number
+      title: string
+      url: string
+      source: string
+      authors: string[]
+      year?: string
+      journal?: string
+      doi?: string
+    }>
+  }
 }
 
 export interface LogEntry {

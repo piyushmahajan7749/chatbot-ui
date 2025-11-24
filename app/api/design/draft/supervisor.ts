@@ -15,6 +15,8 @@ import {
 } from "./utils/persistence"
 import { checkPlan, checkHypothesis } from "./safety/gate"
 import { v4 as uuidv4 } from "uuid"
+import { callLiteratureScoutAgent } from "./agents"
+import { ExperimentDesignState } from "./types"
 
 const DEFAULT_SEED_COUNT = 10
 const DEFAULT_CONCURRENCY = 4
@@ -89,6 +91,54 @@ export async function supervisorEnqueue(plan: ResearchPlan): Promise<{
   })
 
   try {
+    // Helper to ensure array
+    const ensureArray = (value: unknown): string[] => {
+      if (Array.isArray(value)) {
+        return value.filter(
+          (item): item is string =>
+            typeof item === "string" && item.trim().length > 0
+        )
+      }
+      if (typeof value === "string" && value.trim().length > 0) {
+        return [value.trim()]
+      }
+      return []
+    }
+
+    // Phase 0: Literature Scout
+    await saveLog({
+      timestamp: new Date().toISOString(),
+      actor: "supervisor",
+      message: `Starting literature scout for plan ${plan.planId}`,
+      level: "info",
+      context: { planId: plan.planId }
+    })
+
+    const planConstraints = plan.constraints || {}
+    const state: ExperimentDesignState = {
+      problem: plan.title || plan.description || "Untitled research problem",
+      objectives: ensureArray(planConstraints.objectives),
+      variables: ensureArray(planConstraints.variables),
+      specialConsiderations: ensureArray(planConstraints.specialConsiderations)
+    }
+
+    const literatureResult = await callLiteratureScoutAgent(state)
+
+    // Store literature context in the plan
+    plan.literatureContext = literatureResult.output
+    await saveResearchPlan(plan)
+
+    await saveLog({
+      timestamp: new Date().toISOString(),
+      actor: "supervisor",
+      message: `Literature scout completed for plan ${plan.planId}`,
+      level: "info",
+      context: {
+        planId: plan.planId,
+        citations: literatureResult.output.citations.length
+      }
+    })
+
     // Phase 1: Seed generation tasks
     const seedCount = plan.preferences?.max_hypotheses || DEFAULT_SEED_COUNT
     const generationTasks: AgentTask[] = []
@@ -105,7 +155,8 @@ export async function supervisorEnqueue(plan: ResearchPlan): Promise<{
             title: plan.title,
             description: plan.description,
             constraints: plan.constraints
-          }
+          },
+          literatureContext: literatureResult.output
         }
       })
     }
@@ -256,7 +307,7 @@ export async function supervisorEnqueue(plan: ResearchPlan): Promise<{
     updatedHypotheses.sort((a, b) => (b.elo || 0) - (a.elo || 0))
 
     // Phase 3: Run reflection on top hypotheses
-    const topM = Math.min(5, updatedHypotheses.length)
+    const topM = Math.min(10, updatedHypotheses.length)
     const reflectionTasks: AgentTask[] = topHypotheses
       .slice(0, topM)
       .map(hypo => ({

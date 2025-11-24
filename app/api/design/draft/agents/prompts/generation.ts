@@ -1,3 +1,5 @@
+import { LiteratureScoutOutput } from "../../types"
+
 // Generation agent prompt template
 export interface GenerationPromptConfig {
   system: string
@@ -6,11 +8,14 @@ export interface GenerationPromptConfig {
   maxTokens: number
 }
 
-export function getGenerationPrompt(plan: {
-  title: string
-  description: string
-  constraints?: Record<string, any>
-}): GenerationPromptConfig {
+export function getGenerationPrompt(
+  plan: {
+    title: string
+    description: string
+    constraints?: Record<string, any>
+  },
+  literatureContext?: LiteratureScoutOutput
+): GenerationPromptConfig {
   const system = `You are a **Hypothesis Generation Agent** specialized in creating testable scientific hypotheses for biopharma research.
 
 Your task is to generate clear, specific, and testable hypotheses based on the research plan provided. Each hypothesis should:
@@ -18,6 +23,11 @@ Your task is to generate clear, specific, and testable hypotheses based on the r
 - Clearly define the relationship or effect being tested
 - Use correct scientific terminology
 - Be grounded in scientific principles
+${
+  literatureContext
+    ? "- Leverage insights from the provided literature context"
+    : ""
+}
 
 Output format: Return a JSON object with:
 {
@@ -28,12 +38,19 @@ Output format: Return a JSON object with:
   "novelty_score": number (0-1)
 }`
 
-  const user = `Research Plan:
+  let user = `Research Plan:
 Title: ${plan.title}
 Description: ${plan.description}
-Constraints: ${JSON.stringify(plan.constraints || {})}
+Constraints: ${JSON.stringify(plan.constraints || {})}`
 
-Generate a testable hypothesis for this research plan.`
+  if (literatureContext) {
+    user += `\n\nLiterature Insights:
+What Others Have Done: ${literatureContext.whatOthersHaveDone}
+Good Methods & Tools: ${literatureContext.goodMethodsAndTools}
+Potential Pitfalls: ${literatureContext.potentialPitfalls}`
+  }
+
+  user += `\n\nGenerate a testable hypothesis for this research plan.`
 
   return {
     system,

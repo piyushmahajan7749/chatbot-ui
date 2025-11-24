@@ -3838,5 +3838,243 @@
       "evolved_from": "037080f9-3cc1-42eb-9eae-c1e3a5a23878",
       "improvement_type": "clarity"
     }
+  },
+  {
+    "hypothesisId": "96d43edc-026d-4b0e-8d10-51762e83634f",
+    "planId": "dc676b56-624d-43dc-a669-1ef2467fdddd",
+    "content": "Adding arginine as an excipient to the bispecific antibody formulation at a concentration of 180 mg/ml will reduce the viscosity by at least 20% without compromising the antibody's stability or activity.",
+    "explanation": "Arginine is known to disrupt protein-protein interactions and reduce viscosity in monoclonal antibody formulations. This hypothesis is grounded in the principle that arginine can act as a viscosity-reducing agent by interfering with intermolecular attractions in high concentration protein solutions.",
+    "elo": 1516,
+    "createdAt": "2025-11-24T07:39:16.409Z",
+    "provenance": [
+      "Siegmund et al. (2025) highlighted the importance of adjusting protein-protein interactions to manage viscosity. Previous studies have shown arginine's efficacy in reducing viscosity in similar contexts [1][3]."
+    ],
+    "metadata": {
+      "feasibility_score": 0.8,
+      "novelty_score": 0.6
+    }
+  },
+  {
+    "hypothesisId": "f071556d-74e6-415c-8959-369a39a6b37a",
+    "planId": "dc676b56-624d-43dc-a669-1ef2467fdddd",
+    "content": "Altering the ionic strength of the formulation buffer will decrease the viscosity of a high concentration (180 mg/ml) bispecific antibody formulation by reducing protein-protein interactions.",
+    "explanation": "Ionic strength can influence protein-protein interactions, which are a key factor in the viscosity of antibody solutions. By increasing the ionic strength, the electrostatic repulsion between charged groups on the antibodies can be enhanced, potentially leading to a reduction in viscosity.",
+    "elo": 1484,
+    "createdAt": "2025-11-24T07:39:16.422Z",
+    "provenance": [
+      "Siegmund et al. (2025) noted the importance of optimizing colloidal stability to manage viscosity in antibody formulations.",
+      "Predictive modeling and adjustment of protein-protein interactions have been identified as effective methods to control viscosity."
+    ],
+    "metadata": {
+      "feasibility_score": 0.8,
+      "novelty_score": 0.6
+    }
+  },
+  {
+    "hypothesisId": "08048583-970b-449c-a0f2-8a3a5239e20e",
+    "planId": "dc676b56-624d-43dc-a669-1ef2467fdddd",
+    "content": "The addition of a specific excipient, such as polysorbate 80, at a concentration of 0.1% (w/v) will reduce the viscosity of a 180 mg/ml bispecific antibody formulation by 20% compared to the control formulation without the excipient.",
+    "explanation": "Polysorbate 80 is known to decrease viscosity by reducing protein-protein interactions, which are a primary contributor to the increased viscosity in high-concentration antibody solutions. This hypothesis is grounded on the principle that surfactants can disrupt these interactions, thus lowering overall viscosity.",
+    "elo": 1516,
+    "createdAt": "2025-11-24T07:39:16.432Z",
+    "provenance": [
+      "Siegmund et al. (2025) highlighted the importance of optimizing colloidal stability and viscosity in antibody formulations.",
+      "Amash et al. (2024) discussed the impact of protein-protein interactions on viscosity.",
+      "Common knowledge in formulation science regarding the use of surfactants to modify solution properties."
+    ],
+    "metadata": {
+      "feasibility_score": 0.8,
+      "novelty_score": 0.6
+    }
+  },
+  {
+    "hypothesisId": "d9a96b6f-7d4b-4e01-90f1-d7e966a1c70a",
+    "planId": "dc676b56-624d-43dc-a669-1ef2467fdddd",
+    "content": "Increasing the ionic strength of the buffer solution from 10 mM to 50 mM will reduce the viscosity of a bispecific antibody formulation at 180 mg/ml by at least 20% without compromising antibody stability.",
+    "explanation": "Increasing ionic strength can decrease protein-protein interactions due to charge shielding, which is known to lower viscosity in protein formulations. This is a scientifically sound approach as previous studies have shown that altering ionic conditions can significantly impact the colloidal stability and viscosity of protein solutions.",
+    "elo": 1484,
+    "createdAt": "2025-11-24T07:39:16.450Z",
+    "provenance": [
+      "Based on Siegmund et al. (2025) and Amash et al. (2024), which discuss methods to optimize antibody formulations by adjusting protein interactions and ionic strength."
+    ],
+    "metadata": {
+      "feasibility_score": 0.8,
+      "novelty_score": 0.6
+    }
+  },
+  {
+    "hypothesisId": "ab06f9d9-180c-40a3-ac19-acc817264a75",
+    "planId": "dc676b56-624d-43dc-a669-1ef2467fdddd",
+    "content": "The addition of small molecule excipients, such as amino acids (e.g., arginine), will reduce the viscosity of bispecific antibody formulations at a concentration of 180 mg/ml without compromising antibody stability or activity.",
+    "explanation": "Amino acids like arginine are known to reduce viscosity in protein formulations by disrupting intermolecular interactions that lead to high viscosity. This approach leverages existing knowledge about protein-excipient interactions to modify the physicochemical environment of the antibody formulation.",
+    "elo": 1516,
+    "createdAt": "2025-11-24T07:39:16.594Z",
+    "provenance": [
+      "Siegmund et al. (2025) discussed optimization of colloidal stability and viscosity in antibody formulations, suggesting the use of excipients as a strategy.",
+      "Amash et al. (2024) outlined the importance of maintaining antibody activity when addressing formulation challenges."
+    ],
+    "metadata": {
+      "feasibility_score": 0.8,
+      "novelty_score": 0.6
+    }
+  },
+  {
+    "hypothesisId": "e3523bd1-2ef0-4d1f-8da5-cdd5d45ff140",
+    "planId": "75b1fa47-fa92-40d2-9c85-15583afd4a17",
+    "content": "Altering the amino acid sequence in the Fc region of the bispecific antibody to introduce glycosylation sites will reduce the viscosity of the formulation at 180 mg/ml without compromising stability.",
+    "explanation": "Glycosylation can increase the solubility and decrease the viscosity of proteins by altering their hydrodynamic properties. By introducing glycosylation sites at strategic locations, such as the Fc region, it is possible to enhance the antibody's physical properties while maintaining its biological function.",
+    "elo": 1484,
+    "createdAt": "2025-11-24T07:46:30.136Z",
+    "provenance": [
+      "Amash et al. (2024) discussed structural modifications to improve antibody properties",
+      "Siegmund et al. (2025) highlighted predictive modeling and structural engineering for viscosity reduction"
+    ],
+    "metadata": {
+      "feasibility_score": 0.8,
+      "novelty_score": 0.7
+    }
+  },
+  {
+    "hypothesisId": "932dfb4e-1ae7-43b3-8c80-bd7fd83cc8f1",
+    "planId": "75b1fa47-fa92-40d2-9c85-15583afd4a17",
+    "content": "Altering the glycosylation pattern of bispecific antibodies will decrease the viscosity of their formulation at 180 mg/ml without compromising their binding efficacy.",
+    "explanation": "Glycosylation affects protein solubility and stability, which can influence viscosity. By engineering the glycosylation sites or patterns, it may be possible to optimize these properties specifically for high-concentration formulations.",
+    "elo": 1484,
+    "createdAt": "2025-11-24T07:46:30.178Z",
+    "provenance": [
+      "Amash et al. (2024) discussed structural diversity impacting drug-like properties, including viscosity.",
+      "Siegmund et al. (2025) highlighted the importance of structural analysis in addressing viscosity issues."
+    ],
+    "metadata": {
+      "feasibility_score": 0.8,
+      "novelty_score": 0.7
+    }
+  },
+  {
+    "hypothesisId": "c56d15d3-bff0-46d3-8087-70b0062c603b",
+    "planId": "75b1fa47-fa92-40d2-9c85-15583afd4a17",
+    "content": "Altering the glycosylation patterns of bispecific antibodies through enzymatic cleavage or modification will reduce the viscosity of the antibody formulation at a concentration of 180 mg/ml without compromising its binding affinity.",
+    "explanation": "Glycosylation can significantly affect the physicochemical properties of proteins, including viscosity. By modifying glycosylation patterns, it may be possible to reduce molecular interactions that contribute to high viscosity, while maintaining the structural integrity and binding functionality of the antibodies.",
+    "elo": 1516,
+    "createdAt": "2025-11-24T07:46:30.219Z",
+    "provenance": [
+      "The relationship between glycosylation and protein viscosity is well-documented in protein chemistry. The literature suggests structural manipulation as a viable method to address high viscosity issues (Amash et al., 2024) [2]."
+    ],
+    "metadata": {
+      "feasibility_score": 0.8,
+      "novelty_score": 0.6
+    }
+  },
+  {
+    "hypothesisId": "20fa3f7e-d17b-4657-9899-d94ee5a75d30",
+    "planId": "75b1fa47-fa92-40d2-9c85-15583afd4a17",
+    "content": "Altering the glycosylation pattern of bispecific antibodies through enzymatic modification will reduce the viscosity of a high concentration formulation at 180 mg/ml without compromising their binding efficacy.",
+    "explanation": "Glycosylation is known to affect the physicochemical properties of proteins, including solubility and viscosity. By enzymatically modifying glycan structures on bispecific antibodies, we can potentially reduce intermolecular interactions that contribute to high viscosity, while maintaining the antibodies' therapeutic functions.",
+    "elo": 1484,
+    "createdAt": "2025-11-24T07:46:30.311Z",
+    "provenance": [
+      "Amash et al. (2024) highlighted the structural diversity of bispecific antibodies and the role of glycosylation in their properties.",
+      "Siegmund et al. (2025) emphasized the need for structural modification to address viscosity issues."
+    ],
+    "metadata": {
+      "feasibility_score": 0.8,
+      "novelty_score": 0.7
+    }
+  },
+  {
+    "hypothesisId": "0c61ff59-3a3d-4d7e-874d-cc64b4be9802",
+    "planId": "75b1fa47-fa92-40d2-9c85-15583afd4a17",
+    "content": "Altering the charge distribution on bispecific antibodies through targeted amino acid substitutions will reduce the viscosity of the antibody formulation at 180 mg/ml without compromising its binding efficacy.",
+    "explanation": "Charge distribution on protein surfaces can influence intermolecular interactions that contribute to viscosity. By engineering specific amino acid changes that alter the antibody's surface charge, it is possible to reduce these interactions and subsequently lower viscosity.",
+    "elo": 1516,
+    "createdAt": "2025-11-24T07:46:30.380Z",
+    "provenance": [
+      "Research by Siegmund et al. (2025) on structural analysis and engineering for optimizing physicochemical properties of antibodies to address viscosity issues.",
+      "Amash et al. (2024) discussion on structural diversity and viscosity challenges in bispecific antibodies."
+    ],
+    "metadata": {
+      "feasibility_score": 0.7,
+      "novelty_score": 0.6
+    }
+  },
+  {
+    "hypothesisId": "38c5b56f-c054-4965-a9ef-9afbe5329eff",
+    "planId": "99bd57b9-a11d-4c6f-ba6c-b5a0c2134f4a",
+    "content": "The addition of arginine at a concentration of 50 mM will reduce the viscosity of a bispecific antibody formulation at 180 mg/ml without compromising its stability.",
+    "explanation": "Arginine is known to interfere with protein-protein interactions that contribute to high viscosity in antibody solutions. By reducing these interactions, arginine can lower the viscosity while maintaining the stability of the protein structure, as suggested by predictive models and previous studies on similar antibody formulations.",
+    "elo": 1484,
+    "createdAt": "2025-11-24T07:47:21.344Z",
+    "provenance": [
+      "Siegmund et al.'s study on colloidal stability and viscosity of multispecific antibodies",
+      "Predictive modeling approaches as noted by Siegmund et al. and Manali Sawant et al.",
+      "Arginine's role in reducing protein-protein interactions in high concentration formulations"
+    ],
+    "metadata": {
+      "feasibility_score": 0.8,
+      "novelty_score": 0.6
+    }
+  },
+  {
+    "hypothesisId": "b55c1ee1-8c24-42db-bce2-2909c0638ad5",
+    "planId": "99bd57b9-a11d-4c6f-ba6c-b5a0c2134f4a",
+    "content": "The addition of a specific polysorbate surfactant at a concentration of 0.1% (w/v) will reduce the viscosity of a high concentration bispecific antibody formulation at 180 mg/ml by at least 20% without compromising antibody stability.",
+    "explanation": "Surfactants like polysorbates are known to reduce protein-protein interactions that contribute to higher viscosity in antibody formulations. By reducing these interactions, the overall viscosity can be lowered while maintaining the stability of the antibodies. This approach leverages the known effect of surfactants on protein formulations, as supported by previous studies on colloidal stability.",
+    "elo": 1516,
+    "createdAt": "2025-11-24T07:47:21.363Z",
+    "provenance": [
+      "Research by Siegmund et al. on optimizing viscosity through colloidal stability [3]",
+      "Design principles discussed by Manali Sawant et al. for mitigating viscosity issues [1]"
+    ],
+    "metadata": {
+      "feasibility_score": 0.8,
+      "novelty_score": 0.6
+    }
+  },
+  {
+    "hypothesisId": "9f3e5731-a3c3-4fa5-8f0a-cc2cb8061fbf",
+    "planId": "99bd57b9-a11d-4c6f-ba6c-b5a0c2134f4a",
+    "content": "The addition of arginine as an excipient at concentrations of 50 mM to the bispecific antibody formulation at 180 mg/ml will reduce the viscosity by at least 20% compared to formulations without arginine.",
+    "explanation": "Arginine is known to reduce protein-protein interactions, which can contribute significantly to the viscosity of protein solutions. By reducing these interactions, arginine is hypothesized to decrease the overall viscosity of the antibody solution.",
+    "elo": 1516,
+    "createdAt": "2025-11-24T07:47:21.371Z",
+    "provenance": [
+      "Siegmund et al. study on optimizing colloidal stability noted the use of excipients in reducing viscosity [3].",
+      "Common biopharmaceutical practices include the use of amino acids like arginine to stabilize protein formulations."
+    ],
+    "metadata": {
+      "feasibility_score": 0.9,
+      "novelty_score": 0.6
+    }
+  },
+  {
+    "hypothesisId": "95bd88c4-418b-455f-86c7-9c00b71c9d2c",
+    "planId": "99bd57b9-a11d-4c6f-ba6c-b5a0c2134f4a",
+    "content": "The addition of polysorbate 80 at concentrations ranging from 0.01% to 0.1% w/v will reduce the viscosity of a bispecific antibody formulation at 180 mg/ml without compromising its stability or efficacy.",
+    "explanation": "Polysorbate 80 is a non-ionic surfactant known for its ability to reduce protein-protein interactions that contribute to viscosity in antibody formulations. By potentially altering the surface tension and interaction profile, it may lower viscosity while maintaining the structural integrity of the bispecific antibodies.",
+    "elo": 1516,
+    "createdAt": "2025-11-24T07:47:21.405Z",
+    "provenance": [
+      "Siegmund et al.'s approach to optimizing multispecific antibodies suggests that surfactants can be effective in reducing viscosity [3].",
+      "Polysorbate 80 has been widely used in biologics for stabilizing formulations by reducing protein aggregation."
+    ],
+    "metadata": {
+      "feasibility_score": 0.8,
+      "novelty_score": 0.5
+    }
+  },
+  {
+    "hypothesisId": "5fdf635b-0553-4a9c-a3e2-16607ad96217",
+    "planId": "99bd57b9-a11d-4c6f-ba6c-b5a0c2134f4a",
+    "content": "The addition of polysorbate 80 at a concentration of 0.01% (w/v) will reduce the viscosity of a 180 mg/ml bispecific antibody formulation by at least 15% compared to a formulation without polysorbate 80.",
+    "explanation": "Polysorbate 80 is a surfactant that can reduce protein-protein interactions, which are a major contributor to increased viscosity in high concentration protein formulations. By decreasing these interactions, the viscosity of the solution is expected to be reduced.",
+    "elo": 1484,
+    "createdAt": "2025-11-24T07:47:21.606Z",
+    "provenance": [
+      "Siegmund et al. highlighted the role of surfactants in optimizing colloidal stability and viscosity of multispecific antibodies [3]. Surfactants like polysorbate 80 have been previously used to lower viscosity by interfering with protein interactions."
+    ],
+    "metadata": {
+      "feasibility_score": 0.8,
+      "novelty_score": 0.6
+    }
   }
 ]

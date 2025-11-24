@@ -1,4 +1,5 @@
 import { AgentTask, AgentResult } from "../types/interfaces"
+import { LiteratureScoutOutput } from "../types"
 import { callModelJson } from "../utils/model"
 import { getGenerationPrompt } from "./prompts/generation"
 import { v4 as uuidv4 } from "uuid"
@@ -18,7 +19,11 @@ export async function generationAdapter(task: AgentTask): Promise<AgentResult> {
       throw new Error("Plan metadata required for generation")
     }
 
-    const promptConfig = getGenerationPrompt(plan)
+    const literatureContext = task.metadata?.literatureContext as
+      | LiteratureScoutOutput
+      | undefined
+
+    const promptConfig = getGenerationPrompt(plan, literatureContext)
 
     // Call model
     const result = await callModelJson(promptConfig.user, promptConfig.system, {

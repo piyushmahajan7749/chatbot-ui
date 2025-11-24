@@ -39,6 +39,22 @@ export interface DesignPlanStatus {
   logs?: DesignPlanLogEntry[]
   createdAt: string
   completedAt?: string
+  literatureContext?: {
+    whatOthersHaveDone: string
+    goodMethodsAndTools: string
+    potentialPitfalls: string
+    citations: string[]
+    citationsDetailed?: Array<{
+      index: number
+      title: string
+      url: string
+      source: string
+      authors: string[]
+      year?: string
+      journal?: string
+      doi?: string
+    }>
+  }
 }
 
 export interface DesignPlanMetadata {

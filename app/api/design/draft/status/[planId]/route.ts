@@ -59,7 +59,8 @@ export async function GET(
       logs,
       createdAt: plan.createdAt,
       completedAt:
-        plan.status === "completed" ? new Date().toISOString() : undefined
+        plan.status === "completed" ? new Date().toISOString() : undefined,
+      literatureContext: plan.literatureContext
     }
 
     return NextResponse.json(status)

@@ -1431,5 +1431,216 @@
       "hypothesisId": "332d955a-fa07-46ff-873f-3ce98dc5c326",
       "totalTimeMs": 94310
     }
+  },
+  {
+    "timestamp": "2025-11-24T07:38:59.203Z",
+    "actor": "supervisor",
+    "message": "Starting research plan dc676b56-624d-43dc-a669-1ef2467fdddd",
+    "level": "info",
+    "context": {
+      "planId": "dc676b56-624d-43dc-a669-1ef2467fdddd"
+    }
+  },
+  {
+    "timestamp": "2025-11-24T07:38:59.578Z",
+    "actor": "supervisor",
+    "message": "Starting literature scout for plan dc676b56-624d-43dc-a669-1ef2467fdddd",
+    "level": "info",
+    "context": {
+      "planId": "dc676b56-624d-43dc-a669-1ef2467fdddd"
+    }
+  },
+  {
+    "timestamp": "2025-11-24T07:39:08.154Z",
+    "actor": "supervisor",
+    "message": "Literature scout completed for plan dc676b56-624d-43dc-a669-1ef2467fdddd",
+    "level": "info",
+    "context": {
+      "planId": "dc676b56-624d-43dc-a669-1ef2467fdddd",
+      "citations": 3
+    }
+  },
+  {
+    "timestamp": "2025-11-24T07:39:08.237Z",
+    "actor": "supervisor",
+    "message": "Created 5 generation tasks",
+    "level": "info",
+    "context": {
+      "planId": "dc676b56-624d-43dc-a669-1ef2467fdddd",
+      "taskCount": 5
+    }
+  },
+  {
+    "timestamp": "2025-11-24T07:39:16.611Z",
+    "actor": "supervisor",
+    "message": "Generated 5 hypotheses",
+    "level": "info",
+    "context": {
+      "planId": "dc676b56-624d-43dc-a669-1ef2467fdddd",
+      "hypothesisCount": 5
+    }
+  },
+  {
+    "timestamp": "2025-11-24T07:39:16.839Z",
+    "actor": "supervisor",
+    "message": "Starting tournament with top 5 hypotheses",
+    "level": "info",
+    "context": {
+      "planId": "dc676b56-624d-43dc-a669-1ef2467fdddd",
+      "topN": 5
+    }
+  },
+  {
+    "timestamp": "2025-11-24T07:39:26.575Z",
+    "actor": "supervisor",
+    "message": "Research plan dc676b56-624d-43dc-a669-1ef2467fdddd completed",
+    "level": "info",
+    "context": {
+      "planId": "dc676b56-624d-43dc-a669-1ef2467fdddd"
+    }
+  },
+  {
+    "timestamp": "2025-11-24T07:46:11.480Z",
+    "actor": "supervisor",
+    "message": "Starting research plan 75b1fa47-fa92-40d2-9c85-15583afd4a17",
+    "level": "info",
+    "context": {
+      "planId": "75b1fa47-fa92-40d2-9c85-15583afd4a17"
+    }
+  },
+  {
+    "timestamp": "2025-11-24T07:46:11.688Z",
+    "actor": "supervisor",
+    "message": "Starting literature scout for plan 75b1fa47-fa92-40d2-9c85-15583afd4a17",
+    "level": "info",
+    "context": {
+      "planId": "75b1fa47-fa92-40d2-9c85-15583afd4a17"
+    }
+  },
+  {
+    "timestamp": "2025-11-24T07:46:22.221Z",
+    "actor": "supervisor",
+    "message": "Literature scout completed for plan 75b1fa47-fa92-40d2-9c85-15583afd4a17",
+    "level": "info",
+    "context": {
+      "planId": "75b1fa47-fa92-40d2-9c85-15583afd4a17",
+      "citations": 2
+    }
+  },
+  {
+    "timestamp": "2025-11-24T07:46:22.504Z",
+    "actor": "supervisor",
+    "message": "Created 5 generation tasks",
+    "level": "info",
+    "context": {
+      "planId": "75b1fa47-fa92-40d2-9c85-15583afd4a17",
+      "taskCount": 5
+    }
+  },
+  {
+    "timestamp": "2025-11-24T07:46:30.791Z",
+    "actor": "supervisor",
+    "message": "Generated 5 hypotheses",
+    "level": "info",
+    "context": {
+      "planId": "75b1fa47-fa92-40d2-9c85-15583afd4a17",
+      "hypothesisCount": 5
+    }
+  },
+  {
+    "timestamp": "2025-11-24T07:46:33.675Z",
+    "actor": "supervisor",
+    "message": "Starting tournament with top 5 hypotheses",
+    "level": "info",
+    "context": {
+      "planId": "75b1fa47-fa92-40d2-9c85-15583afd4a17",
+      "topN": 5
+    }
+  },
+  {
+    "timestamp": "2025-11-24T07:46:44.729Z",
+    "actor": "supervisor",
+    "message": "Research plan 75b1fa47-fa92-40d2-9c85-15583afd4a17 completed",
+    "level": "info",
+    "context": {
+      "planId": "75b1fa47-fa92-40d2-9c85-15583afd4a17"
+    }
+  },
+  {
+    "timestamp": "2025-11-24T07:47:05.866Z",
+    "actor": "supervisor",
+    "message": "Starting research plan 99bd57b9-a11d-4c6f-ba6c-b5a0c2134f4a",
+    "level": "info",
+    "context": {
+      "planId": "99bd57b9-a11d-4c6f-ba6c-b5a0c2134f4a"
+    }
+  },
+  {
+    "timestamp": "2025-11-24T07:47:06.228Z",
+    "actor": "supervisor",
+    "message": "Starting literature scout for plan 99bd57b9-a11d-4c6f-ba6c-b5a0c2134f4a",
+    "level": "info",
+    "context": {
+      "planId": "99bd57b9-a11d-4c6f-ba6c-b5a0c2134f4a"
+    }
+  },
+  {
+    "timestamp": "2025-11-24T07:47:15.917Z",
+    "actor": "supervisor",
+    "message": "Literature scout completed for plan 99bd57b9-a11d-4c6f-ba6c-b5a0c2134f4a",
+    "level": "info",
+    "context": {
+      "planId": "99bd57b9-a11d-4c6f-ba6c-b5a0c2134f4a",
+      "citations": 3
+    }
+  },
+  {
+    "timestamp": "2025-11-24T07:47:16.182Z",
+    "actor": "supervisor",
+    "message": "Created 5 generation tasks",
+    "level": "info",
+    "context": {
+      "planId": "99bd57b9-a11d-4c6f-ba6c-b5a0c2134f4a",
+      "taskCount": 5
+    }
+  },
+  {
+    "timestamp": "2025-11-24T07:47:21.629Z",
+    "actor": "supervisor",
+    "message": "Generated 5 hypotheses",
+    "level": "info",
+    "context": {
+      "planId": "99bd57b9-a11d-4c6f-ba6c-b5a0c2134f4a",
+      "hypothesisCount": 5
+    }
+  },
+  {
+    "timestamp": "2025-11-24T07:47:21.790Z",
+    "actor": "supervisor",
+    "message": "Starting tournament with top 5 hypotheses",
+    "level": "info",
+    "context": {
+      "planId": "99bd57b9-a11d-4c6f-ba6c-b5a0c2134f4a",
+      "topN": 5
+    }
+  },
+  {
+    "timestamp": "2025-11-24T07:47:32.558Z",
+    "actor": "supervisor",
+    "message": "Research plan 99bd57b9-a11d-4c6f-ba6c-b5a0c2134f4a completed",
+    "level": "info",
+    "context": {
+      "planId": "99bd57b9-a11d-4c6f-ba6c-b5a0c2134f4a"
+    }
+  },
+  {
+    "timestamp": "2025-11-24T07:58:33.339Z",
+    "actor": "supervisor",
+    "level": "info",
+    "message": "Starting sequential experiment design pipeline for hypothesis b55c1ee1-8c24-42db-bce2-2909c0638ad5",
+    "context": {
+      "planId": "99bd57b9-a11d-4c6f-ba6c-b5a0c2134f4a",
+      "hypothesisId": "b55c1ee1-8c24-42db-bce2-2909c0638ad5"
+    }
   }
 ]

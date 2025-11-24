@@ -17,6 +17,7 @@ import {
   Clock,
   Copy,
   Download,
+  Info,
   Layers,
   Loader2,
   RefreshCw,
@@ -30,6 +31,13 @@ import {
   TooltipProvider,
   TooltipTrigger
 } from "@/components/ui/tooltip"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle
+} from "@/components/ui/dialog"
 import { designAgentPromptSchemas } from "@/lib/design/prompt-schemas"
 import { AgentPromptUsage } from "@/types/design-prompts"
 import { Document, HeadingLevel, Packer, Paragraph, TextRun } from "docx"
@@ -342,6 +350,9 @@ export function DesignReview({
 }: DesignReviewProps) {
   const [showAllHypotheses, setShowAllHypotheses] =
     useState(!selectedHypothesisId)
+  const [reasoningDialogOpen, setReasoningDialogOpen] = useState(false)
+  const [reasoningHypothesis, setReasoningHypothesis] =
+    useState<DesignPlanHypothesis | null>(null)
 
   useEffect(() => {
     setShowAllHypotheses(!selectedHypothesisId)
@@ -887,6 +898,97 @@ export function DesignReview({
 
       {!selectedHypothesis && planStatus && renderPlanStatus(planStatus)}
 
+      {planStatus?.literatureContext && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Layers className="size-5" />
+              Literature Context
+            </CardTitle>
+            <p className="text-muted-foreground text-sm">
+              Research insights that informed hypothesis generation
+            </p>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <SectionCard title="What Others Have Done">
+              <ReactMarkdown className={markdownClasses}>
+                {planStatus.literatureContext.whatOthersHaveDone}
+              </ReactMarkdown>
+            </SectionCard>
+
+            <SectionCard title="Good Methods & Tools">
+              <ReactMarkdown className={markdownClasses}>
+                {planStatus.literatureContext.goodMethodsAndTools}
+              </ReactMarkdown>
+            </SectionCard>
+
+            <SectionCard title="Potential Pitfalls">
+              <ReactMarkdown className={markdownClasses}>
+                {planStatus.literatureContext.potentialPitfalls}
+              </ReactMarkdown>
+            </SectionCard>
+
+            {planStatus.literatureContext.citationsDetailed &&
+              planStatus.literatureContext.citationsDetailed.length > 0 && (
+                <SectionCard
+                  title="Citations"
+                  badge={`${planStatus.literatureContext.citationsDetailed.length} sources`}
+                >
+                  <div className="max-h-96 space-y-3 overflow-y-auto pr-2">
+                    {planStatus.literatureContext.citationsDetailed.map(
+                      (citation, idx) => (
+                        <div
+                          key={idx}
+                          className="border-border/50 rounded-lg border p-3"
+                        >
+                          <div className="flex items-start gap-2">
+                            <span className="text-muted-foreground shrink-0 text-xs font-semibold">
+                              [{citation.index}]
+                            </span>
+                            <div className="space-y-1">
+                              <p className="text-foreground text-sm font-medium">
+                                {citation.title}
+                              </p>
+                              {citation.authors.length > 0 && (
+                                <p className="text-muted-foreground text-xs">
+                                  {citation.authors.join(", ")}
+                                </p>
+                              )}
+                              <div className="text-muted-foreground flex flex-wrap gap-2 text-xs">
+                                {citation.journal && (
+                                  <span>{citation.journal}</span>
+                                )}
+                                {citation.year && (
+                                  <span>({citation.year})</span>
+                                )}
+                                {citation.source && (
+                                  <span className="bg-muted rounded px-1.5 py-0.5">
+                                    {citation.source}
+                                  </span>
+                                )}
+                              </div>
+                              {citation.url && (
+                                <a
+                                  href={citation.url}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="text-primary text-xs hover:underline"
+                                >
+                                  View source →
+                                </a>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      )
+                    )}
+                  </div>
+                </SectionCard>
+              )}
+          </CardContent>
+        </Card>
+      )}
+
       {topHypotheses && topHypotheses.length > 0 && (
         <Card>
           <CardHeader className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
@@ -941,15 +1043,28 @@ export function DesignReview({
                           : "Selected"}
                     </span>
                   </div>
-                  <div className="flex flex-wrap gap-3 text-xs">
-                    {typeof selectedHypothesis.elo === "number" && (
-                      <span className="bg-secondary/20 rounded-full px-2 py-1 font-semibold">
-                        Elo {Math.round(selectedHypothesis.elo)}
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div className="flex flex-wrap gap-3 text-xs">
+                      {typeof selectedHypothesis.elo === "number" && (
+                        <span className="bg-secondary/20 rounded-full px-2 py-1 font-semibold">
+                          Elo {Math.round(selectedHypothesis.elo)}
+                        </span>
+                      )}
+                      <span className="text-muted-foreground">
+                        Hypothesis ID: {selectedHypothesis.hypothesisId}
                       </span>
-                    )}
-                    <span className="text-muted-foreground">
-                      Hypothesis ID: {selectedHypothesis.hypothesisId}
-                    </span>
+                    </div>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => {
+                        setReasoningHypothesis(selectedHypothesis)
+                        setReasoningDialogOpen(true)
+                      }}
+                    >
+                      <Info className="mr-1.5 size-3.5" />
+                      Why this hypothesis?
+                    </Button>
                   </div>
                 </div>
               </div>
@@ -980,6 +1095,18 @@ export function DesignReview({
                               {hypothesis.explanation}
                             </p>
                           )}
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            className="text-muted-foreground mt-1"
+                            onClick={() => {
+                              setReasoningHypothesis(hypothesis)
+                              setReasoningDialogOpen(true)
+                            }}
+                          >
+                            <Info className="mr-1.5 size-3.5" />
+                            Why this hypothesis?
+                          </Button>
                         </div>
                         <div className="flex flex-col items-end gap-2">
                           {typeof hypothesis.elo === "number" && (
@@ -1109,6 +1236,174 @@ export function DesignReview({
 
       {designReportCard}
       {citationsCard}
+
+      <Dialog open={reasoningDialogOpen} onOpenChange={setReasoningDialogOpen}>
+        <DialogContent className="max-h-[80vh] max-w-3xl overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Hypothesis Reasoning</DialogTitle>
+            <DialogDescription>
+              Detailed explanation of why this hypothesis was generated and
+              selected
+            </DialogDescription>
+          </DialogHeader>
+          {reasoningHypothesis && (
+            <div className="space-y-4">
+              <div className="border-border rounded-lg border p-4">
+                <h4 className="text-foreground mb-2 font-semibold">
+                  Hypothesis
+                </h4>
+                <p className="text-foreground text-sm">
+                  {reasoningHypothesis.content}
+                </p>
+              </div>
+
+              <div className="border-border rounded-lg border p-4">
+                <h4 className="text-foreground mb-2 font-semibold">
+                  Scientific Rationale
+                </h4>
+                <p className="text-muted-foreground text-sm">
+                  {reasoningHypothesis.explanation ||
+                    "No explanation provided."}
+                </p>
+              </div>
+
+              {reasoningHypothesis.provenance &&
+                reasoningHypothesis.provenance.length > 0 && (
+                  <div className="border-border rounded-lg border p-4">
+                    <h4 className="text-foreground mb-2 font-semibold">
+                      Provenance & Sources
+                    </h4>
+                    <div className="text-muted-foreground space-y-2 text-sm">
+                      {reasoningHypothesis.provenance.map((source, idx) => (
+                        <div
+                          key={idx}
+                          className="border-border/50 rounded border p-2"
+                        >
+                          {typeof source === "string" ? (
+                            <p>{source}</p>
+                          ) : (
+                            <ReactMarkdown className={markdownClasses}>
+                              {JSON.stringify(source, null, 2)}
+                            </ReactMarkdown>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+              {planStatus?.literatureContext?.citationsDetailed && (
+                <div className="border-border rounded-lg border p-4">
+                  <h4 className="text-foreground mb-2 font-semibold">
+                    Related Citations from Literature Review
+                  </h4>
+                  <p className="text-muted-foreground mb-3 text-xs">
+                    These papers informed the generation of all hypotheses for
+                    this research plan
+                  </p>
+                  <div className="max-h-60 space-y-3 overflow-y-auto pr-2">
+                    {planStatus.literatureContext.citationsDetailed.map(
+                      (citation, idx) => (
+                        <div
+                          key={idx}
+                          className="border-border/50 rounded-lg border p-3"
+                        >
+                          <div className="flex items-start gap-2">
+                            <span className="text-muted-foreground shrink-0 text-xs font-semibold">
+                              [{citation.index}]
+                            </span>
+                            <div className="space-y-1">
+                              <p className="text-foreground text-sm font-medium">
+                                {citation.title}
+                              </p>
+                              {citation.authors.length > 0 && (
+                                <p className="text-muted-foreground text-xs">
+                                  {citation.authors.join(", ")}
+                                </p>
+                              )}
+                              <div className="text-muted-foreground flex flex-wrap gap-2 text-xs">
+                                {citation.journal && (
+                                  <span>{citation.journal}</span>
+                                )}
+                                {citation.year && (
+                                  <span>({citation.year})</span>
+                                )}
+                                {citation.source && (
+                                  <span className="bg-muted rounded px-1.5 py-0.5">
+                                    {citation.source}
+                                  </span>
+                                )}
+                              </div>
+                              {citation.url && (
+                                <a
+                                  href={citation.url}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="text-primary text-xs hover:underline"
+                                >
+                                  View source →
+                                </a>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      )
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {reasoningHypothesis.metadata && (
+                <div className="border-border rounded-lg border p-4">
+                  <h4 className="text-foreground mb-2 font-semibold">
+                    Quality Metrics
+                  </h4>
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    {typeof reasoningHypothesis.metadata.feasibility_score ===
+                      "number" && (
+                      <div className="bg-muted/30 rounded-lg p-3">
+                        <p className="text-muted-foreground text-xs">
+                          Feasibility Score
+                        </p>
+                        <p className="text-foreground text-lg font-semibold">
+                          {(
+                            reasoningHypothesis.metadata.feasibility_score * 100
+                          ).toFixed(0)}
+                          %
+                        </p>
+                      </div>
+                    )}
+                    {typeof reasoningHypothesis.metadata.novelty_score ===
+                      "number" && (
+                      <div className="bg-muted/30 rounded-lg p-3">
+                        <p className="text-muted-foreground text-xs">
+                          Novelty Score
+                        </p>
+                        <p className="text-foreground text-lg font-semibold">
+                          {(
+                            reasoningHypothesis.metadata.novelty_score * 100
+                          ).toFixed(0)}
+                          %
+                        </p>
+                      </div>
+                    )}
+                    {typeof reasoningHypothesis.elo === "number" && (
+                      <div className="bg-muted/30 rounded-lg p-3">
+                        <p className="text-muted-foreground text-xs">
+                          Tournament Elo Rating
+                        </p>
+                        <p className="text-foreground text-lg font-semibold">
+                          {Math.round(reasoningHypothesis.elo)}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
