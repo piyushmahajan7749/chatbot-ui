@@ -188,6 +188,11 @@ export default function DesignIDPage({
   }, [params.designid, applySavedPayload])
 
   useEffect(() => {
+    // Check if this design is actively being generated (flag set by sidebar)
+    const isGeneratingFlag = localStorage.getItem(
+      `design_generating_${params.designid}`
+    )
+
     const storedMetadata = (() => {
       try {
         const value = localStorage.getItem(planMetadataKey(params.designid))
@@ -208,9 +213,14 @@ export default function DesignIDPage({
       }
     })()
 
+    // Set generating state if flag is set OR metadata exists
+    if (isGeneratingFlag === "true" || storedMetadata) {
+      console.log("🔄 [DESIGN_PAGE] Generation in progress detected")
+      setIsGenerating(true)
+    }
+
     if (storedMetadata) {
       setPlanMetadata(storedMetadata)
-      setIsGenerating(true)
       if (storedMetadata.request) {
         setDesignData({
           name: storedMetadata.request.title,
@@ -227,10 +237,80 @@ export default function DesignIDPage({
       setPlanStatus(storedStatus)
       if (storedStatus.status === "completed") {
         setIsGenerating(false)
+        localStorage.removeItem(`design_generating_${params.designid}`)
       }
     }
 
     loadDesignFromDatabase()
+
+    // Listen for storage changes (in case metadata is added after page load)
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === planMetadataKey(params.designid) && e.newValue) {
+        try {
+          const metadata = JSON.parse(e.newValue) as DesignPlanMetadata
+          console.log(
+            "🔔 [DESIGN_PAGE] Plan metadata detected via storage event"
+          )
+          setPlanMetadata(metadata)
+          setIsGenerating(true)
+          if (metadata.request) {
+            setDesignData({
+              name: metadata.request.title,
+              description: metadata.request.description,
+              objectives: metadata.request.constraints?.objectives || [],
+              variables: metadata.request.constraints?.variables || [],
+              specialConsiderations:
+                metadata.request.constraints?.specialConsiderations || []
+            })
+          }
+        } catch (error) {
+          console.error("Error parsing metadata from storage event:", error)
+        }
+      }
+    }
+
+    // Also poll localStorage for the first few seconds (for same-tab updates)
+    let pollCount = 0
+    const maxPolls = 10 // Poll for 5 seconds (10 x 500ms)
+    const pollInterval = setInterval(() => {
+      pollCount++
+      if (pollCount > maxPolls) {
+        clearInterval(pollInterval)
+        return
+      }
+
+      const currentMetadata = localStorage.getItem(
+        planMetadataKey(params.designid)
+      )
+      if (currentMetadata && !storedMetadata) {
+        try {
+          const metadata = JSON.parse(currentMetadata) as DesignPlanMetadata
+          console.log("🔔 [DESIGN_PAGE] Plan metadata detected via polling")
+          setPlanMetadata(metadata)
+          setIsGenerating(true)
+          if (metadata.request) {
+            setDesignData({
+              name: metadata.request.title,
+              description: metadata.request.description,
+              objectives: metadata.request.constraints?.objectives || [],
+              variables: metadata.request.constraints?.variables || [],
+              specialConsiderations:
+                metadata.request.constraints?.specialConsiderations || []
+            })
+          }
+          clearInterval(pollInterval)
+        } catch (error) {
+          console.error("Error parsing metadata from poll:", error)
+        }
+      }
+    }, 500)
+
+    window.addEventListener("storage", handleStorageChange)
+
+    return () => {
+      window.removeEventListener("storage", handleStorageChange)
+      clearInterval(pollInterval)
+    }
   }, [params.designid, loadDesignFromDatabase])
 
   useEffect(() => {

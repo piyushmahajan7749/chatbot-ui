@@ -12,7 +12,7 @@ import {
   updateHypothesis,
   saveTournamentMatch,
   saveLog
-} from "./utils/persistence"
+} from "./utils/persistence-firestore"
 import { checkPlan, checkHypothesis } from "./safety/gate"
 import { v4 as uuidv4 } from "uuid"
 import { callLiteratureScoutAgent } from "./agents"

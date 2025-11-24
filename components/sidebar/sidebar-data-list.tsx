@@ -15,7 +15,7 @@ import { FileItem } from "./items/files/file-item"
 import { Folder } from "./items/folders/folder-item"
 import { updateReport } from "@/db/reports"
 import { ReportItem } from "./items/reports/report-item"
-import { updateDesign } from "@/db/designs"
+import { updateDesign } from "@/db/designs-firestore"
 import { DesignItem } from "./items/designs/design-item"
 
 // Add this type definition at the top of the file

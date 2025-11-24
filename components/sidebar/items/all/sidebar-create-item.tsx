@@ -15,7 +15,7 @@ import { createAssistant, updateAssistant } from "@/db/assistants"
 import { createChat } from "@/db/chats"
 import { createCollectionFiles } from "@/db/collection-files"
 import { createCollection } from "@/db/collections"
-import { createDesign } from "@/db/designs"
+import { createDesign } from "@/db/designs-firestore"
 import { createFileBasedOnExtension } from "@/db/files"
 import { createModel } from "@/db/models"
 import { createPreset } from "@/db/presets"
@@ -284,18 +284,17 @@ export const SidebarCreateItem: FC<SidebarCreateItemProps> = ({
           // Set localStorage flag to indicate this design is being generated
           localStorage.setItem(`design_generating_${newDesign.id}`, "true")
 
-          // Close the modal first
-          onOpenChange(false)
-
           // Navigate to the design page immediately to show progress
           router.push(designURL)
 
-          // Show a toast that design is being generated
-          toast.success(
-            USE_MOCK_API
-              ? "Design created! Generating content (Mock Mode)..."
-              : "Design created! Generating content..."
-          )
+          // Close the modal
+          onOpenChange(false)
+
+          // Show a toast with clear messaging
+          toast.loading("Initializing design generation...", {
+            id: `design-create-${newDesign.id}`,
+            duration: Infinity
+          })
 
           // Then call the AI model endpoint to generate the design content in the background
           const planPayload = {
@@ -371,13 +370,19 @@ export const SidebarCreateItem: FC<SidebarCreateItemProps> = ({
             localStorage.setItem(planKey, JSON.stringify(metadata))
             localStorage.removeItem(statusKey)
             localStorage.setItem(`design_generating_${newDesign.id}`, "true")
-            toast.info("Design draft queued. Tracking progress…")
+
+            // Update the toast to show success with auto-dismiss
+            toast.success(
+              "Hypothesis generation started! Watch progress on the page.",
+              { id: `design-create-${newDesign.id}`, duration: 5000 }
+            )
           } catch (error: any) {
             console.error("Error in design generation:", error)
             toast.error(
-              `Error generating design content: ${
+              `Error starting hypothesis generation: ${
                 error?.message || "Unknown error"
-              }`
+              }`,
+              { id: `design-create-${newDesign.id}`, duration: 7000 }
             )
             localStorage.removeItem(`design_generating_${newDesign.id}`)
             localStorage.removeItem(planKey)

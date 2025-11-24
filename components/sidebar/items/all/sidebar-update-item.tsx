@@ -85,7 +85,7 @@ import profile from "react-syntax-highlighter/dist/esm/languages/hljs/profile"
 import { toast } from "sonner"
 import { SidebarDeleteItem } from "./sidebar-delete-item"
 import { updateReport } from "@/db/reports"
-import { updateDesign } from "@/db/designs"
+import { updateDesign } from "@/db/designs-firestore"
 
 interface SidebarUpdateItemProps {
   isTyping: boolean

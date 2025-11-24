@@ -11,7 +11,7 @@ import {
   getHypothesisById,
   getResearchPlan,
   saveLog
-} from "../../../utils/persistence"
+} from "../../../utils/persistence-firestore"
 import { AgentPromptOverrides, AgentPromptUsage } from "@/types/design-prompts"
 import { designAgentPromptOrder } from "@/lib/design/prompt-schemas"
 

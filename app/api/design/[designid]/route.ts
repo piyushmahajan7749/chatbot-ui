@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { cookies } from "next/headers"
+import { adminDb } from "@/lib/firebase/admin"
 
 export async function GET(
   request: Request,
@@ -22,22 +23,17 @@ export async function GET(
       )
     }
 
-    const supabase = createClient(cookies())
-    const { data: design, error } = await supabase
-      .from("designs")
-      .select("*")
-      .eq("id", params.designid)
-      .single()
+    const designDoc = await adminDb
+      .collection("designs")
+      .doc(params.designid)
+      .get()
 
-    if (error) {
-      console.error("❌ [DESIGN_API] Database error:", error)
-      return NextResponse.json({ error: "Design not found" }, { status: 404 })
-    }
-
-    if (!design) {
+    if (!designDoc.exists) {
       console.error("❌ [DESIGN_API] Design not found:", params.designid)
       return NextResponse.json({ error: "Design not found" }, { status: 404 })
     }
+
+    const design = { id: designDoc.id, ...designDoc.data() }
 
     console.log("✅ [DESIGN_API] Design found:", design.name)
     console.log("📝 [DESIGN_API] Has content:", !!design.content)
@@ -86,8 +82,9 @@ export async function PUT(
       )
     }
 
-    const supabase = createClient(cookies())
-    const updates: Record<string, any> = {}
+    const updates: Record<string, any> = {
+      updated_at: new Date().toISOString()
+    }
 
     if (typeof content !== "undefined") {
       updates.content =
@@ -109,26 +106,118 @@ export async function PUT(
       updates.special_considerations = specialConsiderations
     }
 
-    const { data: updatedDesign, error } = await supabase
-      .from("designs")
-      .update(updates)
-      .eq("id", designId)
-      .select("*")
-      .single()
+    const designRef = adminDb.collection("designs").doc(designId)
+    await designRef.update(updates)
 
-    if (error || !updatedDesign) {
-      console.error("❌ [DESIGN_API] Update error:", error)
-      return NextResponse.json(
-        { error: "Failed to update design" },
-        { status: 500 }
-      )
-    }
+    const updatedDoc = await designRef.get()
+    const updatedDesign = { id: updatedDoc.id, ...updatedDoc.data() }
 
     return NextResponse.json({ success: true, design: updatedDesign })
   } catch (error) {
     console.error("❌ [DESIGN_API] Error updating design:", error)
     return NextResponse.json(
       { error: "Internal server error" },
+      { status: 500 }
+    )
+  }
+}
+
+export async function PATCH(
+  request: Request,
+  { params }: { params: { designid: string } }
+) {
+  try {
+    const supabase = createClient(cookies())
+    const {
+      data: { user },
+      error: authError
+    } = await supabase.auth.getUser()
+
+    if (authError || !user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
+
+    const designId = params.designid
+    const updates = await request.json()
+
+    if (!designId || designId === "undefined" || designId === "null") {
+      return NextResponse.json({ error: "Invalid design ID" }, { status: 400 })
+    }
+
+    // Verify ownership
+    const designDoc = await adminDb.collection("designs").doc(designId).get()
+
+    if (!designDoc.exists) {
+      return NextResponse.json({ error: "Design not found" }, { status: 404 })
+    }
+
+    const designData = designDoc.data()
+    if (designData?.user_id !== user.id) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+    }
+
+    await adminDb
+      .collection("designs")
+      .doc(designId)
+      .update({
+        ...updates,
+        updated_at: new Date().toISOString()
+      })
+
+    const updated = await adminDb.collection("designs").doc(designId).get()
+
+    console.log("✅ [DESIGN_API] Design updated:", designId)
+    return NextResponse.json({ id: updated.id, ...updated.data() })
+  } catch (error) {
+    console.error("❌ [DESIGN_API] Error updating design:", error)
+    return NextResponse.json(
+      { error: "Failed to update design" },
+      { status: 500 }
+    )
+  }
+}
+
+export async function DELETE(
+  request: Request,
+  { params }: { params: { designid: string } }
+) {
+  try {
+    const supabase = createClient(cookies())
+    const {
+      data: { user },
+      error: authError
+    } = await supabase.auth.getUser()
+
+    if (authError || !user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
+
+    const designId = params.designid
+
+    if (!designId || designId === "undefined" || designId === "null") {
+      return NextResponse.json({ error: "Invalid design ID" }, { status: 400 })
+    }
+
+    // Verify ownership
+    const designDoc = await adminDb.collection("designs").doc(designId).get()
+
+    if (!designDoc.exists) {
+      return NextResponse.json({ error: "Design not found" }, { status: 404 })
+    }
+
+    const designData = designDoc.data()
+    if (designData?.user_id !== user.id) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+    }
+
+    await adminDb.collection("designs").doc(designId).delete()
+
+    console.log("✅ [DESIGN_API] Design deleted:", designId)
+    return NextResponse.json({ success: true })
+  } catch (error) {
+    console.error("❌ [DESIGN_API] Error deleting design:", error)
+    return NextResponse.json(
+      { error: "Failed to delete design" },
       { status: 500 }
     )
   }

@@ -9,7 +9,7 @@ import {
 } from "@/components/ui/dialog"
 import { ChatbotUIContext } from "@/context/context"
 import { useDesignContext } from "@/context/designcontext"
-import { deleteDesign } from "@/db/designs"
+import { deleteDesign } from "@/db/designs-firestore"
 import { Tables } from "@/supabase/types"
 import { FC, useContext, useState } from "react"
 import { toast } from "sonner"

@@ -3,7 +3,7 @@ import {
   getResearchPlan,
   getHypothesesByPlanId,
   getLogsByPlanId
-} from "../../utils/persistence"
+} from "../../utils/persistence-firestore"
 import { PlanStatus } from "../../types/interfaces"
 
 export async function GET(

@@ -2,7 +2,7 @@ import { NextResponse } from "next/server"
 import { ResearchPlan } from "./types/interfaces"
 import { v4 as uuidv4 } from "uuid"
 import { inngest } from "@/lib/inngest/client"
-import { saveResearchPlan } from "./utils/persistence"
+import { saveResearchPlan } from "./utils/persistence-firestore"
 
 export async function POST(req: Request) {
   const requestStartTime = Date.now()

@@ -8,7 +8,7 @@ import {
   updateHypothesis,
   saveTournamentMatch,
   saveLog
-} from "@/app/api/design/draft/utils/persistence"
+} from "@/app/api/design/draft/utils/persistence-firestore"
 import {
   ResearchPlan,
   Hypothesis,
