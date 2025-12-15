@@ -113,7 +113,8 @@ export async function POST(req: Request) {
           success: true,
           planId: plan.planId,
           statusUrl,
-          message: "Research plan enqueued successfully"
+          message: "Research plan enqueued successfully",
+          backgroundTriggered: true
         },
         { status: 202 }
       )
@@ -125,12 +126,45 @@ export async function POST(req: Request) {
         name: error.name
       })
 
+      // In local dev, the most common failure is simply that the Inngest dev server
+      // isn't running (default UI: http://localhost:8288). Don't fail design creation
+      // in this case—return 202 so the UI can proceed and show status polling.
+      if (process.env.NODE_ENV !== "production") {
+        const isAuthError =
+          typeof error?.message === "string" &&
+          (error.message.includes("401") ||
+            error.message.toLowerCase().includes("event key not found"))
+
+        const devHelpMessage = isAuthError
+          ? "Inngest rejected your event key (401). Ensure INNGEST_EVENT_KEY is the *Event Key* from the Inngest dashboard (not the Signing Key), then restart `npm run dev`."
+          : "Research plan saved, but background processing is not running. Configure INNGEST_EVENT_KEY for cloud, or set INNGEST_USE_DEV_SERVER=true and run: npx inngest-cli@latest dev"
+
+        console.warn(
+          "⚠️ [DESIGN_DRAFT] Inngest unavailable. If using local dev server set INNGEST_USE_DEV_SERVER=true and run: npx inngest-cli@latest dev"
+        )
+
+        return NextResponse.json(
+          {
+            success: true,
+            planId: plan.planId,
+            statusUrl,
+            backgroundTriggered: false,
+            message: devHelpMessage,
+            inngestError: {
+              message: error?.message,
+              name: error?.name
+            }
+          },
+          { status: 202 }
+        )
+      }
+
       return NextResponse.json(
         {
           success: false,
           error: error.message || "Failed to enqueue research plan",
           details:
-            process.env.NODE_ENV === "development" ? error.stack : undefined
+            process.env.NODE_ENV !== "production" ? error.stack : undefined
         },
         { status: 500 }
       )

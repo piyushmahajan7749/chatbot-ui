@@ -371,10 +371,11 @@ export const SidebarCreateItem: FC<SidebarCreateItemProps> = ({
             localStorage.removeItem(statusKey)
             localStorage.setItem(`design_generating_${newDesign.id}`, "true")
 
-            // Update the toast to show success with auto-dismiss
+            // Surface the API message (e.g. dev-mode hints when Inngest isn't running)
             toast.success(
-              "Hypothesis generation started! Watch progress on the page.",
-              { id: `design-create-${newDesign.id}`, duration: 5000 }
+              data?.message ||
+                "Hypothesis generation started! Watch progress on the page.",
+              { id: `design-create-${newDesign.id}`, duration: 7000 }
             )
           } catch (error: any) {
             console.error("Error in design generation:", error)

@@ -60,13 +60,18 @@ export async function runPaperFinder(
     read_results_from_cache: options.readResultsFromCache ?? true
   }
 
+  const timeoutMs = Number(process.env.PAPER_FINDER_TIMEOUT_MS || 30000)
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), timeoutMs)
+
   const response = await fetch(url, {
     method: "POST",
     headers: {
       "Content-Type": "application/json"
     },
-    body: JSON.stringify(payload)
-  })
+    body: JSON.stringify(payload),
+    signal: controller.signal
+  }).finally(() => clearTimeout(timer))
 
   if (!response.ok) {
     const detail = await response.json().catch(() => ({}))

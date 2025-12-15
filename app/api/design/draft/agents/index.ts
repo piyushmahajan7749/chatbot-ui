@@ -128,40 +128,57 @@ export async function callLiteratureScoutAgent(
       .filter(Boolean)
       .join("\n")
 
-    console.log(
-      "\n🌐 [LITERATURE_SCOUT_SEARCH] Requesting papers from PaperFinder..."
-    )
-    const pfStart = Date.now()
-    const paperFinderResponse = await runPaperFinder(paperFinderQuery, {
-      operationMode: "infer",
-      readResultsFromCache: true
-    })
-    console.log(
-      `⏱️  [LITERATURE_SCOUT_SEARCH] PaperFinder responded in ${
-        Date.now() - pfStart
-      }ms`
-    )
+    // PaperFinder is best-effort: it depends on an external service that can fail.
+    // We still want the pipeline to run (with fewer citations) instead of failing the plan.
+    let curated = buildCuratedAggregatedResults([])
+    let paperFinderResponse: any = null
+    try {
+      console.log(
+        "\n🌐 [LITERATURE_SCOUT_SEARCH] Requesting papers from PaperFinder..."
+      )
+      const pfStart = Date.now()
+      paperFinderResponse = await runPaperFinder(paperFinderQuery, {
+        operationMode: "infer",
+        readResultsFromCache: true
+      })
+      console.log(
+        `⏱️  [LITERATURE_SCOUT_SEARCH] PaperFinder responded in ${
+          Date.now() - pfStart
+        }ms`
+      )
 
-    const normalizedResults = normalizePaperFinderResults(
-      paperFinderResponse
-    ).slice(0, 40)
+      const normalizedResults = normalizePaperFinderResults(
+        paperFinderResponse
+      ).slice(0, 40)
 
-    if (normalizedResults.length === 0) {
-      throw new Error("PaperFinder returned no papers for the given query")
+      if (normalizedResults.length === 0) {
+        console.warn(
+          "⚠️  [LITERATURE_SCOUT_SEARCH] PaperFinder returned zero papers; continuing without citations."
+        )
+      } else {
+        curated = buildCuratedAggregatedResults(normalizedResults)
+        curated.searchMetrics.relevanceScores = normalizedResults
+          .map(paper => paper.relevanceScore ?? 0)
+          .filter(score => typeof score === "number" && score > 0)
+      }
+    } catch (paperFinderError: any) {
+      console.warn(
+        "⚠️  [LITERATURE_SCOUT_SEARCH] PaperFinder failed; continuing without citations:",
+        paperFinderError?.message || paperFinderError
+      )
+      curated.synthesizedFindings.novelInsights.push(
+        `PaperFinder unavailable: ${paperFinderError?.message || "unknown error"}`
+      )
     }
-
-    const curated = buildCuratedAggregatedResults(normalizedResults)
 
     curated.searchMetrics.queryOptimization = [
       queryData.primaryQuery,
       ...queryData.alternativeQueries
     ].filter(Boolean)
-    curated.searchMetrics.relevanceScores = normalizedResults
-      .map(paper => paper.relevanceScore ?? 0)
-      .filter(score => typeof score === "number" && score > 0)
 
-    if (paperFinderResponse.response_text) {
+    if (paperFinderResponse?.response_text) {
       curated.synthesizedFindings.novelInsights = [
+        ...curated.synthesizedFindings.novelInsights,
         paperFinderResponse.response_text
       ]
     }
