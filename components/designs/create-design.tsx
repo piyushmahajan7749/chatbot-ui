@@ -132,7 +132,9 @@ export const CreateDesign: FC<CreateDesignProps> = ({
           </div>
 
           <div className="space-y-1 pt-2">
-            <Label>Description</Label>
+            <Label>
+              Description <span className="text-destructive">*</span>
+            </Label>
             <TextareaAutosize
               textareaRef={descInputRef}
               className="text-md"
@@ -141,6 +143,9 @@ export const CreateDesign: FC<CreateDesignProps> = ({
               minRows={2}
               maxRows={4}
             />
+            <p className="text-muted-foreground text-xs">
+              Required. The design draft API won’t run without a description.
+            </p>
           </div>
 
           <div className="space-y-1 pt-2">

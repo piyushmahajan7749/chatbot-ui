@@ -73,6 +73,16 @@ export const SidebarCreateItem: FC<SidebarCreateItemProps> = ({
   const [creating, setCreating] = useState(false)
   const router = useRouter()
 
+  const designProblemMissing =
+    contentType === "designs" &&
+    !String(createState?.problem || createState?.name || "").trim()
+  const designDescriptionMissing =
+    contentType === "designs" && !String(createState?.description || "").trim()
+  const isCreateDisabled =
+    creating ||
+    (contentType === "designs" &&
+      (designProblemMissing || designDescriptionMissing))
+
   const createFunctions = {
     chats: createChat,
     presets: createPreset,
@@ -238,6 +248,18 @@ export const SidebarCreateItem: FC<SidebarCreateItemProps> = ({
     try {
       if (!selectedWorkspace) return
       if (isTyping) return // Prevent creation while typing
+
+      // Prevent invalid designs from being created (API requires both title & description)
+      if (contentType === "designs") {
+        if (designProblemMissing) {
+          toast.error("Research problem is required.")
+          return
+        }
+        if (designDescriptionMissing) {
+          toast.error("Description is required.")
+          return
+        }
+      }
 
       setCreating(true)
 
@@ -421,7 +443,10 @@ export const SidebarCreateItem: FC<SidebarCreateItemProps> = ({
   const handleKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
     if (!isTyping && e.key === "Enter" && !e.shiftKey) {
       e.preventDefault()
-      buttonRef.current?.click()
+      // Respect disabled state when using Enter to submit
+      if (!isCreateDisabled) {
+        buttonRef.current?.click()
+      }
     }
   }
   return (
@@ -450,7 +475,11 @@ export const SidebarCreateItem: FC<SidebarCreateItemProps> = ({
             >
               Cancel
             </Button>
-            <Button disabled={creating} ref={buttonRef} onClick={handleCreate}>
+            <Button
+              disabled={isCreateDisabled}
+              ref={buttonRef}
+              onClick={handleCreate}
+            >
               {creating ? "Creating..." : "Create"}
             </Button>
           </div>
