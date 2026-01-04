@@ -1,11 +1,11 @@
-import OpenAI from "openai"
+import { getAzureOpenAI, getAzureOpenAIModel } from "@/lib/azure-openai"
 import { zodResponseFormat } from "openai/helpers/zod"
 import { z } from "zod"
 import { AggregatedSearchResults, SearchResult } from "../types"
 import { optimizeSearchQuery, performMultiSourceSearch } from "./search-utils"
 
-const MODEL_NAME = "gpt-4o-2024-08-06"
-const openai = new OpenAI({ apiKey: process.env.OPENAI_KEY })
+const openai = () => getAzureOpenAI()
+const MODEL_NAME = () => getAzureOpenAIModel()
 
 export async function generateQueries(
   problem: string,
@@ -62,8 +62,8 @@ export async function semFilter(
       "Return JSON with fields: relevance (0/1/2) and rationale. Consider strict topical relevance to problem/objectives/variables."
     const user = `Problem: ${userProblem}\nObjectives: ${objectives.join(", ")}\nVariables: ${variables.join(", ")}\n\nTitle: ${p.title}\nAbstract: ${p.abstract}`
     try {
-      const res = await openai.beta.chat.completions.parse({
-        model: MODEL_NAME,
+      const res = await openai().beta.chat.completions.parse({
+        model: MODEL_NAME(),
         messages: [
           { role: "system", content: sys },
           { role: "user", content: user }

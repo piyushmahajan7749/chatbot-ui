@@ -51,7 +51,10 @@ The Design Draft API runs a long-running supervisor process that generates and e
    - If it times out, the plan status will be saved as "failed"
 
 2. **Environment Variables Required**:
-   - `OPENAI_API_KEY` or `OPENAI_KEY` - For LLM calls
+   - `AZURE_OPENAI_KEY` - For LLM calls (Azure OpenAI)
+   - `AZURE_OPENAI_ENDPOINT` - Azure resource endpoint (e.g. `https://<resource>.openai.azure.com`)
+   - `AZURE_OPENAI_API_VERSION` - Azure OpenAI API version (e.g. `2025-01-01-preview`)
+   - `AZURE_OPENAI_DEPLOYMENT` - Deployment name (used as the `model`)
    - `NEXT_PUBLIC_SUPABASE_URL` - Supabase project URL
    - `SUPABASE_SERVICE_ROLE_KEY` - Supabase service role key (bypasses RLS)
 
@@ -111,7 +114,7 @@ For local testing, reduce `max_hypotheses` to avoid long wait times.
 **Symptoms**: Frontend shows loading state indefinitely, no hypotheses appear
 
 **Causes**:
-1. Missing `OPENAI_API_KEY` in Vercel environment variables
+1. Missing `AZURE_OPENAI_*` env vars in Vercel environment variables
 2. Function timeout (exceeds 300 seconds)
 3. Supabase connection issues
 

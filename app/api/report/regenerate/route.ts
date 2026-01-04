@@ -1,9 +1,8 @@
-import OpenAI from "openai"
 import { NextResponse } from "next/server"
+import { getAzureOpenAI, getAzureOpenAIModel } from "@/lib/azure-openai"
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_KEY
-})
+const openai = () => getAzureOpenAI()
+const MODEL_NAME = () => getAzureOpenAIModel()
 
 export async function POST(req: Request) {
   try {
@@ -17,8 +16,8 @@ export async function POST(req: Request) {
 
     const userPrompt = `Section: ${sectionName}\n\nCurrent Content:\n\n${currentContent}\n\nUser Feedback:\n${userFeedback}\n\nRewrite the section to incorporate the feedback while preserving accuracy.`
 
-    const completion = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
+    const completion = await openai().chat.completions.create({
+      model: MODEL_NAME(),
       messages: [
         { role: "system", content: systemPrompt },
         { role: "user", content: userPrompt }

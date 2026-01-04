@@ -1,4 +1,4 @@
-import OpenAI from "openai"
+import { getAzureOpenAI, getAzureOpenAIModel } from "@/lib/azure-openai"
 import { zodResponseFormat } from "openai/helpers/zod"
 import {
   ExperimentDesignState,
@@ -58,10 +58,8 @@ function buildCitationsDetailed(searchResults?: any): CitationItem[] {
   return items.map((it, idx) => ({ ...it, index: idx + 1 }))
 }
 
-const MODEL_NAME = "gpt-4o-2024-08-06"
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_KEY
-})
+const openai = () => getAzureOpenAI()
+const MODEL_NAME = () => getAzureOpenAIModel()
 
 type AgentCallResult<T> = {
   output: T
@@ -208,8 +206,8 @@ export async function callLiteratureScoutAgent(
     console.log("  📏 System prompt:", systemPrompt.length, "characters")
     console.log("  📏 User prompt:", userPrompt.length, "characters")
 
-    const completion = await openai.beta.chat.completions.parse({
-      model: MODEL_NAME,
+    const completion = await openai().beta.chat.completions.parse({
+      model: MODEL_NAME(),
       messages: [
         { role: "system", content: systemPrompt },
         { role: "user", content: userPrompt }
@@ -317,8 +315,8 @@ export async function callHypothesisBuilderAgent(
   console.log("  📏 User prompt:", userPrompt.length, "characters")
 
   try {
-    const completion = await openai.beta.chat.completions.parse({
-      model: MODEL_NAME,
+    const completion = await openai().beta.chat.completions.parse({
+      model: MODEL_NAME(),
       messages: [
         { role: "system", content: systemPrompt },
         { role: "user", content: userPrompt }
@@ -407,8 +405,8 @@ export async function callExperimentDesignerAgent(
   console.log("  📏 User prompt:", userPrompt.length, "characters")
 
   try {
-    const completion = await openai.beta.chat.completions.parse({
-      model: MODEL_NAME,
+    const completion = await openai().beta.chat.completions.parse({
+      model: MODEL_NAME(),
       messages: [
         { role: "system", content: systemPrompt },
         { role: "user", content: userPrompt }
@@ -596,8 +594,8 @@ export async function callStatCheckAgent(
   console.log("  📏 User prompt:", userPrompt.length, "characters")
 
   try {
-    const completion = await openai.beta.chat.completions.parse({
-      model: MODEL_NAME,
+    const completion = await openai().beta.chat.completions.parse({
+      model: MODEL_NAME(),
       messages: [
         { role: "system", content: systemPrompt },
         { role: "user", content: userPrompt }
@@ -708,8 +706,8 @@ export async function callReportWriterAgent(
   console.log("  📏 User prompt:", userPrompt.length, "characters")
 
   try {
-    const completion = await openai.beta.chat.completions.parse({
-      model: MODEL_NAME,
+    const completion = await openai().beta.chat.completions.parse({
+      model: MODEL_NAME(),
       messages: [
         { role: "system", content: systemPrompt },
         { role: "user", content: userPrompt }

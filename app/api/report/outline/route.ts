@@ -1,6 +1,5 @@
 import { StateGraph, END, START } from "@langchain/langgraph"
-import { ChatOpenAI } from "@langchain/openai"
-import OpenAI from "openai"
+import { getAzureOpenAI, getAzureOpenAIModel } from "@/lib/azure-openai"
 import { zodResponseFormat } from "openai/helpers/zod"
 import { z } from "zod"
 import * as d3 from "d3"
@@ -10,9 +9,8 @@ import { tool } from "@langchain/core/tools"
 import { NextResponse } from "next/server"
 import { retrieveFileContent } from "./retrieval"
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_KEY
-})
+const openai = () => getAzureOpenAI()
+const MODEL_NAME = () => getAzureOpenAIModel()
 
 type ReportTheoryType = z.infer<typeof ReportTheorySchema>
 
@@ -125,8 +123,8 @@ Protocol: ${state.protocol}
 Data files: ${state.dataFileSummary}`
 
   try {
-    const completion = await openai.beta.chat.completions.parse({
-      model: "gpt-4o-2024-08-06",
+    const completion = await openai().beta.chat.completions.parse({
+      model: MODEL_NAME(),
       messages: [
         { role: "system", content: systemPrompt },
         { role: "user", content: userPrompt }
@@ -156,8 +154,8 @@ Data Analysis Draft: {dataAnalysisDraft}
   `
 
   try {
-    const completion = await openai.beta.chat.completions.parse({
-      model: "gpt-4o-2024-08-06",
+    const completion = await openai().beta.chat.completions.parse({
+      model: MODEL_NAME(),
       messages: [
         { role: "system", content: systemPrompt },
         { role: "user", content: prompt }
@@ -382,8 +380,8 @@ Data files: ${state.dataFileSummary}`
   console.log("userPrompt: " + userPrompt)
 
   try {
-    const completion = await openai.beta.chat.completions.parse({
-      model: "gpt-4o-2024-08-06",
+    const completion = await openai().beta.chat.completions.parse({
+      model: MODEL_NAME(),
       messages: [
         { role: "system", content: systemPrompt },
         { role: "user", content: userPrompt }
@@ -456,8 +454,8 @@ Data Files: ${state.dataFileSummary}
 Protocol: ${state.protocol}`
 
   try {
-    const completion = await openai.beta.chat.completions.parse({
-      model: "gpt-4o-2024-08-06",
+    const completion = await openai().beta.chat.completions.parse({
+      model: MODEL_NAME(),
       messages: [
         { role: "system", content: systemPrompt },
         { role: "user", content: userPrompt }
@@ -545,8 +543,8 @@ Data Files: ${state.dataFileSummary}
 `
 
   try {
-    const completion = await openai.beta.chat.completions.parse({
-      model: "gpt-4o-2024-08-06",
+    const completion = await openai().beta.chat.completions.parse({
+      model: MODEL_NAME(),
       messages: [
         { role: "system", content: systemPrompt },
         { role: "user", content: userPrompt }

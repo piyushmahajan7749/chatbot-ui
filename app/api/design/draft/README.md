@@ -19,7 +19,10 @@ The system follows a Supervisor → Worker Pool → Agent Adapters architecture:
 ### Environment Variables
 
 ```bash
-OPENAI_API_KEY=sk-...  # or OPENAI_KEY
+AZURE_OPENAI_KEY=...               # Azure OpenAI API key
+AZURE_OPENAI_ENDPOINT=https://...  # e.g. https://<resource>.openai.azure.com
+AZURE_OPENAI_API_VERSION=...       # e.g. 2025-01-01-preview
+AZURE_OPENAI_DEPLOYMENT=...        # your deployment name (used as the "model")
 ```
 
 ### Installation

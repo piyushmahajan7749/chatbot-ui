@@ -1,18 +1,12 @@
 import OpenAI from "openai"
+import { getAzureOpenAI, getAzureOpenAIModel } from "@/lib/azure-openai"
 
-const MODEL_NAME = "gpt-4o-2024-08-06"
 const DEFAULT_TIMEOUT_MS = 60000
 const MAX_RETRIES = 3
 
-// Get OpenAI client instance
+// Get Azure OpenAI client instance
 function getOpenAIClient(): OpenAI {
-  const apiKey = process.env.OPENAI_API_KEY || process.env.OPENAI_KEY
-  if (!apiKey) {
-    throw new Error(
-      "OPENAI_API_KEY or OPENAI_KEY environment variable is required"
-    )
-  }
-  return new OpenAI({ apiKey })
+  return getAzureOpenAI()
 }
 
 // Exponential backoff delay
@@ -59,6 +53,7 @@ export async function callModel(
   } = options
 
   const openai = getOpenAIClient()
+  const model = getAzureOpenAIModel()
   const messages: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = []
 
   if (systemPrompt) {
@@ -74,7 +69,7 @@ export async function callModel(
 
       const response = await openai.chat.completions.create(
         {
-          model: MODEL_NAME,
+          model,
           messages,
           temperature,
           max_tokens: maxTokens

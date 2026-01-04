@@ -1,13 +1,13 @@
 import { NextRequest, NextResponse } from "next/server"
-import OpenAI from "openai"
 import { zodResponseFormat } from "openai/helpers/zod"
 import { z } from "zod"
 import { SERPGoogleScholarAPITool } from "@langchain/community/tools/google_scholar"
 import { TavilySearchResults } from "@langchain/community/tools/tavily_search"
 import axios from "axios"
+import { getAzureOpenAI, getAzureOpenAIModel } from "@/lib/azure-openai"
 
 // Add model constant
-const MODEL_NAME = "gpt-4o-2024-08-06"
+const MODEL_NAME = () => getAzureOpenAIModel()
 
 process.env.GOOGLE_SCHOLAR_API_KEY = process.env.SERPAPI_API_KEY
 
@@ -24,9 +24,7 @@ if (process.env.TAVILY_API_KEY) {
   })
 }
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_KEY
-})
+const openai = () => getAzureOpenAI()
 
 // Enhanced search result interface with relevance scoring
 interface SearchResult {
@@ -613,8 +611,8 @@ Extract and categorize insights into:
 Focus on actionable improvements for regenerating the experimental design.`
 
   try {
-    const completion = await openai.chat.completions.create({
-      model: MODEL_NAME,
+    const completion = await openai().chat.completions.create({
+      model: MODEL_NAME(),
       messages: [
         {
           role: "system",
@@ -967,8 +965,8 @@ Generate a comprehensive improved experimental design that transforms the feedba
     console.log(
       "🤖 [REGENERATE] Sending enhanced regeneration request with comprehensive literature context..."
     )
-    const completion = await openai.beta.chat.completions.parse({
-      model: MODEL_NAME,
+    const completion = await openai().beta.chat.completions.parse({
+      model: MODEL_NAME(),
       messages: [
         { role: "system", content: regenerationPrompt },
         {
@@ -1045,8 +1043,8 @@ RESEARCH CONTEXT:
 
 Please regenerate an improved design that addresses the feedback while incorporating evidence-based enhancements.`
 
-      const completion = await openai.beta.chat.completions.parse({
-        model: MODEL_NAME,
+      const completion = await openai().beta.chat.completions.parse({
+        model: MODEL_NAME(),
         messages: [
           { role: "system", content: basicPrompt },
           { role: "user", content: "Please regenerate the improved design." }

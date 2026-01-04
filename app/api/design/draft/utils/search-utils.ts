@@ -1,7 +1,7 @@
 import axios from "axios"
 import { TavilySearchResults } from "@langchain/community/tools/tavily_search"
 import { SERPGoogleScholarAPITool } from "@langchain/community/tools/google_scholar"
-import OpenAI from "openai"
+import { getAzureOpenAI, getAzureOpenAIModel } from "@/lib/azure-openai"
 import { AggregatedSearchResults, SearchResult } from "../types"
 
 // Initialize enhanced search tools
@@ -25,11 +25,8 @@ if (process.env.TAVILY_API_KEY) {
   })
 }
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_KEY
-})
-
-const MODEL_NAME = "gpt-4o-2024-08-06"
+const openai = () => getAzureOpenAI()
+const MODEL_NAME = () => getAzureOpenAIModel()
 
 // Enhanced rate limiting with backoff strategy
 export class EnhancedRateLimiter {
@@ -586,8 +583,8 @@ Extract and categorize insights into:
 Provide specific, actionable insights relevant to experimental design.`
 
   try {
-    const completion = await openai.chat.completions.create({
-      model: MODEL_NAME,
+    const completion = await openai().chat.completions.create({
+      model: MODEL_NAME(),
       messages: [
         {
           role: "system",

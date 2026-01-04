@@ -99,7 +99,7 @@ app/api/design/draft/
 
 To test the implementation:
 
-1. Set `OPENAI_API_KEY` environment variable
+1. Set `AZURE_OPENAI_KEY`, `AZURE_OPENAI_ENDPOINT`, `AZURE_OPENAI_API_VERSION`, `AZURE_OPENAI_DEPLOYMENT`
 2. Start the dev server: `npm run dev`
 3. POST a research plan to `/api/design/draft`
 4. Poll `/api/design/draft/status/{planId}` to check progress
