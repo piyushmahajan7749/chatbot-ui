@@ -4,9 +4,7 @@
  */
 
 import { NextRequest, NextResponse } from "next/server"
-import OpenAI from "openai"
-import { getServerProfile } from "@/lib/server/server-chat-helpers"
-import { checkApiKey } from "@/lib/server/server-chat-helpers"
+import { getAzureOpenAI, getAzureOpenAIModel } from "@/lib/azure-openai"
 
 export const runtime = "edge"
 
@@ -21,14 +19,8 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Get user profile for API key
-    const profile = await getServerProfile()
-    checkApiKey(profile.openai_api_key, "OpenAI")
-
-    const openai = new OpenAI({
-      apiKey: profile.openai_api_key || "",
-      organization: profile.openai_organization_id
-    })
+    const openai = getAzureOpenAI()
+    const model = getAzureOpenAIModel()
 
     const fullText = [materialsText, preparationText]
       .filter(Boolean)
@@ -79,7 +71,7 @@ JSON array:`
 
     // Make non-streaming request for extraction
     const response = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
+      model,
       messages: [
         {
           role: "system",
@@ -144,10 +136,10 @@ JSON array:`
 
     if (errorMessage.toLowerCase().includes("api key not found")) {
       errorMessage =
-        "OpenAI API Key not found. Please set it in your profile settings."
+        "Azure OpenAI credentials not found. Please set AZURE_OPENAI_KEY/AZURE_OPENAI_API_KEY, AZURE_OPENAI_ENDPOINT, AZURE_OPENAI_API_VERSION, and AZURE_OPENAI_DEPLOYMENT."
     } else if (errorMessage.toLowerCase().includes("incorrect api key")) {
       errorMessage =
-        "OpenAI API Key is incorrect. Please fix it in your profile settings."
+        "Azure OpenAI API Key is incorrect. Please verify AZURE_OPENAI_KEY/AZURE_OPENAI_API_KEY."
     } else if (error instanceof SyntaxError) {
       errorMessage = "Failed to parse AI response. Please try again."
     }
