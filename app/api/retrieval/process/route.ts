@@ -6,12 +6,12 @@ import {
   processPdf,
   processTxt
 } from "@/lib/retrieval/processing"
-import { checkApiKey, getServerProfile } from "@/lib/server/server-chat-helpers"
+import { getAzureOpenAIForDeployment } from "@/lib/azure-openai"
+import { getServerProfile } from "@/lib/server/server-chat-helpers"
 import { Database } from "@/supabase/types"
 import { FileItemChunk } from "@/types"
 import { createClient } from "@supabase/supabase-js"
 import { NextResponse } from "next/server"
-import OpenAI from "openai"
 
 export async function POST(req: Request) {
   try {
@@ -58,21 +58,6 @@ export async function POST(req: Request) {
     const blob = new Blob([fileBuffer as BlobPart])
     const fileExtension = fileMetadata.name.split(".").pop()?.toLowerCase()
 
-    if (embeddingsProvider === "openai") {
-      try {
-        if (profile.use_azure_openai) {
-          checkApiKey(profile.azure_openai_api_key, "Azure OpenAI")
-        } else {
-          checkApiKey(profile.openai_api_key, "OpenAI")
-        }
-      } catch (error: any) {
-        error.message =
-          error.message +
-          ", make sure it is configured or else use local embeddings"
-        throw error
-      }
-    }
-
     let chunks: FileItemChunk[] = []
 
     switch (fileExtension) {
@@ -99,24 +84,20 @@ export async function POST(req: Request) {
 
     let embeddings: any = []
 
-    let openai
-    if (profile.use_azure_openai) {
-      openai = new OpenAI({
-        apiKey: profile.azure_openai_api_key || "",
-        baseURL: `${profile.azure_openai_endpoint}/openai/deployments/${profile.azure_openai_embeddings_id}`,
-        defaultQuery: { "api-version": "2023-12-01-preview" },
-        defaultHeaders: { "api-key": profile.azure_openai_api_key }
-      })
-    } else {
-      openai = new OpenAI({
-        apiKey: profile.openai_api_key || "",
-        organization: profile.openai_organization_id
-      })
-    }
-
     if (embeddingsProvider === "openai") {
+      const embeddingsDeployment =
+        profile.azure_openai_embeddings_id ||
+        process.env.AZURE_OPENAI_EMBEDDINGS_DEPLOYMENT ||
+        ""
+      if (!embeddingsDeployment) {
+        throw new Error(
+          "Azure embeddings deployment not configured. Set AZURE_OPENAI_EMBEDDINGS_DEPLOYMENT or configure azure_openai_embeddings_id, or use local embeddings."
+        )
+      }
+
+      const openai = getAzureOpenAIForDeployment(embeddingsDeployment)
       const response = await openai.embeddings.create({
-        model: "text-embedding-3-small",
+        model: embeddingsDeployment,
         input: chunks.map(chunk => chunk.content)
       })
 
