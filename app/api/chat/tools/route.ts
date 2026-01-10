@@ -3,6 +3,7 @@ import { getAzureOpenAI, getAzureOpenAIModel } from "@/lib/azure-openai"
 import { Tables } from "@/supabase/types"
 import { ChatSettings } from "@/types"
 import { OpenAIStream, StreamingTextResponse } from "ai"
+import type OpenAI from "openai"
 import { ChatCompletionCreateParamsBase } from "openai/resources/chat/completions.mjs"
 
 export async function POST(request: Request) {
