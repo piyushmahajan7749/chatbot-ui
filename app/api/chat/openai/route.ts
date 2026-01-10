@@ -17,6 +17,44 @@ export async function POST(request: Request) {
   try {
     const profile = await getServerProfile()
 
+    // If the user has Azure OpenAI configured, route through the Azure chat endpoint
+    if (profile.use_azure_openai) {
+      checkApiKey(profile.azure_openai_api_key, "Azure OpenAI")
+
+      const ENDPOINT = profile.azure_openai_endpoint
+      const KEY = profile.azure_openai_api_key
+      const DEPLOYMENT_ID = profile.azure_openai_45_turbo_id || ""
+
+      if (!ENDPOINT || !KEY || !DEPLOYMENT_ID) {
+        return new Response(
+          JSON.stringify({ message: "Azure resources not found" }),
+          { status: 400 }
+        )
+      }
+
+      const azureOpenai = new OpenAI({
+        apiKey: KEY,
+        baseURL: `${ENDPOINT}/openai/deployments/${DEPLOYMENT_ID}`,
+        defaultQuery: { "api-version": "2024-08-06-preview" },
+        defaultHeaders: { "api-key": KEY }
+      })
+
+      const response = await azureOpenai.chat.completions.create({
+        model: DEPLOYMENT_ID as ChatCompletionCreateParamsBase["model"],
+        messages: messages as ChatCompletionCreateParamsBase["messages"],
+        temperature: chatSettings.temperature,
+        max_tokens:
+          chatSettings.model === "gpt-4-vision-preview" ||
+          chatSettings.model === "gpt-4o"
+            ? 4096
+            : null, // TODO: Fix
+        stream: true
+      })
+
+      const stream = OpenAIStream(response as any)
+      return new StreamingTextResponse(stream)
+    }
+
     checkApiKey(profile.openai_api_key, "OpenAI")
 
     const openai = new OpenAI({
@@ -45,10 +83,10 @@ export async function POST(request: Request) {
 
     if (errorMessage.toLowerCase().includes("api key not found")) {
       errorMessage =
-        "OpenAI API Key not found. Please set it in your profile settings."
+        "API Key not found. Please set it in your profile settings."
     } else if (errorMessage.toLowerCase().includes("incorrect api key")) {
       errorMessage =
-        "OpenAI API Key is incorrect. Please fix it in your profile settings."
+        "API Key is incorrect. Please fix it in your profile settings."
     }
 
     return new Response(JSON.stringify({ message: errorMessage }), {
