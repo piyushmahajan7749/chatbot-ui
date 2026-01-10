@@ -76,3 +76,63 @@ export function getAzureOpenAIForDeployment(deployment: string): AzureOpenAI {
   _deploymentClients.set(key, client)
   return client
 }
+
+// -----------------------------
+// Embeddings-specific helpers
+// -----------------------------
+
+export function getAzureOpenAIEmbeddingsDeployment(): string {
+  return (
+    process.env.AZURE_OPENAI_EMBEDDINGS_DEPLOYMENT ||
+    process.env.AZURE_OPENAI_DEPLOYMENT ||
+    ""
+  ).trim()
+}
+
+export function getAzureOpenAIEmbeddingsClient(): AzureOpenAI {
+  const deployment = getAzureOpenAIEmbeddingsDeployment()
+  if (!deployment) {
+    throw new Error(
+      "Azure embeddings deployment not configured. Set AZURE_OPENAI_EMBEDDINGS_DEPLOYMENT (recommended) or AZURE_OPENAI_DEPLOYMENT."
+    )
+  }
+
+  // Allow using a separate Azure OpenAI resource for embeddings.
+  const apiKey =
+    process.env.AZURE_OPENAI_EMBEDDINGS_KEY ||
+    process.env.AZURE_OPENAI_KEY ||
+    process.env.AZURE_OPENAI_API_KEY
+
+  if (!apiKey) {
+    throw new Error(
+      "Missing required env var: AZURE_OPENAI_KEY (or AZURE_OPENAI_API_KEY). Optionally AZURE_OPENAI_EMBEDDINGS_KEY."
+    )
+  }
+
+  const endpoint =
+    process.env.AZURE_OPENAI_EMBEDDINGS_ENDPOINT ||
+    process.env.AZURE_OPENAI_ENDPOINT
+  if (!endpoint)
+    throw new Error("Missing required env var: AZURE_OPENAI_ENDPOINT")
+
+  const apiVersion =
+    process.env.AZURE_OPENAI_EMBEDDINGS_API_VERSION ||
+    process.env.AZURE_OPENAI_API_VERSION
+  if (!apiVersion)
+    throw new Error("Missing required env var: AZURE_OPENAI_API_VERSION")
+
+  // Use per-deployment cache so repeated calls don't allocate new clients
+  const cacheKey = `embeddings:${endpoint}:${apiVersion}:${deployment}`
+  const existing = _deploymentClients.get(cacheKey)
+  if (existing) return existing
+
+  const client = new AzureOpenAI({
+    apiKey,
+    endpoint,
+    apiVersion,
+    deployment
+  })
+
+  _deploymentClients.set(cacheKey, client)
+  return client
+}

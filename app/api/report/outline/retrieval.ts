@@ -1,5 +1,8 @@
 import { generateLocalEmbedding } from "@/lib/generate-local-embedding"
-import { getAzureOpenAIForDeployment } from "@/lib/azure-openai"
+import {
+  getAzureOpenAIEmbeddingsClient,
+  getAzureOpenAIEmbeddingsDeployment
+} from "@/lib/azure-openai"
 import { getServerProfile } from "@/lib/server/server-chat-helpers"
 import { Database } from "@/supabase/types"
 import { createClient } from "@supabase/supabase-js"
@@ -25,15 +28,14 @@ export async function retrieveRelevantContent(
     if (embeddingsProvider === "openai") {
       const embeddingsDeployment =
         profile.azure_openai_embeddings_id ||
-        process.env.AZURE_OPENAI_EMBEDDINGS_DEPLOYMENT ||
-        ""
+        getAzureOpenAIEmbeddingsDeployment()
       if (!embeddingsDeployment) {
         throw new Error(
           "Azure embeddings deployment not configured. Set AZURE_OPENAI_EMBEDDINGS_DEPLOYMENT or configure azure_openai_embeddings_id."
         )
       }
 
-      const openai = getAzureOpenAIForDeployment(embeddingsDeployment)
+      const openai = getAzureOpenAIEmbeddingsClient()
       const response = await openai.embeddings.create({
         model: embeddingsDeployment,
         input: userInput
