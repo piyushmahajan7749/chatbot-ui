@@ -1,7 +1,6 @@
-import { checkApiKey, getServerProfile } from "@/lib/server/server-chat-helpers"
+import { getAzureOpenAI, getAzureOpenAIModel } from "@/lib/azure-openai"
 import { ChatAPIPayload } from "@/types"
 import { OpenAIStream, StreamingTextResponse } from "ai"
-import OpenAI from "openai"
 import { ChatCompletionCreateParamsBase } from "openai/resources/chat/completions.mjs"
 
 export const runtime = "edge"
@@ -11,48 +10,13 @@ export async function POST(request: Request) {
   const { chatSettings, messages } = json as ChatAPIPayload
 
   try {
-    const profile = await getServerProfile()
-
-    checkApiKey(profile.azure_openai_api_key, "Azure OpenAI")
-
-    const ENDPOINT = profile.azure_openai_endpoint
-    const KEY = profile.azure_openai_api_key
-
-    let DEPLOYMENT_ID = ""
-    switch (chatSettings.model) {
-      case "gpt-3.5-turbo":
-        DEPLOYMENT_ID = profile.azure_openai_35_turbo_id || ""
-        break
-      case "gpt-4-turbo-preview":
-        DEPLOYMENT_ID = profile.azure_openai_45_turbo_id || ""
-        break
-      case "gpt-4-vision-preview":
-        DEPLOYMENT_ID = profile.azure_openai_45_vision_id || ""
-        break
-      default:
-        return new Response(JSON.stringify({ message: "Model not found" }), {
-          status: 400
-        })
-    }
-
-    if (!ENDPOINT || !KEY || !DEPLOYMENT_ID) {
-      return new Response(
-        JSON.stringify({ message: "Azure resources not found" }),
-        {
-          status: 400
-        }
-      )
-    }
-
-    const azureOpenai = new OpenAI({
-      apiKey: KEY,
-      baseURL: `${ENDPOINT}/openai/deployments/${DEPLOYMENT_ID}`,
-      defaultQuery: { "api-version": "2024-08-06-preview" },
-      defaultHeaders: { "api-key": KEY }
-    })
+    // Azure OpenAI (env-backed). We intentionally ignore chatSettings.model and
+    // always use the deployment configured in AZURE_OPENAI_DEPLOYMENT.
+    const azureOpenai = getAzureOpenAI()
+    const deployment = getAzureOpenAIModel()
 
     const response = await azureOpenai.chat.completions.create({
-      model: DEPLOYMENT_ID as ChatCompletionCreateParamsBase["model"],
+      model: deployment as ChatCompletionCreateParamsBase["model"],
       messages: messages as ChatCompletionCreateParamsBase["messages"],
       temperature: chatSettings.temperature,
       max_tokens: chatSettings.model === "gpt-4-vision-preview" ? 4096 : null, // TODO: Fix

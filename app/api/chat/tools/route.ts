@@ -1,9 +1,8 @@
 import { openapiToFunctions } from "@/lib/openapi-conversion"
-import { checkApiKey, getServerProfile } from "@/lib/server/server-chat-helpers"
+import { getAzureOpenAI, getAzureOpenAIModel } from "@/lib/azure-openai"
 import { Tables } from "@/supabase/types"
 import { ChatSettings } from "@/types"
 import { OpenAIStream, StreamingTextResponse } from "ai"
-import OpenAI from "openai"
 import { ChatCompletionCreateParamsBase } from "openai/resources/chat/completions.mjs"
 
 export async function POST(request: Request) {
@@ -15,14 +14,8 @@ export async function POST(request: Request) {
   }
 
   try {
-    const profile = await getServerProfile()
-
-    checkApiKey(profile.openai_api_key, "OpenAI")
-
-    const openai = new OpenAI({
-      apiKey: profile.openai_api_key || "",
-      organization: profile.openai_organization_id
-    })
+    const openai = getAzureOpenAI()
+    const deployment = getAzureOpenAIModel()
 
     let allTools: OpenAI.Chat.Completions.ChatCompletionTool[] = []
     let allRouteMaps = {}
@@ -60,7 +53,7 @@ export async function POST(request: Request) {
     }
 
     const firstResponse = await openai.chat.completions.create({
-      model: chatSettings.model as ChatCompletionCreateParamsBase["model"],
+      model: deployment as ChatCompletionCreateParamsBase["model"],
       messages,
       tools: allTools.length > 0 ? allTools : undefined
     })
@@ -199,7 +192,7 @@ export async function POST(request: Request) {
     }
 
     const secondResponse = await openai.chat.completions.create({
-      model: chatSettings.model as ChatCompletionCreateParamsBase["model"],
+      model: deployment as ChatCompletionCreateParamsBase["model"],
       messages,
       stream: true
     })

@@ -79,13 +79,15 @@ export const GlobalState: FC<GlobalStateProps> = ({ children }) => {
   const [userInput, setUserInput] = useState<string>("")
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([])
   const [chatSettings, setChatSettings] = useState<ChatSettings>({
-    model: "gpt-4-turbo-preview",
+    model: "gpt-4o",
     prompt: "You are a helpful AI assistant.",
     temperature: 0.5,
     contextLength: 4000,
     includeProfileContext: true,
     includeWorkspaceInstructions: true,
-    embeddingsProvider: "openai"
+    // Default to local embeddings to avoid requiring a separate Azure embeddings deployment.
+    // You can switch this back to "openai" once AZURE_OPENAI_EMBEDDINGS_DEPLOYMENT is configured.
+    embeddingsProvider: "local"
   })
   const [selectedChat, setSelectedChat] = useState<Tables<"chats"> | null>(null)
   const [chatFileItems, setChatFileItems] = useState<Tables<"file_items">[]>([])
@@ -136,21 +138,10 @@ export const GlobalState: FC<GlobalStateProps> = ({ children }) => {
         setEnvKeyMap(hostedModelRes.envKeyMap)
         setAvailableHostedModels(hostedModelRes.hostedModels)
 
-        if (
-          profile["openrouter_api_key"] ||
-          hostedModelRes.envKeyMap["openrouter"]
-        ) {
-          const openRouterModels = await fetchOpenRouterModels()
-          if (!openRouterModels) return
-          setAvailableOpenRouterModels(openRouterModels)
-        }
+        // Azure-only: do not fetch OpenRouter models
       }
 
-      if (process.env.NEXT_PUBLIC_OLLAMA_URL) {
-        const localModels = await fetchOllamaModels()
-        if (!localModels) return
-        setAvailableLocalModels(localModels)
-      }
+      // Azure-only: do not fetch local (Ollama) models
       const fetchReports = async () => {
         const session = (await supabase.auth.getSession()).data.session
 

@@ -201,10 +201,10 @@ export const handleHostedChat = async (
   setChatMessages: React.Dispatch<React.SetStateAction<ChatMessage[]>>,
   setToolInUse: React.Dispatch<React.SetStateAction<string>>
 ) => {
-  const provider =
-    modelData.provider === "openai" && profile.use_azure_openai
-      ? "azure"
-      : modelData.provider
+  // Force Azure OpenAI for all hosted chats.
+  // This makes chat work without any per-provider profile keys and removes
+  // dependence on other provider implementations.
+  const provider = "azure"
 
   let draftMessages = await buildFinalMessages(payload, profile, chatImages)
 
@@ -218,13 +218,12 @@ export const handleHostedChat = async (
     formattedMessages = draftMessages
   }
 
-  const apiEndpoint =
-    provider === "custom" ? "/api/chat/custom" : `/api/chat/${provider}`
+  const apiEndpoint = "/api/chat/azure"
 
   const requestBody = {
     chatSettings: payload.chatSettings,
     messages: formattedMessages,
-    customModelId: provider === "custom" ? modelData.hostedId : ""
+    customModelId: ""
   }
 
   const response = await fetchChatResponse(
