@@ -744,10 +744,20 @@ function parseDataFromSummary(
 export async function POST(req: Request) {
   try {
     const { protocol, papers, dataFiles, experimentObjective } =
-      await req.json()
-    const protocolContent = await retrieveFileContent(protocol)
-    const paperContent = await retrieveFileContent(papers)
-    const dataFileContent = await retrieveFileContent(dataFiles)
+      (await req.json()) as {
+        protocol?: string[]
+        papers?: string[]
+        dataFiles?: string[]
+        experimentObjective?: string
+      }
+
+    const protocolIds = Array.isArray(protocol) ? protocol : []
+    const paperIds = Array.isArray(papers) ? papers : []
+    const dataFileIds = Array.isArray(dataFiles) ? dataFiles : []
+
+    const protocolContent = await retrieveFileContent(protocolIds)
+    const paperContent = await retrieveFileContent(paperIds)
+    const dataFileContent = await retrieveFileContent(dataFileIds)
 
     console.log("protocolContent: " + JSON.stringify(protocolContent)) // Add this log
     console.log("paperContent: " + JSON.stringify(paperContent)) // Add this log

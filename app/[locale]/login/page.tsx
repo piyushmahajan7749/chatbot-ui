@@ -31,7 +31,19 @@ export default async function Login({
       }
     }
   )
-  const session = (await supabase.auth.getSession()).data.session
+  let supabaseConnectionError: string | null = null
+  let session: Awaited<
+    ReturnType<typeof supabase.auth.getSession>
+  >["data"]["session"] = null
+  try {
+    session = (await supabase.auth.getSession()).data.session
+  } catch (e: any) {
+    session = null
+    supabaseConnectionError =
+      e?.cause?.code === "ECONNREFUSED"
+        ? `Supabase is unreachable at ${process.env.NEXT_PUBLIC_SUPABASE_URL}. If you're running locally, start it with "supabase start" (Docker required) and copy API URL + anon key from "supabase status" into .env.local.`
+        : "Supabase is unreachable. Check NEXT_PUBLIC_SUPABASE_URL / NEXT_PUBLIC_SUPABASE_ANON_KEY and that Supabase is running."
+  }
 
   if (session) {
     const { data: homeWorkspace, error } = await supabase
@@ -243,6 +255,12 @@ export default async function Login({
         {searchParams?.message && (
           <p className="bg-foreground/10 text-foreground mt-4 p-4 text-center">
             {searchParams.message}
+          </p>
+        )}
+
+        {supabaseConnectionError && (
+          <p className="bg-foreground/10 text-foreground mt-4 p-4 text-center">
+            {supabaseConnectionError}
           </p>
         )}
       </form>

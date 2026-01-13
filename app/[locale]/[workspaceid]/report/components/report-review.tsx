@@ -17,12 +17,12 @@ import {
   Sparkles,
   DownloadIcon
 } from "lucide-react"
-import { getReportFilesByReportId } from "@/db/report-files"
+import { getReportFilesByReportId } from "@/db/report-files-firestore"
 import Loading from "@/app/[locale]/loading"
 import ReactMarkdown from "react-markdown"
 import PptxGenJS from "pptxgenjs"
 import { getContentSlide, getIntroSlide } from "./utils"
-import { getReportWithDetails, updateReport } from "@/db/reports"
+import { getReportWithDetails, updateReport } from "@/db/reports-firestore"
 
 interface ReportReviewProps {
   onSave: () => void
@@ -160,9 +160,9 @@ export function ReportReviewComponent({ onSave, reportId }: ReportReviewProps) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           experimentObjective: reportObjective,
-          protocol: files.protocol.map((file: any) => file.id),
-          papers: files.papers.map((file: any) => file.id),
-          dataFiles: files.dataFiles.map((file: any) => file.id)
+          protocol: (files?.protocol || []).map((file: any) => file.id),
+          papers: (files?.papers || []).map((file: any) => file.id),
+          dataFiles: (files?.dataFiles || []).map((file: any) => file.id)
         })
       })
       const data = await response.json()

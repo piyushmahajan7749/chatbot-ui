@@ -20,8 +20,7 @@ import { createFileBasedOnExtension } from "@/db/files"
 import { createModel } from "@/db/models"
 import { createPreset } from "@/db/presets"
 import { createPrompt } from "@/db/prompts"
-import { createReportCollections } from "@/db/report-collections"
-import { createReport } from "@/db/reports"
+import { createReport } from "@/db/reports-firestore"
 import {
   getAssistantImageFromStorage,
   uploadAssistantImage
@@ -200,20 +199,16 @@ export const SidebarCreateItem: FC<SidebarCreateItemProps> = ({
     ) => {
       const { files, collections, ...reportData } = createState
 
-      const createdReport = await createReport(reportData, workspaceId, {
-        protocol: files.protocol || [],
-        papers: files.papers || [],
-        dataFiles: files.dataFiles || []
-      })
-
-      if (collections?.length) {
-        const reportCollections = collections.map(collection => ({
-          user_id: reportData.user_id,
-          report_id: createdReport.id,
-          collection_id: collection.id
-        }))
-        await createReportCollections(reportCollections)
-      }
+      const createdReport = await createReport(
+        reportData,
+        workspaceId,
+        {
+          protocol: files.protocol || [],
+          papers: files.papers || [],
+          dataFiles: files.dataFiles || []
+        },
+        collections || []
+      )
 
       return createdReport
     },

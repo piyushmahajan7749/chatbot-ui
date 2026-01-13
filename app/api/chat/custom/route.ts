@@ -17,6 +17,14 @@ export async function POST(request: Request) {
   }
 
   try {
+    const shouldRetryWithoutTemperature = (error: any) => {
+      const msg = (error?.error?.message || error?.message || "") as string
+      return (
+        /temperature/i.test(msg) &&
+        /Only the default \(1\) value is supported/i.test(msg)
+      )
+    }
+
     const supabaseAdmin = createClient<Database>(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.SUPABASE_SERVICE_ROLE_KEY!
@@ -37,12 +45,25 @@ export async function POST(request: Request) {
       baseURL: customModel.base_url
     })
 
-    const response = await custom.chat.completions.create({
+    const params = {
       model: chatSettings.model as ChatCompletionCreateParamsBase["model"],
       messages: messages as ChatCompletionCreateParamsBase["messages"],
       temperature: chatSettings.temperature,
       stream: true
-    })
+    } as const
+
+    let response: any
+    try {
+      response = await custom.chat.completions.create(params as any)
+    } catch (error: any) {
+      if (shouldRetryWithoutTemperature(error)) {
+        const { temperature: _temperature, ...withoutTemperature } =
+          params as any
+        response = await custom.chat.completions.create(withoutTemperature)
+      } else {
+        throw error
+      }
+    }
 
     const stream = OpenAIStream(response as any)
 

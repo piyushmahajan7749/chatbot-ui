@@ -10,18 +10,41 @@ export async function POST(request: Request) {
   const { chatSettings, messages } = json as ChatAPIPayload
 
   try {
+    const shouldRetryWithoutTemperature = (error: any) => {
+      const msg = (error?.error?.message || error?.message || "") as string
+      return (
+        /temperature/i.test(msg) &&
+        /Only the default \(1\) value is supported/i.test(msg)
+      )
+    }
+
     // Azure OpenAI (env-backed). We intentionally ignore chatSettings.model and
     // always use the deployment configured in AZURE_OPENAI_DEPLOYMENT.
     const azureOpenai = getAzureOpenAI()
     const deployment = getAzureOpenAIModel()
 
-    const response = await azureOpenai.chat.completions.create({
+    const params = {
       model: deployment as ChatCompletionCreateParamsBase["model"],
       messages: messages as ChatCompletionCreateParamsBase["messages"],
       temperature: chatSettings.temperature,
-      max_tokens: chatSettings.model === "gpt-4-vision-preview" ? 4096 : null, // TODO: Fix
+      // Do not send `null` (provider validation error). Omit the field when unset.
+      max_tokens:
+        chatSettings.model === "gpt-4-vision-preview" ? 4096 : undefined,
       stream: true
-    })
+    } as const
+
+    let response: any
+    try {
+      response = await azureOpenai.chat.completions.create(params as any)
+    } catch (error: any) {
+      if (shouldRetryWithoutTemperature(error)) {
+        const { temperature: _temperature, ...withoutTemperature } =
+          params as any
+        response = await azureOpenai.chat.completions.create(withoutTemperature)
+      } else {
+        throw error
+      }
+    }
 
     const stream = OpenAIStream(response as any)
 

@@ -82,7 +82,15 @@ export default async function RootLayout({
       }
     }
   )
-  const session = (await supabase.auth.getSession()).data.session
+  // If Supabase is unreachable (e.g. local stack not running), don't crash the whole app.
+  let session: Awaited<
+    ReturnType<typeof supabase.auth.getSession>
+  >["data"]["session"] = null
+  try {
+    session = (await supabase.auth.getSession()).data.session
+  } catch (e) {
+    session = null
+  }
 
   const { t, resources } = await initTranslations(locale, i18nNamespaces)
 

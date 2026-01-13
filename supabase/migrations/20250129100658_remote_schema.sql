@@ -1,29 +1,24 @@
-grant delete on table "storage"."s3_multipart_uploads" to "postgres";
+DO $$
+BEGIN
+  -- These tables exist only on newer Supabase Storage schemas.
+  -- Make grants conditional so local dev doesn't fail when they're absent.
+  IF to_regclass('storage.s3_multipart_uploads') IS NOT NULL THEN
+    EXECUTE 'grant delete on table "storage"."s3_multipart_uploads" to "postgres"';
+    EXECUTE 'grant insert on table "storage"."s3_multipart_uploads" to "postgres"';
+    EXECUTE 'grant references on table "storage"."s3_multipart_uploads" to "postgres"';
+    EXECUTE 'grant select on table "storage"."s3_multipart_uploads" to "postgres"';
+    EXECUTE 'grant trigger on table "storage"."s3_multipart_uploads" to "postgres"';
+    EXECUTE 'grant truncate on table "storage"."s3_multipart_uploads" to "postgres"';
+    EXECUTE 'grant update on table "storage"."s3_multipart_uploads" to "postgres"';
+  END IF;
 
-grant insert on table "storage"."s3_multipart_uploads" to "postgres";
-
-grant references on table "storage"."s3_multipart_uploads" to "postgres";
-
-grant select on table "storage"."s3_multipart_uploads" to "postgres";
-
-grant trigger on table "storage"."s3_multipart_uploads" to "postgres";
-
-grant truncate on table "storage"."s3_multipart_uploads" to "postgres";
-
-grant update on table "storage"."s3_multipart_uploads" to "postgres";
-
-grant delete on table "storage"."s3_multipart_uploads_parts" to "postgres";
-
-grant insert on table "storage"."s3_multipart_uploads_parts" to "postgres";
-
-grant references on table "storage"."s3_multipart_uploads_parts" to "postgres";
-
-grant select on table "storage"."s3_multipart_uploads_parts" to "postgres";
-
-grant trigger on table "storage"."s3_multipart_uploads_parts" to "postgres";
-
-grant truncate on table "storage"."s3_multipart_uploads_parts" to "postgres";
-
-grant update on table "storage"."s3_multipart_uploads_parts" to "postgres";
-
-
+  IF to_regclass('storage.s3_multipart_uploads_parts') IS NOT NULL THEN
+    EXECUTE 'grant delete on table "storage"."s3_multipart_uploads_parts" to "postgres"';
+    EXECUTE 'grant insert on table "storage"."s3_multipart_uploads_parts" to "postgres"';
+    EXECUTE 'grant references on table "storage"."s3_multipart_uploads_parts" to "postgres"';
+    EXECUTE 'grant select on table "storage"."s3_multipart_uploads_parts" to "postgres"';
+    EXECUTE 'grant trigger on table "storage"."s3_multipart_uploads_parts" to "postgres"';
+    EXECUTE 'grant truncate on table "storage"."s3_multipart_uploads_parts" to "postgres"';
+    EXECUTE 'grant update on table "storage"."s3_multipart_uploads_parts" to "postgres"';
+  END IF;
+END $$;

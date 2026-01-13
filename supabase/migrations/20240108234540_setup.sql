@@ -41,7 +41,8 @@ $$ LANGUAGE plpgsql;
 CREATE POLICY "Allow users to read their own files"
 ON storage.objects FOR SELECT
 TO authenticated
-USING (auth.uid()::text = owner_id::text);
+-- Supabase Storage uses `owner` (uuid) in newer schemas; older migrations referenced `owner_id`.
+USING (auth.uid()::text = owner::text);
 
 -- Function to delete a storage object
 CREATE OR REPLACE FUNCTION delete_storage_object(bucket TEXT, object TEXT, OUT status INT, OUT content TEXT)

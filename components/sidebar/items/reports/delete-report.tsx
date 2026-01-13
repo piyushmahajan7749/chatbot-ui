@@ -11,7 +11,7 @@ import {
   DialogTrigger
 } from "@/components/ui/dialog"
 import { useReportContext } from "@/context/reportcontext"
-import { deleteReport } from "@/db/reports"
+import { deleteReport } from "@/db/reports-firestore"
 import useHotkey from "@/lib/hooks/use-hotkey"
 import { Tables } from "@/supabase/types"
 import { IconTrash } from "@tabler/icons-react"

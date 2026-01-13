@@ -2,6 +2,7 @@ import { useChatHandler } from "@/components/chat/chat-hooks/use-chat-handler"
 import { ChatbotUIContext } from "@/context/context"
 import { LLM_LIST } from "@/lib/models/llm/llm-list"
 import { cn } from "@/lib/utils"
+import { getAzureDeploymentNameClient } from "@/lib/azure-deployment-client"
 import { Tables } from "@/supabase/types"
 import { LLM, LLMID, MessageImage, ModelProvider } from "@/types"
 import {
@@ -68,6 +69,9 @@ export const Message: FC<MessageProps> = ({
 
   const [isHovering, setIsHovering] = useState(false)
   const [editedMessage, setEditedMessage] = useState(message.content)
+  const [azureDeploymentName, setAzureDeploymentName] = useState<
+    string | null | undefined
+  >(undefined)
 
   const [showImagePreview, setShowImagePreview] = useState(false)
   const [selectedImage, setSelectedImage] = useState<MessageImage | null>(null)
@@ -179,6 +183,26 @@ export const Message: FC<MessageProps> = ({
     return acc
   }, fileAccumulator)
 
+  const isLoadingThisMessage =
+    !firstTokenReceived &&
+    isGenerating &&
+    isLast &&
+    message.role === "assistant"
+
+  useEffect(() => {
+    if (!isLoadingThisMessage) return
+    if (azureDeploymentName !== undefined) return
+    ;(async () => {
+      const deployment = await getAzureDeploymentNameClient()
+      setAzureDeploymentName(deployment)
+    })()
+  }, [isLoadingThisMessage, azureDeploymentName])
+
+  const displayedModelName =
+    isLoadingThisMessage && azureDeploymentName
+      ? azureDeploymentName
+      : MODEL_DATA?.modelName
+
   return (
     <div
       className={cn(
@@ -228,7 +252,7 @@ export const Message: FC<MessageProps> = ({
                   />
                 ) : (
                   <WithTooltip
-                    display={<div>{MODEL_DATA?.modelName}</div>}
+                    display={<div>{displayedModelName}</div>}
                     trigger={
                       <ModelIcon
                         provider={modelDetails?.provider || "custom"}
@@ -261,7 +285,7 @@ export const Message: FC<MessageProps> = ({
                       )?.name
                     : selectedAssistant
                       ? selectedAssistant?.name
-                      : MODEL_DATA?.modelName
+                      : displayedModelName
                   : (profile?.display_name ?? profile?.username)}
               </div>
             </div>

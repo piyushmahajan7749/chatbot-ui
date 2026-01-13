@@ -4,7 +4,7 @@
 
 import { ChatbotUIContext } from "@/context/context"
 import { getProfileByUserId } from "@/db/profile"
-import { getReports } from "@/db/reports"
+import { getReports } from "@/db/reports-firestore"
 import { getWorkspaceImageFromStorage } from "@/db/storage/workspace-images"
 import { getWorkspacesByUserId } from "@/db/workspaces"
 import { convertBlobToBase64 } from "@/lib/blob-to-b64"

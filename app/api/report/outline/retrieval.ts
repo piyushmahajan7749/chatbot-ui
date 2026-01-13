@@ -14,6 +14,7 @@ export async function retrieveRelevantContent(
   sourceCount: number = 3 // Default to 3
 ) {
   const uniqueFileIds = [...new Set(fileIds)]
+  if (uniqueFileIds.length === 0) return []
 
   try {
     const supabaseAdmin = createClient<Database>(
@@ -83,6 +84,7 @@ export async function retrieveRelevantContent(
 
 export async function retrieveFileContent(fileIds: string[]) {
   const uniqueFileIds = [...new Set(fileIds)]
+  if (uniqueFileIds.length === 0) return []
 
   console.log("file ids: " + fileIds)
 

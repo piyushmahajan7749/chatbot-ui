@@ -20,7 +20,7 @@ import { LLMID } from "@/types"
 import { useParams, useRouter, useSearchParams } from "next/navigation"
 import { ReactNode, useContext, useEffect, useState } from "react"
 import Loading from "../loading"
-import { getReportWorkspacesByWorkspaceId } from "@/db/reports"
+import { getReportWorkspacesByWorkspaceId } from "@/db/reports-firestore"
 
 interface WorkspaceLayoutProps {
   children: ReactNode

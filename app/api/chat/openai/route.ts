@@ -15,6 +15,14 @@ export async function POST(request: Request) {
   }
 
   try {
+    const shouldRetryWithoutTemperature = (error: any) => {
+      const msg = (error?.error?.message || error?.message || "") as string
+      return (
+        /temperature/i.test(msg) &&
+        /Only the default \(1\) value is supported/i.test(msg)
+      )
+    }
+
     const profile = await getServerProfile()
 
     // If the user has Azure OpenAI configured, route through the Azure chat endpoint
@@ -39,7 +47,7 @@ export async function POST(request: Request) {
         defaultHeaders: { "api-key": KEY }
       })
 
-      const response = await azureOpenai.chat.completions.create({
+      const params = {
         model: DEPLOYMENT_ID as ChatCompletionCreateParamsBase["model"],
         messages: messages as ChatCompletionCreateParamsBase["messages"],
         temperature: chatSettings.temperature,
@@ -47,9 +55,24 @@ export async function POST(request: Request) {
           chatSettings.model === "gpt-4-vision-preview" ||
           chatSettings.model === "gpt-4o"
             ? 4096
-            : null, // TODO: Fix
+            : undefined, // Do not send `null` (provider validation error).
         stream: true
-      })
+      } as const
+
+      let response: any
+      try {
+        response = await azureOpenai.chat.completions.create(params as any)
+      } catch (error: any) {
+        if (shouldRetryWithoutTemperature(error)) {
+          // Some models (e.g. reasoning models) only accept the default temperature.
+          const { temperature: _temperature, ...withoutTemperature } =
+            params as any
+          response =
+            await azureOpenai.chat.completions.create(withoutTemperature)
+        } else {
+          throw error
+        }
+      }
 
       const stream = OpenAIStream(response as any)
       return new StreamingTextResponse(stream)
@@ -62,7 +85,7 @@ export async function POST(request: Request) {
       organization: profile.openai_organization_id
     })
 
-    const response = await openai.chat.completions.create({
+    const params = {
       model: chatSettings.model as ChatCompletionCreateParamsBase["model"],
       messages: messages as ChatCompletionCreateParamsBase["messages"],
       temperature: chatSettings.temperature,
@@ -70,9 +93,23 @@ export async function POST(request: Request) {
         chatSettings.model === "gpt-4-vision-preview" ||
         chatSettings.model === "gpt-4o"
           ? 4096
-          : null, // TODO: Fix
+          : undefined, // Do not send `null` (provider validation error).
       stream: true
-    })
+    } as const
+
+    let response: any
+    try {
+      response = await openai.chat.completions.create(params as any)
+    } catch (error: any) {
+      if (shouldRetryWithoutTemperature(error)) {
+        // Some models (e.g. reasoning models) only accept the default temperature.
+        const { temperature: _temperature, ...withoutTemperature } =
+          params as any
+        response = await openai.chat.completions.create(withoutTemperature)
+      } else {
+        throw error
+      }
+    }
 
     const stream = OpenAIStream(response as any)
 

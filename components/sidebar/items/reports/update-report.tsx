@@ -15,7 +15,7 @@ import { updateChat } from "@/db/chats"
 import { Tables } from "@/supabase/types"
 import { IconEdit } from "@tabler/icons-react"
 import { FC, useContext, useRef, useState } from "react"
-import { updateReport } from "@/db/reports"
+import { updateReport } from "@/db/reports-firestore"
 import { ReportContext } from "@/context/reportcontext"
 
 interface UpdateReportProps {
