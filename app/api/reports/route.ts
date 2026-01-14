@@ -109,11 +109,21 @@ export async function GET(request: Request) {
       query = query.where("user_id", "==", user.id)
     }
 
-    const snapshot = await query.orderBy("created_at", "desc").get()
+    // NOTE:
+    // Using `where(...)` + `orderBy(...)` requires a composite Firestore index.
+    // To keep local/dev + fresh projects working out-of-the-box, fetch unsorted and
+    // sort in memory.
+    const snapshot = await query.get()
     const reports = snapshot.docs.map((doc: QueryDocumentSnapshot) => ({
       id: doc.id,
       ...doc.data()
     }))
+
+    reports.sort((a: any, b: any) => {
+      const aDate = new Date(a.updated_at || a.created_at || 0).getTime()
+      const bDate = new Date(b.updated_at || b.created_at || 0).getTime()
+      return bDate - aDate
+    })
 
     return NextResponse.json({ reports })
   } catch (error) {

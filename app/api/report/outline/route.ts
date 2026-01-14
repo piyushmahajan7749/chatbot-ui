@@ -7,7 +7,11 @@ import { createCanvas } from "@napi-rs/canvas"
 
 import { tool } from "@langchain/core/tools"
 import { NextResponse } from "next/server"
-import { retrieveFileContent } from "./retrieval"
+import {
+  backfillFileItemsLocal,
+  resolveSupabaseFilesToText
+} from "@/lib/report/file-content"
+import { getServerProfile } from "@/lib/server/server-chat-helpers"
 
 const openai = () => getAzureOpenAI()
 const MODEL_NAME = () => getAzureOpenAIModel()
@@ -755,13 +759,69 @@ export async function POST(req: Request) {
     const paperIds = Array.isArray(papers) ? papers : []
     const dataFileIds = Array.isArray(dataFiles) ? dataFiles : []
 
-    const protocolContent = await retrieveFileContent(protocolIds)
-    const paperContent = await retrieveFileContent(paperIds)
-    const dataFileContent = await retrieveFileContent(dataFileIds)
+    // Hybrid resolution:
+    // 1) Prefer existing `file_items` (fast path)
+    // 2) Fallback to downloading/parsing the raw file from Supabase Storage (works even when `file_items` is empty)
+    const resolved = await resolveSupabaseFilesToText(
+      [...protocolIds, ...paperIds, ...dataFileIds],
+      { maxCharsPerFile: 40_000 }
+    )
 
-    console.log("protocolContent: " + JSON.stringify(protocolContent)) // Add this log
-    console.log("paperContent: " + JSON.stringify(paperContent)) // Add this log
-    console.log("dataFileContent: " + JSON.stringify(dataFileContent)) // Add this log
+    const byId = new Map(resolved.map(r => [r.fileId, r]))
+
+    const protocolText = protocolIds
+      .map(id => byId.get(id)?.content || "")
+      .filter(Boolean)
+      .join("\n\n")
+    const paperText = paperIds
+      .map(id => byId.get(id)?.content || "")
+      .filter(Boolean)
+      .join("\n\n")
+    const dataFileText = dataFileIds
+      .map(id => byId.get(id)?.content || "")
+      .filter(Boolean)
+      .join("\n\n")
+
+    const fallbackUsed = resolved
+      .filter(r => r.source === "raw")
+      .map(r => r.fileId)
+    if (fallbackUsed.length > 0) {
+      console.log(
+        "[REPORT_OUTLINE] Fallback used (no file_items found) for fileIds:",
+        fallbackUsed
+      )
+      const warnings = resolved
+        .filter(r => r.source === "raw" && r.warnings?.length)
+        .map(r => ({ fileId: r.fileId, warnings: r.warnings }))
+      if (warnings.length) {
+        console.warn("[REPORT_OUTLINE] File parsing warnings:", warnings)
+      }
+    }
+
+    // Optional backfill: populate `file_items` so future runs can use fast path.
+    // Enabled via env var to avoid surprising compute in production/serverless.
+    if (
+      process.env.REPORT_BACKFILL_FILE_ITEMS === "true" &&
+      fallbackUsed.length
+    ) {
+      try {
+        const profile = await getServerProfile()
+        const { backfilledFileIds, skippedFileIds } =
+          await backfillFileItemsLocal(profile.user_id, resolved)
+        console.log(
+          "[REPORT_OUTLINE] Backfilled file_items:",
+          backfilledFileIds
+        )
+        if (skippedFileIds.length) {
+          console.warn(
+            "[REPORT_OUTLINE] Backfill skipped fileIds:",
+            skippedFileIds
+          )
+        }
+      } catch (e) {
+        console.warn("[REPORT_OUTLINE] Backfill failed:", e)
+      }
+    }
 
     const initialState: ReportState = {
       aim: "",
@@ -777,9 +837,9 @@ export async function POST(req: Request) {
       conclusion: "",
       nextSteps: "",
       experimentObjective: experimentObjective || "",
-      protocol: protocolContent[0]?.content || "",
-      paperSummary: paperContent[0]?.content || "",
-      dataFileSummary: dataFileContent[0]?.content || "",
+      protocol: protocolText || "",
+      paperSummary: paperText || "",
+      dataFileSummary: dataFileText || "",
       finalOutput: {} as ReportOutputType,
       chartData: [] as VisualizationType["data"],
       chartImage: "" // Initialize chartImage

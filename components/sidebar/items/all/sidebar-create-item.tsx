@@ -20,7 +20,10 @@ import { createFileBasedOnExtension } from "@/db/files"
 import { createModel } from "@/db/models"
 import { createPreset } from "@/db/presets"
 import { createPrompt } from "@/db/prompts"
-import { createReport } from "@/db/reports-firestore"
+import {
+  createReport,
+  updateReport as updateReportFirestore
+} from "@/db/reports-firestore"
 import {
   getAssistantImageFromStorage,
   uploadAssistantImage
@@ -257,6 +260,98 @@ export const SidebarCreateItem: FC<SidebarCreateItemProps> = ({
       }
 
       setCreating(true)
+
+      // Special handling for reports to generate draft immediately (mirrors designs flow)
+      if (contentType === "reports") {
+        try {
+          const newReport = await createFunctions.reports(
+            createState,
+            selectedWorkspace.id
+          )
+
+          setReports((prevItems: any) => [...prevItems, newReport])
+
+          const reportUrl = `/${selectedWorkspace.id}/report/${newReport.id}`
+          router.push(reportUrl)
+          onOpenChange(false)
+
+          toast.loading("Generating report draft...", {
+            id: `report-generate-${newReport.id}`,
+            duration: Infinity
+          })
+
+          // Track generation status on the report doc so the report page can render a loader.
+          updateReportFirestore(newReport.id, {
+            generation_status: "generating",
+            generation_started_at: new Date().toISOString(),
+            generation_error: null
+          }).catch(() => {})
+
+          const files = createState?.files || {}
+          const payload = {
+            experimentObjective:
+              newReport?.description || createState?.description || "",
+            protocol: (files?.protocol || []).map((f: any) => f.id),
+            papers: (files?.papers || []).map((f: any) => f.id),
+            dataFiles: (files?.dataFiles || []).map((f: any) => f.id)
+          }
+
+          // Let the user keep working; generation + persistence happens in the background.
+          setCreating(false)
+          void (async () => {
+            const response = await fetch("/api/report/outline", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(payload)
+            })
+
+            if (!response.ok) {
+              throw new Error(`Report generation failed: ${response.status}`)
+            }
+
+            const data = await response.json()
+            if (!data?.reportOutline || !data?.reportDraft) {
+              throw new Error("Report generation returned no output")
+            }
+
+            await updateReportFirestore(newReport.id, {
+              report_outline: data.reportOutline,
+              report_draft: data.reportDraft,
+              chart_image: data.chartImage || null,
+              generation_status: "ready",
+              generation_completed_at: new Date().toISOString(),
+              generation_error: null
+            })
+
+            toast.success("Report draft generated and saved.", {
+              id: `report-generate-${newReport.id}`,
+              duration: 5000
+            })
+          })().catch((error: any) => {
+            console.error("Error generating report:", error)
+            updateReportFirestore(newReport.id, {
+              generation_status: "error",
+              generation_error: error?.message || "Unknown error",
+              generation_completed_at: new Date().toISOString()
+            }).catch(() => {})
+            toast.error(
+              `Error generating report: ${error?.message || "Unknown error"}`,
+              { id: `report-generate-${newReport.id}`, duration: 7000 }
+            )
+          })
+
+          return
+        } catch (error: any) {
+          console.error("Error creating report:", error)
+          toast.error(
+            `Error creating report: ${error?.message || "Unknown error"}`,
+            { duration: 7000 }
+          )
+          setCreating(false)
+          onOpenChange(false)
+          return
+        }
+      }
 
       // Special handling for designs to call the AI model first
       if (contentType === "designs") {

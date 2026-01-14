@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useRef } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Loader } from "@/components/ui/loader"
@@ -45,6 +45,10 @@ export function ReportReviewComponent({ onSave, reportId }: ReportReviewProps) {
   const [canGenerate, setCanGenerate] = useState(false)
   const [pendingFiles, setPendingFiles] = useState<any | null>(null)
   const [pendingObjective, setPendingObjective] = useState<string>("")
+  const [generationStatus, setGenerationStatus] = useState<
+    "generating" | "ready" | "error" | null
+  >(null)
+  const [generationError, setGenerationError] = useState<string | null>(null)
 
   const sectionRefs = useRef<Record<string, HTMLDivElement | null>>({})
 
@@ -79,20 +83,13 @@ export function ReportReviewComponent({ onSave, reportId }: ReportReviewProps) {
     "nextSteps"
   ]
 
-  useEffect(() => {
-    const loadReportData = async () => {
-      setLoading(true)
-      try {
-        await fetchReportFiles()
-      } catch (error) {
-        console.error("Error loading report files:", error)
-      }
-    }
+  const hasSavedDraft = useMemo(() => {
+    return (
+      generatedOutline.length > 0 && Object.keys(sectionContents).length > 0
+    )
+  }, [generatedOutline, sectionContents])
 
-    loadReportData()
-  }, [reportId])
-
-  const fetchReportFiles = async () => {
+  const refreshReportData = useCallback(async () => {
     if (!reportId) return
 
     try {
@@ -100,6 +97,13 @@ export function ReportReviewComponent({ onSave, reportId }: ReportReviewProps) {
         getReportFilesByReportId(reportId),
         getReportWithDetails(reportId)
       ])
+
+      const status = ((report as any)?.generation_status ||
+        null) as typeof generationStatus
+      const error = ((report as any)?.generation_error || null) as string | null
+
+      setGenerationStatus(status)
+      setGenerationError(error)
 
       // If saved content exists, load it
       const savedOutline = (report as any).report_outline as string[] | null
@@ -114,7 +118,7 @@ export function ReportReviewComponent({ onSave, reportId }: ReportReviewProps) {
         setGeneratedOutline(savedOutline)
         setSectionContents(savedDraft)
         setChartImage(savedChartImage || savedDraft["charts"] || null)
-        setLoading(false)
+        setCanGenerate(false)
         return
       }
 
@@ -135,22 +139,51 @@ export function ReportReviewComponent({ onSave, reportId }: ReportReviewProps) {
           () => {}
         )
 
-        setLoading(false)
+        setCanGenerate(false)
         return
       }
 
-      // Else do not auto-generate; allow manual generation if files are linked
+      // Else do not auto-generate here; allow manual generation if files are linked
       if (Object.values(groupedFiles).some(files => files.length > 0)) {
         setPendingFiles(groupedFiles)
-        setPendingObjective(report.description)
-        setCanGenerate(true)
-      }
+        setPendingObjective((report as any)?.description || "")
 
-      setLoading(false)
+        // If background generation is running, we show a loader instead of the empty UI.
+        if (status === "generating") {
+          setCanGenerate(false)
+        } else {
+          setCanGenerate(true)
+        }
+      }
     } catch (error) {
-      console.error("Error fetching report files:", error)
+      console.error("Error fetching report data:", error)
     }
-  }
+  }, [defaultOutlineOrder, generationStatus, reportId])
+
+  useEffect(() => {
+    const loadReportData = async () => {
+      setLoading(true)
+      try {
+        await refreshReportData()
+      } catch (error) {
+        console.error("Error loading report files:", error)
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    loadReportData()
+  }, [reportId])
+
+  // Poll while background generation is running, so we swap from loader -> content as soon
+  // as `report_draft` is persisted.
+  useEffect(() => {
+    if (generationStatus !== "generating" || hasSavedDraft) return
+    const interval = setInterval(() => {
+      void refreshReportData()
+    }, 3000)
+    return () => clearInterval(interval)
+  }, [generationStatus, hasSavedDraft, refreshReportData])
 
   const generateDraft = async (files: any, reportObjective: string) => {
     setLoading(true)
@@ -194,6 +227,25 @@ export function ReportReviewComponent({ onSave, reportId }: ReportReviewProps) {
 
   if (loading) {
     return <Loading />
+  }
+
+  if (generationStatus === "generating" && !hasSavedDraft) {
+    return (
+      <div className="flex h-[calc(100vh-60px)] w-full flex-col overflow-hidden">
+        <div className="flex items-center justify-center border-b px-4 py-3">
+          <h1 className="text-2xl font-bold">Report Generation in Progress</h1>
+        </div>
+        <div className="flex flex-1 items-center justify-center p-6">
+          <Loader text="Generating report draft" />
+        </div>
+      </div>
+    )
+  }
+
+  if (generationStatus === "error" && generationError && !hasSavedDraft) {
+    // Fall back to manual generation, but make the failure obvious.
+    // `canGenerate` will be true if the report has attachments.
+    console.error("Report generation failed:", generationError)
   }
 
   const handleSave = () => {
