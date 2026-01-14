@@ -1,8 +1,13 @@
 import { AgentTask, AgentResult } from "../types/interfaces"
 import { LiteratureScoutOutput } from "../types"
-import { callModelJson } from "../utils/model"
 import { getGenerationPrompt } from "./prompts/generation"
 import { v4 as uuidv4 } from "uuid"
+import { getAzureOpenAI, getAzureOpenAIModel } from "@/lib/azure-openai"
+import { zodResponseFormat } from "openai/helpers/zod"
+import { GenerationSchema } from "../types"
+
+const openai = () => getAzureOpenAI()
+const MODEL_NAME = () => getAzureOpenAIModel()
 
 export async function generationAdapter(task: AgentTask): Promise<AgentResult> {
   const startTime = Date.now()
@@ -25,28 +30,39 @@ export async function generationAdapter(task: AgentTask): Promise<AgentResult> {
 
     const promptConfig = getGenerationPrompt(plan, literatureContext)
 
-    // Call model
-    const result = await callModelJson(promptConfig.user, promptConfig.system, {
-      temperature: promptConfig.temperature,
-      maxTokens: promptConfig.maxTokens,
-      timeoutMs: task.timeoutMs || 60000
-    })
+    // Call model using structured parsing (same approach as report pipeline).
+    // This makes JSON-format failures far less likely and provides richer errors.
+    const timeoutMs = task.timeoutMs || 60000
+    const controller = new AbortController()
+    const timeoutId = setTimeout(() => controller.abort(), timeoutMs)
 
-    if (!result.ok || !result.json) {
-      console.error(`[GENERATION] Failed to get valid JSON: ${result.error}`)
-      return {
-        taskId: task.taskId,
-        status: "failure",
-        error: result.error || "non-json-output",
-        output: { raw: result.raw }
+    let output: any
+    try {
+      const completion = await openai().beta.chat.completions.parse(
+        {
+          model: MODEL_NAME(),
+          messages: [
+            { role: "system", content: promptConfig.system },
+            { role: "user", content: promptConfig.user }
+          ],
+          temperature: promptConfig.temperature,
+          max_tokens: promptConfig.maxTokens,
+          response_format: zodResponseFormat(GenerationSchema, "generation")
+        },
+        { signal: controller.signal as any }
+      )
+
+      output = completion.choices[0]?.message?.parsed
+      if (!output) {
+        throw new Error("Empty parsed response from model")
       }
+    } finally {
+      clearTimeout(timeoutId)
     }
 
     // Generate hypothesis ID
     const hypothesisId = uuidv4()
 
-    // Extract output
-    const output = result.json
     const provenance = output.provenance || []
 
     console.debug(
@@ -67,10 +83,14 @@ export async function generationAdapter(task: AgentTask): Promise<AgentResult> {
     }
   } catch (error: any) {
     console.error(`[GENERATION] Error in task ${task.taskId}:`, error)
+    const status = error?.status || error?.response?.status
+    const msg =
+      typeof error?.message === "string" ? error.message : "Unknown error"
+    const errorText = status ? `HTTP ${status}: ${msg}` : msg
     return {
       taskId: task.taskId,
       status: "failure",
-      error: error.message || "Unknown error"
+      error: errorText
     }
   }
 }

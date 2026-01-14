@@ -175,6 +175,11 @@ export const processDesignDraft = inngest.createFunction(
       )
 
       const hypos: Hypothesis[] = []
+      const failureSummaries: Array<{
+        taskId: string
+        error?: string
+        raw?: string
+      }> = []
       for (const result of generationResults) {
         if (
           result.status === "success" &&
@@ -217,7 +222,34 @@ export const processDesignDraft = inngest.createFunction(
 
           await saveHypothesis(hypothesis)
           hypos.push(hypothesis)
+        } else {
+          // Capture failure details so the status endpoint can explain why
+          // "No hypotheses generated" occurred (timeouts, Azure 400, parsing, etc.)
+          const raw =
+            typeof (result as any)?.output?.raw === "string"
+              ? ((result as any).output.raw as string)
+              : undefined
+          failureSummaries.push({
+            taskId: result.taskId,
+            error: result.error,
+            raw: raw ? raw.slice(0, 800) : undefined
+          })
         }
+      }
+
+      if (failureSummaries.length > 0) {
+        await saveLog({
+          timestamp: new Date().toISOString(),
+          actor: "supervisor",
+          message: `Generation failures: ${failureSummaries.length}/${generationResults.length}`,
+          level: "warn",
+          context: {
+            planId: plan.planId,
+            failureCount: failureSummaries.length,
+            totalTasks: generationResults.length,
+            failures: failureSummaries.slice(0, 3)
+          }
+        })
       }
 
       await saveLog({

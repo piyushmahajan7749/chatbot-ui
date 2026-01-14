@@ -177,6 +177,11 @@ export async function supervisorEnqueue(plan: ResearchPlan): Promise<{
 
     // Process generation results and save hypotheses
     const hypotheses: Hypothesis[] = []
+    const failureSummaries: Array<{
+      taskId: string
+      error?: string
+      raw?: string
+    }> = []
     for (const result of generationResults) {
       if (result.status === "success" && result.hypothesisId && result.output) {
         const hypothesis: Hypothesis = {
@@ -219,7 +224,32 @@ export async function supervisorEnqueue(plan: ResearchPlan): Promise<{
 
         await saveHypothesis(hypothesis)
         hypotheses.push(hypothesis)
+      } else {
+        const raw =
+          typeof (result as any)?.output?.raw === "string"
+            ? ((result as any).output.raw as string)
+            : undefined
+        failureSummaries.push({
+          taskId: result.taskId,
+          error: result.error,
+          raw: raw ? raw.slice(0, 800) : undefined
+        })
       }
+    }
+
+    if (failureSummaries.length > 0) {
+      await saveLog({
+        timestamp: new Date().toISOString(),
+        actor: "supervisor",
+        message: `Generation failures: ${failureSummaries.length}/${generationResults.length}`,
+        level: "warn",
+        context: {
+          planId: plan.planId,
+          failureCount: failureSummaries.length,
+          totalTasks: generationResults.length,
+          failures: failureSummaries.slice(0, 3)
+        }
+      })
     }
 
     await saveLog({

@@ -133,6 +133,16 @@ export const HypothesisBuilderSchema = z.object({
   explanation: z.string()
 })
 
+// Design/draft "GENERATION" agent output (superset of HypothesisBuilderSchema)
+// Keep optional fields since upstream code can safely default missing values.
+export const GenerationSchema = z.object({
+  hypothesis: z.string(),
+  explanation: z.string(),
+  provenance: z.array(z.string()).optional(),
+  feasibility_score: z.number().min(0).max(1).optional(),
+  novelty_score: z.number().min(0).max(1).optional()
+})
+
 export const ExperimentDesignerSchema = z.object({
   experimentDesign: z.object({
     whatWillBeTested: z.string(),
