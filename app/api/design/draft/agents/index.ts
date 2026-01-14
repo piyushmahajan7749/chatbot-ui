@@ -212,6 +212,8 @@ export async function callLiteratureScoutAgent(
         { role: "system", content: systemPrompt },
         { role: "user", content: userPrompt }
       ],
+      // This deployment only supports temperature=1.
+      temperature: 1,
       response_format: zodResponseFormat(
         LiteratureScoutSchema,
         "literatureScout"
@@ -321,6 +323,8 @@ export async function callHypothesisBuilderAgent(
         { role: "system", content: systemPrompt },
         { role: "user", content: userPrompt }
       ],
+      // This deployment only supports temperature=1.
+      temperature: 1,
       response_format: zodResponseFormat(
         HypothesisBuilderSchema,
         "hypothesisBuilder"
@@ -411,6 +415,8 @@ export async function callExperimentDesignerAgent(
         { role: "system", content: systemPrompt },
         { role: "user", content: userPrompt }
       ],
+      // This deployment only supports temperature=1.
+      temperature: 1,
       response_format: zodResponseFormat(
         ExperimentDesignerSchema,
         "experimentDesigner"
@@ -600,6 +606,8 @@ export async function callStatCheckAgent(
         { role: "system", content: systemPrompt },
         { role: "user", content: userPrompt }
       ],
+      // This deployment only supports temperature=1.
+      temperature: 1,
       response_format: zodResponseFormat(StatCheckSchema, "statCheck")
     })
 
@@ -712,6 +720,8 @@ export async function callReportWriterAgent(
         { role: "system", content: systemPrompt },
         { role: "user", content: userPrompt }
       ],
+      // This deployment only supports temperature=1.
+      temperature: 1,
       response_format: zodResponseFormat(ReportWriterSchema, "reportWriter")
     })
 

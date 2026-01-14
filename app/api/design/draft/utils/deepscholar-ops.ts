@@ -68,6 +68,8 @@ export async function semFilter(
           { role: "system", content: sys },
           { role: "user", content: user }
         ],
+        // This deployment only supports temperature=1.
+        temperature: 1,
         response_format: zodResponseFormat(RelevanceSchema, "rel")
       })
       const parsed = res.choices[0].message.parsed as z.infer<

@@ -1,10 +1,18 @@
 import { AgentTask, AgentResult } from "../types/interfaces"
-import { LiteratureScoutOutput } from "../types"
+import type { LiteratureScoutOutput } from "../types"
 import { getGenerationPrompt } from "./prompts/generation"
 import { v4 as uuidv4 } from "uuid"
 import { getAzureOpenAI, getAzureOpenAIModel } from "@/lib/azure-openai"
 import { zodResponseFormat } from "openai/helpers/zod"
-import { GenerationSchema } from "../types"
+import { z } from "zod"
+
+const GenerationSchema = z.object({
+  hypothesis: z.string(),
+  explanation: z.string(),
+  provenance: z.array(z.string()).optional(),
+  feasibility_score: z.number().min(0).max(1).optional(),
+  novelty_score: z.number().min(0).max(1).optional()
+})
 
 const openai = () => getAzureOpenAI()
 const MODEL_NAME = () => getAzureOpenAIModel()
@@ -45,8 +53,12 @@ export async function generationAdapter(task: AgentTask): Promise<AgentResult> {
             { role: "system", content: promptConfig.system },
             { role: "user", content: promptConfig.user }
           ],
-          temperature: promptConfig.temperature,
-          max_tokens: promptConfig.maxTokens,
+          // This deployment only supports temperature=1.
+          temperature: 1,
+          // Some newer Azure deployments require `max_completion_tokens` instead of `max_tokens`.
+          ...(typeof promptConfig.maxTokens === "number"
+            ? ({ max_completion_tokens: promptConfig.maxTokens } as any)
+            : {}),
           response_format: zodResponseFormat(GenerationSchema, "generation")
         },
         { signal: controller.signal as any }

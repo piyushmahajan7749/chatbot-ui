@@ -593,7 +593,8 @@ Provide specific, actionable insights relevant to experimental design.`
         },
         { role: "user", content: synthesisPrompt }
       ],
-      temperature: 0.3
+      // This deployment only supports temperature=1.
+      temperature: 1
     })
 
     const response = completion.choices[0].message.content || ""

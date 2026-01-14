@@ -46,7 +46,9 @@ export async function callModel(
   options: CallModelOptions = {}
 ): Promise<CallModelResult> {
   const {
-    temperature = 0.7,
+    // NOTE: Some Azure/OpenAI deployments only support temperature=1.
+    // We accept a temperature option for API compatibility, but force 1.
+    temperature: _temperature = 1,
     maxTokens,
     timeoutMs = DEFAULT_TIMEOUT_MS,
     retries = MAX_RETRIES
@@ -67,17 +69,43 @@ export async function callModel(
       const controller = new AbortController()
       const timeoutId = setTimeout(() => controller.abort(), timeoutMs)
 
-      const response = await openai.chat.completions.create(
-        {
-          model,
-          messages,
-          temperature,
-          max_tokens: maxTokens
-        },
-        {
+      // Some newer Azure/OpenAI deployments reject `max_tokens` and require
+      // `max_completion_tokens` instead. We'll prefer `max_completion_tokens`
+      // and fall back to `max_tokens` if the provider rejects it.
+      const baseParams: any = {
+        model,
+        messages,
+        temperature: 1,
+        ...(typeof maxTokens === "number"
+          ? { max_completion_tokens: maxTokens }
+          : {})
+      }
+
+      let response: any
+      try {
+        response = await openai.chat.completions.create(baseParams, {
           signal: controller.signal as any
+        })
+      } catch (e: any) {
+        const msg = typeof e?.message === "string" ? e.message : ""
+        // Fallback for providers/models that only support legacy `max_tokens`.
+        if (
+          typeof maxTokens === "number" &&
+          (msg.includes("Unsupported parameter: 'max_completion_tokens'") ||
+            msg.includes("max_completion_tokens is not supported"))
+        ) {
+          response = await openai.chat.completions.create(
+            {
+              ...baseParams,
+              max_tokens: maxTokens,
+              max_completion_tokens: undefined
+            },
+            { signal: controller.signal as any }
+          )
+        } else {
+          throw e
         }
-      )
+      }
 
       clearTimeout(timeoutId)
 
