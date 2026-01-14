@@ -47,7 +47,7 @@ export async function POST(request: Request) {
         defaultHeaders: { "api-key": KEY }
       })
 
-      const params = {
+      const params: any = {
         model: DEPLOYMENT_ID as ChatCompletionCreateParamsBase["model"],
         messages: messages as ChatCompletionCreateParamsBase["messages"],
         temperature: chatSettings.temperature,
@@ -57,11 +57,14 @@ export async function POST(request: Request) {
             ? 4096
             : undefined, // Do not send `null` (provider validation error).
         stream: true
-      } as const
+      }
+
+      // Defensive: never send nullish max_tokens (some providers error hard)
+      if (params.max_tokens == null) delete params.max_tokens
 
       let response: any
       try {
-        response = await azureOpenai.chat.completions.create(params as any)
+        response = await azureOpenai.chat.completions.create(params)
       } catch (error: any) {
         if (shouldRetryWithoutTemperature(error)) {
           // Some models (e.g. reasoning models) only accept the default temperature.
@@ -85,7 +88,7 @@ export async function POST(request: Request) {
       organization: profile.openai_organization_id
     })
 
-    const params = {
+    const params: any = {
       model: chatSettings.model as ChatCompletionCreateParamsBase["model"],
       messages: messages as ChatCompletionCreateParamsBase["messages"],
       temperature: chatSettings.temperature,
@@ -95,11 +98,14 @@ export async function POST(request: Request) {
           ? 4096
           : undefined, // Do not send `null` (provider validation error).
       stream: true
-    } as const
+    }
+
+    // Defensive: never send nullish max_tokens (some providers error hard)
+    if (params.max_tokens == null) delete params.max_tokens
 
     let response: any
     try {
-      response = await openai.chat.completions.create(params as any)
+      response = await openai.chat.completions.create(params)
     } catch (error: any) {
       if (shouldRetryWithoutTemperature(error)) {
         // Some models (e.g. reasoning models) only accept the default temperature.

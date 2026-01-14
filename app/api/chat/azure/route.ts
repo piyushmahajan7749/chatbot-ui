@@ -23,7 +23,7 @@ export async function POST(request: Request) {
     const azureOpenai = getAzureOpenAI()
     const deployment = getAzureOpenAIModel()
 
-    const params = {
+    const params: any = {
       model: deployment as ChatCompletionCreateParamsBase["model"],
       messages: messages as ChatCompletionCreateParamsBase["messages"],
       temperature: chatSettings.temperature,
@@ -31,11 +31,14 @@ export async function POST(request: Request) {
       max_tokens:
         chatSettings.model === "gpt-4-vision-preview" ? 4096 : undefined,
       stream: true
-    } as const
+    }
+
+    // Defensive: never send nullish max_tokens (some providers error hard)
+    if (params.max_tokens == null) delete params.max_tokens
 
     let response: any
     try {
-      response = await azureOpenai.chat.completions.create(params as any)
+      response = await azureOpenai.chat.completions.create(params)
     } catch (error: any) {
       if (shouldRetryWithoutTemperature(error)) {
         const { temperature: _temperature, ...withoutTemperature } =
