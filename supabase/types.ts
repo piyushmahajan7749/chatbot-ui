@@ -73,6 +73,159 @@ export type Database = {
           },
         ]
       }
+      design_research_plans: {
+        Row: {
+          plan_id: string
+          title: string
+          description: string
+          status: string
+          constraints: Json
+          preferences: Json
+          metadata: Json
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          plan_id: string
+          title: string
+          description: string
+          status: string
+          constraints?: Json
+          preferences?: Json
+          metadata?: Json
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          plan_id?: string
+          title?: string
+          description?: string
+          status?: string
+          constraints?: Json
+          preferences?: Json
+          metadata?: Json
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      design_hypotheses: {
+        Row: {
+          hypothesis_id: string
+          plan_id: string
+          content: string
+          explanation: string | null
+          elo: number | null
+          provenance: Json
+          metadata: Json
+          created_at: string
+        }
+        Insert: {
+          hypothesis_id: string
+          plan_id: string
+          content: string
+          explanation?: string | null
+          elo?: number | null
+          provenance?: Json
+          metadata?: Json
+          created_at?: string
+        }
+        Update: {
+          hypothesis_id?: string
+          plan_id?: string
+          content?: string
+          explanation?: string | null
+          elo?: number | null
+          provenance?: Json
+          metadata?: Json
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "design_hypotheses_plan_id_fkey"
+            columns: ["plan_id"]
+            isOneToOne: false
+            referencedRelation: "design_research_plans"
+            referencedColumns: ["plan_id"]
+          },
+        ]
+      }
+      design_tournament_matches: {
+        Row: {
+          match_id: string
+          plan_id: string
+          challenger_hypothesis_id: string | null
+          defender_hypothesis_id: string | null
+          winner_hypothesis_id: string | null
+          metadata: Json
+          created_at: string
+        }
+        Insert: {
+          match_id: string
+          plan_id: string
+          challenger_hypothesis_id?: string | null
+          defender_hypothesis_id?: string | null
+          winner_hypothesis_id?: string | null
+          metadata?: Json
+          created_at?: string
+        }
+        Update: {
+          match_id?: string
+          plan_id?: string
+          challenger_hypothesis_id?: string | null
+          defender_hypothesis_id?: string | null
+          winner_hypothesis_id?: string | null
+          metadata?: Json
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "design_tournament_matches_plan_id_fkey"
+            columns: ["plan_id"]
+            isOneToOne: false
+            referencedRelation: "design_research_plans"
+            referencedColumns: ["plan_id"]
+          },
+        ]
+      }
+      design_logs: {
+        Row: {
+          id: number
+          plan_id: string
+          timestamp: string
+          actor: string
+          level: string
+          message: string
+          context: Json
+        }
+        Insert: {
+          id?: number
+          plan_id: string
+          timestamp: string
+          actor: string
+          level: string
+          message: string
+          context?: Json
+        }
+        Update: {
+          id?: number
+          plan_id?: string
+          timestamp?: string
+          actor?: string
+          level?: string
+          message?: string
+          context?: Json
+        }
+        Relationships: [
+          {
+            foreignKeyName: "design_logs_plan_id_fkey"
+            columns: ["plan_id"]
+            isOneToOne: false
+            referencedRelation: "design_research_plans"
+            referencedColumns: ["plan_id"]
+          },
+        ]
+      }
       assistant_files: {
         Row: {
           assistant_id: string
@@ -1330,31 +1483,40 @@ export type Database = {
       }
       reports: {
         Row: {
+          chart_image: string | null
           created_at: string
           description: string
           folder_id: string | null
           id: string
           name: string
+          report_draft: Json | null
+          report_outline: string[] | null
           sharing: string
           updated_at: string | null
           user_id: string
         }
         Insert: {
+          chart_image?: string | null
           created_at?: string
           description: string
           folder_id?: string | null
           id?: string
           name: string
+          report_draft?: Json | null
+          report_outline?: string[] | null
           sharing?: string
           updated_at?: string | null
           user_id: string
         }
         Update: {
+          chart_image?: string | null
           created_at?: string
           description?: string
           folder_id?: string | null
           id?: string
           name?: string
+          report_draft?: Json | null
+          report_outline?: string[] | null
           sharing?: string
           updated_at?: string | null
           user_id?: string
@@ -1612,6 +1774,7 @@ export type Database = {
           owner: string | null
           owner_id: string | null
           public: boolean | null
+          type: Database["storage"]["Enums"]["buckettype"]
           updated_at: string | null
         }
         Insert: {
@@ -1624,6 +1787,7 @@ export type Database = {
           owner?: string | null
           owner_id?: string | null
           public?: boolean | null
+          type?: Database["storage"]["Enums"]["buckettype"]
           updated_at?: string | null
         }
         Update: {
@@ -1636,9 +1800,111 @@ export type Database = {
           owner?: string | null
           owner_id?: string | null
           public?: boolean | null
+          type?: Database["storage"]["Enums"]["buckettype"]
           updated_at?: string | null
         }
         Relationships: []
+      }
+      buckets_analytics: {
+        Row: {
+          created_at: string
+          format: string
+          id: string
+          type: Database["storage"]["Enums"]["buckettype"]
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          format?: string
+          id: string
+          type?: Database["storage"]["Enums"]["buckettype"]
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          format?: string
+          id?: string
+          type?: Database["storage"]["Enums"]["buckettype"]
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      iceberg_namespaces: {
+        Row: {
+          bucket_id: string
+          created_at: string
+          id: string
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          bucket_id: string
+          created_at?: string
+          id?: string
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          bucket_id?: string
+          created_at?: string
+          id?: string
+          name?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "iceberg_namespaces_bucket_id_fkey"
+            columns: ["bucket_id"]
+            isOneToOne: false
+            referencedRelation: "buckets_analytics"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      iceberg_tables: {
+        Row: {
+          bucket_id: string
+          created_at: string
+          id: string
+          location: string
+          name: string
+          namespace_id: string
+          updated_at: string
+        }
+        Insert: {
+          bucket_id: string
+          created_at?: string
+          id?: string
+          location: string
+          name: string
+          namespace_id: string
+          updated_at?: string
+        }
+        Update: {
+          bucket_id?: string
+          created_at?: string
+          id?: string
+          location?: string
+          name?: string
+          namespace_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "iceberg_tables_bucket_id_fkey"
+            columns: ["bucket_id"]
+            isOneToOne: false
+            referencedRelation: "buckets_analytics"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "iceberg_tables_namespace_id_fkey"
+            columns: ["namespace_id"]
+            isOneToOne: false
+            referencedRelation: "iceberg_namespaces"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       migrations: {
         Row: {
@@ -2009,7 +2275,7 @@ export type Database = {
       }
     }
     Enums: {
-      [_ in never]: never
+      buckettype: "STANDARD" | "ANALYTICS"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -2130,7 +2396,9 @@ export const Constants = {
     Enums: {},
   },
   storage: {
-    Enums: {},
+    Enums: {
+      buckettype: ["STANDARD", "ANALYTICS"],
+    },
   },
 } as const
 
