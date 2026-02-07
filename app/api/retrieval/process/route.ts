@@ -101,7 +101,8 @@ export async function POST(req: Request) {
       const openai = getAzureOpenAIEmbeddingsClient()
       const response = await openai.embeddings.create({
         model: embeddingsDeployment,
-        input: chunks.map(chunk => chunk.content)
+        input: chunks.map(chunk => chunk.content),
+        dimensions: 1536
       })
 
       embeddings = response.data.map((item: any) => {

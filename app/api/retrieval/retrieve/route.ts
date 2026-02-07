@@ -41,7 +41,8 @@ export async function POST(request: Request) {
       const openai = getAzureOpenAIEmbeddingsClient()
       const response = await openai.embeddings.create({
         model: embeddingsDeployment,
-        input: userInput
+        input: userInput,
+        dimensions: 1536
       })
 
       const openaiEmbedding = response.data.map(item => item.embedding)[0]
@@ -83,7 +84,9 @@ export async function POST(request: Request) {
       status: 200
     })
   } catch (error: any) {
-    const errorMessage = error.error?.message || "An unexpected error occurred"
+    console.error("[retrieve] Error:", error)
+    const errorMessage =
+      error.message || error.error?.message || "An unexpected error occurred"
     const errorCode = error.status || 500
     return new Response(JSON.stringify({ message: errorMessage }), {
       status: errorCode

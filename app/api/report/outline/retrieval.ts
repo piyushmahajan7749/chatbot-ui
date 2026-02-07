@@ -39,7 +39,8 @@ export async function retrieveRelevantContent(
       const openai = getAzureOpenAIEmbeddingsClient()
       const response = await openai.embeddings.create({
         model: embeddingsDeployment,
-        input: userInput
+        input: userInput,
+        dimensions: 1536
       })
 
       const openaiEmbedding = response.data.map(item => item.embedding)[0]
