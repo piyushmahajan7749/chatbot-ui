@@ -41,7 +41,63 @@ import {
 import { designAgentPromptSchemas } from "@/lib/design/prompt-schemas"
 import { AgentPromptUsage } from "@/types/design-prompts"
 import { Document, HeadingLevel, Packer, Paragraph, TextRun } from "docx"
-import { MaterialCalculator } from "@/components/design/material-calculator"
+
+interface CitationDetailItem {
+  index: number
+  title: string
+  url: string
+  source: string
+  authors: string[]
+  year?: string
+  journal?: string
+}
+
+function linkProvenanceToCitation(
+  provenanceText: string,
+  citationsDetailed?: CitationDetailItem[]
+): {
+  text: string
+  matchedCitation?: CitationDetailItem
+} {
+  if (!citationsDetailed || citationsDetailed.length === 0) {
+    return { text: provenanceText }
+  }
+
+  const lowerProv = provenanceText.toLowerCase()
+
+  for (const citation of citationsDetailed) {
+    // Check if provenance contains a significant portion of the citation title
+    const titleWords = citation.title
+      .toLowerCase()
+      .split(/\s+/)
+      .filter(w => w.length > 4)
+    const titleMatchCount = titleWords.filter(word =>
+      lowerProv.includes(word)
+    ).length
+    const titleMatchRatio =
+      titleWords.length > 0 ? titleMatchCount / titleWords.length : 0
+
+    // Check for author surname match
+    const authorMatch = citation.authors.some(author => {
+      const surname = author.split(/\s+/).pop()?.toLowerCase()
+      return surname && surname.length > 2 && lowerProv.includes(surname)
+    })
+
+    // Check for bracket-index match like "[1]" or "[3]"
+    const indexPattern = new RegExp(`\\[${citation.index}\\]`)
+    const indexMatch = indexPattern.test(provenanceText)
+
+    if (
+      titleMatchRatio > 0.4 ||
+      (authorMatch && titleMatchRatio > 0.2) ||
+      indexMatch
+    ) {
+      return { text: provenanceText, matchedCitation: citation }
+    }
+  }
+
+  return { text: provenanceText }
+}
 
 interface DesignReviewProps {
   designData: {
@@ -778,31 +834,6 @@ export function DesignReview({
               })()}
             </SectionCard>
           )}
-          {generatedDesign.experimentDesign &&
-            (generatedDesign.experimentDesign.executionPlan?.materialsList ||
-              generatedDesign.experimentDesign.executionPlan
-                ?.materialPreparation) && (
-              <MaterialCalculator
-                materialsListText={
-                  generatedDesign.experimentDesign.executionPlan.materialsList
-                }
-                materialPreparationText={
-                  generatedDesign.experimentDesign.executionPlan
-                    .materialPreparation
-                }
-                replicatesAndConditionsText={
-                  generatedDesign.experimentDesign.experimentDesign
-                    ?.replicatesAndConditions
-                }
-                conditionsTableText={
-                  generatedDesign.experimentDesign.executionPlan.conditionsTable
-                }
-                stepByStepProcedure={
-                  generatedDesign.experimentDesign.executionPlan
-                    .stepByStepProcedure
-                }
-              />
-            )}
           {generatedDesign.statisticalReview && (
             <SectionCard
               title="Statistical Review"
@@ -1362,20 +1393,51 @@ export function DesignReview({
                       Provenance & Sources
                     </h4>
                     <div className="text-muted-foreground space-y-2 text-sm">
-                      {reasoningHypothesis.provenance.map((source, idx) => (
-                        <div
-                          key={idx}
-                          className="border-border/50 rounded border p-2"
-                        >
-                          {typeof source === "string" ? (
-                            <p>{source}</p>
-                          ) : (
-                            <ReactMarkdown className={markdownClasses}>
-                              {JSON.stringify(source, null, 2)}
-                            </ReactMarkdown>
-                          )}
-                        </div>
-                      ))}
+                      {reasoningHypothesis.provenance.map((source, idx) => {
+                        const sourceStr =
+                          typeof source === "string"
+                            ? source
+                            : JSON.stringify(source, null, 2)
+                        const linked = linkProvenanceToCitation(
+                          sourceStr,
+                          planStatus?.literatureContext
+                            ?.citationsDetailed as CitationDetailItem[]
+                        )
+
+                        return (
+                          <div
+                            key={idx}
+                            className="border-border/50 rounded border p-2"
+                          >
+                            {linked.matchedCitation ? (
+                              <div className="space-y-1">
+                                <p className="text-sm">{linked.text}</p>
+                                <a
+                                  href={linked.matchedCitation.url}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="text-primary inline-flex items-center gap-1 text-xs hover:underline"
+                                >
+                                  [{linked.matchedCitation.index}]{" "}
+                                  {linked.matchedCitation.title}
+                                  {linked.matchedCitation.year && (
+                                    <span className="text-muted-foreground">
+                                      ({linked.matchedCitation.year})
+                                    </span>
+                                  )}
+                                  <span>&#8599;</span>
+                                </a>
+                              </div>
+                            ) : typeof source === "string" ? (
+                              <p>{source}</p>
+                            ) : (
+                              <ReactMarkdown className={markdownClasses}>
+                                {JSON.stringify(source, null, 2)}
+                              </ReactMarkdown>
+                            )}
+                          </div>
+                        )
+                      })}
                     </div>
                   </div>
                 )}

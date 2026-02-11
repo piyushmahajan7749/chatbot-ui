@@ -48,7 +48,9 @@ export async function GET(
       generated: allHypotheses.length,
       seedCount,
       completed: allHypotheses.filter(h => h.elo !== undefined).length,
-      failed: 0 // Could track failed tasks separately
+      failed: 0, // Could track failed tasks separately
+      phase: plan.currentPhase || undefined,
+      phaseMessage: plan.currentPhaseMessage || undefined
     }
 
     const status: PlanStatus = {

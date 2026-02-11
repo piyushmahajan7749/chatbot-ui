@@ -12,6 +12,8 @@ export interface ResearchPlan {
   }
   createdAt: string
   status?: "pending" | "seed_in_progress" | "completed" | "failed"
+  currentPhase?: string
+  currentPhaseMessage?: string
   literatureContext?: {
     whatOthersHaveDone: string
     goodMethodsAndTools: string

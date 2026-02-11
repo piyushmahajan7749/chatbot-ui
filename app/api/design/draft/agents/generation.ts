@@ -36,7 +36,13 @@ export async function generationAdapter(task: AgentTask): Promise<AgentResult> {
       | LiteratureScoutOutput
       | undefined
 
-    const promptConfig = getGenerationPrompt(plan, literatureContext)
+    const diversityHint = task.metadata?.diversityHint as string | undefined
+    const taskIndex = task.metadata?.taskIndex as number | undefined
+
+    const promptConfig = getGenerationPrompt(plan, literatureContext, {
+      diversityHint,
+      taskIndex
+    })
 
     // Call model using structured parsing (same approach as report pipeline).
     // This makes JSON-format failures far less likely and provides richer errors.

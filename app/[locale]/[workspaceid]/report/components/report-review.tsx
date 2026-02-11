@@ -20,9 +20,11 @@ import {
 import { getReportFilesByReportId } from "@/db/report-files-firestore"
 import Loading from "@/app/[locale]/loading"
 import ReactMarkdown from "react-markdown"
+import remarkGfm from "remark-gfm"
 import PptxGenJS from "pptxgenjs"
 import { getContentSlide, getIntroSlide } from "./utils"
 import { getReportWithDetails, updateReport } from "@/db/reports-firestore"
+import { ReportChart } from "./report-chart"
 
 interface ReportReviewProps {
   onSave: () => void
@@ -41,6 +43,9 @@ export function ReportReviewComponent({ onSave, reportId }: ReportReviewProps) {
   const [isEditing, setIsEditing] = useState(false)
   const [editedContent, setEditedContent] = useState("")
   const [chartImage, setChartImage] = useState<string | null>(null)
+  const [chartData, setChartData] = useState<
+    Array<{ label: string; value: number }>
+  >([])
   const [isQuestionSectionVisible, setIsQuestionSectionVisible] = useState(true)
   const [canGenerate, setCanGenerate] = useState(false)
   const [pendingFiles, setPendingFiles] = useState<any | null>(null)
@@ -112,12 +117,17 @@ export function ReportReviewComponent({ onSave, reportId }: ReportReviewProps) {
         string
       > | null
       const savedChartImage = (report as any).chart_image as string | null
+      const savedChartData = (report as any).chart_data as Array<{
+        label: string
+        value: number
+      }> | null
 
       // Case 1: we have explicit saved outline + draft
       if (savedOutline && savedOutline.length && savedDraft) {
         setGeneratedOutline(savedOutline)
         setSectionContents(savedDraft)
         setChartImage(savedChartImage || savedDraft["charts"] || null)
+        if (savedChartData) setChartData(savedChartData)
         setCanGenerate(false)
         return
       }
@@ -133,6 +143,7 @@ export function ReportReviewComponent({ onSave, reportId }: ReportReviewProps) {
         setGeneratedOutline(ordered)
         setSectionContents(savedDraft)
         setChartImage(savedChartImage || savedDraft["charts"] || null)
+        if (savedChartData) setChartData(savedChartData)
 
         // Persist outline so future loads are straightforward
         updateReport(reportId, { report_outline: ordered } as any).catch(
@@ -204,13 +215,15 @@ export function ReportReviewComponent({ onSave, reportId }: ReportReviewProps) {
         setGeneratedOutline(data.reportOutline)
         setSectionContents(data.reportDraft)
         setChartImage(data.chartImage)
+        if (data.chartData) setChartData(data.chartData)
 
         // Persist to DB
         try {
           await updateReport(reportId, {
             report_outline: data.reportOutline,
             report_draft: data.reportDraft,
-            chart_image: data.chartImage
+            chart_image: data.chartImage,
+            chart_data: data.chartData
           } as any)
         } catch (e) {
           console.error("Failed to save generated report content:", e)
@@ -506,12 +519,18 @@ export function ReportReviewComponent({ onSave, reportId }: ReportReviewProps) {
 
                     {section === "charts" ? (
                       <div className="prose dark:prose-invert max-w-none overflow-x-auto break-words pb-4 [&>*:first-child]:mt-0 [&_li]:my-0 [&_ol]:my-1 [&_p]:my-1 [&_ul]:my-1">
-                        {chartImage && (
+                        {chartData && chartData.length > 0 ? (
+                          <ReportChart data={chartData} />
+                        ) : chartImage ? (
                           <img
                             src={chartImage}
                             alt="Data visualization chart"
                             className="h-auto max-w-full rounded-lg shadow-lg"
                           />
+                        ) : (
+                          <p className="text-muted-foreground text-sm">
+                            No visualization data available.
+                          </p>
                         )}
                       </div>
                     ) : isEditing && activeSection === index ? (
@@ -524,7 +543,42 @@ export function ReportReviewComponent({ onSave, reportId }: ReportReviewProps) {
                       <Loader text="Regenerating content" />
                     ) : (
                       <div className="prose dark:prose-invert max-w-none overflow-x-auto break-words pb-4 [&>*:first-child]:mt-0 [&_li]:my-0 [&_ol]:my-1 [&_p]:my-1 [&_ul]:my-1">
-                        <ReactMarkdown className="whitespace-pre-wrap break-words">
+                        <ReactMarkdown
+                          className="whitespace-pre-wrap break-words"
+                          remarkPlugins={[remarkGfm]}
+                          components={{
+                            table: ({ children }) => (
+                              <div className="my-4 overflow-x-auto rounded-lg border">
+                                <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+                                  {children}
+                                </table>
+                              </div>
+                            ),
+                            thead: ({ children }) => (
+                              <thead className="bg-muted/50">{children}</thead>
+                            ),
+                            tbody: ({ children }) => (
+                              <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
+                                {children}
+                              </tbody>
+                            ),
+                            tr: ({ children }) => (
+                              <tr className="hover:bg-muted/30 transition-colors">
+                                {children}
+                              </tr>
+                            ),
+                            th: ({ children }) => (
+                              <th className="text-foreground px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider">
+                                {children}
+                              </th>
+                            ),
+                            td: ({ children }) => (
+                              <td className="text-muted-foreground whitespace-nowrap px-4 py-3 text-sm">
+                                {children}
+                              </td>
+                            )
+                          }}
+                        >
                           {(sectionContents[section] || "")
                             .trim()
                             .replace(/\n{3,}/g, "\n\n")}

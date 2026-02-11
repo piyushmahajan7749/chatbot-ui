@@ -55,24 +55,80 @@ export const DesignProgress = ({
           </div>
           <Progress value={percentComplete} className="h-3" />
           {progress && (
-            <div className="border-border text-muted-foreground grid gap-2 rounded-lg border p-3 text-xs sm:grid-cols-2">
-              <div className="flex items-center justify-between">
-                <span>Hypotheses generated</span>
-                <span className="text-foreground font-semibold">
-                  {progress.generated}/{progress.seedCount}
-                </span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span>Completed (ranked/refined)</span>
-                <span className="text-foreground font-semibold">
-                  {progress.completed}
-                </span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span>Failed or discarded</span>
-                <span className="text-foreground font-semibold">
-                  {progress.failed}
-                </span>
+            <div className="space-y-3">
+              {progress.phase && progress.phase !== "completed" && (
+                <div className="border-border bg-muted/30 rounded-lg border p-4">
+                  <div className="flex items-center gap-3">
+                    <div className="bg-primary size-2 animate-pulse rounded-full" />
+                    <div>
+                      <p className="text-foreground text-sm font-semibold capitalize">
+                        {progress.phase.replaceAll("_", " ")}
+                      </p>
+                      {progress.phaseMessage && (
+                        <p className="text-muted-foreground mt-1 text-xs">
+                          {progress.phaseMessage}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                  <div className="mt-3 flex items-center gap-1">
+                    {(
+                      [
+                        "literature_scout",
+                        "hypothesis_generation",
+                        "tournament",
+                        "reflection",
+                        "evolution",
+                        "meta_review"
+                      ] as const
+                    ).map((p, i) => {
+                      const phases = [
+                        "literature_scout",
+                        "hypothesis_generation",
+                        "tournament",
+                        "reflection",
+                        "evolution",
+                        "meta_review"
+                      ]
+                      const currentIdx = phases.indexOf(progress.phase || "")
+                      const isCurrent = progress.phase === p
+                      const isPast = currentIdx > i
+                      return (
+                        <div
+                          key={p}
+                          className={`h-1.5 min-w-[40px] flex-1 rounded-full ${
+                            isPast
+                              ? "bg-primary"
+                              : isCurrent
+                                ? "bg-primary animate-pulse"
+                                : "bg-muted"
+                          }`}
+                          title={p.replaceAll("_", " ")}
+                        />
+                      )
+                    })}
+                  </div>
+                </div>
+              )}
+              <div className="border-border text-muted-foreground grid gap-2 rounded-lg border p-3 text-xs sm:grid-cols-2">
+                <div className="flex items-center justify-between">
+                  <span>Hypotheses generated</span>
+                  <span className="text-foreground font-semibold">
+                    {progress.generated}/{progress.seedCount}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span>Completed (ranked/refined)</span>
+                  <span className="text-foreground font-semibold">
+                    {progress.completed}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span>Failed or discarded</span>
+                  <span className="text-foreground font-semibold">
+                    {progress.failed}
+                  </span>
+                </div>
               </div>
             </div>
           )}

@@ -106,6 +106,11 @@ export async function supervisorEnqueue(plan: ResearchPlan): Promise<{
     }
 
     // Phase 0: Literature Scout
+    plan.currentPhase = "literature_scout"
+    plan.currentPhaseMessage =
+      "Searching scientific databases for relevant literature..."
+    await saveResearchPlan(plan)
+
     await saveLog({
       timestamp: new Date().toISOString(),
       actor: "supervisor",
@@ -140,8 +145,26 @@ export async function supervisorEnqueue(plan: ResearchPlan): Promise<{
     })
 
     // Phase 1: Seed generation tasks
+    plan.currentPhase = "hypothesis_generation"
+    plan.currentPhaseMessage = "Generating diverse research hypotheses..."
+    await saveResearchPlan(plan)
+
     const seedCount = plan.preferences?.max_hypotheses || DEFAULT_SEED_COUNT
     const generationTasks: AgentTask[] = []
+
+    // Diversity lenses ensure each hypothesis explores a different scientific angle
+    const diversityLenses = [
+      "Focus on a MECHANISTIC hypothesis about underlying biochemical or biophysical processes.",
+      "Focus on a METHODOLOGICAL hypothesis about comparing experimental techniques or measurement strategies.",
+      "Focus on a DOSE-RESPONSE or CONCENTRATION-DEPENDENT hypothesis.",
+      "Focus on a TEMPORAL or KINETIC hypothesis about time-dependent behavior.",
+      "Focus on a COMPARATIVE hypothesis contrasting two or more conditions, formulations, or approaches.",
+      "Focus on a CONTROL-ORIENTED hypothesis emphasizing controls, baselines, or negative results.",
+      "Focus on a TRANSLATIONAL hypothesis bridging in-vitro findings to practical/clinical implications.",
+      "Focus on an INTERACTION or SYNERGY hypothesis about combined effects of multiple variables.",
+      "Focus on a STABILITY or DEGRADATION hypothesis about long-term behavior under stress conditions.",
+      "Focus on a NOVEL/UNCONVENTIONAL hypothesis that challenges assumptions in the literature."
+    ]
 
     for (let i = 0; i < seedCount; i++) {
       generationTasks.push({
@@ -156,7 +179,9 @@ export async function supervisorEnqueue(plan: ResearchPlan): Promise<{
             description: plan.description,
             constraints: plan.constraints
           },
-          literatureContext: literatureResult.output
+          literatureContext: literatureResult.output,
+          taskIndex: i,
+          diversityHint: diversityLenses[i % diversityLenses.length]
         }
       })
     }
@@ -265,6 +290,10 @@ export async function supervisorEnqueue(plan: ResearchPlan): Promise<{
     }
 
     // Phase 2: Run tournament (pairwise ranking)
+    plan.currentPhase = "tournament"
+    plan.currentPhaseMessage = "Ranking hypotheses via pairwise comparison..."
+    await saveResearchPlan(plan)
+
     const topN = Math.min(10, hypotheses.length)
     const topHypotheses = hypotheses.slice(0, topN)
 
@@ -337,6 +366,9 @@ export async function supervisorEnqueue(plan: ResearchPlan): Promise<{
     updatedHypotheses.sort((a, b) => (b.elo || 0) - (a.elo || 0))
 
     // Phase 3: Run reflection on top hypotheses
+    plan.currentPhase = "reflection"
+    plan.currentPhaseMessage = "Reflecting on top hypotheses..."
+    await saveResearchPlan(plan)
     const topM = Math.min(10, updatedHypotheses.length)
     const reflectionTasks: AgentTask[] = topHypotheses
       .slice(0, topM)
@@ -357,6 +389,9 @@ export async function supervisorEnqueue(plan: ResearchPlan): Promise<{
     await runTasksWithConcurrency(reflectionTasks, DEFAULT_CONCURRENCY)
 
     // Phase 4: Run evolution on top hypotheses
+    plan.currentPhase = "evolution"
+    plan.currentPhaseMessage = "Evolving best hypotheses..."
+    await saveResearchPlan(plan)
     const evolutionTasks: AgentTask[] = topHypotheses
       .slice(0, topM)
       .map(hypo => ({
@@ -408,6 +443,10 @@ export async function supervisorEnqueue(plan: ResearchPlan): Promise<{
     }
 
     // Phase 5: Run meta review
+    plan.currentPhase = "meta_review"
+    plan.currentPhaseMessage = "Running final meta-review..."
+    await saveResearchPlan(plan)
+
     const metaReviewTask: AgentTask = {
       taskId: uuidv4(),
       planId: plan.planId,
@@ -428,6 +467,8 @@ export async function supervisorEnqueue(plan: ResearchPlan): Promise<{
 
     // Update plan status
     plan.status = "completed"
+    plan.currentPhase = "completed"
+    plan.currentPhaseMessage = "All phases complete"
     await saveResearchPlan(plan)
 
     const totalTime = Date.now() - startTime

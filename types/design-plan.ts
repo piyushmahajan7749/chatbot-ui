@@ -9,6 +9,15 @@ export interface DesignPlanProgress {
   seedCount: number
   completed: number
   failed: number
+  phase?:
+    | "literature_scout"
+    | "hypothesis_generation"
+    | "tournament"
+    | "reflection"
+    | "evolution"
+    | "meta_review"
+    | "completed"
+  phaseMessage?: string
 }
 
 export interface DesignPlanHypothesis {

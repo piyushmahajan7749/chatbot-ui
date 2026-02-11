@@ -155,15 +155,15 @@ export const ExperimentDesignerSchema = z.object({
     specificRequirements: z.string()
   }),
   executionPlan: z.object({
-    materialsList: z.string(),
-    materialPreparation: z.string(),
-    stepByStepProcedure: z.string(),
-    timeline: z.string(),
-    setupInstructions: z.string(),
-    dataCollectionPlan: z.string(),
-    conditionsTable: z.string(),
-    storageDisposal: z.string(),
-    safetyNotes: z.string()
+    materialsList: z.string().min(200),
+    materialPreparation: z.string().min(300),
+    stepByStepProcedure: z.string().min(500),
+    timeline: z.string().min(100),
+    setupInstructions: z.string().min(100),
+    dataCollectionPlan: z.string().min(150),
+    conditionsTable: z.string().min(100),
+    storageDisposal: z.string().min(50),
+    safetyNotes: z.string().min(50)
   }),
   rationale: z.string()
 })

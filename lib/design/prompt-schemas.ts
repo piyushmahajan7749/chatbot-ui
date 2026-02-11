@@ -66,9 +66,9 @@ const experimentTask = [
   "- `executionPlan.conditionsTable`: provide a structured table listing ALL experimental conditions with independent variables, fixed background conditions, and control vs test designation.",
   "",
   "Also produce SOP-ready supporting details in the remaining execution fields:",
-  "- `executionPlan.materialsList`: consolidated materials list (reagents, buffers, biologicals, consumables; include vendor/catalog IDs when known).",
-  "- `executionPlan.materialPreparation`: preparation/calculation guidance that is complete enough to avoid dilution/volume/concentration errors.",
-  "- `executionPlan.stepByStepProcedure`: numbered steps only (no paragraphs), with volumes/temps/timing/settings; separate prep vs measurement vs cleanup.",
+  "- `executionPlan.materialsList`: consolidated materials list with AT LEAST 15 items (reagents, buffers, biologicals, consumables, equipment); include vendor/catalog IDs, concentrations, volumes, and catalog numbers when known. Organize into categories: Reagents & Chemicals, Buffers & Solutions, Consumables, Equipment.",
+  "- `executionPlan.materialPreparation`: DETAILED preparation guidance (minimum 300 words) covering every solution/buffer/reagent that must be prepared; include exact calculations for dilutions, volumes, molar concentrations, pH adjustments, and storage conditions. Each preparation should have its own subsection.",
+  "- `executionPlan.stepByStepProcedure`: numbered steps (MINIMUM 15 steps, no paragraphs), organized into clearly labeled phases: (1) Preparation & Setup, (2) Sample Processing, (3) Measurement/Data Collection, (4) Cleanup & Disposal. Each step MUST include specific volumes (e.g., 'Add 50 µL'), temperatures (e.g., 'at 37°C'), timing (e.g., 'incubate for 30 min'), mixing methods (e.g., 'vortex for 10 s'), and instrument settings where applicable.",
   "- `executionPlan.setupInstructions`: instrument and lab setup requirements (concise, explicit).",
   "- `executionPlan.dataCollectionPlan`: data types, data recording rules, and ready-to-fill table templates aligned to the Condition IDs in `conditionsTable`.",
   "- `executionPlan.timeline`: time-ordered checkpoints/timepoints.",
@@ -101,7 +101,10 @@ const experimentQuality = [
   "Quality standard:",
   "- A junior scientist should be able to execute without supervision or clarification.",
   "- Prevent data mislabeling: include Condition IDs in data templates and raw file naming rules.",
-  "- Do not invent equipment capabilities; stay lab-realistic."
+  "- Do not invent equipment capabilities; stay lab-realistic.",
+  "- Materials list must contain at least 15 distinct items with specifications (name, concentration, volume, catalog number).",
+  "- Preparation section must include calculations for every buffer/solution made from scratch.",
+  "- Procedure must have at least 15 numbered steps spanning preparation through cleanup, with each step specifying volumes, temperatures, and timing."
 ].join("\n")
 
 const statRole = [
