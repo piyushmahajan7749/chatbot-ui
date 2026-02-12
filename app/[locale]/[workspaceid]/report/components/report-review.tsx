@@ -48,6 +48,31 @@ function normalizeChartData(raw: any): ChartDataState | null {
   return null
 }
 
+/**
+ * Strip the leading markdown heading from content if it matches the section title.
+ * e.g. section "Aim" with content "### Aim\n- point" → "- point"
+ * This prevents the heading from appearing twice (once from the UI, once from the LLM).
+ */
+function stripDuplicateHeading(content: string, sectionTitle: string): string {
+  if (!content) return content
+  const trimmed = content.trimStart()
+  // Match leading markdown heading: # Title, ## Title, ### Title, etc.
+  const headingMatch = trimmed.match(/^(#{1,6})\s+(.+?)(\n|$)/)
+  if (!headingMatch) return content
+  const headingText = headingMatch[2].trim()
+  // Compare case-insensitively and ignore trailing punctuation/whitespace
+  const normalize = (s: string) =>
+    s
+      .toLowerCase()
+      .replace(/[^a-z0-9\s]/g, "")
+      .trim()
+  if (normalize(headingText) === normalize(sectionTitle)) {
+    // Remove the heading line
+    return trimmed.slice(headingMatch[0].length)
+  }
+  return content
+}
+
 interface ReportReviewProps {
   onSave: () => void
   reportId: string
@@ -720,9 +745,12 @@ export function ReportReviewComponent({ onSave, reportId }: ReportReviewProps) {
                             )
                           }}
                         >
-                          {(sectionContents[section] || "")
-                            .trim()
-                            .replace(/\n{3,}/g, "\n\n")}
+                          {stripDuplicateHeading(
+                            (sectionContents[section] || "")
+                              .trim()
+                              .replace(/\n{3,}/g, "\n\n"),
+                            outlineMapping[section] || section
+                          )}
                         </ReactMarkdown>
                       </div>
                     )}
