@@ -1,4 +1,7 @@
-import { getAzureOpenAI, getAzureOpenAIModel } from "@/lib/azure-openai"
+import {
+  getAzureOpenAIForDesign,
+  getDesignDeployment
+} from "@/lib/azure-openai"
 import { zodResponseFormat } from "openai/helpers/zod"
 import {
   ExperimentDesignState,
@@ -58,8 +61,8 @@ function buildCitationsDetailed(searchResults?: any): CitationItem[] {
   return items.map((it, idx) => ({ ...it, index: idx + 1 }))
 }
 
-const openai = () => getAzureOpenAI()
-const MODEL_NAME = () => getAzureOpenAIModel()
+const openai = () => getAzureOpenAIForDesign()
+const MODEL_NAME = () => getDesignDeployment()
 
 type AgentCallResult<T> = {
   output: T
@@ -212,8 +215,8 @@ export async function callLiteratureScoutAgent(
         { role: "system", content: systemPrompt },
         { role: "user", content: userPrompt }
       ],
-      // This deployment only supports temperature=1.
-      temperature: 1,
+      // gpt-4.1 supports variable temperature for better output quality.
+      temperature: 0.7,
       response_format: zodResponseFormat(
         LiteratureScoutSchema,
         "literatureScout"
@@ -323,8 +326,8 @@ export async function callHypothesisBuilderAgent(
         { role: "system", content: systemPrompt },
         { role: "user", content: userPrompt }
       ],
-      // This deployment only supports temperature=1.
-      temperature: 1,
+      // gpt-4.1 supports variable temperature for better hypothesis diversity.
+      temperature: 0.7,
       response_format: zodResponseFormat(
         HypothesisBuilderSchema,
         "hypothesisBuilder"
@@ -415,8 +418,8 @@ export async function callExperimentDesignerAgent(
         { role: "system", content: systemPrompt },
         { role: "user", content: userPrompt }
       ],
-      // This deployment only supports temperature=1.
-      temperature: 1,
+      // gpt-4.1 supports variable temperature for better output quality.
+      temperature: 0.7,
       response_format: zodResponseFormat(
         ExperimentDesignerSchema,
         "experimentDesigner"
@@ -606,8 +609,8 @@ export async function callStatCheckAgent(
         { role: "system", content: systemPrompt },
         { role: "user", content: userPrompt }
       ],
-      // This deployment only supports temperature=1.
-      temperature: 1,
+      // gpt-4.1 supports variable temperature for better output quality.
+      temperature: 0.7,
       response_format: zodResponseFormat(StatCheckSchema, "statCheck")
     })
 
@@ -720,8 +723,8 @@ export async function callReportWriterAgent(
         { role: "system", content: systemPrompt },
         { role: "user", content: userPrompt }
       ],
-      // This deployment only supports temperature=1.
-      temperature: 1,
+      // gpt-4.1 supports variable temperature for better output quality.
+      temperature: 0.7,
       response_format: zodResponseFormat(ReportWriterSchema, "reportWriter")
     })
 

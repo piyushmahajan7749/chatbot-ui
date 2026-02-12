@@ -7,7 +7,7 @@ import {
   DesignPlanStatus,
   DesignPlanHypothesis
 } from "@/types/design-plan"
-import { type ReactNode, useCallback, useEffect, useState } from "react"
+import { type ReactNode, useCallback, useEffect, useRef, useState } from "react"
 import { formatDistanceToNow } from "date-fns"
 import {
   AlertTriangle,
@@ -17,6 +17,7 @@ import {
   Clock,
   Copy,
   Download,
+  FileDown,
   Info,
   Layers,
   Loader2,
@@ -58,12 +59,26 @@ function linkProvenanceToCitation(
 ): {
   text: string
   matchedCitation?: CitationDetailItem
+  extractedUrl?: string
 } {
   if (!citationsDetailed || citationsDetailed.length === 0) {
-    return { text: provenanceText }
+    // Even without citations, try to extract raw URLs from provenance text
+    const urlMatch = provenanceText.match(/https?:\/\/[^\s,)}\]]+/)
+    return { text: provenanceText, extractedUrl: urlMatch?.[0] }
   }
 
   const lowerProv = provenanceText.toLowerCase()
+
+  // First pass: try bracket-index match (most reliable when model follows instructions)
+  // Support formats: [1], [1], [ 1 ], and leading "[N] Title" pattern
+  const bracketMatch = provenanceText.match(/\[(\d+)\]/)
+  if (bracketMatch) {
+    const idx = parseInt(bracketMatch[1], 10)
+    const byIndex = citationsDetailed.find(c => c.index === idx)
+    if (byIndex) {
+      return { text: provenanceText, matchedCitation: byIndex }
+    }
+  }
 
   for (const citation of citationsDetailed) {
     // Check if provenance contains a significant portion of the citation title
@@ -83,20 +98,26 @@ function linkProvenanceToCitation(
       return surname && surname.length > 2 && lowerProv.includes(surname)
     })
 
-    // Check for bracket-index match like "[1]" or "[3]"
-    const indexPattern = new RegExp(`\\[${citation.index}\\]`)
-    const indexMatch = indexPattern.test(provenanceText)
+    // Check for DOI match
+    const doiMatch =
+      citation.url &&
+      citation.url.includes("doi.org") &&
+      lowerProv.includes(
+        citation.url.replace(/^https?:\/\/(dx\.)?doi\.org\//, "").toLowerCase()
+      )
 
     if (
       titleMatchRatio > 0.4 ||
       (authorMatch && titleMatchRatio > 0.2) ||
-      indexMatch
+      doiMatch
     ) {
       return { text: provenanceText, matchedCitation: citation }
     }
   }
 
-  return { text: provenanceText }
+  // Fallback: extract raw URL from provenance text if no citation matched
+  const urlMatch = provenanceText.match(/https?:\/\/[^\s,)}\]]+/)
+  return { text: provenanceText, extractedUrl: urlMatch?.[0] }
 }
 
 interface DesignReviewProps {
@@ -608,6 +629,65 @@ export function DesignReview({
     }
   }, [promptsAvailable, promptsUsed, selectedHypothesis])
 
+  const designContentRef = useRef<HTMLDivElement>(null)
+
+  const handleDownloadPDF = useCallback(async () => {
+    if (!designContentRef.current || !generatedDesign) return
+
+    try {
+      const html2canvas = (await import("html2canvas")).default
+      const { jsPDF } = await import("jspdf")
+
+      const element = designContentRef.current
+
+      const canvas = await html2canvas(element, {
+        scale: 2,
+        useCORS: true,
+        logging: false,
+        backgroundColor: "#ffffff"
+      })
+
+      const imgWidth = 190 // A4 usable width in mm (210 - 20 margin)
+      const pageHeight = 277 // A4 usable height in mm (297 - 20 margin)
+      const imgHeight = (canvas.height * imgWidth) / canvas.width
+
+      const pdf = new jsPDF("p", "mm", "a4")
+      let heightLeft = imgHeight
+      let position = 10 // top margin
+
+      // First page
+      pdf.addImage(
+        canvas.toDataURL("image/png"),
+        "PNG",
+        10,
+        position,
+        imgWidth,
+        imgHeight
+      )
+      heightLeft -= pageHeight
+
+      // Additional pages if content overflows
+      while (heightLeft > 0) {
+        position = heightLeft - imgHeight + 10
+        pdf.addPage()
+        pdf.addImage(
+          canvas.toDataURL("image/png"),
+          "PNG",
+          10,
+          position,
+          imgWidth,
+          imgHeight
+        )
+        heightLeft -= pageHeight
+      }
+
+      const fileName = `${designData?.name || "experiment"}-design.pdf`
+      pdf.save(fileName)
+    } catch (error) {
+      console.error("[DESIGN_REVIEW] Failed to generate PDF:", error)
+    }
+  }, [generatedDesign, designData?.name])
+
   const designReportCard = generatedDesign &&
     typeof generatedDesign === "object" && (
       <Card>
@@ -615,6 +695,10 @@ export function DesignReview({
           <CardTitle>Experiment Design</CardTitle>
           {generatedDesign && (
             <div className="flex flex-wrap gap-2 pt-3">
+              <Button variant="outline" size="sm" onClick={handleDownloadPDF}>
+                <FileDown className="mr-2 size-4" />
+                Download Design (.pdf)
+              </Button>
               {promptsAvailable && (
                 <Button
                   variant="outline"
@@ -647,7 +731,10 @@ export function DesignReview({
             </div>
           )}
         </CardHeader>
-        <CardContent className="text-muted-foreground space-y-4 text-sm">
+        <CardContent
+          ref={designContentRef}
+          className="text-muted-foreground space-y-4 text-sm"
+        >
           {generatedDesign.researchObjective && (
             <SectionCard
               title="Research Objective"
@@ -1151,11 +1238,6 @@ export function DesignReview({
                   </div>
                   <div className="flex flex-wrap items-center justify-between gap-3">
                     <div className="flex flex-wrap gap-3 text-xs">
-                      {typeof selectedHypothesis.elo === "number" && (
-                        <span className="bg-secondary/20 rounded-full px-2 py-1 font-semibold">
-                          Elo {Math.round(selectedHypothesis.elo)}
-                        </span>
-                      )}
                       <span className="text-muted-foreground">
                         Hypothesis ID: {selectedHypothesis.hypothesisId}
                       </span>
@@ -1215,11 +1297,6 @@ export function DesignReview({
                           </Button>
                         </div>
                         <div className="flex flex-col items-end gap-2">
-                          {typeof hypothesis.elo === "number" && (
-                            <span className="bg-secondary text-secondary-foreground rounded px-2 py-1 text-xs font-semibold">
-                              Elo: {Math.round(hypothesis.elo)}
-                            </span>
-                          )}
                           <div className="flex flex-col items-end gap-2">
                             <Button
                               size="sm"
@@ -1428,6 +1505,19 @@ export function DesignReview({
                                   <span>&#8599;</span>
                                 </a>
                               </div>
+                            ) : linked.extractedUrl ? (
+                              <div className="space-y-1">
+                                <p className="text-sm">{linked.text}</p>
+                                <a
+                                  href={linked.extractedUrl}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="text-primary inline-flex items-center gap-1 text-xs hover:underline"
+                                >
+                                  {linked.extractedUrl}
+                                  <span>&#8599;</span>
+                                </a>
+                              </div>
                             ) : typeof source === "string" ? (
                               <p>{source}</p>
                             ) : (
@@ -1534,16 +1624,6 @@ export function DesignReview({
                             reasoningHypothesis.metadata.novelty_score * 100
                           ).toFixed(0)}
                           %
-                        </p>
-                      </div>
-                    )}
-                    {typeof reasoningHypothesis.elo === "number" && (
-                      <div className="bg-muted/30 rounded-lg p-3">
-                        <p className="text-muted-foreground text-xs">
-                          Tournament Elo Rating
-                        </p>
-                        <p className="text-foreground text-lg font-semibold">
-                          {Math.round(reasoningHypothesis.elo)}
                         </p>
                       </div>
                     )}

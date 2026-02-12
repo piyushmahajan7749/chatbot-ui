@@ -2,7 +2,10 @@ import { AgentTask, AgentResult } from "../types/interfaces"
 import type { LiteratureScoutOutput } from "../types"
 import { getGenerationPrompt } from "./prompts/generation"
 import { v4 as uuidv4 } from "uuid"
-import { getAzureOpenAI, getAzureOpenAIModel } from "@/lib/azure-openai"
+import {
+  getAzureOpenAIForDesign,
+  getDesignDeployment
+} from "@/lib/azure-openai"
 import { zodResponseFormat } from "openai/helpers/zod"
 import { z } from "zod"
 
@@ -14,8 +17,8 @@ const GenerationSchema = z.object({
   novelty_score: z.number().min(0).max(1).optional()
 })
 
-const openai = () => getAzureOpenAI()
-const MODEL_NAME = () => getAzureOpenAIModel()
+const openai = () => getAzureOpenAIForDesign()
+const MODEL_NAME = () => getDesignDeployment()
 
 export async function generationAdapter(task: AgentTask): Promise<AgentResult> {
   const startTime = Date.now()
@@ -59,8 +62,8 @@ export async function generationAdapter(task: AgentTask): Promise<AgentResult> {
             { role: "system", content: promptConfig.system },
             { role: "user", content: promptConfig.user }
           ],
-          // This deployment only supports temperature=1.
-          temperature: 1,
+          // gpt-4.1 supports variable temperature for better hypothesis diversity.
+          temperature: 0.7,
           // Some newer Azure deployments require `max_completion_tokens` instead of `max_tokens`.
           ...(typeof promptConfig.maxTokens === "number"
             ? ({ max_completion_tokens: promptConfig.maxTokens } as any)

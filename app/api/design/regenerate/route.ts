@@ -4,10 +4,13 @@ import { z } from "zod"
 import { SERPGoogleScholarAPITool } from "@langchain/community/tools/google_scholar"
 import { TavilySearchResults } from "@langchain/community/tools/tavily_search"
 import axios from "axios"
-import { getAzureOpenAI, getAzureOpenAIModel } from "@/lib/azure-openai"
+import {
+  getAzureOpenAIForDesign,
+  getDesignDeployment
+} from "@/lib/azure-openai"
 
 // Add model constant
-const MODEL_NAME = () => getAzureOpenAIModel()
+const MODEL_NAME = () => getDesignDeployment()
 
 process.env.GOOGLE_SCHOLAR_API_KEY = process.env.SERPAPI_API_KEY
 
@@ -24,7 +27,7 @@ if (process.env.TAVILY_API_KEY) {
   })
 }
 
-const openai = () => getAzureOpenAI()
+const openai = () => getAzureOpenAIForDesign()
 
 // Enhanced search result interface with relevance scoring
 interface SearchResult {

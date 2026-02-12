@@ -15,7 +15,9 @@ import {
   CopyIcon,
   ChevronUp,
   Sparkles,
-  DownloadIcon
+  DownloadIcon,
+  FileDown,
+  Upload
 } from "lucide-react"
 import { getReportFilesByReportId } from "@/db/report-files-firestore"
 import Loading from "@/app/[locale]/loading"
@@ -25,6 +27,26 @@ import PptxGenJS from "pptxgenjs"
 import { getContentSlide, getIntroSlide } from "./utils"
 import { getReportWithDetails, updateReport } from "@/db/reports-firestore"
 import { ReportChart } from "./report-chart"
+
+type ChartDataState = {
+  chartTitle?: string
+  yAxisLabel?: string
+  data: Array<{ label: string; value: number }>
+}
+
+/** Normalize chart data from DB (may be old array format) or API (new object format). */
+function normalizeChartData(raw: any): ChartDataState | null {
+  if (!raw) return null
+  // New format: { chartTitle, yAxisLabel, data: [...] }
+  if (raw.data && Array.isArray(raw.data)) {
+    return raw as ChartDataState
+  }
+  // Old format: plain array [{label, value}, ...]
+  if (Array.isArray(raw) && raw.length > 0) {
+    return { data: raw }
+  }
+  return null
+}
 
 interface ReportReviewProps {
   onSave: () => void
@@ -43,9 +65,11 @@ export function ReportReviewComponent({ onSave, reportId }: ReportReviewProps) {
   const [isEditing, setIsEditing] = useState(false)
   const [editedContent, setEditedContent] = useState("")
   const [chartImage, setChartImage] = useState<string | null>(null)
-  const [chartData, setChartData] = useState<
-    Array<{ label: string; value: number }>
-  >([])
+  const [chartData, setChartData] = useState<{
+    chartTitle?: string
+    yAxisLabel?: string
+    data: Array<{ label: string; value: number }>
+  } | null>(null)
   const [isQuestionSectionVisible, setIsQuestionSectionVisible] = useState(true)
   const [canGenerate, setCanGenerate] = useState(false)
   const [pendingFiles, setPendingFiles] = useState<any | null>(null)
@@ -56,6 +80,101 @@ export function ReportReviewComponent({ onSave, reportId }: ReportReviewProps) {
   const [generationError, setGenerationError] = useState<string | null>(null)
 
   const sectionRefs = useRef<Record<string, HTMLDivElement | null>>({})
+  const reportContentRef = useRef<HTMLDivElement>(null)
+
+  const handleDownloadPDF = useCallback(async () => {
+    if (!reportContentRef.current) return
+
+    try {
+      const html2canvas = (await import("html2canvas")).default
+      const { jsPDF } = await import("jspdf")
+
+      const element = reportContentRef.current
+
+      // Temporarily force standard black text colors for PDF export
+      const pdfStyleOverride = document.createElement("style")
+      pdfStyleOverride.id = "pdf-export-override"
+      pdfStyleOverride.textContent = `
+        [data-pdf-capture] * {
+          color: #000000 !important;
+          -webkit-text-fill-color: #000000 !important;
+        }
+        [data-pdf-capture] h1, [data-pdf-capture] h2, [data-pdf-capture] h3,
+        [data-pdf-capture] h4, [data-pdf-capture] h5, [data-pdf-capture] h6 {
+          color: #000000 !important;
+          -webkit-text-fill-color: #000000 !important;
+        }
+        [data-pdf-capture] p, [data-pdf-capture] li, [data-pdf-capture] td,
+        [data-pdf-capture] th, [data-pdf-capture] span, [data-pdf-capture] div {
+          color: #111827 !important;
+          -webkit-text-fill-color: #111827 !important;
+        }
+        [data-pdf-capture] table {
+          border-color: #d1d5db !important;
+        }
+        [data-pdf-capture] th {
+          background-color: #f3f4f6 !important;
+          color: #000000 !important;
+          -webkit-text-fill-color: #000000 !important;
+        }
+      `
+      document.head.appendChild(pdfStyleOverride)
+      element.setAttribute("data-pdf-capture", "true")
+
+      // Wait a frame for styles to apply
+      await new Promise(resolve => requestAnimationFrame(resolve))
+
+      const canvas = await html2canvas(element, {
+        scale: 2,
+        useCORS: true,
+        logging: false,
+        backgroundColor: "#ffffff"
+      })
+
+      // Remove temporary styles
+      element.removeAttribute("data-pdf-capture")
+      pdfStyleOverride.remove()
+
+      const imgWidth = 190 // A4 usable width in mm
+      const pageHeight = 277 // A4 usable height in mm
+      const imgHeight = (canvas.height * imgWidth) / canvas.width
+
+      const pdf = new jsPDF("p", "mm", "a4")
+      let heightLeft = imgHeight
+      let position = 10
+
+      pdf.addImage(
+        canvas.toDataURL("image/png"),
+        "PNG",
+        10,
+        position,
+        imgWidth,
+        imgHeight
+      )
+      heightLeft -= pageHeight
+
+      while (heightLeft > 0) {
+        position = heightLeft - imgHeight + 10
+        pdf.addPage()
+        pdf.addImage(
+          canvas.toDataURL("image/png"),
+          "PNG",
+          10,
+          position,
+          imgWidth,
+          imgHeight
+        )
+        heightLeft -= pageHeight
+      }
+
+      pdf.save("Report Draft.pdf")
+    } catch (error) {
+      console.error("[REPORT] Failed to generate PDF:", error)
+      // Cleanup override styles on error
+      reportContentRef.current?.removeAttribute("data-pdf-capture")
+      document.getElementById("pdf-export-override")?.remove()
+    }
+  }, [])
 
   const outlineMapping: Record<string, string> = {
     aim: "Aim",
@@ -117,10 +236,8 @@ export function ReportReviewComponent({ onSave, reportId }: ReportReviewProps) {
         string
       > | null
       const savedChartImage = (report as any).chart_image as string | null
-      const savedChartData = (report as any).chart_data as Array<{
-        label: string
-        value: number
-      }> | null
+      const savedChartDataRaw = (report as any).chart_data as any | null
+      const savedChartData = normalizeChartData(savedChartDataRaw)
 
       // Case 1: we have explicit saved outline + draft
       if (savedOutline && savedOutline.length && savedDraft) {
@@ -215,7 +332,7 @@ export function ReportReviewComponent({ onSave, reportId }: ReportReviewProps) {
         setGeneratedOutline(data.reportOutline)
         setSectionContents(data.reportDraft)
         setChartImage(data.chartImage)
-        if (data.chartData) setChartData(data.chartData)
+        if (data.chartData) setChartData(normalizeChartData(data.chartData))
 
         // Persist to DB
         try {
@@ -457,6 +574,24 @@ export function ReportReviewComponent({ onSave, reportId }: ReportReviewProps) {
                   >
                     Download Report <DownloadIcon className="ml-2 size-4" />
                   </Button>
+                  <Button
+                    onClick={handleDownloadPDF}
+                    variant="outline"
+                    className="ml-2"
+                  >
+                    <FileDown className="mr-2 size-4" />
+                    Download as PDF
+                  </Button>
+                  <Button
+                    variant="outline"
+                    className="ml-2"
+                    onClick={() => {
+                      // ELN upload — not yet functional
+                    }}
+                  >
+                    <Upload className="mr-2 size-4" />
+                    Upload to ELN
+                  </Button>
                 </div>
               </div>
               <Separator className="bg-foreground my-4" />
@@ -500,7 +635,7 @@ export function ReportReviewComponent({ onSave, reportId }: ReportReviewProps) {
               </div>
             </div>
             <ScrollArea className="mt-6 grow px-6">
-              <div className="space-y-10">
+              <div ref={reportContentRef} className="space-y-10">
                 {generatedOutline.map((section, index) => (
                   <div
                     key={section}
@@ -519,8 +654,14 @@ export function ReportReviewComponent({ onSave, reportId }: ReportReviewProps) {
 
                     {section === "charts" ? (
                       <div className="prose dark:prose-invert max-w-none overflow-x-auto break-words pb-4 [&>*:first-child]:mt-0 [&_li]:my-0 [&_ol]:my-1 [&_p]:my-1 [&_ul]:my-1">
-                        {chartData && chartData.length > 0 ? (
-                          <ReportChart data={chartData} />
+                        {chartData &&
+                        chartData.data &&
+                        chartData.data.length > 0 ? (
+                          <ReportChart
+                            data={chartData.data}
+                            chartTitle={chartData.chartTitle}
+                            yAxisLabel={chartData.yAxisLabel}
+                          />
                         ) : chartImage ? (
                           <img
                             src={chartImage}

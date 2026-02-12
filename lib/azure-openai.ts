@@ -78,6 +78,19 @@ export function getAzureOpenAIForDeployment(deployment: string): AzureOpenAI {
 }
 
 // -----------------------------
+// Design-module helpers
+// (uses a separate deployment for better temperature control)
+// -----------------------------
+
+export function getDesignDeployment(): string {
+  return (process.env.AZURE_OPENAI_DESIGN_DEPLOYMENT || "gpt-4.1").trim()
+}
+
+export function getAzureOpenAIForDesign(): AzureOpenAI {
+  return getAzureOpenAIForDeployment(getDesignDeployment())
+}
+
+// -----------------------------
 // Embeddings-specific helpers
 // -----------------------------
 

@@ -46,7 +46,7 @@ Output format: Return a JSON object with:
 {
   "hypothesis": "string - the testable hypothesis statement",
   "explanation": "string - brief explanation of why this hypothesis is scientifically sound",
-  "provenance": ["string - sources or reasoning that led to this hypothesis"],
+  "provenance": ["For EACH source, you MUST include the citation index [N] and the paper title from the Literature Insights. Format each entry as: '[N] Paper Title - brief explanation of how this paper informed the hypothesis'. If no literature was provided, describe your scientific reasoning instead."],
   "feasibility_score": number (0-1),
   "novelty_score": number (0-1)
 }`
@@ -64,6 +64,10 @@ Potential Pitfalls: ${literatureContext.potentialPitfalls}`
   }
 
   user += `\n\nGenerate a testable hypothesis for this research plan.`
+
+  if (literatureContext) {
+    user += `\n\nIMPORTANT: In the "provenance" array, reference specific papers from the Literature Insights using the format "[N] Paper Title - explanation". Use the citation indices [1], [2], etc. matching the order papers appear in the literature context.`
+  }
 
   if (options?.diversityHint) {
     user += `\n\nIMPORTANT: Generate a hypothesis specifically aligned with this perspective: "${options.diversityHint}"`

@@ -27,10 +27,18 @@ const ReportTheorySchema = z
   .required()
 
 const VisualizationSchema = z.object({
+  chartTitle: z
+    .string()
+    .describe(
+      "A descriptive title for the chart, e.g. 'Mean Viscosity by Formulation'"
+    ),
+  yAxisLabel: z
+    .string()
+    .describe("Label for the Y axis including units, e.g. 'Viscosity (mPa·s)'"),
   data: z.array(
     z.object({
-      label: z.string(),
-      value: z.number()
+      label: z.string().describe("Short category/group name for X axis"),
+      value: z.number().describe("Numeric value to plot")
     })
   )
 })
@@ -86,7 +94,7 @@ interface ReportState {
   experimentObjective?: string
   finalOutput: ReportOutputType
   chartImage?: string
-  chartData: VisualizationType["data"]
+  chartData: VisualizationType
   aim: string
   introduction: string
   principle: string
@@ -103,28 +111,27 @@ interface ReportState {
 
 async function callDataVisualizationAgent(
   state: ReportState
-): Promise<VisualizationType["data"]> {
-  const systemPrompt = `You are a skilled data visualization expert specializing in biopharma research, responsible for creating accurate and insightful visualization that illustrate key findings from experimental data. Your primary tasks include:
-Reviewing the provided data files to identify relevant trends, patterns, and results that directly address the experiment's objectives.
-Generating clear, scientifically rigorous visualization that present experimental results and any statistical analysis necessary to support data interpretation.
-Ensuring that the visualization directly supports the narrative of the report, aligning with research objectives and helping readers understand key findings.
+): Promise<VisualizationType> {
+  const systemPrompt = `You are a data visualization expert for biopharma research. Your job is to extract the MOST MEANINGFUL numeric comparison from experimental data and format it for a bar chart.
 
-Constraints:
-Provide the visualization data to be used to generate a chart.
-`
+RULES:
+1. Pick ONE primary numeric metric from the data (e.g. mean viscosity, % recovery, absorbance, concentration). Do NOT mix different metrics or units in the same chart.
+2. Use SHORT labels (max 15 characters) for the X-axis categories. Abbreviate formulation names (e.g. "F1 Control", "F2 Glycine", "F3 Sucrose").
+3. All values MUST be in the same unit. If the data has multiple metrics, choose the most scientifically relevant one.
+4. Provide a clear chartTitle (e.g. "Mean Viscosity by Formulation") and yAxisLabel WITH units (e.g. "Viscosity (mPa·s)").
+5. Return only POSITIVE values when possible. If comparing % changes, use absolute values or the raw measurement instead.
+6. Include 3-10 data points maximum. If there are more, pick the most important ones.`
 
-  const userPrompt = `Generate the data in this format:
-[
-    { label: "Category 1", value: 25 },
-    { label: "Category 2", value: 35 },
-    { label: "Category 3", value: 45 }
-] 
-    
-use the following context:
+  const userPrompt = `Extract data for a bar chart from this experiment.
 
 Objective: ${state.experimentObjective}
 Protocol: ${state.protocol}
-Data files: ${state.dataFileSummary}`
+Data files: ${state.dataFileSummary}
+
+Return a JSON object with:
+- chartTitle: descriptive title for the chart
+- yAxisLabel: Y-axis label with units in parentheses
+- data: array of {label, value} pairs with short labels and consistent numeric values`
 
   try {
     const completion = await openai().beta.chat.completions.parse({
@@ -138,9 +145,9 @@ Data files: ${state.dataFileSummary}`
         "visualizationSchema"
       )
     })
-    const vizData = completion.choices[0].message.parsed!.data
+    const parsed = completion.choices[0].message.parsed!
 
-    return vizData
+    return parsed
   } catch (error) {
     console.error("Error in callDataVisualizationAgent:", error)
     throw error
@@ -642,11 +649,12 @@ const workflow = new StateGraph<ReportState>({
       default: () => ({}) as ReportOutputType
     },
     chartData: {
-      value: (
-        left?: VisualizationType["data"],
-        right?: VisualizationType["data"]
-      ) => right ?? left ?? ({} as VisualizationType["data"]),
-      default: () => ({}) as VisualizationType["data"]
+      value: (left?: VisualizationType, right?: VisualizationType) =>
+        right ??
+        left ??
+        ({ chartTitle: "", yAxisLabel: "", data: [] } as VisualizationType),
+      default: () =>
+        ({ chartTitle: "", yAxisLabel: "", data: [] }) as VisualizationType
     },
     chartImage: {
       // Added chartImage channel
@@ -714,8 +722,8 @@ const workflow = new StateGraph<ReportState>({
   })
   .addNode("generateChart", async (state: ReportState) => {
     try {
-      // Parse data from dataFileSummary
-      const parsedData = state.chartData
+      // Parse data from chartData
+      const parsedData = state.chartData?.data || []
       const chartImage = await chartTool.func({ data: parsedData })
       return { ...state, chartImage }
     } catch (error) {
@@ -850,7 +858,11 @@ export async function POST(req: Request) {
       paperSummary: paperText || "",
       dataFileSummary: dataFileText || "",
       finalOutput: {} as ReportOutputType,
-      chartData: [] as VisualizationType["data"],
+      chartData: {
+        chartTitle: "",
+        yAxisLabel: "",
+        data: []
+      } as VisualizationType,
       chartImage: "" // Initialize chartImage
     }
 
