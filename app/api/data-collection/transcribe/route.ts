@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { cookies } from "next/headers"
-import { getAzureOpenAI } from "@/lib/azure-openai"
+import { getAzureOpenAIForDeployment } from "@/lib/azure-openai"
 
 export async function POST(request: Request) {
   try {
@@ -25,12 +25,12 @@ export async function POST(request: Request) {
       )
     }
 
-    const openai = getAzureOpenAI()
+    const whisperDeployment = process.env.AZURE_WHISPER_DEPLOYMENT || "whisper"
+    const openai = getAzureOpenAIForDeployment(whisperDeployment)
 
-    // Use Whisper model for transcription via Azure OpenAI
     const transcription = await openai.audio.transcriptions.create({
       file: audioFile,
-      model: "whisper-1"
+      model: whisperDeployment
     })
 
     return NextResponse.json({
