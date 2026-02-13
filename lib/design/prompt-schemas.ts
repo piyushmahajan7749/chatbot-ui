@@ -23,9 +23,9 @@ const literatureWorkflow = [
 
 const literatureOutput = [
   "Return content that can be placed into the JSON fields below (no extra top-level keys).",
-  "- `whatOthersHaveDone`: bullet points only, one-line statements; this corresponds to **Key scientific findings**.",
-  "- `goodMethodsAndTools`: bullet points only; corresponds to **Relevant methods, strategies, or tools** (include parameter ranges/conditions when reported).",
-  "- `potentialPitfalls`: bullet points only; corresponds to **Potential pitfalls or watch-outs** (include confounders/variability sources/failure modes).",
+  "- `whatOthersHaveDone`: write in concise paragraphs summarizing **Key scientific findings**.",
+  "- `goodMethodsAndTools`: write in concise paragraphs describing **Relevant methods, strategies, or tools** (include parameter ranges/conditions when reported).",
+  "- `potentialPitfalls`: write in concise paragraphs describing **Potential pitfalls or watch-outs** (include confounders/variability sources/failure modes).",
   '- `citations`: an array of APA-style inline citations with links (PubMed/DOI/journal page) like "[Author, Year] https://...".',
   "If no relevant literature is found: state this explicitly in `whatOthersHaveDone`, describe where you searched and what keywords were used, and set `citations` to an empty array."
 ].join("\n")
@@ -41,7 +41,7 @@ const literatureTone = [
   "Tone and style:",
   "- Clear, confident, scientist-like.",
   "- Write for a smart 7th grader.",
-  "- Bullet points only (no long paragraphs).",
+  "- Write in concise, well-structured paragraphs. Use bullet points only for citations.",
   "- No filler, no textbook background, no marketing language."
 ].join("\n")
 
@@ -66,14 +66,14 @@ const experimentTask = [
   "- `executionPlan.conditionsTable`: provide a structured table listing ALL experimental conditions with independent variables, fixed background conditions, and control vs test designation.",
   "",
   "Also produce SOP-ready supporting details in the remaining execution fields:",
-  "- `executionPlan.materialsList`: consolidated materials list with AT LEAST 15 items (reagents, buffers, biologicals, consumables, equipment); include vendor/catalog IDs, concentrations, volumes, and catalog numbers when known. Organize into categories: Reagents & Chemicals, Buffers & Solutions, Consumables, Equipment.",
-  "- `executionPlan.materialPreparation`: DETAILED preparation guidance (minimum 300 words) covering every solution/buffer/reagent that must be prepared; include exact calculations for dilutions, volumes, molar concentrations, pH adjustments, and storage conditions. Each preparation should have its own subsection.",
-  "- `executionPlan.stepByStepProcedure`: numbered steps (MINIMUM 15 steps, no paragraphs), organized into clearly labeled phases: (1) Preparation & Setup, (2) Sample Processing, (3) Measurement/Data Collection, (4) Cleanup & Disposal. Each step MUST include specific volumes (e.g., 'Add 50 µL'), temperatures (e.g., 'at 37°C'), timing (e.g., 'incubate for 30 min'), mixing methods (e.g., 'vortex for 10 s'), and instrument settings where applicable.",
-  "- `executionPlan.setupInstructions`: instrument and lab setup requirements (concise, explicit).",
-  "- `executionPlan.dataCollectionPlan`: data types, data recording rules, and ready-to-fill table templates aligned to the Condition IDs in `conditionsTable`.",
-  "- `executionPlan.timeline`: time-ordered checkpoints/timepoints.",
-  "- `executionPlan.storageDisposal`: storage conditions and disposal handling.",
-  "- `executionPlan.safetyNotes`: explicit safety notes and constraints."
+  "- `executionPlan.materialsList`: consolidated materials list with AT LEAST 15 items (reagents, buffers, biologicals, consumables, equipment); include vendor/catalog IDs, concentrations, volumes, and catalog numbers when known. Organize into categories: Reagents & Chemicals, Buffers & Solutions, Consumables, Equipment. Use a categorized list format for this field.",
+  "- `executionPlan.materialPreparation`: write in DETAILED paragraphs (minimum 300 words) covering every solution/buffer/reagent that must be prepared; include exact calculations for dilutions, volumes, molar concentrations, pH adjustments, and storage conditions. Use subheadings to separate each preparation. Write in flowing prose, not bullet points.",
+  "- `executionPlan.stepByStepProcedure`: numbered steps (MINIMUM 15 steps), organized into clearly labeled phases: (1) Preparation & Setup, (2) Sample Processing, (3) Measurement/Data Collection, (4) Cleanup & Disposal. Each step MUST include specific volumes (e.g., 'Add 50 µL'), temperatures (e.g., 'at 37°C'), timing (e.g., 'incubate for 30 min'), mixing methods (e.g., 'vortex for 10 s'), and instrument settings where applicable.",
+  "- `executionPlan.setupInstructions`: write in paragraph form describing instrument and lab setup requirements in detail.",
+  "- `executionPlan.dataCollectionPlan`: write in paragraph form describing data types, data recording rules, and include ready-to-fill table templates aligned to the Condition IDs in `conditionsTable`.",
+  "- `executionPlan.timeline`: write in paragraph form describing time-ordered checkpoints and timepoints.",
+  "- `executionPlan.storageDisposal`: write in paragraph form describing storage conditions and disposal handling.",
+  "- `executionPlan.safetyNotes`: write in paragraph form describing safety notes and constraints."
 ].join("\n")
 
 const experimentDesignChecklist = [
@@ -91,9 +91,11 @@ const experimentDesignChecklist = [
 
 const experimentWriting = [
   "Writing rules:",
-  "- Formal and precise. No narrative paragraphs.",
-  "- For procedures: numbered instructions only; no conditional language (“if needed”, “as appropriate”).",
-  "- Every step must include volumes, temperatures, timing, mixing methods, and instrument settings when applicable.",
+  "- Formal and precise. Write in well-structured paragraphs for descriptive sections (materialPreparation, setupInstructions, dataCollectionPlan, storageDisposal, safetyNotes).",
+  '- For stepByStepProcedure: use numbered steps only; no conditional language ("if needed", "as appropriate").',
+  "- For materialsList: use a categorized list with item specifications.",
+  "- For conditionsTable: use a structured markdown table.",
+  "- Every procedure step must include volumes, temperatures, timing, mixing methods, and instrument settings when applicable.",
   "- Ensure labels/Condition IDs are unambiguous and consistent across all tables."
 ].join("\n")
 
@@ -154,7 +156,9 @@ const reportStructure = [
 ].join("\n")
 
 const reportGuidelines = [
-  "Writing guidelines: professional but concise tone, short sentences, bullet lists when possible, 1000–2000 words.",
+  "Writing guidelines: professional but concise tone, well-structured paragraphs, 1000–2000 words.",
+  "Write sections 1–5 (Research Objective, Literature Summary, Hypothesis, Experiment Design, Execution Plan) in paragraph form.",
+  "Use bullet points only for section 6 (Statistical & Logical Review: strengths, risks, recommendations) and section 7 (Final Notes).",
   "Do not invent new facts—only synthesize provided agent outputs and citations."
 ].join("\n")
 

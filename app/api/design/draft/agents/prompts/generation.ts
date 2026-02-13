@@ -8,19 +8,13 @@ export interface GenerationPromptConfig {
   maxTokens: number
 }
 
-export interface GenerationPromptOptions {
-  diversityHint?: string
-  taskIndex?: number
-}
-
 export function getGenerationPrompt(
   plan: {
     title: string
     description: string
     constraints?: Record<string, any>
   },
-  literatureContext?: LiteratureScoutOutput,
-  options?: GenerationPromptOptions
+  literatureContext?: LiteratureScoutOutput
 ): GenerationPromptConfig {
   const system = `You are a **Hypothesis Generation Agent** specialized in creating testable scientific hypotheses for biopharma research.
 
@@ -32,13 +26,6 @@ Your task is to generate clear, specific, and testable hypotheses based on the r
 ${
   literatureContext
     ? "- Leverage insights from the provided literature context"
-    : ""
-}
-${
-  options?.diversityHint
-    ? `
-DIVERSITY DIRECTIVE (Task #${(options.taskIndex ?? 0) + 1}): ${options.diversityHint}
-Your hypothesis MUST align with this specific angle. Do NOT produce a generic or broad hypothesis. The hypothesis should clearly reflect this particular scientific perspective.`
     : ""
 }
 
@@ -67,10 +54,6 @@ Potential Pitfalls: ${literatureContext.potentialPitfalls}`
 
   if (literatureContext) {
     user += `\n\nIMPORTANT: In the "provenance" array, reference specific papers from the Literature Insights using the format "[N] Paper Title - explanation". Use the citation indices [1], [2], etc. matching the order papers appear in the literature context.`
-  }
-
-  if (options?.diversityHint) {
-    user += `\n\nIMPORTANT: Generate a hypothesis specifically aligned with this perspective: "${options.diversityHint}"`
   }
 
   return {

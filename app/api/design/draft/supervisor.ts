@@ -146,25 +146,11 @@ export async function supervisorEnqueue(plan: ResearchPlan): Promise<{
 
     // Phase 1: Seed generation tasks
     plan.currentPhase = "hypothesis_generation"
-    plan.currentPhaseMessage = "Generating diverse research hypotheses..."
+    plan.currentPhaseMessage = "Generating research hypotheses..."
     await saveResearchPlan(plan)
 
     const seedCount = plan.preferences?.max_hypotheses || DEFAULT_SEED_COUNT
     const generationTasks: AgentTask[] = []
-
-    // Diversity lenses ensure each hypothesis explores a different scientific angle
-    const diversityLenses = [
-      "Focus on a MECHANISTIC hypothesis about underlying biochemical or biophysical processes.",
-      "Focus on a METHODOLOGICAL hypothesis about comparing experimental techniques or measurement strategies.",
-      "Focus on a DOSE-RESPONSE or CONCENTRATION-DEPENDENT hypothesis.",
-      "Focus on a TEMPORAL or KINETIC hypothesis about time-dependent behavior.",
-      "Focus on a COMPARATIVE hypothesis contrasting two or more conditions, formulations, or approaches.",
-      "Focus on a CONTROL-ORIENTED hypothesis emphasizing controls, baselines, or negative results.",
-      "Focus on a TRANSLATIONAL hypothesis bridging in-vitro findings to practical/clinical implications.",
-      "Focus on an INTERACTION or SYNERGY hypothesis about combined effects of multiple variables.",
-      "Focus on a STABILITY or DEGRADATION hypothesis about long-term behavior under stress conditions.",
-      "Focus on a NOVEL/UNCONVENTIONAL hypothesis that challenges assumptions in the literature."
-    ]
 
     for (let i = 0; i < seedCount; i++) {
       generationTasks.push({
@@ -179,9 +165,7 @@ export async function supervisorEnqueue(plan: ResearchPlan): Promise<{
             description: plan.description,
             constraints: plan.constraints
           },
-          literatureContext: literatureResult.output,
-          taskIndex: i,
-          diversityHint: diversityLenses[i % diversityLenses.length]
+          literatureContext: literatureResult.output
         }
       })
     }
