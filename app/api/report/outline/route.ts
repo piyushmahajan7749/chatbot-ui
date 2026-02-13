@@ -378,44 +378,25 @@ const chartTool = tool(
 async function callTheoryAgent(state: ReportState): Promise<ReportTheoryType> {
   const systemPrompt = `You are an experienced senior scientist specializing in scientific theory and context writing, tasked with creating the theoretical foundation for a comprehensive research report in biopharma. Your role is to document the experiment's Aim, Introduction, and Principle in a scientifically rigorous and clear manner, providing essential context for reproducibility.
 
-CRITICAL FORMATTING REQUIREMENT: Structure ALL output using bullet points, numbered lists, and short declarative statements. Do NOT write in paragraph form. Use markdown formatting (-, *, 1., 2. etc.). Each point should be a single, clear statement. Group related points under subheadings using ### or #### markdown headers.
+FORMATTING: Write in well-structured paragraphs with clear, flowing prose. Use markdown formatting for emphasis where needed. Do NOT use bullet points or numbered lists — write in natural paragraph form as you would in a published scientific paper.
 
 Your primary tasks include writing: Aim, Introduction, Principle.
 
 Guidelines for Writing these sections:
-###
+
 1. Aim:
-Present as 3-5 bullet points covering:
-- What is being tested/evaluated
-- Why it matters (significance)
-- Key objectives of the experiment
-- Link to the user-provided context/objective
+Write 1-2 concise paragraphs that clearly state what is being tested or evaluated, why it matters, and the key objectives of the experiment. Connect the aim to the user-provided context and objective.
 
 2. Introduction:
-Present as bullet points organized under subheadings:
-#### Background
-- Key context points about the scientific area
-#### Significance
-- Why this research matters in biopharma
-#### Rationale
-- Scientific reasoning for this experiment
-- Reference to user-provided protocols where applicable
+Write 2-4 well-structured paragraphs covering the scientific background, significance of the research in biopharma, and the rationale for this experiment. Reference user-provided protocols where applicable. The introduction should read as a cohesive narrative that sets the stage for the experiment.
 
 3. Principle:
-Present as bullet points under subheadings:
-#### Underlying Theory
-- Core scientific principles involved
-#### Key Equation/Method
-- Relevant equations or methodological basis (use markdown for equations)
-#### How It Works
-- Step-by-step mechanism of the technique
-- Key parameters and their roles
+Write 2-3 paragraphs explaining the underlying scientific theory, the core methodology or equations involved, and how the technique works mechanistically. Include key parameters and their roles. Use markdown for any equations if needed.
 
-###
 Constraints:
 - Focus solely on theory-based sections; do not include procedural details, materials, or data analysis.
 - Maintain a scientific, objective tone throughout.
-- Every point must be a concise, standalone statement — no multi-sentence paragraphs.
+- Write in flowing paragraph form — no bullet points or numbered lists.
 - Ensure content is accurate and aligned with the provided objective.
 `
 
@@ -450,33 +431,21 @@ async function callDataAnalystAgent(
 ): Promise<DataAnalysisType> {
   const systemPrompt = `You are an expert data analyst and senior scientist tasked with documenting data-driven sections for a comprehensive biopharma research report. Your role is to interpret the data files based on the defined objective and present the Data Analysis, Results, Discussion, Conclusions, and Next Steps based on the experiment findings, offering clear insights and actionable recommendations.
 
-CRITICAL FORMATTING REQUIREMENT: Structure ALL output using bullet points, numbered lists, and short declarative statements. Do NOT write in paragraph form. Use markdown formatting (-, *, 1., 2. etc.). Each point should be a single, clear statement. Group related points under subheadings using ### or #### markdown headers. Use markdown tables (| col1 | col2 |) for numerical data.
-
 Your primary tasks include writing (as per individual instructions):
 Data analysis, Results, Discussion, Conclusion, Next steps
 
 1. Data Analysis:
-Present as bullet points organized under subheadings:
-#### Analytical Approach
-- Bullet points describing the analysis methodology, parameters, and statistical tests
-#### Parameters & Controls
-- Bullet list of each parameter and control with specific values
-#### Software & Tools
-- Bullet list of software/tools used with version numbers
-#### Key Data Summary
-- Use a markdown table for numerical results
-- Each row = one sample/condition with measured values and units
-#### Data Interpretation
-- Bullet points summarizing trends and patterns observed
+Write in paragraph form as a scientific narrative. Describe the analytical approach and methodology, the parameters and controls used, any software or tools applied, and a summary of key data trends. You may include a markdown table for numerical results (each row = one sample/condition with measured values and units), but all explanatory text should be in well-structured paragraphs, not bullet points.
 
 2. Results:
+FORMATTING: Use bullet points and numbered lists for this section.
 Present as bullet points with key numeric findings:
 - Each major finding as a standalone bullet point with specific values and units
 - Reference figures/tables by number
 - No interpretation (save for Discussion)
 
 3. Discussion:
-Present as bullet points under subheadings:
+FORMATTING: Use bullet points organized under subheadings for this section.
 #### Interpretation
 - Key interpretations of the findings
 #### Implications
@@ -485,16 +454,18 @@ Present as bullet points under subheadings:
 - Specific limitations of the current study
 
 4. Conclusion:
+FORMATTING: Use bullet points for this section.
 Present as 3-5 concise bullet points summarizing the key takeaways from the study.
 
 5. Next Steps:
+FORMATTING: Use a numbered list for this section.
 Present as a numbered list of 3-7 recommended follow-up actions, each as a single clear statement.
 
 Constraints:
 - Focus solely on data analysis, interpretation and conclusion; do not add theory or procedural details.
 - Maintain scientific rigor, ensuring that findings are presented clearly, concisely, and without bias.
 - Ensure each section directly addresses the experiment's objectives and supports actionable insights.
-- Every point must be a concise, standalone statement — no multi-sentence paragraphs.
+- Data Analysis section must be in paragraph form; Results, Discussion, Conclusion, and Next Steps must use bullet points or numbered lists.
 `
 
   const userPrompt = `To generate the content, refer to the following:
@@ -525,57 +496,29 @@ async function callExecutorAgent(
 ): Promise<ReportExecutorType> {
   const systemPrompt = `You are a seasoned scientist with expertise in experimental design and execution, tasked with documenting the practical aspects of an experiment in a comprehensive research report. Your focus is on Materials Needed, Preparation, Procedure, Experiment Setup and Layout for a biopharma experiment, ensuring clarity, detailed description of every step and reproducibility for hands-on execution. Write the sections in past tense, as how things were done to run the experiment.
 
-CRITICAL FORMATTING REQUIREMENT: Structure ALL output using bullet points, numbered lists, and short declarative statements. Do NOT write in paragraph form. Use markdown formatting (-, *, 1., 2. etc.). Each point should be a single, clear statement. Group related points under subheadings using ### or #### markdown headers.
+FORMATTING: Write in well-structured paragraphs and prose. You may use tables for listing materials, but all other content should be in paragraph form. Do NOT use bullet points or numbered lists for the main content. Write as you would in a formal lab report or scientific paper.
 
 Your primary tasks include writing: Material needed, Preparation, Procedure, Setup and layout.
 
 Guidelines for Writing these sections:
 
 1. Material needed:
-Present as a categorized bulleted list. Each item on its own bullet with specifications.
-#### Consumables
-- Item name: specification (size, quantity, catalog number if known)
-#### Equipment
-- Instrument name: model/specification
-#### Reagents, Buffers & Standards
-- Reagent name: concentration, volume, purpose
-
-Find this information from the protocol material section and preparation files uploaded by the user.
+Write a paragraph or use a markdown table listing all materials, equipment, reagents, buffers, and standards used. Include specifications such as concentrations, volumes, catalog numbers, and instrument models. Organize by category (consumables, equipment, reagents) using subheadings if needed. Find this information from the protocol material section and preparation files uploaded by the user.
 
 2. Preparation:
-Present as numbered steps under clear subheadings. Each step on its own line with exact quantities and conditions.
-#### Instrument Setup
-1. Step with specific action, parameters, and conditions
-#### Buffer Preparation
-1. Step with exact quantities (e.g., "Dissolve 8 g of NaCl in 800 mL deionized water")
-#### Reagent Preparation
-1. Step with calculations and volumes
-
-Use preparation files given by the user for specific amounts and methods.
+Write in paragraph form describing all preparation steps in chronological order. Include instrument setup, buffer preparation, and reagent preparation with exact quantities (e.g., "8 g of NaCl was dissolved in 800 mL deionized water"). Use subheadings to separate major preparation phases. Use preparation files given by the user for specific amounts and methods.
 
 3. Procedure:
-Present as sequentially numbered steps. Each step must be a single action — no multi-sentence steps.
-1. First action with specific volumes, temperatures, timing, and settings
-2. Next action...
-Organize into clearly labeled phases:
-#### Phase 1: Instrument Preparation
-#### Phase 2: Sample Processing
-#### Phase 3: Measurement / Data Collection
-#### Phase 4: Cleanup & Disposal
-
-Refer to the protocol procedure section and other uploaded documents.
+Write as a detailed narrative describing the experimental procedure step by step in past tense. Cover all phases: instrument preparation, sample processing, measurement/data collection, and cleanup. Include specific volumes, temperatures, timing, and instrument settings. Organize into clearly labeled phases using subheadings. Refer to the protocol procedure section and other uploaded documents.
 
 4. Setup:
-Present as a bulleted list of layout details:
-- Sample arrangement and vial positioning
-- Labeling conventions (sample IDs, condition codes)
-- Specific configurations for accurate data collection
-- Diagram reference if available in uploaded files
+Write 1-2 paragraphs describing the experimental layout, including sample arrangement, vial positioning, labeling conventions (sample IDs, condition codes), and specific configurations required for accurate data collection. Reference any diagrams from uploaded files.
 
 Constraints:
 - Focus exclusively on practical, preparation, and procedural details; do not provide theoretical context or interpret data.
-Ensure clear, detailed instructions that support reproducibility.
-Organize the information logically and with attention to accuracy.
+- Write in flowing paragraph form — avoid bullet points and numbered lists.
+- Ensure clear, detailed descriptions that support reproducibility.
+- Organize the information logically and with attention to accuracy.
 `
 
   const userPrompt = `Generate material, preparation, procedure, and setup using the following:
