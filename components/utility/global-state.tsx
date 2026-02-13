@@ -5,6 +5,7 @@
 import { ChatbotUIContext } from "@/context/context"
 import { getProfileByUserId } from "@/db/profile"
 import { getReports } from "@/db/reports-firestore"
+import { DataCollectionItem } from "@/types/sidebar-data"
 import { getWorkspaceImageFromStorage } from "@/db/storage/workspace-images"
 import { getWorkspacesByUserId } from "@/db/workspaces"
 import { convertBlobToBase64 } from "@/lib/blob-to-b64"
@@ -52,6 +53,9 @@ export const GlobalState: FC<GlobalStateProps> = ({ children }) => {
   const [workspaces, setWorkspaces] = useState<Tables<"workspaces">[]>([])
   const [reports, setReports] = useState<Tables<"reports">[]>([])
   const [designs, setDesigns] = useState<Tables<"designs">[]>([])
+  const [dataCollections, setDataCollections] = useState<DataCollectionItem[]>(
+    []
+  )
   // MODELS STORE
   const [envKeyMap, setEnvKeyMap] = useState<Record<string, VALID_ENV_KEYS>>({})
   const [availableHostedModels, setAvailableHostedModels] = useState<LLM[]>([])
@@ -239,6 +243,8 @@ export const GlobalState: FC<GlobalStateProps> = ({ children }) => {
         setWorkspaces,
         reports,
         setReports,
+        dataCollections,
+        setDataCollections,
         // MODELS STORE
         envKeyMap,
         setEnvKeyMap,

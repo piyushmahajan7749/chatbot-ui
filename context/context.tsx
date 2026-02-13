@@ -9,6 +9,7 @@ import {
   WorkspaceImage
 } from "@/types"
 import { AssistantImage } from "@/types/images/assistant-image"
+import { DataCollectionItem } from "@/types/sidebar-data"
 import { VALID_ENV_KEYS } from "@/types/valid-keys"
 import { Dispatch, SetStateAction, createContext, useState } from "react"
 
@@ -42,6 +43,8 @@ interface ChatbotUIContext {
   setReports: Dispatch<SetStateAction<Tables<"reports">[]>>
   designs: Tables<"designs">[]
   setDesigns: Dispatch<SetStateAction<Tables<"designs">[]>>
+  dataCollections: DataCollectionItem[]
+  setDataCollections: Dispatch<SetStateAction<DataCollectionItem[]>>
 
   // MODELS STORE
   envKeyMap: Record<string, VALID_ENV_KEYS>
@@ -172,6 +175,8 @@ export const ChatbotUIContext = createContext<ChatbotUIContext>({
   setReports: () => {},
   designs: [],
   setDesigns: () => {},
+  dataCollections: [],
+  setDataCollections: () => {},
 
   // MODELS STORE
   envKeyMap: {},

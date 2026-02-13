@@ -21,6 +21,7 @@ import { useParams, useRouter, useSearchParams } from "next/navigation"
 import { ReactNode, useContext, useEffect, useState } from "react"
 import Loading from "../loading"
 import { getReportWorkspacesByWorkspaceId } from "@/db/reports-firestore"
+import { getDataCollectionWorkspacesByWorkspaceId } from "@/db/data-collections-firestore"
 
 interface WorkspaceLayoutProps {
   children: ReactNode
@@ -40,6 +41,7 @@ export default function WorkspaceLayout({ children }: WorkspaceLayoutProps) {
     setChats,
     setCollections,
     setDesigns,
+    setDataCollections,
     setFolders,
     setFiles,
     setPresets,
@@ -109,10 +111,13 @@ export default function WorkspaceLayout({ children }: WorkspaceLayoutProps) {
         await getAssistantWorkspacesByWorkspaceId(workspaceId)
       const reportData = await getReportWorkspacesByWorkspaceId(workspaceId)
       const designData = await getDesignWorkspacesByWorkspaceId(workspaceId)
+      const dataCollectionData =
+        await getDataCollectionWorkspacesByWorkspaceId(workspaceId)
 
       setAssistants(assistantData.assistants)
       setReports(reportData.reports)
       setDesigns(designData.designs)
+      setDataCollections(dataCollectionData.dataCollections)
       for (const assistant of assistantData.assistants) {
         let url = ""
 

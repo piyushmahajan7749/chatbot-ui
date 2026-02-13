@@ -202,7 +202,8 @@ export const SidebarUpdateItem: FC<SidebarUpdateItemProps> = ({
       setSelectedAssistantTools
     },
     tools: null,
-    models: null
+    models: null,
+    "data-collections": null
   }
 
   const fetchDataFunctions = {
@@ -233,6 +234,7 @@ export const SidebarUpdateItem: FC<SidebarUpdateItemProps> = ({
     },
     reports: null,
     designs: null,
+    "data-collections": null,
     tools: null,
     models: null
   }
@@ -241,6 +243,7 @@ export const SidebarUpdateItem: FC<SidebarUpdateItemProps> = ({
     chats: null,
     reports: null,
     designs: null,
+    "data-collections": null,
     presets: async (presetId: string) => {
       const item = await getPresetWorkspacesByPresetId(presetId)
       return item.workspaces
@@ -340,6 +343,7 @@ export const SidebarUpdateItem: FC<SidebarUpdateItemProps> = ({
     chats: updateChat,
     reports: updateReport,
     designs: updateDesign,
+    "data-collections": null,
     presets: async (presetId: string, updateState: TablesUpdate<"presets">) => {
       const updatedPreset = await updatePreset(presetId, updateState)
 
@@ -594,7 +598,8 @@ export const SidebarUpdateItem: FC<SidebarUpdateItemProps> = ({
     tools: setTools,
     models: setModels,
     reports: setReports,
-    designs: setDesigns
+    designs: setDesigns,
+    "data-collections": null
   }
 
   const handleUpdate = async () => {

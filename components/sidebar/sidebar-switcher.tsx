@@ -6,9 +6,12 @@ import {
   IconRobotFace,
   IconSparkles,
   IconBrain,
-  IconFlask
+  IconFlask,
+  IconDatabase
 } from "@tabler/icons-react"
-import { FC, useState } from "react"
+import { FC, useContext, useState } from "react"
+import { useRouter } from "next/navigation"
+import { ChatbotUIContext } from "@/context/context"
 import { TabsList } from "../ui/tabs"
 import { WithTooltip } from "../ui/with-tooltip"
 import { ProfileSettings } from "../utility/profile-settings"
@@ -23,11 +26,42 @@ interface SidebarSwitcherProps {
 export const SidebarSwitcher: FC<SidebarSwitcherProps> = ({
   onContentTypeChange
 }) => {
+  const router = useRouter()
+  const { selectedWorkspace } = useContext(ChatbotUIContext)
   const [showKnowledgeMenu, setShowKnowledgeMenu] = useState(false)
 
   return (
     <div className="flex flex-col justify-between border-r-2 pb-5">
       <TabsList className="bg-background grid w-[180px] auto-rows-auto">
+        <SidebarSwitchItem
+          icon={<IconFlask size={SIDEBAR_ICON_SIZE} />}
+          contentType="designs"
+          onContentTypeChange={onContentTypeChange}
+        />
+
+        <WithTooltip
+          display={<div>Data Collection</div>}
+          trigger={
+            <div
+              className="flex cursor-pointer items-center gap-2 p-2 px-3 hover:opacity-50"
+              onClick={() => {
+                if (selectedWorkspace) {
+                  router.push(`/${selectedWorkspace.id}/data-collection`)
+                }
+              }}
+            >
+              <IconDatabase size={SIDEBAR_ICON_SIZE} />
+              <span className="text-sm font-medium">Data Collection</span>
+            </div>
+          }
+        />
+
+        <SidebarSwitchItem
+          icon={<IconSparkles size={SIDEBAR_ICON_SIZE} />}
+          contentType="reports"
+          onContentTypeChange={onContentTypeChange}
+        />
+
         <WithTooltip
           display={<div>Knowledge Management</div>}
           trigger={
@@ -65,18 +99,6 @@ export const SidebarSwitcher: FC<SidebarSwitcherProps> = ({
             />
           </>
         )}
-
-        <SidebarSwitchItem
-          icon={<IconSparkles size={SIDEBAR_ICON_SIZE} />}
-          contentType="reports"
-          onContentTypeChange={onContentTypeChange}
-        />
-
-        <SidebarSwitchItem
-          icon={<IconFlask size={SIDEBAR_ICON_SIZE} />}
-          contentType="designs"
-          onContentTypeChange={onContentTypeChange}
-        />
       </TabsList>
 
       <div className="flex flex-col items-center space-y-4 px-3 py-2">

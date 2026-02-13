@@ -17,6 +17,9 @@ import { updateReport } from "@/db/reports-firestore"
 import { ReportItem } from "./items/reports/report-item"
 import { updateDesign } from "@/db/designs-firestore"
 import { DesignItem } from "./items/designs/design-item"
+import { updateDataCollection } from "@/db/data-collections-firestore"
+import { DataCollectionItem } from "./items/data-collections/data-collection-item"
+import { DataCollectionItem as DataCollectionItemType } from "@/types/sidebar-data"
 
 // Add this type definition at the top of the file
 type ValidContentType =
@@ -26,6 +29,7 @@ type ValidContentType =
   | "collections"
   | "reports"
   | "designs"
+  | "data-collections"
 
 interface SidebarDataListProps {
   contentType: ValidContentType
@@ -44,7 +48,8 @@ export const SidebarDataList: FC<SidebarDataListProps> = ({
     setCollections,
     setAssistants,
     setReports,
-    setDesigns
+    setDesigns,
+    setDataCollections
   } = useContext(ChatbotUIContext)
 
   const divRef = useRef<HTMLDivElement>(null)
@@ -83,6 +88,14 @@ export const SidebarDataList: FC<SidebarDataListProps> = ({
 
       case "designs":
         return <DesignItem key={item.id} design={item as Tables<"designs">} />
+
+      case "data-collections":
+        return (
+          <DataCollectionItem
+            key={item.id}
+            dataCollection={item as DataCollectionItemType}
+          />
+        )
 
       default:
         return null
@@ -134,7 +147,8 @@ export const SidebarDataList: FC<SidebarDataListProps> = ({
     assistants: updateAssistant,
     reports: updateReport,
     collections: updateCollection,
-    designs: updateDesign
+    designs: updateDesign,
+    "data-collections": updateDataCollection
   }
 
   const stateUpdateFunctions = {
@@ -143,7 +157,8 @@ export const SidebarDataList: FC<SidebarDataListProps> = ({
     assistants: setAssistants,
     reports: setReports,
     collections: setCollections,
-    designs: setDesigns
+    designs: setDesigns,
+    "data-collections": setDataCollections
   }
 
   const updateFolder = async (itemId: string, folderId: string | null) => {

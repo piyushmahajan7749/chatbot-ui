@@ -14,7 +14,12 @@ export const SidebarSwitchItem: FC<SidebarSwitchItemProps> = ({
   icon,
   onContentTypeChange
 }) => {
-  const title = contentType[0].toUpperCase() + contentType.substring(1)
+  const DISPLAY_NAMES: Partial<Record<ContentType, string>> = {
+    "data-collections": "Data Collection"
+  }
+  const title =
+    DISPLAY_NAMES[contentType] ||
+    contentType[0].toUpperCase() + contentType.substring(1)
 
   return (
     <WithTooltip

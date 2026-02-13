@@ -15,6 +15,7 @@ import { createAssistant, updateAssistant } from "@/db/assistants"
 import { createChat } from "@/db/chats"
 import { createCollectionFiles } from "@/db/collection-files"
 import { createCollection } from "@/db/collections"
+import { createDataCollection } from "@/db/data-collections-firestore"
 import { createDesign } from "@/db/designs-firestore"
 import { createFileBasedOnExtension } from "@/db/files"
 import { createModel } from "@/db/models"
@@ -68,7 +69,8 @@ export const SidebarCreateItem: FC<SidebarCreateItemProps> = ({
     setTools,
     setModels,
     setReports,
-    setDesigns
+    setDesigns,
+    setDataCollections
   } = useContext(ChatbotUIContext)
 
   const buttonRef = useRef<HTMLButtonElement>(null)
@@ -225,6 +227,10 @@ export const SidebarCreateItem: FC<SidebarCreateItemProps> = ({
 
       return createdDesign
     },
+    "data-collections": async (createState: any, workspaceId: string) => {
+      const created = await createDataCollection(createState, workspaceId)
+      return created
+    },
     tools: createTool,
     models: createModel
   }
@@ -239,7 +245,8 @@ export const SidebarCreateItem: FC<SidebarCreateItemProps> = ({
     tools: setTools,
     models: setModels,
     reports: setReports,
-    designs: setDesigns
+    designs: setDesigns,
+    "data-collections": setDataCollections
   }
 
   const handleCreate = async () => {
@@ -514,6 +521,33 @@ export const SidebarCreateItem: FC<SidebarCreateItemProps> = ({
         }
       }
 
+      // Special handling for data collections — navigate to detail page and
+      // generate template from protocol file in the background
+      if (contentType === "data-collections") {
+        try {
+          const newDC = await createDataCollection(
+            createState,
+            selectedWorkspace.id
+          )
+
+          setDataCollections((prevItems: any) => [...prevItems, newDC])
+
+          const dcUrl = `/${selectedWorkspace.id}/data-collection/${newDC.id}`
+          router.push(dcUrl)
+          onOpenChange(false)
+          setCreating(false)
+          return
+        } catch (error: any) {
+          console.error("Error creating data collection:", error)
+          toast.error(
+            `Error creating data collection: ${error?.message || "Unknown error"}`
+          )
+          setCreating(false)
+          onOpenChange(false)
+          return
+        }
+      }
+
       const createFunction = createFunctions[contentType]
       const setStateFunction = stateUpdateFunctions[contentType]
 
@@ -550,7 +584,10 @@ export const SidebarCreateItem: FC<SidebarCreateItemProps> = ({
           <SheetHeader>
             <SheetTitle className="text-2xl font-bold">
               Create{" "}
-              {contentType.charAt(0).toUpperCase() + contentType.slice(1, -1)}
+              {contentType === "data-collections"
+                ? "Data Collection"
+                : contentType.charAt(0).toUpperCase() +
+                  contentType.slice(1, -1)}
             </SheetTitle>
           </SheetHeader>
 
