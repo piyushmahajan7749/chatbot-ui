@@ -1037,9 +1037,36 @@ export function DesignReview({
                 </h3>
                 <ol className="list-decimal space-y-2 pl-5">
                   {generatedLiteratureSummary.citations.map(
-                    (cite: string, idx: number) => (
-                      <li key={`cite-${idx}`}>{cite}</li>
-                    )
+                    (cite: string, idx: number) => {
+                      // Extract URL from the plain citation string
+                      const urlMatch = cite.match(/https?:\/\/[^\s,)}\]]+/)
+                      const url = urlMatch?.[0]
+                      // Remove the URL from the display text to avoid duplication
+                      const displayText = url
+                        ? cite
+                            .replace(url, "")
+                            .replace(/\s{2,}/g, " ")
+                            .trim()
+                        : cite
+                      return (
+                        <li key={`cite-${idx}`}>
+                          <span>{displayText || cite}</span>
+                          {url && (
+                            <>
+                              {" "}
+                              <a
+                                href={url}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="text-primary text-xs underline"
+                              >
+                                View Source
+                              </a>
+                            </>
+                          )}
+                        </li>
+                      )
+                    }
                   )}
                 </ol>
               </div>

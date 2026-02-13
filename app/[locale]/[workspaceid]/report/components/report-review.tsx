@@ -267,7 +267,12 @@ export function ReportReviewComponent({ onSave, reportId }: ReportReviewProps) {
       > | null
       const savedChartImage = (report as any).chart_image as string | null
       const savedChartDataRaw = (report as any).chart_data as any | null
-      const savedChartData = normalizeChartData(savedChartDataRaw)
+      // Fallback: extract chart data embedded inside report_draft._chartData
+      const draftChartDataRaw =
+        savedChartDataRaw ||
+        ((report as any).report_draft as any)?._chartData ||
+        null
+      const savedChartData = normalizeChartData(draftChartDataRaw)
 
       // Case 1: we have explicit saved outline + draft
       if (savedOutline && savedOutline.length && savedDraft) {
@@ -281,7 +286,7 @@ export function ReportReviewComponent({ onSave, reportId }: ReportReviewProps) {
 
       // Case 2: outline missing but draft exists – derive outline from draft keys
       if (savedDraft && Object.keys(savedDraft).length > 0) {
-        const derived = Object.keys(savedDraft)
+        const derived = Object.keys(savedDraft).filter(k => !k.startsWith("_"))
         // Order derived keys by our default ordering
         const ordered = derived.sort(
           (a, b) =>

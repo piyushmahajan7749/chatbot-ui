@@ -875,7 +875,8 @@ export async function POST(req: Request) {
           results: finalState.results,
           discussion: finalState.discussion,
           conclusion: finalState.conclusion,
-          nextSteps: finalState.nextSteps
+          nextSteps: finalState.nextSteps,
+          _chartData: finalState.chartData || null // Embed chart data inside draft for persistence
         },
         chartImage: finalState.chartImage,
         chartData: finalState.chartData // Include raw chart data for client-side rendering
