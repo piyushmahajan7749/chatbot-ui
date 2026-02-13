@@ -29,8 +29,9 @@ export async function GET(
     // Get hypotheses
     const allHypotheses = await getHypothesesByPlanId(planId)
 
-    // Filter out hypotheses that need review (unless explicitly requested)
-    const approvedHypotheses = allHypotheses.filter(h => !h.needs_review)
+    // Include all hypotheses — flagged ones are shown too since this is a biopharma
+    // tool where common terms like "synthesize" and "drug" can trigger flags legitimately
+    const approvedHypotheses = allHypotheses
 
     // Sort by Elo (descending)
     approvedHypotheses.sort((a, b) => (b.elo || 0) - (a.elo || 0))
@@ -53,6 +54,12 @@ export async function GET(
       phaseMessage: plan.currentPhaseMessage || undefined
     }
 
+    // Extract failure reason from logs when plan failed
+    const failureReason =
+      plan.status === "failed"
+        ? logs.find(l => l.level === "error")?.message || "Unknown error"
+        : undefined
+
     const status: PlanStatus = {
       planId: plan.planId,
       status: plan.status || "pending",
@@ -62,7 +69,8 @@ export async function GET(
       createdAt: plan.createdAt,
       completedAt:
         plan.status === "completed" ? new Date().toISOString() : undefined,
-      literatureContext: plan.literatureContext
+      literatureContext: plan.literatureContext,
+      failureReason
     }
 
     return NextResponse.json(status)

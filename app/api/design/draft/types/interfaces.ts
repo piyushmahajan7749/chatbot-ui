@@ -94,11 +94,14 @@ export interface PlanStatus {
     seedCount: number
     completed: number
     failed: number
+    phase?: string
+    phaseMessage?: string
   }
   top_hypotheses?: Hypothesis[]
   logs?: LogEntry[]
   createdAt: string
   completedAt?: string
+  failureReason?: string
   literatureContext?: {
     whatOthersHaveDone: string
     goodMethodsAndTools: string

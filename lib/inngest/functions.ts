@@ -216,10 +216,6 @@ export const processDesignDraft = inngest.createFunction(
             continue
           }
 
-          if (hypoSafety.decision === "flag") {
-            hypothesis.needs_review = true
-          }
-
           await saveHypothesis(hypothesis)
           hypos.push(hypothesis)
         } else {
@@ -302,14 +298,20 @@ export const processDesignDraft = inngest.createFunction(
         DEFAULT_CONCURRENCY
       )
 
-      // Update Elo scores
+      // Update Elo scores — skip failed pairs instead of aborting the whole pipeline
       let matchIndex = 0
+      let skippedMatches = 0
       for (let i = 0; i < topHypotheses.length; i++) {
         for (let j = i + 1; j < topHypotheses.length; j++) {
           const result = rankingResults[matchIndex]
 
           if (!result) {
-            throw new Error(`Ranking task ${matchIndex} returned no result`)
+            console.warn(
+              `[TOURNAMENT] Ranking task ${matchIndex} returned no result, skipping`
+            )
+            matchIndex++
+            skippedMatches++
+            continue
           }
 
           if (result.status !== "success" || !result.output) {
@@ -319,20 +321,22 @@ export const processDesignDraft = inngest.createFunction(
                 ? JSON.stringify(result.output)
                 : "no-ranking-output")
 
-            console.error(
-              `[TOURNAMENT] Ranking task ${rankingTasks[matchIndex]?.taskId} failed: ${errorDetails}`
+            console.warn(
+              `[TOURNAMENT] Ranking task ${rankingTasks[matchIndex]?.taskId} failed (pair ${i}-${j}), skipping: ${errorDetails}`
             )
-
-            throw new Error(
-              `Ranking task failed for pair ${i}-${j}: ${errorDetails}`
-            )
+            matchIndex++
+            skippedMatches++
+            continue
           }
 
           const winner = result.output.winner as "A" | "B"
           if (winner !== "A" && winner !== "B") {
-            throw new Error(
-              `Ranking task returned invalid winner (${winner}) for pair ${i}-${j}`
+            console.warn(
+              `[TOURNAMENT] Invalid winner (${winner}) for pair ${i}-${j}, skipping`
             )
+            matchIndex++
+            skippedMatches++
+            continue
           }
 
           const hypoA = topHypotheses[i]
@@ -358,6 +362,20 @@ export const processDesignDraft = inngest.createFunction(
           })
           matchIndex++
         }
+      }
+
+      if (skippedMatches > 0) {
+        await saveLog({
+          timestamp: new Date().toISOString(),
+          actor: "supervisor",
+          message: `Tournament completed with ${skippedMatches}/${rankingResults.length} ranking failures (skipped)`,
+          level: "warn",
+          context: {
+            planId: plan.planId,
+            skippedMatches,
+            totalMatches: rankingResults.length
+          }
+        })
       }
 
       return { success: true }

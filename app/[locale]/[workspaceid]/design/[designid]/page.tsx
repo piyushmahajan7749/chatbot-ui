@@ -351,7 +351,19 @@ export default function DesignIDPage({
           if (status.status === "completed") {
             toast.success("Design draft completed.")
           } else {
-            toast.error("Design draft failed.")
+            const hasPartialResults =
+              status.top_hypotheses && status.top_hypotheses.length > 0
+            const reason = (status as any).failureReason || "Unknown error"
+            if (hasPartialResults) {
+              toast.error(
+                `Design draft partially failed: ${reason}. ${status.top_hypotheses!.length} hypotheses were still generated.`,
+                { duration: 8000 }
+              )
+            } else {
+              toast.error(`Design draft failed: ${reason}`, {
+                duration: 8000
+              })
+            }
           }
         }
       } catch (error: any) {

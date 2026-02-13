@@ -48,6 +48,7 @@ export interface DesignPlanStatus {
   logs?: DesignPlanLogEntry[]
   createdAt: string
   completedAt?: string
+  failureReason?: string
   literatureContext?: {
     whatOthersHaveDone: string
     goodMethodsAndTools: string
