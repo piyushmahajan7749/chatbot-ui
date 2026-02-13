@@ -325,6 +325,7 @@ export const SidebarCreateItem: FC<SidebarCreateItemProps> = ({
               report_outline: data.reportOutline,
               report_draft: data.reportDraft,
               chart_image: data.chartImage || null,
+              chart_data: data.chartData || null,
               generation_status: "ready",
               generation_completed_at: new Date().toISOString(),
               generation_error: null
