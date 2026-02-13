@@ -39,7 +39,11 @@ function normalizeChartData(raw: any): ChartDataState | null {
   if (!raw) return null
   // New format: { chartTitle, yAxisLabel, data: [...] }
   if (raw.data && Array.isArray(raw.data)) {
-    return raw as ChartDataState
+    return {
+      chartTitle: raw.chartTitle || undefined,
+      yAxisLabel: raw.yAxisLabel || undefined,
+      data: raw.data
+    }
   }
   // Old format: plain array [{label, value}, ...]
   if (Array.isArray(raw) && raw.length > 0) {
@@ -210,6 +214,7 @@ export function ReportReviewComponent({ onSave, reportId }: ReportReviewProps) {
     procedure: "Procedure",
     setup: "Setup and Layout",
     dataAnalysis: "Data Analysis",
+    charts: "Charts",
     results: "Results",
     discussion: "Discussion",
     conclusion: "Conclusion",
@@ -678,7 +683,7 @@ export function ReportReviewComponent({ onSave, reportId }: ReportReviewProps) {
                     </h2>
 
                     {section === "charts" ? (
-                      <div className="prose dark:prose-invert max-w-none overflow-x-auto break-words pb-4 [&>*:first-child]:mt-0 [&_li]:my-0 [&_ol]:my-1 [&_p]:my-1 [&_ul]:my-1">
+                      <div className="max-w-none overflow-x-auto break-words pb-4">
                         {chartData &&
                         chartData.data &&
                         chartData.data.length > 0 ? (
@@ -688,11 +693,18 @@ export function ReportReviewComponent({ onSave, reportId }: ReportReviewProps) {
                             yAxisLabel={chartData.yAxisLabel}
                           />
                         ) : chartImage ? (
-                          <img
-                            src={chartImage}
-                            alt="Data visualization chart"
-                            className="h-auto max-w-full rounded-lg shadow-lg"
-                          />
+                          <div>
+                            {chartData?.chartTitle && (
+                              <h3 className="mb-4 text-center text-lg font-semibold">
+                                {chartData.chartTitle}
+                              </h3>
+                            )}
+                            <img
+                              src={chartImage}
+                              alt="Data visualization chart"
+                              className="h-auto max-w-full rounded-lg shadow-lg"
+                            />
+                          </div>
                         ) : (
                           <p className="text-muted-foreground text-sm">
                             No visualization data available.

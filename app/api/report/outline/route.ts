@@ -115,12 +115,12 @@ async function callDataVisualizationAgent(
   const systemPrompt = `You are a data visualization expert for biopharma research. Your job is to extract the MOST MEANINGFUL numeric comparison from experimental data and format it for a bar chart.
 
 RULES:
-1. Pick ONE primary numeric metric from the data (e.g. mean viscosity, % recovery, absorbance, concentration). Do NOT mix different metrics or units in the same chart.
-2. Use SHORT labels (max 15 characters) for the X-axis categories. Abbreviate formulation names (e.g. "F1 Control", "F2 Glycine", "F3 Sucrose").
+1. Pick ONE primary numeric metric from the data (e.g. mean viscosity, % recovery, absorbance, yield, concentration). Do NOT mix different metrics or units in the same chart.
+2. Use SHORT labels (max 15 characters) for the X-axis categories. Abbreviate names (e.g. "C0 Control", "E1", "F2 Glycine").
 3. All values MUST be in the same unit. If the data has multiple metrics, choose the most scientifically relevant one.
 4. Provide a clear chartTitle (e.g. "Mean Viscosity by Formulation") and yAxisLabel WITH units (e.g. "Viscosity (mPa·s)").
 5. Return only POSITIVE values when possible. If comparing % changes, use absolute values or the raw measurement instead.
-6. Include 3-10 data points maximum. If there are more, pick the most important ones.`
+6. IMPORTANT: Include ALL data points / conditions / formulations from the dataset. Do NOT skip or drop any rows. Every row in the data must appear as a bar in the chart.`
 
   const userPrompt = `Extract data for a bar chart from this experiment.
 
@@ -183,113 +183,121 @@ Data Analysis Draft: {dataAnalysisDraft}
 }
 
 const chartTool = tool(
-  async ({ data }) => {
-    const width = 800 // Increased width for better spacing
+  async ({ data, chartTitle, yAxisLabel }) => {
+    const width = 800
     const height = 500
-    const margin = { top: 30, right: 50, bottom: 120, left: 60 } // Increased bottom margin for rotated labels
+    const margin = {
+      top: 50,
+      right: 50,
+      bottom: 80,
+      left: yAxisLabel ? 80 : 60
+    }
 
     // Create a canvas
     const canvas = createCanvas(width, height)
     const ctx = canvas.getContext("2d")
 
     // Fill the background
-    ctx.fillStyle = "#f8f9fa"
+    ctx.fillStyle = "#ffffff"
     ctx.fillRect(0, 0, width, height)
 
     const x = d3
       .scaleBand()
       .domain(data.map(d => d.label))
       .range([margin.left, width - margin.right])
-      .padding(0.3) // Increased padding between bars
+      .padding(0.3)
 
     const y = d3
       .scaleLinear()
-      .domain([0, (d3.max(data, (d: any) => d.value) || 0) * 1.1])
+      .domain([0, (d3.max(data, (d: any) => d.value) || 0) * 1.15])
       .nice()
       .range([height - margin.bottom, margin.top])
 
     const colorPalette = [
-      "#e6194B",
-      "#3cb44b",
-      "#ffe119",
-      "#4363d8",
-      "#f58231",
-      "#911eb4",
-      "#42d4f4",
-      "#f032e6",
-      "#bfef45",
-      "#fabebe"
+      "#3b82f6",
+      "#10b981",
+      "#f59e0b",
+      "#ef4444",
+      "#8b5cf6",
+      "#06b6d4",
+      "#ec4899",
+      "#84cc16",
+      "#f97316",
+      "#6366f1"
     ]
 
-    // Draw title
+    // Draw chart title
     ctx.font = "bold 16px Arial"
     ctx.textAlign = "center"
-    ctx.fillStyle = "#333"
-    ctx.fillText("Data Visualization", width / 2, margin.top / 2)
+    ctx.fillStyle = "#111827"
+    ctx.fillText(chartTitle || "Data Visualization", width / 2, 28)
 
-    // Draw bars with slight shadow for depth
+    // Draw bars with rounded top effect
     data.forEach((d, idx) => {
       ctx.fillStyle = colorPalette[idx % colorPalette.length]
 
-      // Add shadow effect
-      ctx.shadowColor = "rgba(0, 0, 0, 0.2)"
-      ctx.shadowBlur = 5
-      ctx.shadowOffsetX = 2
-      ctx.shadowOffsetY = 2
+      const barX = x(d.label) ?? 0
+      const barY = y(d.value)
+      const barW = x.bandwidth()
+      const barH = height - margin.bottom - barY
 
-      ctx.fillRect(
-        x(d.label) ?? 0,
-        y(d.value),
-        x.bandwidth(),
-        height - margin.bottom - y(d.value)
-      )
-
-      // Reset shadow
-      ctx.shadowColor = "transparent"
-      ctx.shadowBlur = 0
-      ctx.shadowOffsetX = 0
-      ctx.shadowOffsetY = 0
+      // Draw bar with slight rounded top corners
+      const radius = Math.min(4, barW / 4)
+      ctx.beginPath()
+      ctx.moveTo(barX, barY + radius)
+      ctx.quadraticCurveTo(barX, barY, barX + radius, barY)
+      ctx.lineTo(barX + barW - radius, barY)
+      ctx.quadraticCurveTo(barX + barW, barY, barX + barW, barY + radius)
+      ctx.lineTo(barX + barW, barY + barH)
+      ctx.lineTo(barX, barY + barH)
+      ctx.closePath()
+      ctx.fill()
 
       // Add value label on top of each bar
-      ctx.fillStyle = "#333"
-      ctx.font = "12px Arial"
+      ctx.fillStyle = "#1f2937"
+      ctx.font = "bold 11px Arial"
       ctx.textAlign = "center"
-      ctx.fillText(
-        d.value.toString(),
-        (x(d.label) ?? 0) + x.bandwidth() / 2,
-        y(d.value) - 5
-      )
+      ctx.fillText(d.value.toString(), barX + barW / 2, barY - 6)
     })
 
     // Draw x-axis line
     ctx.beginPath()
-    ctx.strokeStyle = "#666"
+    ctx.strokeStyle = "#d1d5db"
     ctx.lineWidth = 1
     ctx.moveTo(margin.left, height - margin.bottom)
     ctx.lineTo(width - margin.right, height - margin.bottom)
     ctx.stroke()
 
-    // Draw x-axis labels (rotated to prevent overlap)
-    ctx.save()
-    ctx.textAlign = "right"
-    ctx.textBaseline = "middle"
-    ctx.font = "12px Arial"
-    ctx.fillStyle = "#333"
+    // Draw x-axis labels (horizontal, centered under each bar)
+    ctx.textAlign = "center"
+    ctx.textBaseline = "top"
+    ctx.font = "11px Arial"
+    ctx.fillStyle = "#374151"
 
     x.domain().forEach((d: any) => {
       const xCoord = (x(d) ?? 0) + x.bandwidth() / 2
-      ctx.save()
-      ctx.translate(xCoord, height - margin.bottom + 10)
-      ctx.rotate(Math.PI / 4) // Rotate text 45 degrees
-      ctx.fillText(d, 0, 0)
-      ctx.restore()
+      // Word-wrap long labels
+      const maxWidth = x.bandwidth() + 10
+      const words = d.split(/\s+/)
+      let line = ""
+      let lineY = height - margin.bottom + 8
+      for (const word of words) {
+        const testLine = line ? line + " " + word : word
+        const metrics = ctx.measureText(testLine)
+        if (metrics.width > maxWidth && line) {
+          ctx.fillText(line, xCoord, lineY)
+          line = word
+          lineY += 14
+        } else {
+          line = testLine
+        }
+      }
+      if (line) ctx.fillText(line, xCoord, lineY)
     })
-
-    ctx.restore()
 
     // Draw y-axis line
     ctx.beginPath()
-    ctx.strokeStyle = "#666"
+    ctx.strokeStyle = "#d1d5db"
     ctx.lineWidth = 1
     ctx.moveTo(margin.left, margin.top)
     ctx.lineTo(margin.left, height - margin.bottom)
@@ -299,35 +307,44 @@ const chartTool = tool(
     ctx.textAlign = "right"
     ctx.textBaseline = "middle"
     ctx.font = "12px Arial"
-    ctx.fillStyle = "#333"
+    ctx.fillStyle = "#374151"
 
-    const ticks = y.ticks(10) // More ticks for better readability
+    const ticks = y.ticks(8)
     ticks.forEach((d: any) => {
       const yCoord = y(d)
 
       // Draw tick
       ctx.beginPath()
+      ctx.strokeStyle = "#d1d5db"
       ctx.moveTo(margin.left, yCoord)
       ctx.lineTo(margin.left - 6, yCoord)
       ctx.stroke()
 
       // Draw label
+      ctx.fillStyle = "#374151"
       ctx.fillText(d.toString(), margin.left - 10, yCoord)
 
       // Draw grid line
       ctx.beginPath()
-      ctx.strokeStyle = "#e0e0e0"
-      ctx.setLineDash([2, 2])
+      ctx.strokeStyle = "#e5e7eb"
+      ctx.setLineDash([3, 3])
       ctx.moveTo(margin.left, yCoord)
       ctx.lineTo(width - margin.right, yCoord)
       ctx.stroke()
       ctx.setLineDash([])
     })
 
-    // Add a light border around the chart
-    ctx.strokeStyle = "#ddd"
-    ctx.lineWidth = 1
-    ctx.strokeRect(0, 0, width, height)
+    // Draw Y-axis label (rotated)
+    if (yAxisLabel) {
+      ctx.save()
+      ctx.font = "13px Arial"
+      ctx.fillStyle = "#374151"
+      ctx.textAlign = "center"
+      ctx.translate(18, (margin.top + height - margin.bottom) / 2)
+      ctx.rotate(-Math.PI / 2)
+      ctx.fillText(yAxisLabel, 0, 0)
+      ctx.restore()
+    }
 
     // Convert canvas to a buffer containing a PNG image
     const buffer = canvas.toBuffer("image/png") as Buffer
@@ -348,7 +365,12 @@ const chartTool = tool(
           label: z.string(),
           value: z.number()
         })
-      )
+      ),
+      chartTitle: z.string().optional().describe("Title for the chart"),
+      yAxisLabel: z
+        .string()
+        .optional()
+        .describe("Label for the Y axis with units")
     })
   }
 )
@@ -722,9 +744,13 @@ const workflow = new StateGraph<ReportState>({
   })
   .addNode("generateChart", async (state: ReportState) => {
     try {
-      // Parse data from chartData
+      // Parse data from chartData and pass title/label for the D3 image
       const parsedData = state.chartData?.data || []
-      const chartImage = await chartTool.func({ data: parsedData })
+      const chartImage = await chartTool.func({
+        data: parsedData,
+        chartTitle: state.chartData?.chartTitle || "Data Visualization",
+        yAxisLabel: state.chartData?.yAxisLabel || ""
+      })
       return { ...state, chartImage }
     } catch (error) {
       console.error("Error in generateChart:", error)
