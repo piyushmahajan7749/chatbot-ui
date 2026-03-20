@@ -1,15 +1,27 @@
 import { IconFileAnalytics } from "@tabler/icons-react"
-import { FC } from "react"
+import { FC, useContext, useEffect, useState } from "react"
 import { SidebarItem } from "../sidebar/items/all/sidebar-display-item"
 import { Tables } from "../../supabase/types"
 import { Label } from "../ui/label"
 import { CollectionFile } from "@/types/collection-file"
+import { getProjectById } from "@/db/projects"
+import { ChatbotUIContext } from "../../context/context"
 
 interface ReportItemProps {
   report: Tables<"reports">
 }
 
 export const ReportItem: FC<ReportItemProps> = ({ report }) => {
+  const [projectName, setProjectName] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (report.project_id) {
+      getProjectById(report.project_id).then(project => {
+        setProjectName(project?.name || null)
+      })
+    }
+  }, [report.project_id])
+
   return (
     <SidebarItem
       item={report}
@@ -33,6 +45,11 @@ export const ReportItem: FC<ReportItemProps> = ({ report }) => {
         return (
           <div className="space-y-1">
             <Label>Reports</Label>
+            {projectName && (
+              <div className="text-xs text-slate-500">
+                Project: {projectName}
+              </div>
+            )}
           </div>
         )
       }}

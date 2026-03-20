@@ -12,6 +12,19 @@ export const getReports = async (userId: string) => {
   return data as Tables<"reports">[]
 }
 
+export const getReportsByProject = async (userId: string, projectId: string) => {
+  const { data, error } = await supabase
+    .from("reports")
+    .select("*")
+    .eq("user_id", userId)
+    .eq("project_id", projectId)
+    .order("created_at", { ascending: false })
+  if (error) {
+    throw error
+  }
+  return data as Tables<"reports">[]
+}
+
 export const createReport = async (
   report: TablesInsert<"reports">,
   workspace_id: string

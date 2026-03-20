@@ -10,11 +10,13 @@ import { AssistantRetrievalSelect } from "../sidebar/items/assistants/assistant-
 interface CreateReportProps {
   isOpen: boolean
   onOpenChange: (isOpen: boolean) => void
+  projectId?: string
 }
 
 export const CreateReport: FC<CreateReportProps> = ({
   isOpen,
-  onOpenChange
+  onOpenChange,
+  projectId
 }) => {
   const { profile, selectedWorkspace } = useContext(ChatbotUIContext)
 
@@ -50,6 +52,7 @@ export const CreateReport: FC<CreateReportProps> = ({
           name,
           description,
           workspace_id: selectedWorkspace.id,
+          project_id: projectId || null,
           files: selectedReportRetrievalItems.filter(item =>
             item.hasOwnProperty("type")
           ) as Tables<"files">[],
