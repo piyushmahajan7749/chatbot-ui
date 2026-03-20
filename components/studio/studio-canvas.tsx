@@ -5,11 +5,14 @@ import { useParams, useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { getProjectById } from "@/db/projects"
+import { Badge } from "@/components/ui/badge"
+import { getProjectById, updateProject, deleteProject } from "@/db/projects"
 import { getChatsByWorkspaceId } from "@/db/chats"
 import { getFileWorkspacesByWorkspaceId } from "@/db/files"
 import { getReportsByProject } from "@/db/reports"
+import { getMessagesByChatId } from "@/db/messages"
 import { Project } from "@/types/project"
+import { ProjectSettingsModal } from "./project-settings-modal"
 import { 
   IconPlus,
   IconMessage,
@@ -19,7 +22,12 @@ import {
   IconCalendar,
   IconSettings,
   IconChart,
-  IconReport
+  IconReport,
+  IconUpload,
+  IconTrash,
+  IconEdit,
+  IconUsers,
+  IconBrain
 } from "@tabler/icons-react"
 import { useToast } from "@/app/hooks/use-toast"
 import { useContext } from "react"
@@ -37,6 +45,11 @@ interface Chat {
   created_at: string
   updated_at: string
   project_id?: string
+}
+
+interface ChatWithLastMessage extends Chat {
+  lastMessage?: string
+  lastMessageAt?: string
 }
 
 interface ProjectFile {
@@ -69,10 +82,11 @@ export function StudioCanvas({
   const { user } = useContext(ChatbotUIContext)
   
   const [project, setProject] = useState<Project | null>(null)
-  const [chats, setChats] = useState<Chat[]>([])
+  const [chats, setChats] = useState<ChatWithLastMessage[]>([])
   const [files, setFiles] = useState<ProjectFile[]>([])
   const [reports, setReports] = useState<Report[]>([])
   const [loading, setLoading] = useState(true)
+  const [settingsOpen, setSettingsOpen] = useState(false)
 
   const actualProjectId = projectId || (params.projectId as string)
   const actualWorkspaceId = workspaceId || (params.workspaceid as string)
@@ -100,10 +114,31 @@ export function StudioCanvas({
       }
       setProject(projectData)
 
-      // Fetch chats for this workspace (filter by project_id on frontend for now)
+      // Fetch chats for this workspace and project
       const allChats = await getChatsByWorkspaceId(actualWorkspaceId)
       const projectChats = allChats.filter(chat => chat.project_id === actualProjectId)
-      setChats(projectChats)
+      
+      // Fetch last message for each chat
+      const chatsWithMessages = await Promise.all(
+        projectChats.slice(0, 10).map(async (chat) => {
+          try {
+            const messages = await getMessagesByChatId(chat.id)
+            const lastMessage = messages[0] // Messages are ordered by created_at desc
+            return {
+              ...chat,
+              lastMessage: lastMessage?.content?.slice(0, 100) + (lastMessage?.content?.length > 100 ? "..." : "") || "No messages yet",
+              lastMessageAt: lastMessage?.created_at || chat.created_at
+            } as ChatWithLastMessage
+          } catch (error) {
+            return {
+              ...chat,
+              lastMessage: "No messages yet",
+              lastMessageAt: chat.created_at
+            } as ChatWithLastMessage
+          }
+        })
+      )
+      setChats(chatsWithMessages)
 
       // Fetch files for this workspace (filter by project_id on frontend for now) 
       const fileData = await getFileWorkspacesByWorkspaceId(actualWorkspaceId)
@@ -129,13 +164,55 @@ export function StudioCanvas({
   }
 
   const handleNewChat = () => {
-    // Navigate to new chat with project context
     router.push(`/${locale}/${actualWorkspaceId}/chat?projectId=${actualProjectId}`)
   }
 
   const handleNewReport = () => {
-    // Navigate to new report with project context
     router.push(`/${locale}/${actualWorkspaceId}/reports/new?projectId=${actualProjectId}`)
+  }
+
+  const handleUploadFile = () => {
+    // Navigate to files page with project context
+    router.push(`/${locale}/${actualWorkspaceId}/files?projectId=${actualProjectId}`)
+  }
+
+  const handleProjectUpdate = async (updates: Partial<Project>) => {
+    if (!project) return
+    
+    try {
+      const updatedProject = await updateProject(project.id, updates)
+      setProject(updatedProject)
+      toast({
+        title: "Project updated",
+        description: "Your project has been updated successfully.",
+      })
+      setSettingsOpen(false)
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to update project.",
+        variant: "destructive",
+      })
+    }
+  }
+
+  const handleProjectDelete = async () => {
+    if (!project) return
+    
+    try {
+      await deleteProject(project.id)
+      toast({
+        title: "Project deleted",
+        description: "Your project has been deleted successfully.",
+      })
+      router.push(`/${locale}/${actualWorkspaceId}/projects`)
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to delete project.",
+        variant: "destructive",
+      })
+    }
   }
 
   const getTimeAgo = (date: string): string => {
@@ -156,6 +233,17 @@ export function StudioCanvas({
     const sizes = ['Bytes', 'KB', 'MB', 'GB']
     const i = Math.floor(Math.log(bytes) / Math.log(k))
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i]
+  }
+
+  const getTotalActivity = (): number => {
+    const now = Date.now()
+    const weekAgo = now - (7 * 24 * 60 * 60 * 1000)
+    
+    const recentChats = chats.filter(chat => new Date(chat.updated_at).getTime() > weekAgo).length
+    const recentFiles = files.filter(file => new Date(file.updated_at).getTime() > weekAgo).length
+    const recentReports = reports.filter(report => new Date(report.updated_at).getTime() > weekAgo).length
+    
+    return recentChats + recentFiles + recentReports
   }
 
   // If children are provided, render them instead of default content
@@ -185,25 +273,46 @@ export function StudioCanvas({
 
   return (
     <div className="h-full bg-slate-50 flex flex-col">
-      {/* Header */}
-      <div className="bg-white border-b border-slate-300 px-6 py-4">
-        <div className="flex items-center justify-between">
-          <div className="flex-1">
-            <h1 className="text-xl font-bold text-slate-800">{project.name}</h1>
-            <p className="text-sm text-slate-500">{project.description || "No description"}</p>
+      {/* Enhanced Header with improved layout */}
+      <div className="bg-white border-b border-slate-300 px-6 py-6">
+        <div className="flex items-start justify-between">
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-3 mb-2">
+              <h1 className="text-2xl font-bold text-slate-800 truncate">{project.name}</h1>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setSettingsOpen(true)}
+                className="text-slate-500 hover:text-slate-700"
+              >
+                <IconEdit size={16} />
+              </Button>
+            </div>
+            <p className="text-slate-600 mb-3 line-clamp-2">{project.description || "No description provided"}</p>
+            {project.tags.length > 0 && (
+              <div className="flex flex-wrap gap-2">
+                {project.tags.map((tag) => (
+                  <Badge key={tag} variant="secondary" className="text-xs">
+                    {tag}
+                  </Badge>
+                ))}
+              </div>
+            )}
           </div>
-          <div className="flex items-center gap-2">
-            <Button onClick={handleNewChat} className="gap-2">
+          
+          {/* Quick Actions */}
+          <div className="flex items-center gap-2 ml-6">
+            <Button onClick={handleNewChat} className="gap-2 bg-blue-600 hover:bg-blue-700">
               <IconPlus size={16} />
               New Chat
+            </Button>
+            <Button onClick={handleUploadFile} variant="outline" className="gap-2">
+              <IconUpload size={16} />
+              Upload File
             </Button>
             <Button onClick={handleNewReport} variant="outline" className="gap-2">
               <IconReport size={16} />
               New Report
-            </Button>
-            <Button variant="outline" className="gap-2">
-              <IconSettings size={16} />
-              Settings
             </Button>
           </div>
         </div>
@@ -212,10 +321,14 @@ export function StudioCanvas({
       {/* Content */}
       <div className="flex-1 p-6 overflow-auto">
         <Tabs defaultValue="overview" className="h-full">
-          <TabsList className="w-full mb-6">
+          <TabsList className="w-full mb-6 bg-white">
             <TabsTrigger value="overview" className="flex items-center gap-2">
               <IconChart size={16} />
               Overview
+            </TabsTrigger>
+            <TabsTrigger value="chats" className="flex items-center gap-2">
+              <IconMessage size={16} />
+              Recent Chats
             </TabsTrigger>
             <TabsTrigger value="reports" className="flex items-center gap-2">
               <IconReport size={16} />
@@ -224,134 +337,197 @@ export function StudioCanvas({
           </TabsList>
 
           <TabsContent value="overview" className="space-y-8">
-            {/* Project Overview Cards */}
+            {/* Stats Cards - Inspired by JourneyMaker */}
             <div className="grid grid-cols-4 gap-6">
-              <Card className="bg-white">
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-sm font-medium text-slate-600 flex items-center gap-2">
-                    <IconMessage size={16} />
-                    Conversations
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="pt-0">
-                  <div className="text-2xl font-bold text-blue-600">{chats.length}</div>
-                  <div className="text-xs text-slate-500">Active chats</div>
-                </CardContent>
-              </Card>
-
-              <Card className="bg-white">
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-sm font-medium text-slate-600 flex items-center gap-2">
-                    <IconFile size={16} />
-                    Documents
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="pt-0">
-                  <div className="text-2xl font-bold text-emerald-600">{files.length}</div>
-                  <div className="text-xs text-slate-500">Uploaded files</div>
-                </CardContent>
-              </Card>
-
-              <Card className="bg-white">
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-sm font-medium text-slate-600 flex items-center gap-2">
-                    <IconReport size={16} />
-                    Reports
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="pt-0">
-                  <div className="text-2xl font-bold text-orange-600">{reports.length}</div>
-                  <div className="text-xs text-slate-500">Generated reports</div>
-                </CardContent>
-              </Card>
-
-              <Card className="bg-white">
-                <CardHeader className="pb-3">
-                  <CardTitle className="text-sm font-medium text-slate-600 flex items-center gap-2">
-                    <IconChart size={16} />
-                    Activity
-                  </CardTitle>
-                </CardHeader>
-                <CardContent className="pt-0">
-                  <div className="text-2xl font-bold text-purple-600">
-                    {Math.max(chats.length, files.length, reports.length)}
+              <Card className="bg-blue-50 border-blue-100 hover:shadow-md transition-shadow">
+                <CardContent className="p-6">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-blue-600 text-sm font-medium">Conversations</p>
+                      <p className="text-3xl font-bold text-blue-700">{chats.length}</p>
+                    </div>
+                    <div className="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center">
+                      <IconMessage size={20} className="text-blue-600" />
+                    </div>
                   </div>
-                  <div className="text-xs text-slate-500">This week</div>
+                </CardContent>
+              </Card>
+
+              <Card className="bg-emerald-50 border-emerald-100 hover:shadow-md transition-shadow">
+                <CardContent className="p-6">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-emerald-600 text-sm font-medium">Documents</p>
+                      <p className="text-3xl font-bold text-emerald-700">{files.length}</p>
+                    </div>
+                    <div className="w-12 h-12 bg-emerald-100 rounded-xl flex items-center justify-center">
+                      <IconFile size={20} className="text-emerald-600" />
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card className="bg-orange-50 border-orange-100 hover:shadow-md transition-shadow">
+                <CardContent className="p-6">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-orange-600 text-sm font-medium">Reports</p>
+                      <p className="text-3xl font-bold text-orange-700">{reports.length}</p>
+                    </div>
+                    <div className="w-12 h-12 bg-orange-100 rounded-xl flex items-center justify-center">
+                      <IconReport size={20} className="text-orange-600" />
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              <Card className="bg-purple-50 border-purple-100 hover:shadow-md transition-shadow">
+                <CardContent className="p-6">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-purple-600 text-sm font-medium">Weekly Activity</p>
+                      <p className="text-3xl font-bold text-purple-700">{getTotalActivity()}</p>
+                    </div>
+                    <div className="w-12 h-12 bg-purple-100 rounded-xl flex items-center justify-center">
+                      <IconChart size={20} className="text-purple-600" />
+                    </div>
+                  </div>
                 </CardContent>
               </Card>
             </div>
 
-            {/* Project Details */}
+            {/* Recent Activity Section */}
             <div className="grid grid-cols-2 gap-6">
               <Card className="bg-white">
-                <CardHeader>
-                  <CardTitle className="text-sm font-medium text-slate-700">Project Information</CardTitle>
+                <CardHeader className="border-b border-slate-100">
+                  <CardTitle className="text-lg font-semibold text-slate-800">Recent Conversations</CardTitle>
                 </CardHeader>
-                <CardContent className="space-y-3">
-                  <div className="flex items-center gap-2 text-sm text-slate-600">
-                    <IconCalendar size={16} className="text-slate-400" />
-                    <span>Created {getTimeAgo(project.created_at)}</span>
-                  </div>
-                  <div className="flex items-center gap-2 text-sm text-slate-600">
-                    <IconClock size={16} className="text-slate-400" />
-                    <span>Updated {getTimeAgo(project.updated_at)}</span>
-                  </div>
-                  {project.tags.length > 0 && (
-                    <div className="flex items-start gap-2 text-sm text-slate-600">
-                      <IconTag size={16} className="text-slate-400 mt-0.5" />
-                      <div className="flex flex-wrap gap-1">
-                        {project.tags.map((tag) => (
-                          <span
-                            key={tag}
-                            className="px-2 py-1 text-xs bg-blue-50 text-blue-700 rounded-md"
-                          >
-                            {tag}
-                          </span>
-                        ))}
-                      </div>
+                <CardContent className="p-0">
+                  {chats.length === 0 ? (
+                    <div className="p-6 text-center">
+                      <IconMessage size={32} className="mx-auto text-slate-300 mb-3" />
+                      <p className="text-slate-500 text-sm">No conversations yet</p>
+                      <Button onClick={handleNewChat} size="sm" className="mt-3">
+                        Start First Chat
+                      </Button>
+                    </div>
+                  ) : (
+                    <div className="max-h-80 overflow-auto">
+                      {chats.slice(0, 5).map((chat) => (
+                        <div
+                          key={chat.id}
+                          className="p-4 border-b border-slate-50 hover:bg-slate-50 cursor-pointer transition-colors"
+                          onClick={() => router.push(`/${locale}/${actualWorkspaceId}/chat/${chat.id}`)}
+                        >
+                          <div className="flex items-start gap-3">
+                            <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center mt-0.5">
+                              <IconBrain size={16} className="text-blue-600" />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <h4 className="font-medium text-slate-800 truncate">{chat.name}</h4>
+                              <p className="text-sm text-slate-500 line-clamp-2 mt-1">{chat.lastMessage}</p>
+                              <p className="text-xs text-slate-400 mt-2">{getTimeAgo(chat.lastMessageAt || chat.updated_at)}</p>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
                     </div>
                   )}
                 </CardContent>
               </Card>
 
               <Card className="bg-white">
-                <CardHeader>
-                  <CardTitle className="text-sm font-medium text-slate-700">Recent Activity</CardTitle>
+                <CardHeader className="border-b border-slate-100">
+                  <CardTitle className="text-lg font-semibold text-slate-800">Project Information</CardTitle>
                 </CardHeader>
-                <CardContent>
-                  <div className="space-y-3">
-                    {[...chats, ...files, ...reports]
-                      .sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime())
-                      .slice(0, 5)
-                      .map((item) => {
-                        let icon = <IconMessage size={16} className="text-blue-500" />
-                        if ("type" in item) {
-                          icon = <IconFile size={16} className="text-emerald-500" />
-                        } else if ("description" in item) {
-                          icon = <IconReport size={16} className="text-orange-500" />
-                        }
-                        
-                        return (
-                          <div key={item.id} className="flex items-center gap-3 p-2 rounded-md hover:bg-slate-50">
-                            {icon}
-                            <div className="flex-1 min-w-0">
-                              <p className="text-sm font-medium text-slate-700 truncate">
-                                {item.name}
-                              </p>
-                              <p className="text-xs text-slate-400">
-                                {getTimeAgo(item.updated_at)}
-                              </p>
-                            </div>
-                          </div>
-                        )
-                      })}
-                    {chats.length === 0 && files.length === 0 && reports.length === 0 && (
-                      <p className="text-sm text-slate-400">No recent activity</p>
-                    )}
+                <CardContent className="p-6 space-y-4">
+                  <div className="flex items-center gap-3 text-sm text-slate-600">
+                    <IconCalendar size={16} className="text-slate-400" />
+                    <span>Created {getTimeAgo(project.created_at)}</span>
+                  </div>
+                  <div className="flex items-center gap-3 text-sm text-slate-600">
+                    <IconClock size={16} className="text-slate-400" />
+                    <span>Updated {getTimeAgo(project.updated_at)}</span>
+                  </div>
+                  <div className="pt-4 border-t border-slate-100">
+                    <div className="grid grid-cols-3 gap-4 text-center">
+                      <div>
+                        <p className="text-2xl font-bold text-slate-800">{chats.length + files.length + reports.length}</p>
+                        <p className="text-xs text-slate-500">Total Items</p>
+                      </div>
+                      <div>
+                        <p className="text-2xl font-bold text-slate-800">{getTotalActivity()}</p>
+                        <p className="text-xs text-slate-500">This Week</p>
+                      </div>
+                      <div>
+                        <p className="text-2xl font-bold text-slate-800">{files.reduce((acc, file) => acc + file.size, 0) > 0 ? Math.round(files.reduce((acc, file) => acc + file.size, 0) / 1024 / 1024) : 0}</p>
+                        <p className="text-xs text-slate-500">MB Used</p>
+                      </div>
+                    </div>
                   </div>
                 </CardContent>
               </Card>
             </div>
+          </TabsContent>
+
+          <TabsContent value="chats" className="space-y-6">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-lg font-semibold text-slate-800">Recent Conversations</h3>
+                <p className="text-sm text-slate-500">
+                  All conversations for {project.name}
+                </p>
+              </div>
+              <Button onClick={handleNewChat} className="gap-2">
+                <IconPlus size={16} />
+                New Chat
+              </Button>
+            </div>
+
+            {chats.length === 0 ? (
+              <Card className="bg-white">
+                <CardContent className="py-12 text-center">
+                  <IconMessage size={48} className="mx-auto text-slate-300 mb-4" />
+                  <h3 className="text-lg font-medium text-slate-800 mb-2">
+                    No conversations yet
+                  </h3>
+                  <p className="text-sm text-slate-500 mb-6">
+                    Start your first conversation to analyze project data and get insights.
+                  </p>
+                  <Button onClick={handleNewChat} className="gap-2">
+                    <IconPlus size={16} />
+                    Start First Conversation
+                  </Button>
+                </CardContent>
+              </Card>
+            ) : (
+              <div className="grid gap-4">
+                {chats.map((chat) => (
+                  <Card key={chat.id} className="bg-white hover:shadow-md transition-shadow cursor-pointer"
+                        onClick={() => router.push(`/${locale}/${actualWorkspaceId}/chat/${chat.id}`)}>
+                    <CardContent className="p-6">
+                      <div className="flex items-start gap-4">
+                        <div className="w-12 h-12 bg-blue-100 rounded-xl flex items-center justify-center">
+                          <IconBrain size={20} className="text-blue-600" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <h4 className="font-medium text-slate-800 mb-2 truncate">
+                            {chat.name}
+                          </h4>
+                          <p className="text-sm text-slate-600 line-clamp-3 mb-3">
+                            {chat.lastMessage}
+                          </p>
+                          <div className="flex items-center gap-4 text-xs text-slate-400">
+                            <span>Last active {getTimeAgo(chat.lastMessageAt || chat.updated_at)}</span>
+                            <span>Created {getTimeAgo(chat.created_at)}</span>
+                          </div>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            )}
           </TabsContent>
 
           <TabsContent value="reports" className="space-y-6">
@@ -418,6 +594,15 @@ export function StudioCanvas({
           </TabsContent>
         </Tabs>
       </div>
+
+      {/* Project Settings Modal */}
+      <ProjectSettingsModal
+        project={project}
+        isOpen={settingsOpen}
+        onClose={() => setSettingsOpen(false)}
+        onUpdate={handleProjectUpdate}
+        onDelete={handleProjectDelete}
+      />
     </div>
   )
 }
