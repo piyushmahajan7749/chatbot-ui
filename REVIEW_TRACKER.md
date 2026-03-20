@@ -3,11 +3,18 @@
 ## Branch: feature/shadowai-projects-ui (off shadowai)
 
 ## Completed Rounds
-(none yet — Round 1 in progress)
+- ✅ Round 1: Project management foundation (types, DB, CRUD, list page, detail page, sidebar)
+- ✅ Round 2: Chat + Studio two-panel layout (resizable chat panel + canvas area)
+  - Created `components/studio/studio-layout.tsx` with resizable two-panel layout
+  - Created `components/studio/studio-chat-panel.tsx` that wraps existing ChatUI 
+  - Created `components/studio/studio-canvas.tsx` for project overview display
+  - Updated project detail page to use new studio layout
+  - JourneyMaker color palette: slate-200 chat bg, slate-50 canvas bg, border-slate-300
+  - Resizable chat panel: min 320px, max 640px, draggable resize handle
 
 ## Round Plan
-- Round 1 (NOW): Project management foundation — types, DB, CRUD, list page, detail page, sidebar
-- Round 2: Chat + Studio two-panel layout — restructure workspace to left chat / right canvas pattern from JourneyMaker
+- Round 1 (DONE): Project management foundation — types, DB, CRUD, list page, detail page, sidebar
+- Round 2 (DONE): Chat + Studio two-panel layout — restructure workspace to left chat / right canvas pattern from JourneyMaker
 - Round 3: Dark sidebar navigation — replace current sidebar with JourneyMaker-style dark zinc sidebar with project list
 - Round 4: Report integration — connect reports to projects, report generation within project context
 - Round 5: Project dashboard — overview cards showing chat count, file count, recent activity, quick actions
