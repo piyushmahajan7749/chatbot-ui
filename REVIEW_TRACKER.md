@@ -19,6 +19,18 @@
   - Collapsible sidebar with localStorage persistence and tooltips
   - User info and settings at bottom, workspace switcher integration
   - Responsive design following JourneyMaker dark theme pattern
+- ✅ Round 4: Report integration with projects
+  - Added project_id column to reports table via migration (20260321_add_project_to_reports.sql)
+  - Created getReportsByProject function in db/reports.ts for project-scoped report filtering
+  - Enhanced StudioCanvas with tabbed interface (Overview + Reports tabs)
+  - Reports tab shows project-specific reports with empty state and New Report CTA
+  - Updated overview cards to include reports count (4-column grid: chats, files, reports, activity)
+  - Enhanced recent activity to display reports with proper icons and type detection
+  - Added New Report button to project header that pre-links to project context
+  - Modified CreateReport component to accept projectId prop and include in createState
+  - Updated ReportItem to display project name when report is linked to a project
+  - Created dedicated `/reports/new` route with projectId query parameter support
+  - Integrated reports into project ecosystem with proper context and navigation flow
 
 ## Round Plan
 - Round 1 (DONE): Project management foundation — types, DB, CRUD, list page, detail page, sidebar
