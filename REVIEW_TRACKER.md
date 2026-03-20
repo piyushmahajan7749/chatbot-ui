@@ -11,11 +11,19 @@
   - Updated project detail page to use new studio layout
   - JourneyMaker color palette: slate-200 chat bg, slate-50 canvas bg, border-slate-300
   - Resizable chat panel: min 320px, max 640px, draggable resize handle
+- ✅ Round 3: Dark sidebar navigation overhaul (zinc-900 theme)
+  - Created `components/navigation/app-sidebar.tsx` with dark sidebar navigation
+  - Created `components/navigation/app-layout.tsx` as new root layout wrapper
+  - Replaced tab-based Dashboard with persistent dark sidebar
+  - Features: Shadow AI branding, projects list with active states, quick links (All Chats, Files, Reports)
+  - Collapsible sidebar with localStorage persistence and tooltips
+  - User info and settings at bottom, workspace switcher integration
+  - Responsive design following JourneyMaker dark theme pattern
 
 ## Round Plan
 - Round 1 (DONE): Project management foundation — types, DB, CRUD, list page, detail page, sidebar
 - Round 2 (DONE): Chat + Studio two-panel layout — restructure workspace to left chat / right canvas pattern from JourneyMaker
-- Round 3: Dark sidebar navigation — replace current sidebar with JourneyMaker-style dark zinc sidebar with project list
+- Round 3 (DONE): Dark sidebar navigation — replace current sidebar with JourneyMaker-style dark zinc sidebar with project list
 - Round 4: Report integration — connect reports to projects, report generation within project context
 - Round 5: Project dashboard — overview cards showing chat count, file count, recent activity, quick actions
 - Round 6: Chat UI improvements — better message styling, scientific content formatting, code blocks
