@@ -31,6 +31,17 @@
   - Updated ReportItem to display project name when report is linked to a project
   - Created dedicated `/reports/new` route with projectId query parameter support
   - Integrated reports into project ecosystem with proper context and navigation flow
+- ✅ Round 5: Project dashboard and overview enhancement
+  - Enhanced project overview with JourneyMaker-inspired card-based layout
+  - Added comprehensive project dashboard with color-coded stats cards (conversations, documents, reports, weekly activity)
+  - Implemented project settings modal (`components/studio/project-settings-modal.tsx`) for editing name, description, tags, and delete functionality
+  - Added "Recent Chats" tab with preview of last message in each conversation
+  - Created three main tabs: Overview, Recent Chats, and Reports for better organization
+  - Enhanced visual design with blue/emerald/orange/purple color-coded stat cards and improved spacing
+  - Added complete set of quick action buttons: New Chat, Upload File, New Report
+  - Implemented real-time activity tracking, file size calculations, and weekly activity metrics
+  - Added proper loading states, error handling, and responsive design throughout
+  - Enhanced getMessagesByChatId function to order messages by created_at descending for latest-first display
 
 ## Round Plan
 - Round 1 (DONE): Project management foundation — types, DB, CRUD, list page, detail page, sidebar
