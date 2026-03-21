@@ -42,14 +42,23 @@
   - Implemented real-time activity tracking, file size calculations, and weekly activity metrics
   - Added proper loading states, error handling, and responsive design throughout
   - Enhanced getMessagesByChatId function to order messages by created_at descending for latest-first display
+- ✅ Round 6: Chat UI improvements for scientific content
+  - Created `components/chat/thinking-indicator.tsx` with animated three-dot thinking animation (inspired by JourneyMaker)
+  - Enhanced message rendering for scientific content with ChemicalFormula component for better chemical formula display
+  - Improved message-markdown component with scientific notation preprocessing (e.g., 1.23e-4 → 1.23 × 10^-4)
+  - Enhanced code block styling with improved border, header styling, line numbers for long blocks, and better button animations
+  - Added bookmark action to message actions (copy, edit, regenerate, bookmark) with visual feedback
+  - Improved chat input file attachment UX with tooltips, multiple file support, and better visual styling
+  - Enhanced inline code styling with better background and font rendering
+  - Replaced simple loading indicator with elegant ThinkingIndicator component
 
 ## Round Plan
 - Round 1 (DONE): Project management foundation — types, DB, CRUD, list page, detail page, sidebar
 - Round 2 (DONE): Chat + Studio two-panel layout — restructure workspace to left chat / right canvas pattern from JourneyMaker
 - Round 3 (DONE): Dark sidebar navigation — replace current sidebar with JourneyMaker-style dark zinc sidebar with project list
-- Round 4: Report integration — connect reports to projects, report generation within project context
-- Round 5: Project dashboard — overview cards showing chat count, file count, recent activity, quick actions
-- Round 6: Chat UI improvements — better message styling, scientific content formatting, code blocks
+- Round 4 (DONE): Report integration — connect reports to projects, report generation within project context
+- Round 5 (DONE): Project dashboard — overview cards showing chat count, file count, recent activity, quick actions
+- Round 6 (DONE): Chat UI improvements — better message styling, scientific content formatting, code blocks
 - Round 7: Search & filtering — global search across projects, chats, files; advanced filters
 - Round 8: Polish & cleanup — consistent styling, loading states, error handling, responsive design
 
