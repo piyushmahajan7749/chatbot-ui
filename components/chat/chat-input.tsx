@@ -14,6 +14,7 @@ import { useTranslation } from "react-i18next"
 import { toast } from "sonner"
 import { Input } from "../ui/input"
 import { TextareaAutosize } from "../ui/textarea-autosize"
+import { WithTooltip } from "../ui/with-tooltip"
 import { ChatCommandInput } from "./chat-command-input"
 import { ChatFilesDisplay } from "./chat-files-display"
 import { useChatHandler } from "./chat-hooks/use-chat-handler"
@@ -217,20 +218,31 @@ export const ChatInput: FC<ChatInputProps> = ({}) => {
         </div>
 
         <>
-          <IconCirclePlus
-            className="absolute bottom-[12px] left-3 cursor-pointer p-1 hover:opacity-50"
-            size={32}
-            onClick={() => fileInputRef.current?.click()}
-          />
+          <div className="absolute bottom-[12px] left-3">
+            <WithTooltip
+              display={<div>Attach files</div>}
+              trigger={
+                <IconCirclePlus
+                  className="cursor-pointer p-1 hover:opacity-50 transition-all hover:scale-110 text-muted-foreground hover:text-primary"
+                  size={32}
+                  onClick={() => fileInputRef.current?.click()}
+                />
+              }
+            />
+          </div>
 
           {/* Hidden input to select files from device */}
           <Input
             ref={fileInputRef}
             className="hidden"
             type="file"
+            multiple
             onChange={e => {
               if (!e.target.files) return
-              handleSelectDeviceFile(e.target.files[0])
+              // Handle multiple files
+              for (let i = 0; i < e.target.files.length; i++) {
+                handleSelectDeviceFile(e.target.files[i])
+              }
             }}
             accept={filesToAccept}
           />
