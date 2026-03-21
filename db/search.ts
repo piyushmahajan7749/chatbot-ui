@@ -1,5 +1,6 @@
 import { supabase } from "@/lib/supabase/browser-client";
 import { SearchResult } from "@/components/search/global-search";
+import { Project } from "@/types/project";
 
 /**
  * Performs global search across projects, chats, files, and reports
@@ -16,8 +17,8 @@ export const searchGlobalContent = async (
 
   try {
     // Search Projects
-    const { data: projects } = await supabase
-      .from("projects")
+    const { data: projects } = await (supabase
+      .from("projects" as any)
       .select(`
         id, 
         name, 
@@ -29,7 +30,7 @@ export const searchGlobalContent = async (
       .eq("workspace_id", workspaceId)
       .or(`name.ilike.%${searchTerm}%,description.ilike.%${searchTerm}%`)
       .order("updated_at", { ascending: false })
-      .limit(10);
+      .limit(10) as any);
 
     if (projects) {
       projects.forEach(project => {
@@ -48,25 +49,22 @@ export const searchGlobalContent = async (
     }
 
     // Search Chats
-    const { data: chats } = await supabase
+    const { data: chats } = await (supabase
       .from("chats")
       .select(`
         id, 
         name, 
         model, 
         created_at, 
-        updated_at,
-        project_id,
-        projects!left(name)
+        updated_at
       `)
       .eq("workspace_id", workspaceId)
       .ilike("name", `%${searchTerm}%`)
       .order("updated_at", { ascending: false })
-      .limit(10);
+      .limit(10) as any);
 
     if (chats) {
-      chats.forEach(chat => {
-        const projectName = (chat.projects as any)?.name;
+      chats.forEach((chat: any) => {
         results.push({
           id: chat.id,
           type: "chat",
@@ -74,33 +72,29 @@ export const searchGlobalContent = async (
           url: `/chat/${chat.id}`,
           metadata: {
             model: chat.model,
-            date: new Date(chat.updated_at).toLocaleDateString(),
-            projectName: projectName || undefined
+            date: new Date(chat.updated_at).toLocaleDateString()
           }
         });
       });
     }
 
     // Search Files
-    const { data: files } = await supabase
+    const { data: files } = await (supabase
       .from("files")
       .select(`
         id, 
         name, 
         type, 
         size, 
-        created_at,
-        project_id,
-        projects!left(name)
+        created_at
       `)
       .eq("workspace_id", workspaceId)
       .or(`name.ilike.%${searchTerm}%,type.ilike.%${searchTerm}%`)
       .order("created_at", { ascending: false })
-      .limit(10);
+      .limit(10) as any);
 
     if (files) {
-      files.forEach(file => {
-        const projectName = (file.projects as any)?.name;
+      files.forEach((file: any) => {
         results.push({
           id: file.id,
           type: "file",
@@ -109,32 +103,28 @@ export const searchGlobalContent = async (
           url: `/files/${file.id}`,
           metadata: {
             size: formatFileSize(file.size),
-            date: new Date(file.created_at).toLocaleDateString(),
-            projectName: projectName || undefined
+            date: new Date(file.created_at).toLocaleDateString()
           }
         });
       });
     }
 
     // Search Reports
-    const { data: reports } = await supabase
+    const { data: reports } = await (supabase
       .from("reports")
       .select(`
         id, 
         name, 
         summary,
-        created_at,
-        project_id,
-        projects!left(name)
+        created_at
       `)
       .eq("user_id", userId)
       .or(`name.ilike.%${searchTerm}%,summary.ilike.%${searchTerm}%`)
       .order("created_at", { ascending: false })
-      .limit(10);
+      .limit(10) as any);
 
     if (reports) {
-      reports.forEach(report => {
-        const projectName = (report.projects as any)?.name;
+      reports.forEach((report: any) => {
         results.push({
           id: report.id,
           type: "report",
@@ -142,8 +132,7 @@ export const searchGlobalContent = async (
           description: report.summary || undefined,
           url: `/reports/${report.id}`,
           metadata: {
-            date: new Date(report.created_at).toLocaleDateString(),
-            projectName: projectName || undefined
+            date: new Date(report.created_at).toLocaleDateString()
           }
         });
       });
@@ -182,14 +171,10 @@ export const getFilteredProjects = async (
     searchTerm?: string;
   }
 ) => {
-  let query = supabase
-    .from("projects")
-    .select(`
-      *,
-      chats!projects_chats_fkey(count),
-      files!projects_files_fkey(count)
-    `)
-    .eq("workspace_id", workspaceId);
+  let query = (supabase
+    .from("projects" as any)
+    .select("*")
+    .eq("workspace_id", workspaceId) as any);
 
   // Apply search filter
   if (filters.searchTerm) {
@@ -215,13 +200,13 @@ export const getFilteredProjects = async (
 
   query = query.order(sortBy, { ascending });
 
-  const { data: projects, error } = await query;
+  const { data: projects, error } = await query as { data: Project[] | null; error: any };
 
   if (error) {
     throw new Error(error.message);
   }
 
-  return projects || [];
+  return (projects as Project[]) || [];
 };
 
 /**

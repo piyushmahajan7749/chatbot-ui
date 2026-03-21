@@ -365,7 +365,7 @@ export const Message: FC<MessageProps> = ({
                 </div>
 
                 <div className="mt-3 space-y-4">
-                  {Object.values(fileSummary).map((file, index) => (
+                  {Object.values(fileSummary).map((file: any, index: number) => (
                     <div key={index}>
                       <div className="flex items-center space-x-2">
                         <div>

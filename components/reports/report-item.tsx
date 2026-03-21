@@ -5,7 +5,6 @@ import { Tables } from "../../supabase/types"
 import { Label } from "../ui/label"
 import { CollectionFile } from "@/types/collection-file"
 import { getProjectById } from "@/db/projects"
-import { ChatbotUIContext } from "../../context/context"
 
 interface ReportItemProps {
   report: Tables<"reports">

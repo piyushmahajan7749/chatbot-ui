@@ -1,71 +1,70 @@
 import { supabase } from "@/lib/supabase/browser-client"
-import { TablesInsert, TablesUpdate } from "@/supabase/types"
+import { Project } from "@/types/project"
 
-export const getProjectById = async (projectId: string) => {
-  const { data: project } = await supabase
-    .from("projects")
+export const getProjectById = async (projectId: string): Promise<Project | null> => {
+  const { data: project } = await (supabase
+    .from("projects" as any)
     .select("*")
     .eq("id", projectId)
-    .maybeSingle()
+    .maybeSingle() as any)
 
-  return project
+  return project as Project | null
 }
 
-export const getProjectsByWorkspaceId = async (workspaceId: string) => {
-  const { data: projects, error } = await supabase
-    .from("projects")
-    .select(`
-      *,
-      chats!projects_chats_fkey(count),
-      files!projects_files_fkey(count)
-    `)
+export const getProjectsByWorkspaceId = async (workspaceId: string): Promise<Project[]> => {
+  const { data: projects, error } = await (supabase
+    .from("projects" as any)
+    .select("*")
     .eq("workspace_id", workspaceId)
-    .order("created_at", { ascending: false })
+    .order("created_at", { ascending: false }) as any)
 
   if (error) {
     throw new Error(error.message)
   }
 
-  return projects || []
+  return (projects as Project[]) || []
 }
 
-export const createProject = async (project: TablesInsert<"projects">) => {
-  const { data: createdProject, error } = await supabase
-    .from("projects")
+export const createProject = async (project: Partial<Project>): Promise<Project> => {
+  const { data: createdProject, error } = await (supabase
+    .from("projects" as any)
     .insert([project])
     .select("*")
-    .single()
+    .single() as any)
 
   if (error) {
     throw new Error(error.message)
   }
 
-  return createdProject
+  return createdProject as Project
 }
 
 export const updateProject = async (
   projectId: string,
-  project: TablesUpdate<"projects">
-) => {
-  const { data: updatedProject, error } = await supabase
-    .from("projects")
+  project: Partial<Project>
+): Promise<Project> => {
+  const { data: updatedProject, error } = await (supabase
+    .from("projects" as any)
     .update({
       ...project,
       updated_at: new Date().toISOString()
     })
     .eq("id", projectId)
     .select("*")
-    .single()
+    .single() as any)
 
   if (error) {
     throw new Error(error.message)
   }
 
-  return updatedProject
+  return updatedProject as Project
 }
 
 export const deleteProject = async (projectId: string) => {
-  const { error } = await supabase.from("projects").delete().eq("id", projectId)
+  const { error } = await (supabase
+    .from("projects" as any)
+    .delete()
+    .eq("id", projectId) as any)
 
   if (error) {
     throw new Error(error.message)
