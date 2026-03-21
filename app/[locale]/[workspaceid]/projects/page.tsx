@@ -6,7 +6,9 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { getProjectsByWorkspaceId, createProject, deleteProject, updateProject } from "@/db/projects"
+import { getFilteredProjects } from "@/db/search"
 import { Project } from "@/types/project"
+import { ProjectFiltersComponent, ProjectFilters } from "@/components/projects/project-filters"
 import { 
   IconPlus, 
   IconSearch, 
@@ -41,8 +43,6 @@ import {
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 
-type SortOrder = "newest" | "oldest" | "alphabetical"
-
 export default function ProjectsPage() {
   const params = useParams()
   const router = useRouter()
@@ -51,10 +51,16 @@ export default function ProjectsPage() {
 
   const [projects, setProjects] = useState<Project[]>([])
   const [loading, setLoading] = useState(true)
-  const [searchQuery, setSearchQuery] = useState("")
-  const [sortOrder, setSortOrder] = useState<SortOrder>("newest")
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false)
   const [editingProject, setEditingProject] = useState<Project | null>(null)
+  const [filters, setFilters] = useState<ProjectFilters>({
+    searchTerm: "",
+    tags: [],
+    dateRange: undefined,
+    sortBy: "updated_at",
+    sortOrder: "desc"
+  })
+  const [availableTags, setAvailableTags] = useState<string[]>([])
   
   // New project form state
   const [newProjectName, setNewProjectName] = useState("")
@@ -63,13 +69,29 @@ export default function ProjectsPage() {
 
   useEffect(() => {
     fetchProjects()
-  }, [workspaceId])
+  }, [workspaceId, filters])
 
   const fetchProjects = async () => {
     try {
       setLoading(true)
-      const data = await getProjectsByWorkspaceId(workspaceId)
+      const data = await getFilteredProjects(workspaceId, {
+        searchTerm: filters.searchTerm,
+        tags: filters.tags,
+        dateRange: filters.dateRange,
+        sortBy: filters.sortBy,
+        sortOrder: filters.sortOrder
+      })
       setProjects(data)
+      
+      // Extract available tags
+      const allTags = data.reduce((tags: string[], project) => {
+        if (project.tags) {
+          return [...tags, ...project.tags]
+        }
+        return tags
+      }, [])
+      const uniqueTags = Array.from(new Set(allTags))
+      setAvailableTags(uniqueTags)
     } catch (error) {
       console.error("Error fetching projects:", error)
       toast({
@@ -180,24 +202,7 @@ export default function ProjectsPage() {
     setNewProjectTags("")
   }
 
-  const filteredProjects = projects.filter(project =>
-    project.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    project.description.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    project.tags.some(tag => tag.toLowerCase().includes(searchQuery.toLowerCase()))
-  )
-
-  const sortedProjects = [...filteredProjects].sort((a, b) => {
-    switch (sortOrder) {
-      case "newest":
-        return new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-      case "oldest":
-        return new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
-      case "alphabetical":
-        return a.name.localeCompare(b.name)
-      default:
-        return 0
-    }
-  })
+  // Projects are already filtered and sorted by the database query
 
   const getTimeAgo = (date: string): string => {
     const diff = Date.now() - new Date(date).getTime()
@@ -272,51 +277,26 @@ export default function ProjectsPage() {
         </Dialog>
       </div>
 
-      {/* Toolbar */}
-      <div className="flex items-center gap-3">
-        {/* Search */}
-        <div className="relative flex-1 max-w-sm">
-          <IconSearch className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-400" />
-          <Input
-            type="text"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search projects..."
-            className="pl-10"
-          />
-        </div>
-
-        {/* Sort */}
-        <div className="flex items-center gap-1 rounded-lg border border-zinc-200 bg-white">
-          {(["newest", "oldest", "alphabetical"] as const).map((order) => (
-            <button
-              key={order}
-              onClick={() => setSortOrder(order)}
-              className={cn(
-                "px-3 py-1.5 text-xs font-medium rounded-md transition-colors",
-                sortOrder === order
-                  ? "bg-zinc-100 text-zinc-800"
-                  : "text-zinc-500 hover:text-zinc-700"
-              )}
-            >
-              {order === "newest" ? "Newest" : order === "oldest" ? "Oldest" : "A-Z"}
-            </button>
-          ))}
-        </div>
-      </div>
+      {/* Filters */}
+      <ProjectFiltersComponent
+        filters={filters}
+        onFiltersChange={setFilters}
+        availableTags={availableTags}
+        className="bg-white rounded-lg border border-zinc-200 p-4"
+      />
 
       {/* Project Grid */}
       {loading ? (
         <div className="flex items-center justify-center h-64">
           <div className="h-8 w-8 animate-spin rounded-full border-2 border-zinc-300 border-t-blue-500" />
         </div>
-      ) : sortedProjects.length === 0 ? (
+      ) : projects.length === 0 ? (
         <div className="flex flex-col items-center justify-center h-64 text-center">
           <IconFolder size={48} className="text-zinc-300 mb-4" />
           <p className="text-zinc-400 mb-4">
-            {searchQuery ? "No projects found" : "No projects yet"}
+            {filters.searchTerm || filters.tags.length > 0 ? "No projects found" : "No projects yet"}
           </p>
-          {!searchQuery && (
+          {!filters.searchTerm && filters.tags.length === 0 && (
             <Button 
               variant="outline" 
               className="gap-2"
@@ -329,7 +309,7 @@ export default function ProjectsPage() {
         </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-          {sortedProjects.map((project) => (
+          {projects.map((project) => (
             <Card
               key={project.id}
               className="group cursor-pointer transition-all hover:shadow-md hover:border-blue-300 active:scale-[0.98]"

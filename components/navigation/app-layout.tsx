@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { AppSidebar } from "./app-sidebar";
+import { GlobalSearch } from "@/components/search/global-search";
 import { cn } from "@/lib/utils";
 
 interface AppLayoutProps {
@@ -39,6 +40,9 @@ export const AppLayout = ({ children }: AppLayoutProps) => {
       >
         {children}
       </main>
+
+      {/* Global Search Modal */}
+      <GlobalSearch />
     </div>
   );
 };
