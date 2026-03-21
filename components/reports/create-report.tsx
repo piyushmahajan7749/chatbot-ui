@@ -11,11 +11,13 @@ import { useReportContext } from "@/context/reportcontext"
 interface CreateReportProps {
   isOpen: boolean
   onOpenChange: (isOpen: boolean) => void
+  projectId?: string
 }
 
 export const CreateReport: FC<CreateReportProps> = ({
   isOpen,
-  onOpenChange
+  onOpenChange,
+  projectId
 }) => {
   const { profile, selectedWorkspace } = useContext(ChatbotUIContext)
 
@@ -69,6 +71,7 @@ export const CreateReport: FC<CreateReportProps> = ({
         description,
         sharing: "private",
         workspace_id: selectedWorkspace.id,
+        project_id: projectId || null,
         files: selectedFiles
       }}
       isOpen={isOpen}

@@ -7,6 +7,7 @@ import { TabsContent } from "../ui/tabs"
 import { WorkspaceSwitcher } from "../utility/workspace-switcher"
 import { WorkspaceSettings } from "../workspace/workspace-settings"
 import { SidebarContent } from "./sidebar-content"
+import { ProjectsSidebarContent } from "./projects-sidebar-content"
 
 // Define a constant for the sidebar switcher width
 export const SIDEBAR_SWITCHER_WIDTH = 180
@@ -80,6 +81,9 @@ export const Sidebar: FC<SidebarProps> = ({ contentType, showSidebar }) => {
           switch (contentType) {
             case "chats":
               return renderSidebarContent("chats", chats, chatsFolders)
+
+            case "projects":
+              return <ProjectsSidebarContent />
 
             case "files":
               return renderSidebarContent("files", files, filesFolders)

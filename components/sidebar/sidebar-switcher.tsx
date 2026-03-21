@@ -5,6 +5,7 @@ import {
   IconMessage,
   IconRobotFace,
   IconSparkles,
+  IconFolder,
   IconBrain,
   IconFlask,
   IconDatabase
@@ -36,6 +37,11 @@ export const SidebarSwitcher: FC<SidebarSwitcherProps> = ({
         <SidebarSwitchItem
           icon={<IconFlask size={SIDEBAR_ICON_SIZE} />}
           contentType="designs"
+          onContentTypeChange={onContentTypeChange}
+        />
+        <SidebarSwitchItem
+          icon={<IconFolder size={SIDEBAR_ICON_SIZE} />}
+          contentType="projects"
           onContentTypeChange={onContentTypeChange}
         />
 

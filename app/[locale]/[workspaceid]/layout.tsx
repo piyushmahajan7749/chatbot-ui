@@ -1,6 +1,6 @@
 "use client"
 
-import { Dashboard } from "@/components/ui/dashboard"
+import { AppLayout } from "@/components/navigation/app-layout"
 import { ChatbotUIContext } from "@/context/context"
 import { getAssistantWorkspacesByWorkspaceId } from "@/db/assistants"
 import { getChatsByWorkspaceId } from "@/db/chats"
@@ -207,5 +207,5 @@ export default function WorkspaceLayout({ children }: WorkspaceLayoutProps) {
     return <Loading />
   }
 
-  return <Dashboard>{children}</Dashboard>
+  return <AppLayout>{children}</AppLayout>
 }

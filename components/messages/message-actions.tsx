@@ -1,5 +1,5 @@
 import { ChatbotUIContext } from "@/context/context"
-import { IconCheck, IconCopy, IconEdit, IconRepeat } from "@tabler/icons-react"
+import { IconBookmark, IconBookmarkFilled, IconCheck, IconCopy, IconEdit, IconRepeat } from "@tabler/icons-react"
 import { FC, useContext, useEffect, useState } from "react"
 import { WithTooltip } from "../ui/with-tooltip"
 
@@ -13,6 +13,8 @@ interface MessageActionsProps {
   onCopy: () => void
   onEdit: () => void
   onRegenerate: () => void
+  onBookmark?: () => void
+  isBookmarked?: boolean
 }
 
 export const MessageActions: FC<MessageActionsProps> = ({
@@ -22,7 +24,9 @@ export const MessageActions: FC<MessageActionsProps> = ({
   isHovering,
   onCopy,
   onEdit,
-  onRegenerate
+  onRegenerate,
+  onBookmark,
+  isBookmarked = false
 }) => {
   const { isGenerating } = useContext(ChatbotUIContext)
 
@@ -73,6 +77,29 @@ export const MessageActions: FC<MessageActionsProps> = ({
               size={MESSAGE_ICON_SIZE}
               onClick={onEdit}
             />
+          }
+        />
+      )}
+
+      {onBookmark && (isHovering || isLast) && (
+        <WithTooltip
+          delayDuration={1000}
+          side="bottom"
+          display={<div>{isBookmarked ? "Remove Bookmark" : "Bookmark"}</div>}
+          trigger={
+            isBookmarked ? (
+              <IconBookmarkFilled
+                className="cursor-pointer hover:opacity-50 text-blue-500"
+                size={MESSAGE_ICON_SIZE}
+                onClick={onBookmark}
+              />
+            ) : (
+              <IconBookmark
+                className="cursor-pointer hover:opacity-50"
+                size={MESSAGE_ICON_SIZE}
+                onClick={onBookmark}
+              />
+            )
           }
         />
       )}

@@ -1,4 +1,5 @@
 import { useChatHandler } from "@/components/chat/chat-hooks/use-chat-handler"
+import { ThinkingIndicator } from "@/components/chat/thinking-indicator"
 import { ChatbotUIContext } from "@/context/context"
 import { LLM_LIST } from "@/lib/models/llm/llm-list"
 import { cn } from "@/lib/utils"
@@ -9,7 +10,6 @@ import {
   IconBolt,
   IconCaretDownFilled,
   IconCaretRightFilled,
-  IconCircleFilled,
   IconFileText,
   IconMoodSmile,
   IconPencil
@@ -69,6 +69,7 @@ export const Message: FC<MessageProps> = ({
 
   const [isHovering, setIsHovering] = useState(false)
   const [editedMessage, setEditedMessage] = useState(message.content)
+  const [isBookmarked, setIsBookmarked] = useState(false)
   const [azureDeploymentName, setAzureDeploymentName] = useState<
     string | null | undefined
   >(undefined)
@@ -118,6 +119,12 @@ export const Message: FC<MessageProps> = ({
 
   const handleStartEdit = () => {
     onStartEdit(message)
+  }
+
+  const handleBookmark = () => {
+    setIsBookmarked(!isBookmarked)
+    // TODO: Implement actual bookmark persistence to database
+    console.log(`${isBookmarked ? 'Removed' : 'Added'} bookmark for message ${message.id}`)
   }
 
   useEffect(() => {
@@ -223,6 +230,8 @@ export const Message: FC<MessageProps> = ({
             isEditing={isEditing}
             isHovering={isHovering}
             onRegenerate={handleRegenerate}
+            onBookmark={handleBookmark}
+            isBookmarked={isBookmarked}
           />
         </div>
         <div className="space-y-3">
@@ -298,22 +307,18 @@ export const Message: FC<MessageProps> = ({
               {(() => {
                 switch (toolInUse) {
                   case "none":
-                    return (
-                      <IconCircleFilled className="animate-pulse" size={20} />
-                    )
+                    return <ThinkingIndicator />
                   case "retrieval":
                     return (
-                      <div className="flex animate-pulse items-center space-x-2">
+                      <div className="flex animate-pulse items-center space-x-2 text-muted-foreground">
                         <IconFileText size={20} />
-
                         <div>Searching files...</div>
                       </div>
                     )
                   default:
                     return (
-                      <div className="flex animate-pulse items-center space-x-2">
+                      <div className="flex animate-pulse items-center space-x-2 text-muted-foreground">
                         <IconBolt size={20} />
-
                         <div>Using {toolInUse}...</div>
                       </div>
                     )
