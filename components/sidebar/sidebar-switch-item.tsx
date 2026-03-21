@@ -14,18 +14,24 @@ export const SidebarSwitchItem: FC<SidebarSwitchItemProps> = ({
   icon,
   onContentTypeChange
 }) => {
+  const DISPLAY_NAMES: Partial<Record<ContentType, string>> = {
+    "data-collections": "Data Collection"
+  }
+  const title =
+    DISPLAY_NAMES[contentType] ||
+    contentType[0].toUpperCase() + contentType.substring(1)
+
   return (
     <WithTooltip
-      display={
-        <div>{contentType[0].toUpperCase() + contentType.substring(1)}</div>
-      }
+      display={<div>{title}</div>}
       trigger={
         <TabsTrigger
-          className="hover:opacity-50"
+          className="flex w-full items-center justify-start gap-2 px-3 py-2 hover:opacity-50"
           value={contentType}
           onClick={() => onContentTypeChange(contentType as ContentType)}
         >
           {icon}
+          <span className="text-sm font-medium">{title}</span>
         </TabsTrigger>
       }
     />

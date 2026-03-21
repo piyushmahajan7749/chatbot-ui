@@ -1,6 +1,6 @@
 "use client"
 
-import { Sidebar } from "@/components/sidebar/sidebar"
+import { Sidebar, SIDEBAR_SWITCHER_WIDTH } from "@/components/sidebar/sidebar"
 import { SidebarSwitcher } from "@/components/sidebar/sidebar-switcher"
 import { Button } from "@/components/ui/button"
 import { Tabs } from "@/components/ui/tabs"
@@ -12,9 +12,8 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation"
 import { FC, useState } from "react"
 import { useSelectFileHandler } from "../chat/chat-hooks/use-select-file-handler"
 import { CommandK } from "../utility/command-k"
-import ReportsPage from "@/app/[locale]/[workspaceid]/reports/page"
 
-export const SIDEBAR_WIDTH = 350
+export const SIDEBAR_WIDTH = 450
 
 interface DashboardProps {
   children: React.ReactNode
@@ -68,15 +67,6 @@ export const Dashboard: FC<DashboardProps> = ({ children }) => {
     localStorage.setItem("showSidebar", String(!showSidebar))
   }
 
-  const renderContent = () => {
-    switch (contentType) {
-      case "reports":
-        return <ReportsPage />
-      default:
-        return children
-    }
-  }
-
   return (
     <div className="flex size-full">
       <CommandK />
@@ -120,7 +110,7 @@ export const Dashboard: FC<DashboardProps> = ({ children }) => {
             drop file here
           </div>
         ) : (
-          renderContent()
+          children
         )}
 
         <Button

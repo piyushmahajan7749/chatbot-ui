@@ -1,135 +1,179 @@
 import { StateGraph, END, START } from "@langchain/langgraph"
-import { ChatOpenAI } from "@langchain/openai"
-import OpenAI from "openai"
+import { getAzureOpenAI, getAzureOpenAIModel } from "@/lib/azure-openai"
+import { zodResponseFormat } from "openai/helpers/zod"
 import { z } from "zod"
 import * as d3 from "d3"
-import { createCanvas, Canvas } from "canvas"
+import { createCanvas } from "@napi-rs/canvas"
 
-import { ChatPromptTemplate } from "@langchain/core/prompts"
 import { tool } from "@langchain/core/tools"
 import { NextResponse } from "next/server"
-import { AIMessage, BaseMessage, HumanMessage } from "@langchain/core/messages"
-import { retrieveFileContent, retrieveRelevantContent } from "./retrieval"
+import {
+  backfillFileItemsLocal,
+  resolveSupabaseFilesToText
+} from "@/lib/report/file-content"
+import { getServerProfile } from "@/lib/server/server-chat-helpers"
 
-// Initialize language models
-const llm = new ChatOpenAI({
-  modelName: "o1-preview",
-  apiKey: process.env.OPENAI_KEY
+const openai = () => getAzureOpenAI()
+const MODEL_NAME = () => getAzureOpenAIModel()
+
+type ReportTheoryType = z.infer<typeof ReportTheorySchema>
+
+const ReportTheorySchema = z
+  .object({
+    aim: z.string(),
+    introduction: z.string(),
+    principle: z.string()
+  })
+  .required()
+
+const VisualizationSchema = z.object({
+  chartTitle: z
+    .string()
+    .describe(
+      "A descriptive title for the chart, e.g. 'Mean Viscosity by Formulation'"
+    ),
+  yAxisLabel: z
+    .string()
+    .describe("Label for the Y axis including units, e.g. 'Viscosity (mPa·s)'"),
+  data: z.array(
+    z.object({
+      label: z.string().describe("Short category/group name for X axis"),
+      value: z.number().describe("Numeric value to plot")
+    })
+  )
 })
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_KEY
-})
+type VisualizationType = z.infer<typeof VisualizationSchema>
+type ReportExecutorType = z.infer<typeof ReportExecutorSchema>
 
-type ReportOutputType = z.infer<typeof ReportOutput>
+const ReportExecutorSchema = z
+  .object({
+    material: z.string(),
+    preparation: z.string(),
+    procedure: z.string(),
+    setup: z.string()
+  })
+  .required()
 
-const ReportOutput = z.object({
-  reportOutline: z.array(z.string()),
-  reportDraft: z.record(z.string(), z.string())
-})
+type DataAnalysisType = z.infer<typeof DataAnalysisSchema>
+
+const DataAnalysisSchema = z
+  .object({
+    dataAnalysis: z.string(),
+    results: z.string(),
+    discussion: z.string(),
+    conclusion: z.string(),
+    nextSteps: z.string()
+  })
+  .required()
+
+type ReportOutputType = z.infer<typeof ReportOutputSchema>
+
+const ReportOutputSchema = z
+  .object({
+    aim: z.string(),
+    introduction: z.string(),
+    principle: z.string(),
+    material: z.string(),
+    preparation: z.string(),
+    procedure: z.string(),
+    setup: z.string(),
+    dataAnalysis: z.string(),
+    results: z.string(),
+    discussion: z.string(),
+    conclusion: z.string(),
+    nextSteps: z.string()
+  })
+  .required()
 
 // Define interfaces
 interface ReportState {
   protocol: string
   paperSummary?: string
   dataFileSummary?: string
-  reportDraft: string
-  reportOutline: string
+  experimentObjective?: string
   finalOutput: ReportOutputType
-  chartImage?: string // Added field to store chart image
+  chartImage?: string
+  chartData: VisualizationType
+  aim: string
+  introduction: string
+  principle: string
+  material: string
+  preparation: string
+  procedure: string
+  setup: string
+  dataAnalysis: string
+  results: string
+  discussion: string
+  conclusion: string
+  nextSteps: string
 }
 
-// Define agents
-const reportOutlineAgent = ChatPromptTemplate.fromTemplate(
-  `You are an experienced scientific report writer. Write a table of contents for the research report based on the provided protocol.
+async function callDataVisualizationAgent(
+  state: ReportState
+): Promise<VisualizationType> {
+  const systemPrompt = `You are a data visualization expert for biopharma research. Your job is to extract the MOST MEANINGFUL numeric comparison from experimental data and format it for a bar chart.
 
-  The key sections in a report are these -
-  1. Aim
-  2. Introduction
-  3. Principle
-  4. Calculations
-  3. Material needed
-  4. Preparation
-  5. Setup
-  6. Procedure
-  7. Data Analysis
-  8. Results
-  10. Conclusion
+RULES:
+1. Pick ONE primary numeric metric from the data (e.g. mean viscosity, % recovery, absorbance, yield, concentration). Do NOT mix different metrics or units in the same chart.
+2. Use SHORT labels (max 15 characters) for the X-axis categories. Abbreviate names (e.g. "C0 Control", "E1", "F2 Glycine").
+3. All values MUST be in the same unit. If the data has multiple metrics, choose the most scientifically relevant one.
+4. Provide a clear chartTitle (e.g. "Mean Viscosity by Formulation") and yAxisLabel WITH units (e.g. "Viscosity (mPa·s)").
+5. Return only POSITIVE values when possible. If comparing % changes, use absolute values or the raw measurement instead.
+6. IMPORTANT: Include ALL data points / conditions / formulations from the dataset. Do NOT skip or drop any rows. Every row in the data must appear as a bar in the chart.`
 
-depending on the protocol, you may need to add or remove sections. Only add the titles of the sections, no need for content.
-Return the list of sections as a list. Do not add any special characters.
+  const userPrompt = `Extract data for a bar chart from this experiment.
 
-Protocol: {protocol}
-`
-)
-const reportWriterAgent = ChatPromptTemplate.fromTemplate(
-  `You are an experienced scientific writer tasked with writing comprehensive research reports. Your primary duties include:
+Objective: ${state.experimentObjective}
+Protocol: ${state.protocol}
+Data files: ${state.dataFileSummary}
 
-    1. Clearly stating the research hypothesis and objectives in the introduction.
-    2. Detailing the methodology used, including data collection and analysis techniques.
-    3. Structuring the report into coherent sections (e.g. Aim, Introduction, Principle, Calculations, Material Needed, Preparation, Setup, Procedure, Data Analysis, Results, Discussion, Conclusion).
-    4. Synthesizing information from various sources into a unified narrative.
-    5. Integrating relevant data visualizations and ensuring they are appropriately referenced and explained.
+Return a JSON object with:
+- chartTitle: descriptive title for the chart
+- yAxisLabel: Y-axis label with units in parentheses
+- data: array of {label, value} pairs with short labels and consistent numeric values`
 
-    Constraints:
-    - Focus solely on report writing; do not perform data analysis or create visualizations.
-    - Maintain an objective, academic tone throughout the report.
-    - Cite all sources using APA style and ensure that all findings are supported by evidence.
+  try {
+    const completion = await openai().beta.chat.completions.parse({
+      model: MODEL_NAME(),
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: userPrompt }
+      ],
+      response_format: zodResponseFormat(
+        VisualizationSchema,
+        "visualizationSchema"
+      )
+    })
+    const parsed = completion.choices[0].message.parsed!
 
-  To generate the report, use the following -
-  - Data Files: {dataFiles}
-  - Papers: {papers}
-  - Report Outline: {reportOutline}
-`
-)
+    return parsed
+  } catch (error) {
+    console.error("Error in callDataVisualizationAgent:", error)
+    throw error
+  }
+}
 
 async function finalValidatorAgent(
   state: ReportState
 ): Promise<ReportOutputType> {
-  const prompt = `You are an expert AI report refiner tasked with optimizing and enhancing research reports. Your responsibilities include:
+  const systemPrompt = `You are an expert at structured data extraction. You will be given unstructured text from a research report and should convert it into the given structure`
 
-    1. Thoroughly reviewing the entire research report, focusing on content, structure, and readability.
-    2. Identifying and emphasizing key findings, insights, and conclusions.
-    3. Restructuring the report to improve clarity, coherence, and logical flow.
-    4. Ensuring that all sections are well-integrated and support the primary research hypothesis.
-    5. Condensing redundant or repetitive content while preserving essential details.
-    6. Enhancing the overall readability, ensuring the report is engaging and impactful.
-    7. Extend each sections content to make it longer and more informative.
-
-    Refinement Guidelines:
-    - Maintain the scientific accuracy and integrity of the original content.
-    - Ensure all critical points from the original report are preserved and clearly articulated.
-    - Improve the logical progression of ideas and arguments.
-    - Highlight the most significant results and their implications for the research hypothesis.
-    - Ensure that the refined report aligns with the initial research objectives and hypothesis.
-
-    Here is the report to refine: 
-    ${state.reportDraft}
-
-  Please return the refined report in the following JSON format:
-    {
-      "reportOutline": ["Section 1", "Section 2", ...],
-      "reportDraft": {
-        "Section 1": "Content for section 1",
-        "Section 2": "Content for section 2",
-        ...
-      }
-    }
+  const prompt = `
+Report Draft: {reportDraft}
+Data Analysis Draft: {dataAnalysisDraft}
   `
 
   try {
-    const completion = await openai.beta.chat.completions.parse({
-      model: "gpt-4o-2024-08-06",
-      messages: [{ role: "user", content: prompt }],
-      response_format: { type: "json_object" }
+    const completion = await openai().beta.chat.completions.parse({
+      model: MODEL_NAME(),
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: prompt }
+      ],
+      response_format: zodResponseFormat(ReportOutputSchema, "reportOutput")
     })
-    const rawOutput = completion.choices[0].message.content
-    if (!rawOutput) {
-      throw new Error("No content in the response")
-    }
-
-    const parsedOutput = JSON.parse(rawOutput)
-    const reportOutput = ReportOutput.parse(parsedOutput)
+    const reportOutput = completion.choices[0].message.parsed!
 
     return reportOutput
   } catch (error) {
@@ -139,81 +183,171 @@ async function finalValidatorAgent(
 }
 
 const chartTool = tool(
-  async ({ data }) => {
-    const width = 500
+  async ({ data, chartTitle, yAxisLabel }) => {
+    const width = 800
     const height = 500
-    const margin = { top: 20, right: 30, bottom: 30, left: 40 }
+    const margin = {
+      top: 50,
+      right: 50,
+      bottom: 80,
+      left: yAxisLabel ? 80 : 60
+    }
 
     // Create a canvas
     const canvas = createCanvas(width, height)
     const ctx = canvas.getContext("2d")
 
+    // Fill the background
+    ctx.fillStyle = "#ffffff"
+    ctx.fillRect(0, 0, width, height)
+
     const x = d3
       .scaleBand()
       .domain(data.map(d => d.label))
       .range([margin.left, width - margin.right])
-      .padding(0.1)
+      .padding(0.3)
 
     const y = d3
       .scaleLinear()
-      .domain([0, d3.max(data, (d: any) => d.value) ?? 0])
+      .domain([0, (d3.max(data, (d: any) => d.value) || 0) * 1.15])
       .nice()
       .range([height - margin.bottom, margin.top])
 
     const colorPalette = [
-      "#e6194B",
-      "#3cb44b",
-      "#ffe119",
-      "#4363d8",
-      "#f58231",
-      "#911eb4",
-      "#42d4f4",
-      "#f032e6",
-      "#bfef45",
-      "#fabebe"
+      "#3b82f6",
+      "#10b981",
+      "#f59e0b",
+      "#ef4444",
+      "#8b5cf6",
+      "#06b6d4",
+      "#ec4899",
+      "#84cc16",
+      "#f97316",
+      "#6366f1"
     ]
 
+    // Draw chart title
+    ctx.font = "bold 16px Arial"
+    ctx.textAlign = "center"
+    ctx.fillStyle = "#111827"
+    ctx.fillText(chartTitle || "Data Visualization", width / 2, 28)
+
+    // Draw bars with rounded top effect
     data.forEach((d, idx) => {
       ctx.fillStyle = colorPalette[idx % colorPalette.length]
-      ctx.fillRect(
-        x(d.label) ?? 0,
-        y(d.value),
-        x.bandwidth(),
-        height - margin.bottom - y(d.value)
-      )
+
+      const barX = x(d.label) ?? 0
+      const barY = y(d.value)
+      const barW = x.bandwidth()
+      const barH = height - margin.bottom - barY
+
+      // Draw bar with slight rounded top corners
+      const radius = Math.min(4, barW / 4)
+      ctx.beginPath()
+      ctx.moveTo(barX, barY + radius)
+      ctx.quadraticCurveTo(barX, barY, barX + radius, barY)
+      ctx.lineTo(barX + barW - radius, barY)
+      ctx.quadraticCurveTo(barX + barW, barY, barX + barW, barY + radius)
+      ctx.lineTo(barX + barW, barY + barH)
+      ctx.lineTo(barX, barY + barH)
+      ctx.closePath()
+      ctx.fill()
+
+      // Add value label on top of each bar
+      ctx.fillStyle = "#1f2937"
+      ctx.font = "bold 11px Arial"
+      ctx.textAlign = "center"
+      ctx.fillText(d.value.toString(), barX + barW / 2, barY - 6)
     })
 
+    // Draw x-axis line
     ctx.beginPath()
-    ctx.strokeStyle = "black"
+    ctx.strokeStyle = "#d1d5db"
+    ctx.lineWidth = 1
     ctx.moveTo(margin.left, height - margin.bottom)
     ctx.lineTo(width - margin.right, height - margin.bottom)
     ctx.stroke()
 
+    // Draw x-axis labels (horizontal, centered under each bar)
     ctx.textAlign = "center"
     ctx.textBaseline = "top"
+    ctx.font = "11px Arial"
+    ctx.fillStyle = "#374151"
+
     x.domain().forEach((d: any) => {
       const xCoord = (x(d) ?? 0) + x.bandwidth() / 2
-      ctx.fillText(d, xCoord, height - margin.bottom + 6)
+      // Word-wrap long labels
+      const maxWidth = x.bandwidth() + 10
+      const words = d.split(/\s+/)
+      let line = ""
+      let lineY = height - margin.bottom + 8
+      for (const word of words) {
+        const testLine = line ? line + " " + word : word
+        const metrics = ctx.measureText(testLine)
+        if (metrics.width > maxWidth && line) {
+          ctx.fillText(line, xCoord, lineY)
+          line = word
+          lineY += 14
+        } else {
+          line = testLine
+        }
+      }
+      if (line) ctx.fillText(line, xCoord, lineY)
     })
 
+    // Draw y-axis line
     ctx.beginPath()
-    ctx.moveTo(margin.left, height - margin.top)
+    ctx.strokeStyle = "#d1d5db"
+    ctx.lineWidth = 1
+    ctx.moveTo(margin.left, margin.top)
     ctx.lineTo(margin.left, height - margin.bottom)
     ctx.stroke()
 
+    // Draw y-axis labels and grid lines
     ctx.textAlign = "right"
     ctx.textBaseline = "middle"
-    const ticks = y.ticks()
+    ctx.font = "12px Arial"
+    ctx.fillStyle = "#374151"
+
+    const ticks = y.ticks(8)
     ticks.forEach((d: any) => {
-      const yCoord = y(d) // height - margin.bottom - y(d);
+      const yCoord = y(d)
+
+      // Draw tick
+      ctx.beginPath()
+      ctx.strokeStyle = "#d1d5db"
       ctx.moveTo(margin.left, yCoord)
       ctx.lineTo(margin.left - 6, yCoord)
       ctx.stroke()
-      ctx.fillText(d.toString(), margin.left - 8, yCoord)
+
+      // Draw label
+      ctx.fillStyle = "#374151"
+      ctx.fillText(d.toString(), margin.left - 10, yCoord)
+
+      // Draw grid line
+      ctx.beginPath()
+      ctx.strokeStyle = "#e5e7eb"
+      ctx.setLineDash([3, 3])
+      ctx.moveTo(margin.left, yCoord)
+      ctx.lineTo(width - margin.right, yCoord)
+      ctx.stroke()
+      ctx.setLineDash([])
     })
 
+    // Draw Y-axis label (rotated)
+    if (yAxisLabel) {
+      ctx.save()
+      ctx.font = "13px Arial"
+      ctx.fillStyle = "#374151"
+      ctx.textAlign = "center"
+      ctx.translate(18, (margin.top + height - margin.bottom) / 2)
+      ctx.rotate(-Math.PI / 2)
+      ctx.fillText(yAxisLabel, 0, 0)
+      ctx.restore()
+    }
+
     // Convert canvas to a buffer containing a PNG image
-    const buffer = canvas.toBuffer("image/png")
+    const buffer = canvas.toBuffer("image/png") as Buffer
 
     // Convert buffer to base64 string
     const base64Image = buffer.toString("base64")
@@ -231,75 +365,182 @@ const chartTool = tool(
           label: z.string(),
           value: z.number()
         })
-      )
+      ),
+      chartTitle: z.string().optional().describe("Title for the chart"),
+      yAxisLabel: z
+        .string()
+        .optional()
+        .describe("Label for the Y axis with units")
     })
   }
 )
 
-const visualizationAgent = ChatPromptTemplate.fromTemplate(
-  `You are a data visualization expert tasked with creating insightful visual representations of data. Your primary responsibilities include:
-  
-  1. Designing appropriate visualizations that clearly communicate data trends and patterns.
-  2. Selecting the most suitable chart types (e.g., bar charts, scatter plots, heatmaps) for different data types and analytical purposes.
-  3. Providing executable Python code (using libraries such as matplotlib, seaborn, or plotly) that generates these visualizations.
-  4. Including well-defined titles, axis labels, legends, and saving the visualizations as files.
-  5. Offering brief but clear interpretations of the visual findings.
+async function callTheoryAgent(state: ReportState): Promise<ReportTheoryType> {
+  const systemPrompt = `You are an experienced senior scientist specializing in scientific theory and context writing, tasked with creating the theoretical foundation for a comprehensive research report in biopharma. Your role is to document the experiment's Aim, Introduction, and Principle in a scientifically rigorous and clear manner, providing essential context for reproducibility.
 
-  **File Saving Guidelines:**
-  - Save all visualizations as files with descriptive and meaningful filenames.
-  - Ensure filenames are structured to easily identify the content (e.g., 'sales_trends_2024.png' for a sales trend chart).
-  - Confirm that the saved files are organized in the working directory, making them easy for other agents to locate and use.
+FORMATTING: Write in well-structured paragraphs with clear, flowing prose. Use markdown formatting for emphasis where needed. Do NOT use bullet points or numbered lists — write in natural paragraph form as you would in a published scientific paper.
 
-  **Constraints:**
-  - Focus solely on visualization tasks; do not perform data analysis or preprocessing.
-  - Ensure all visual elements are suitable for the target audience, with attention to color schemes and design principles.
-  - Avoid over-complicating visualizations; aim for clarity and simplicity.
-  `
-)
+Your primary tasks include writing: Aim, Introduction, Principle.
 
-const codeAgent = ChatPromptTemplate.fromTemplate(
-  `You are an expert Python programmer specializing in data processing and analysis. Your main responsibilities include:
+Guidelines for Writing these sections:
 
-  1. Writing clean, efficient Python code for data manipulation, cleaning, and transformation.
-  2. Implementing statistical methods and machine learning algorithms as needed.
-  3. Debugging and optimizing existing code for performance improvements.
-  4. Adhering to PEP 8 standards and ensuring code readability with meaningful variable and function names.
+1. Aim:
+Write 1-2 concise paragraphs that clearly state what is being tested or evaluated, why it matters, and the key objectives of the experiment. Connect the aim to the user-provided context and objective.
 
-  Constraints:
-  - Focus solely on data processing tasks; do not generate visualizations or write non-Python code.
-  - Provide only valid, executable Python code, including necessary comments for complex logic.
-  - Avoid unnecessary complexity; prioritize readability and efficiency.
-  `
-)
+2. Introduction:
+Write 2-4 well-structured paragraphs covering the scientific background, significance of the research in biopharma, and the rationale for this experiment. Reference user-provided protocols where applicable. The introduction should read as a cohesive narrative that sets the stage for the experiment.
 
-async function callAgent(
-  state: ReportState,
-  agent: ChatPromptTemplate,
-  input: Record<string, any>
-) {
+3. Principle:
+Write 2-3 paragraphs explaining the underlying scientific theory, the core methodology or equations involved, and how the technique works mechanistically. Include key parameters and their roles. Use markdown for any equations if needed.
+
+Constraints:
+- Focus solely on theory-based sections; do not include procedural details, materials, or data analysis.
+- Maintain a scientific, objective tone throughout.
+- Write in flowing paragraph form — no bullet points or numbered lists.
+- Ensure content is accurate and aligned with the provided objective.
+`
+
+  const userPrompt = `Generate aim, introduction, and principle using the following:
+
+Objective: ${state.experimentObjective}
+Protocol: ${state.protocol}
+Data files: ${state.dataFileSummary}`
+
+  console.log("userPrompt: " + userPrompt)
+
   try {
-    const formattedMessages = await agent.formatMessages(input)
-    // console.log("Formatted messages:", formattedMessages)
-
-    const messages = formattedMessages.map((msg: BaseMessage) => {
-      if (msg instanceof HumanMessage) {
-        return { role: "human", content: msg.content }
-      } else if (msg instanceof AIMessage) {
-        return { role: "ai", content: msg.content }
-      } else {
-        return { role: "system", content: msg.content }
-      }
+    const completion = await openai().beta.chat.completions.parse({
+      model: MODEL_NAME(),
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: userPrompt }
+      ],
+      response_format: zodResponseFormat(ReportTheorySchema, "reportTheory")
     })
+    const reportOutput = completion.choices[0].message.parsed!
 
-    // console.log("Mapped messages:", messages)
-    const response = await llm.invoke(
-      messages.map(msg => msg.content.toString())
-    )
-    // console.log("LLM response:", response)
-
-    return response.content
+    return reportOutput
   } catch (error) {
-    console.error("Error in callAgent:", error)
+    console.error("Error in reportTheoryAgent:", error)
+    throw error
+  }
+}
+
+async function callDataAnalystAgent(
+  state: ReportState
+): Promise<DataAnalysisType> {
+  const systemPrompt = `You are an expert data analyst and senior scientist tasked with documenting data-driven sections for a comprehensive biopharma research report. Your role is to interpret the data files based on the defined objective and present the Data Analysis, Results, Discussion, Conclusions, and Next Steps based on the experiment findings, offering clear insights and actionable recommendations.
+
+Your primary tasks include writing (as per individual instructions):
+Data analysis, Results, Discussion, Conclusion, Next steps
+
+1. Data Analysis:
+Write in paragraph form as a scientific narrative. Describe the analytical approach and methodology, the parameters and controls used, any software or tools applied, and a summary of key data trends. You may include a markdown table for numerical results (each row = one sample/condition with measured values and units), but all explanatory text should be in well-structured paragraphs, not bullet points.
+
+2. Results:
+FORMATTING: Use bullet points and numbered lists for this section.
+Present as bullet points with key numeric findings:
+- Each major finding as a standalone bullet point with specific values and units
+- Reference figures/tables by number
+- No interpretation (save for Discussion)
+
+3. Discussion:
+FORMATTING: Use bullet points organized under subheadings for this section.
+#### Interpretation
+- Key interpretations of the findings
+#### Implications
+- Practical significance and potential impact
+#### Limitations
+- Specific limitations of the current study
+
+4. Conclusion:
+FORMATTING: Use bullet points for this section.
+Present as 3-5 concise bullet points summarizing the key takeaways from the study.
+
+5. Next Steps:
+FORMATTING: Use a numbered list for this section.
+Present as a numbered list of 3-7 recommended follow-up actions, each as a single clear statement.
+
+Constraints:
+- Focus solely on data analysis, interpretation and conclusion; do not add theory or procedural details.
+- Maintain scientific rigor, ensuring that findings are presented clearly, concisely, and without bias.
+- Ensure each section directly addresses the experiment's objectives and supports actionable insights.
+- Data Analysis section must be in paragraph form; Results, Discussion, Conclusion, and Next Steps must use bullet points or numbered lists.
+`
+
+  const userPrompt = `To generate the content, refer to the following:
+Objective: ${state.experimentObjective}
+Data Files: ${state.dataFileSummary}
+Protocol: ${state.protocol}`
+
+  try {
+    const completion = await openai().beta.chat.completions.parse({
+      model: MODEL_NAME(),
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: userPrompt }
+      ],
+      response_format: zodResponseFormat(DataAnalysisSchema, "dataAnalysis")
+    })
+    const reportOutput = completion.choices[0].message.parsed!
+
+    return reportOutput
+  } catch (error) {
+    console.error("Error in DataAnalysisAgent:", error)
+    throw error
+  }
+}
+
+async function callExecutorAgent(
+  state: ReportState
+): Promise<ReportExecutorType> {
+  const systemPrompt = `You are a seasoned scientist with expertise in experimental design and execution, tasked with documenting the practical aspects of an experiment in a comprehensive research report. Your focus is on Materials Needed, Preparation, Procedure, Experiment Setup and Layout for a biopharma experiment, ensuring clarity, detailed description of every step and reproducibility for hands-on execution. Write the sections in past tense, as how things were done to run the experiment.
+
+FORMATTING: Write in well-structured paragraphs and prose. You may use tables for listing materials, but all other content should be in paragraph form. Do NOT use bullet points or numbered lists for the main content. Write as you would in a formal lab report or scientific paper.
+
+Your primary tasks include writing: Material needed, Preparation, Procedure, Setup and layout.
+
+Guidelines for Writing these sections:
+
+1. Material needed:
+Write a paragraph or use a markdown table listing all materials, equipment, reagents, buffers, and standards used. Include specifications such as concentrations, volumes, catalog numbers, and instrument models. Organize by category (consumables, equipment, reagents) using subheadings if needed. Find this information from the protocol material section and preparation files uploaded by the user.
+
+2. Preparation:
+Write in paragraph form describing all preparation steps in chronological order. Include instrument setup, buffer preparation, and reagent preparation with exact quantities (e.g., "8 g of NaCl was dissolved in 800 mL deionized water"). Use subheadings to separate major preparation phases. Use preparation files given by the user for specific amounts and methods.
+
+3. Procedure:
+Write as a detailed narrative describing the experimental procedure step by step in past tense. Cover all phases: instrument preparation, sample processing, measurement/data collection, and cleanup. Include specific volumes, temperatures, timing, and instrument settings. Organize into clearly labeled phases using subheadings. Refer to the protocol procedure section and other uploaded documents.
+
+4. Setup:
+Write 1-2 paragraphs describing the experimental layout, including sample arrangement, vial positioning, labeling conventions (sample IDs, condition codes), and specific configurations required for accurate data collection. Reference any diagrams from uploaded files.
+
+Constraints:
+- Focus exclusively on practical, preparation, and procedural details; do not provide theoretical context or interpret data.
+- Write in flowing paragraph form — avoid bullet points and numbered lists.
+- Ensure clear, detailed descriptions that support reproducibility.
+- Organize the information logically and with attention to accuracy.
+`
+
+  const userPrompt = `Generate material, preparation, procedure, and setup using the following:
+Objective: ${state.experimentObjective}
+Protocol: ${state.protocol}
+Data Files: ${state.dataFileSummary}
+`
+
+  try {
+    const completion = await openai().beta.chat.completions.parse({
+      model: MODEL_NAME(),
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: userPrompt }
+      ],
+      response_format: zodResponseFormat(ReportExecutorSchema, "reportTheory")
+    })
+    const reportOutput = completion.choices[0].message.parsed!
+
+    return reportOutput
+  } catch (error) {
+    console.error("Error in reportTheoryAgent:", error)
     throw error
   }
 }
@@ -307,11 +548,51 @@ async function callAgent(
 // Define the workflow
 const workflow = new StateGraph<ReportState>({
   channels: {
-    reportOutline: {
+    aim: {
       value: (left?: string, right?: string) => right ?? left ?? "",
       default: () => ""
     },
-    reportDraft: {
+    introduction: {
+      value: (left?: string, right?: string) => right ?? left ?? "",
+      default: () => ""
+    },
+    principle: {
+      value: (left?: string, right?: string) => right ?? left ?? "",
+      default: () => ""
+    },
+    material: {
+      value: (left?: string, right?: string) => right ?? left ?? "",
+      default: () => ""
+    },
+    preparation: {
+      value: (left?: string, right?: string) => right ?? left ?? "",
+      default: () => ""
+    },
+    procedure: {
+      value: (left?: string, right?: string) => right ?? left ?? "",
+      default: () => ""
+    },
+    setup: {
+      value: (left?: string, right?: string) => right ?? left ?? "",
+      default: () => ""
+    },
+    dataAnalysis: {
+      value: (left?: string, right?: string) => right ?? left ?? "",
+      default: () => ""
+    },
+    results: {
+      value: (left?: string, right?: string) => right ?? left ?? "",
+      default: () => ""
+    },
+    discussion: {
+      value: (left?: string, right?: string) => right ?? left ?? "",
+      default: () => ""
+    },
+    conclusion: {
+      value: (left?: string, right?: string) => right ?? left ?? "",
+      default: () => ""
+    },
+    nextSteps: {
       value: (left?: string, right?: string) => right ?? left ?? "",
       default: () => ""
     },
@@ -332,6 +613,14 @@ const workflow = new StateGraph<ReportState>({
         right ?? left ?? ({} as ReportOutputType),
       default: () => ({}) as ReportOutputType
     },
+    chartData: {
+      value: (left?: VisualizationType, right?: VisualizationType) =>
+        right ??
+        left ??
+        ({ chartTitle: "", yAxisLabel: "", data: [] } as VisualizationType),
+      default: () =>
+        ({ chartTitle: "", yAxisLabel: "", data: [] }) as VisualizationType
+    },
     chartImage: {
       // Added chartImage channel
       value: (left?: string, right?: string) => right ?? left ?? "",
@@ -339,56 +628,93 @@ const workflow = new StateGraph<ReportState>({
     }
   }
 })
-  .addNode("reportOutlineAgent", async (state: ReportState) => {
+
+  .addNode("reportWriterTheoryAgent", async (state: ReportState) => {
     try {
-      const content = await callAgent(state, reportOutlineAgent, {
-        protocol: state.protocol
-      })
-      return { ...state, reportOutline: content }
+      const finalOutput = await callTheoryAgent(state)
+      return {
+        ...state,
+        aim: finalOutput.aim,
+        principle: finalOutput.principle,
+        introduction: finalOutput.introduction
+      }
     } catch (error) {
-      console.error("Error in reportOutlineAgent:", error)
+      console.error("Error in finalValidatorAgent:", error)
       throw error
     }
   })
-  .addNode("reportWriterAgent", async (state: ReportState) => {
+  .addNode("reportWriterExecutorAgent", async (state: ReportState) => {
     try {
-      const content = await callAgent(state, reportWriterAgent, {
-        dataFiles: state.dataFileSummary,
-        papers: state.paperSummary || "",
-        reportOutline: state.reportOutline
-      })
-
-      return { ...state, reportDraft: content }
+      const finalOutput = await callExecutorAgent(state)
+      return {
+        ...state,
+        material: finalOutput.material,
+        preparation: finalOutput.preparation,
+        procedure: finalOutput.procedure,
+        setup: finalOutput.setup
+      }
     } catch (error) {
-      console.error("Error in reportWriterAgent:", error)
+      console.error("Error in reportWriterExecutorAgent:", error)
+      throw error
+    }
+  })
+  .addNode("dataVisualizationAgent", async (state: ReportState) => {
+    try {
+      const content = await callDataVisualizationAgent(state)
+
+      return { ...state, chartData: content }
+    } catch (error) {
+      console.error("Error in dataVisualizationAgent:", error)
+      throw error
+    }
+  })
+
+  .addNode("dataAnalystAgent", async (state: ReportState) => {
+    try {
+      const finalOutput = await callDataAnalystAgent(state)
+      return {
+        ...state,
+        dataAnalysis: finalOutput.dataAnalysis,
+        results: finalOutput.results,
+        discussion: finalOutput.discussion,
+        conclusion: finalOutput.conclusion,
+        nextSteps: finalOutput.nextSteps
+      }
+    } catch (error) {
+      console.error("Error in reportWriterExecutorAgent:", error)
       throw error
     }
   })
   .addNode("generateChart", async (state: ReportState) => {
     try {
-      // Parse data from dataFileSummary
-      const parsedData = parseDataFromSummary(state.dataFileSummary || "")
-      const chartImage = await chartTool.func({ data: parsedData })
+      // Parse data from chartData and pass title/label for the D3 image
+      const parsedData = state.chartData?.data || []
+      const chartImage = await chartTool.func({
+        data: parsedData,
+        chartTitle: state.chartData?.chartTitle || "Data Visualization",
+        yAxisLabel: state.chartData?.yAxisLabel || ""
+      })
       return { ...state, chartImage }
     } catch (error) {
       console.error("Error in generateChart:", error)
       throw error
     }
   })
-  .addNode("finalValidatorAgent", async (state: ReportState) => {
-    try {
-      const finalOutput = await finalValidatorAgent(state)
-      return { ...state, finalOutput }
-    } catch (error) {
-      console.error("Error in finalValidatorAgent:", error)
-      throw error
-    }
-  })
-  .addEdge(START, "reportOutlineAgent")
-  .addEdge("reportOutlineAgent", "reportWriterAgent")
-  .addEdge("reportWriterAgent", "generateChart")
-  .addEdge("generateChart", "finalValidatorAgent")
-  .addEdge("finalValidatorAgent", END)
+  // .addNode("finalValidatorAgent", async (state: ReportState) => {
+  //   try {
+  //     const finalOutput = await finalValidatorAgent(state)
+  //     return { ...state, finalOutput }
+  //   } catch (error) {
+  //     console.error("Error in finalValidatorAgent:", error)
+  //     throw error
+  //   }
+  // })
+  .addEdge(START, "reportWriterTheoryAgent")
+  .addEdge("reportWriterTheoryAgent", "reportWriterExecutorAgent")
+  .addEdge("reportWriterExecutorAgent", "dataVisualizationAgent") // Add this edge
+  .addEdge("dataVisualizationAgent", "dataAnalystAgent") // Add this edge
+  .addEdge("dataAnalystAgent", "generateChart")
+  .addEdge("generateChart", END)
 
 // Helper function to parse data
 function parseDataFromSummary(
@@ -407,31 +733,105 @@ function parseDataFromSummary(
 
 export async function POST(req: Request) {
   try {
-    const { protocol, papers, dataFiles, prompt } = await req.json()
-    // console.log("Received request:", {
-    //   protocol,
-    //   papers,
-    //   dataFiles
-    // })
+    const { protocol, papers, dataFiles, experimentObjective } =
+      (await req.json()) as {
+        protocol?: string[]
+        papers?: string[]
+        dataFiles?: string[]
+        experimentObjective?: string
+      }
 
-    // if (!elevatorPitch || !habitStories || !jobStories) {
-    //   return new NextResponse("Missing required fields", { status: 400 })
-    // }
-    const protocolContent = await retrieveFileContent([protocol])
-    const paperContent = await retrieveFileContent([papers])
-    const dataFileContent = await retrieveFileContent([dataFiles])
+    const protocolIds = Array.isArray(protocol) ? protocol : []
+    const paperIds = Array.isArray(papers) ? papers : []
+    const dataFileIds = Array.isArray(dataFiles) ? dataFiles : []
 
-    // console.log("Paper content:", paperContent)
-    // console.log("Data file content:", dataFileContent)
-    // console.log("Protocol content:", protocolContent)
+    // Hybrid resolution:
+    // 1) Prefer existing `file_items` (fast path)
+    // 2) Fallback to downloading/parsing the raw file from Supabase Storage (works even when `file_items` is empty)
+    const resolved = await resolveSupabaseFilesToText(
+      [...protocolIds, ...paperIds, ...dataFileIds],
+      { maxCharsPerFile: 40_000 }
+    )
+
+    const byId = new Map(resolved.map(r => [r.fileId, r]))
+
+    const protocolText = protocolIds
+      .map(id => byId.get(id)?.content || "")
+      .filter(Boolean)
+      .join("\n\n")
+    const paperText = paperIds
+      .map(id => byId.get(id)?.content || "")
+      .filter(Boolean)
+      .join("\n\n")
+    const dataFileText = dataFileIds
+      .map(id => byId.get(id)?.content || "")
+      .filter(Boolean)
+      .join("\n\n")
+
+    const fallbackUsed = resolved
+      .filter(r => r.source === "raw")
+      .map(r => r.fileId)
+    if (fallbackUsed.length > 0) {
+      console.log(
+        "[REPORT_OUTLINE] Fallback used (no file_items found) for fileIds:",
+        fallbackUsed
+      )
+      const warnings = resolved
+        .filter(r => r.source === "raw" && r.warnings?.length)
+        .map(r => ({ fileId: r.fileId, warnings: r.warnings }))
+      if (warnings.length) {
+        console.warn("[REPORT_OUTLINE] File parsing warnings:", warnings)
+      }
+    }
+
+    // Optional backfill: populate `file_items` so future runs can use fast path.
+    // Enabled via env var to avoid surprising compute in production/serverless.
+    if (
+      process.env.REPORT_BACKFILL_FILE_ITEMS === "true" &&
+      fallbackUsed.length
+    ) {
+      try {
+        const profile = await getServerProfile()
+        const { backfilledFileIds, skippedFileIds } =
+          await backfillFileItemsLocal(profile.user_id, resolved)
+        console.log(
+          "[REPORT_OUTLINE] Backfilled file_items:",
+          backfilledFileIds
+        )
+        if (skippedFileIds.length) {
+          console.warn(
+            "[REPORT_OUTLINE] Backfill skipped fileIds:",
+            skippedFileIds
+          )
+        }
+      } catch (e) {
+        console.warn("[REPORT_OUTLINE] Backfill failed:", e)
+      }
+    }
 
     const initialState: ReportState = {
-      reportOutline: "",
-      reportDraft: "",
-      protocol: protocolContent[0].content,
-      paperSummary: paperContent[0]?.content || "",
-      dataFileSummary: dataFileContent[0]?.content || "",
+      aim: "",
+      introduction: "",
+      principle: "",
+      material: "",
+      preparation: "",
+      procedure: "",
+      setup: "",
+      dataAnalysis: "",
+      results: "",
+      discussion: "",
+      conclusion: "",
+      nextSteps: "",
+      experimentObjective: experimentObjective || "",
+      protocol: protocolText || "",
+      paperSummary: paperText || "",
+      dataFileSummary: dataFileText || "",
       finalOutput: {} as ReportOutputType,
+      chartData: {
+        chartTitle: "",
+        yAxisLabel: "",
+        data: []
+      } as VisualizationType,
       chartImage: "" // Initialize chartImage
     }
 
@@ -447,9 +847,39 @@ export async function POST(req: Request) {
     if (finalState) {
       console.log("Final state:", finalState)
       return NextResponse.json({
-        reportOutline: finalState.finalOutput.reportOutline,
-        reportDraft: finalState.finalOutput.reportDraft,
-        chartImage: finalState.chartImage // Include chartImage in response
+        reportOutline: [
+          "aim",
+          "introduction",
+          "principle",
+          "material",
+          "preparation",
+          "procedure",
+          "setup",
+          "dataAnalysis",
+          "charts",
+          "results",
+          "discussion",
+          "conclusion",
+          "nextSteps"
+        ],
+        reportDraft: {
+          aim: finalState.aim,
+          introduction: finalState.introduction,
+          principle: finalState.principle,
+          material: finalState.material,
+          preparation: finalState.preparation,
+          procedure: finalState.procedure,
+          setup: finalState.setup,
+          dataAnalysis: finalState.dataAnalysis,
+          charts: finalState.chartImage,
+          results: finalState.results,
+          discussion: finalState.discussion,
+          conclusion: finalState.conclusion,
+          nextSteps: finalState.nextSteps,
+          _chartData: finalState.chartData || null // Embed chart data inside draft for persistence
+        },
+        chartImage: finalState.chartImage,
+        chartData: finalState.chartData // Include raw chart data for client-side rendering
       })
     }
 

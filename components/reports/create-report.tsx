@@ -4,8 +4,9 @@ import { Label } from "../ui/label"
 import { ChatbotUIContext } from "../../context/context"
 import { FC, useContext, useState } from "react"
 import { Tables, TablesInsert } from "@/supabase/types"
-import { ASSISTANT_DESCRIPTION_MAX } from "@/db/limits"
-import { AssistantRetrievalSelect } from "../sidebar/items/assistants/assistant-retrieval-select"
+import { REPORT_DESCRIPTION_MAX } from "@/db/limits"
+import { ReportRetrievalSelect } from "./report-retrieval-select"
+import { useReportContext } from "@/context/reportcontext"
 
 interface CreateReportProps {
   isOpen: boolean
@@ -22,45 +23,57 @@ export const CreateReport: FC<CreateReportProps> = ({
 
   const [name, setName] = useState("")
   const [description, setDescription] = useState("")
-  const [selectedReportRetrievalItems, setSelectedReportRetrievalItems] =
-    useState<Tables<"files">[] | Tables<"collections">[]>([])
+  const [selectedFiles, setSelectedFiles] = useState<{
+    protocol: Tables<"files">[]
+    papers: Tables<"files">[]
+    dataFiles: Tables<"files">[]
+  }>({
+    protocol: [],
+    papers: [],
+    dataFiles: []
+  })
 
-  if (!profile || !selectedWorkspace) return null
-
-  const handleRetrievalItemSelect = (
-    item: Tables<"files"> | Tables<"collections">
+  const handleFileSelect = (
+    fileType: "protocol" | "papers" | "dataFiles",
+    item: Tables<"files">
   ) => {
-    setSelectedReportRetrievalItems(prevState => {
-      const isItemAlreadySelected = prevState.find(
-        selectedItem => selectedItem.id === item.id
-      )
+    setSelectedFiles(prev => {
+      // For protocol, only allow one file
+      if (fileType === "protocol") {
+        return {
+          ...prev,
+          [fileType]: [item]
+        }
+      }
 
-      if (isItemAlreadySelected) {
-        return prevState.filter(selectedItem => selectedItem.id !== item.id)
-      } else {
-        return [...prevState, item]
+      // For other types, allow multiple files
+      const currentFiles = prev[fileType]
+      const isItemSelected = currentFiles.find(file => file.id === item.id)
+
+      return {
+        ...prev,
+        [fileType]: isItemSelected
+          ? currentFiles.filter(file => file.id !== item.id)
+          : [...currentFiles, item]
       }
     })
   }
 
+  if (!profile || !selectedWorkspace) return null
+
   return (
     <SidebarCreateItem
       contentType="reports"
-      createState={
-        {
-          user_id: profile.user_id,
-          name,
-          description,
-          workspace_id: selectedWorkspace.id,
-          project_id: projectId || null,
-          files: selectedReportRetrievalItems.filter(item =>
-            item.hasOwnProperty("type")
-          ) as Tables<"files">[],
-          collections: selectedReportRetrievalItems.filter(
-            item => !item.hasOwnProperty("type")
-          ) as Tables<"collections">[]
-        } as unknown as TablesInsert<"reports">
-      }
+      isTyping={false}
+      createState={{
+        user_id: profile.user_id,
+        name,
+        description,
+        sharing: "private",
+        workspace_id: selectedWorkspace.id,
+        project_id: projectId || null,
+        files: selectedFiles
+      }}
       isOpen={isOpen}
       onOpenChange={onOpenChange}
       renderInputs={() => (
@@ -73,26 +86,50 @@ export const CreateReport: FC<CreateReportProps> = ({
               onChange={e => setName(e.target.value)}
             />
           </div>
-          <div className="space-y-1">
-            <Label>Description</Label>
+
+          <div className="space-y-1 pt-2">
+            <Label>Objective</Label>
             <Input
-              placeholder="Report description..."
+              placeholder="Experiment objective..."
               value={description}
               onChange={e => setDescription(e.target.value)}
-              maxLength={ASSISTANT_DESCRIPTION_MAX}
             />
           </div>
-          <div className="space-y-1 pt-2">
-            <Label>Files & Collections</Label>
 
-            <AssistantRetrievalSelect
-              selectedAssistantRetrievalItems={selectedReportRetrievalItems}
-              onAssistantRetrievalItemsSelect={handleRetrievalItemSelect}
+          <div className="space-y-1 pt-2">
+            <Label>Protocol</Label>
+            <ReportRetrievalSelect
+              selectedRetrievalItems={selectedFiles.protocol}
+              onRetrievalItemSelect={item =>
+                handleFileSelect("protocol", item as Tables<"files">)
+              }
+              fileType="protocol"
+            />
+          </div>
+
+          <div className="space-y-1 pt-2">
+            <Label>Preparation Files</Label>
+            <ReportRetrievalSelect
+              selectedRetrievalItems={selectedFiles.papers}
+              onRetrievalItemSelect={item =>
+                handleFileSelect("papers", item as Tables<"files">)
+              }
+              fileType="papers"
+            />
+          </div>
+
+          <div className="space-y-1 pt-2">
+            <Label>Data Files</Label>
+            <ReportRetrievalSelect
+              selectedRetrievalItems={selectedFiles.dataFiles}
+              onRetrievalItemSelect={item =>
+                handleFileSelect("dataFiles", item as Tables<"files">)
+              }
+              fileType="dataFiles"
             />
           </div>
         </>
       )}
-      isTyping={false}
     />
   )
 }

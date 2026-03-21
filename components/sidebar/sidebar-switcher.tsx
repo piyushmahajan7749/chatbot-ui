@@ -1,16 +1,18 @@
 import { ContentType } from "@/types"
 import {
-  IconAdjustmentsHorizontal,
-  IconBolt,
   IconBooks,
   IconFile,
   IconMessage,
-  IconPencil,
   IconRobotFace,
   IconSparkles,
-  IconFolder
+  IconFolder,
+  IconBrain,
+  IconFlask,
+  IconDatabase
 } from "@tabler/icons-react"
-import { FC } from "react"
+import { FC, useContext, useState } from "react"
+import { useRouter } from "next/navigation"
+import { ChatbotUIContext } from "@/context/context"
 import { TabsList } from "../ui/tabs"
 import { WithTooltip } from "../ui/with-tooltip"
 import { ProfileSettings } from "../utility/profile-settings"
@@ -25,12 +27,16 @@ interface SidebarSwitcherProps {
 export const SidebarSwitcher: FC<SidebarSwitcherProps> = ({
   onContentTypeChange
 }) => {
+  const router = useRouter()
+  const { selectedWorkspace } = useContext(ChatbotUIContext)
+  const [showKnowledgeMenu, setShowKnowledgeMenu] = useState(false)
+
   return (
     <div className="flex flex-col justify-between border-r-2 pb-5">
-      <TabsList className="bg-background grid h-[490px] grid-rows-8">
+      <TabsList className="bg-background grid w-[180px] auto-rows-auto">
         <SidebarSwitchItem
-          icon={<IconMessage size={SIDEBAR_ICON_SIZE} />}
-          contentType="chats"
+          icon={<IconFlask size={SIDEBAR_ICON_SIZE} />}
+          contentType="designs"
           onContentTypeChange={onContentTypeChange}
         />
         <SidebarSwitchItem
@@ -38,37 +44,70 @@ export const SidebarSwitcher: FC<SidebarSwitcherProps> = ({
           contentType="projects"
           onContentTypeChange={onContentTypeChange}
         />
-        <SidebarSwitchItem
-          icon={<IconRobotFace size={SIDEBAR_ICON_SIZE} />}
-          contentType="assistants"
-          onContentTypeChange={onContentTypeChange}
+
+        <WithTooltip
+          display={<div>Data Collection</div>}
+          trigger={
+            <div
+              className="flex cursor-pointer items-center gap-2 p-2 px-3 hover:opacity-50"
+              onClick={() => {
+                if (selectedWorkspace) {
+                  router.push(`/${selectedWorkspace.id}/data-collection`)
+                }
+              }}
+            >
+              <IconDatabase size={SIDEBAR_ICON_SIZE} />
+              <span className="text-sm font-medium">Data Collection</span>
+            </div>
+          }
         />
 
-        <SidebarSwitchItem
-          icon={<IconFile size={SIDEBAR_ICON_SIZE} />}
-          contentType="files"
-          onContentTypeChange={onContentTypeChange}
-        />
-
-        <SidebarSwitchItem
-          icon={<IconBooks size={SIDEBAR_ICON_SIZE} />}
-          contentType="collections"
-          onContentTypeChange={onContentTypeChange}
-        />
         <SidebarSwitchItem
           icon={<IconSparkles size={SIDEBAR_ICON_SIZE} />}
           contentType="reports"
           onContentTypeChange={onContentTypeChange}
         />
+
+        <WithTooltip
+          display={<div>Knowledge Management</div>}
+          trigger={
+            <div
+              className="flex cursor-pointer items-center gap-2 p-2 px-3"
+              onClick={() => setShowKnowledgeMenu(!showKnowledgeMenu)}
+            >
+              <IconBrain size={SIDEBAR_ICON_SIZE} />
+              <span className="text-sm font-medium">Knowledge</span>
+            </div>
+          }
+        />
+
+        {showKnowledgeMenu && (
+          <>
+            <SidebarSwitchItem
+              icon={<IconMessage size={SIDEBAR_ICON_SIZE - 4} />}
+              contentType="chats"
+              onContentTypeChange={onContentTypeChange}
+            />
+            <SidebarSwitchItem
+              icon={<IconRobotFace size={SIDEBAR_ICON_SIZE - 4} />}
+              contentType="assistants"
+              onContentTypeChange={onContentTypeChange}
+            />
+            <SidebarSwitchItem
+              icon={<IconFile size={SIDEBAR_ICON_SIZE - 4} />}
+              contentType="files"
+              onContentTypeChange={onContentTypeChange}
+            />
+            <SidebarSwitchItem
+              icon={<IconBooks size={SIDEBAR_ICON_SIZE - 4} />}
+              contentType="collections"
+              onContentTypeChange={onContentTypeChange}
+            />
+          </>
+        )}
       </TabsList>
 
-      <div className="flex flex-col items-center space-y-4">
-        {/* TODO */}
-        {/* <WithTooltip display={<div>Import</div>} trigger={<Import />} /> */}
-
-        {/* TODO */}
-        {/* <Alerts /> */}
-
+      <div className="flex flex-col items-center space-y-4 px-3 py-2">
         <WithTooltip
           display={<div>Profile Settings</div>}
           trigger={<ProfileSettings />}

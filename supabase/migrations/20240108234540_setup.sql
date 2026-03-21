@@ -41,7 +41,8 @@ $$ LANGUAGE plpgsql;
 CREATE POLICY "Allow users to read their own files"
 ON storage.objects FOR SELECT
 TO authenticated
-USING (auth.uid()::text = owner_id::text);
+-- Supabase Storage uses `owner` (uuid) in newer schemas; older migrations referenced `owner_id`.
+USING (auth.uid()::text = owner::text);
 
 -- Function to delete a storage object
 CREATE OR REPLACE FUNCTION delete_storage_object(bucket TEXT, object TEXT, OUT status INT, OUT content TEXT)
@@ -50,8 +51,8 @@ LANGUAGE 'plpgsql'
 SECURITY DEFINER
 AS $$
 DECLARE
-  project_url TEXT := 'https://qqhsngqxabvxtelowcli.supabase.co';
-  service_role_key TEXT := 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFxaHNuZ3F4YWJ2eHRlbG93Y2xpIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTcyODUwMjQzNiwiZXhwIjoyMDQ0MDc4NDM2fQ.gY5-OriAflk_Oz455mxRcMS0WGYnNfl0xmgTHL8YZiE';
+  project_url TEXT := 'https://qcimhigugrhkabavqfgz:8000';
+  service_role_key TEXT := 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFjaW1oaWd1Z3Joa2FiYXZxZmd6Iiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc0OTA3MDM0OSwiZXhwIjoyMDY0NjQ2MzQ5fQ.PYBkksLTZ-Orwod-fuZMCuzoJWSZKXCkpepTfaNMM1A';
   url TEXT := project_url || '/storage/v1/object/' || bucket || '/' || object;
 BEGIN
   SELECT

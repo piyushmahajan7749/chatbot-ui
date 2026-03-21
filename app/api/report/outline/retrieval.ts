@@ -1,8 +1,11 @@
 import { generateLocalEmbedding } from "@/lib/generate-local-embedding"
-import { checkApiKey, getServerProfile } from "@/lib/server/server-chat-helpers"
+import {
+  getAzureOpenAIEmbeddingsClient,
+  getAzureOpenAIEmbeddingsDeployment
+} from "@/lib/azure-openai"
+import { getServerProfile } from "@/lib/server/server-chat-helpers"
 import { Database } from "@/supabase/types"
 import { createClient } from "@supabase/supabase-js"
-import OpenAI from "openai"
 
 export async function retrieveRelevantContent(
   userInput: string,
@@ -11,6 +14,7 @@ export async function retrieveRelevantContent(
   sourceCount: number = 3 // Default to 3
 ) {
   const uniqueFileIds = [...new Set(fileIds)]
+  if (uniqueFileIds.length === 0) return []
 
   try {
     const supabaseAdmin = createClient<Database>(
@@ -20,35 +24,23 @@ export async function retrieveRelevantContent(
 
     const profile = await getServerProfile()
 
-    if (embeddingsProvider === "openai") {
-      if (profile.use_azure_openai) {
-        checkApiKey(profile.azure_openai_api_key, "Azure OpenAI")
-      } else {
-        checkApiKey(profile.openai_api_key, "OpenAI")
-      }
-    }
-
     let chunks: any[] = []
 
-    let openai
-    if (profile.use_azure_openai) {
-      openai = new OpenAI({
-        apiKey: profile.azure_openai_api_key || "",
-        baseURL: `${profile.azure_openai_endpoint}/openai/deployments/${profile.azure_openai_embeddings_id}`,
-        defaultQuery: { "api-version": "2023-12-01-preview" },
-        defaultHeaders: { "api-key": profile.azure_openai_api_key }
-      })
-    } else {
-      openai = new OpenAI({
-        apiKey: profile.openai_api_key || "",
-        organization: profile.openai_organization_id
-      })
-    }
-
     if (embeddingsProvider === "openai") {
+      const embeddingsDeployment =
+        profile.azure_openai_embeddings_id ||
+        getAzureOpenAIEmbeddingsDeployment()
+      if (!embeddingsDeployment) {
+        throw new Error(
+          "Azure embeddings deployment not configured. Set AZURE_OPENAI_EMBEDDINGS_DEPLOYMENT or configure azure_openai_embeddings_id."
+        )
+      }
+
+      const openai = getAzureOpenAIEmbeddingsClient()
       const response = await openai.embeddings.create({
-        model: "text-embedding-3-small",
-        input: userInput
+        model: embeddingsDeployment,
+        input: userInput,
+        dimensions: 1536
       })
 
       const openaiEmbedding = response.data.map(item => item.embedding)[0]
@@ -93,6 +85,9 @@ export async function retrieveRelevantContent(
 
 export async function retrieveFileContent(fileIds: string[]) {
   const uniqueFileIds = [...new Set(fileIds)]
+  if (uniqueFileIds.length === 0) return []
+
+  console.log("file ids: " + fileIds)
 
   try {
     const supabaseAdmin = createClient<Database>(
@@ -100,13 +95,35 @@ export async function retrieveFileContent(fileIds: string[]) {
       process.env.SUPABASE_SERVICE_ROLE_KEY!
     )
 
+    // Direct query to check if file_ids exist in the table
+    const { data: existingFileIds, error: checkError } = await supabaseAdmin
+      .from("file_items")
+      .select("file_id")
+      .in("file_id", uniqueFileIds)
+
+    if (checkError) {
+      console.error("Error checking file ids:", checkError)
+      throw checkError
+    }
+
+    console.log("existing file ids: " + JSON.stringify(existingFileIds)) // Add this log
+
     const { data: fileItems, error } = await supabaseAdmin
       .from("file_items")
       .select("*")
       .in("file_id", uniqueFileIds)
 
     if (error) {
+      console.error("Error in retrieveFileContent:", error)
       throw error
+    }
+
+    console.log("Supabase query executed successfully") // Add this log
+    // console.log("file items: " + JSON.stringify(fileItems)) // Add this log
+
+    // Check if fileItems is empty
+    if (!fileItems || fileItems.length === 0) {
+      console.warn("No file items found for the given file ids") // Add this log
     }
 
     // Group file items by file_id
@@ -128,6 +145,8 @@ export async function retrieveFileContent(fileIds: string[]) {
         content: items.map(item => item.content).join("\n")
       })
     )
+
+    // console.log("file contents: " + JSON.stringify(fileContents)) // Add this log
 
     return fileContents
   } catch (error: any) {

@@ -1,8 +1,11 @@
 import { generateLocalEmbedding } from "@/lib/generate-local-embedding"
-import { checkApiKey, getServerProfile } from "@/lib/server/server-chat-helpers"
+import {
+  getAzureOpenAIEmbeddingsClient,
+  getAzureOpenAIEmbeddingsDeployment
+} from "@/lib/azure-openai"
+import { getServerProfile } from "@/lib/server/server-chat-helpers"
 import { Database } from "@/supabase/types"
 import { createClient } from "@supabase/supabase-js"
-import OpenAI from "openai"
 
 export async function POST(request: Request) {
   const json = await request.json()
@@ -23,35 +26,23 @@ export async function POST(request: Request) {
 
     const profile = await getServerProfile()
 
-    if (embeddingsProvider === "openai") {
-      if (profile.use_azure_openai) {
-        checkApiKey(profile.azure_openai_api_key, "Azure OpenAI")
-      } else {
-        checkApiKey(profile.openai_api_key, "OpenAI")
-      }
-    }
-
     let chunks: any[] = []
 
-    let openai
-    if (profile.use_azure_openai) {
-      openai = new OpenAI({
-        apiKey: profile.azure_openai_api_key || "",
-        baseURL: `${profile.azure_openai_endpoint}/openai/deployments/${profile.azure_openai_embeddings_id}`,
-        defaultQuery: { "api-version": "2023-12-01-preview" },
-        defaultHeaders: { "api-key": profile.azure_openai_api_key }
-      })
-    } else {
-      openai = new OpenAI({
-        apiKey: profile.openai_api_key || "",
-        organization: profile.openai_organization_id
-      })
-    }
-
     if (embeddingsProvider === "openai") {
+      const embeddingsDeployment =
+        profile.azure_openai_embeddings_id ||
+        getAzureOpenAIEmbeddingsDeployment()
+      if (!embeddingsDeployment) {
+        throw new Error(
+          "Azure embeddings deployment not configured. Set AZURE_OPENAI_EMBEDDINGS_DEPLOYMENT or configure azure_openai_embeddings_id."
+        )
+      }
+
+      const openai = getAzureOpenAIEmbeddingsClient()
       const response = await openai.embeddings.create({
-        model: "text-embedding-3-small",
-        input: userInput
+        model: embeddingsDeployment,
+        input: userInput,
+        dimensions: 1536
       })
 
       const openaiEmbedding = response.data.map(item => item.embedding)[0]
@@ -93,7 +84,9 @@ export async function POST(request: Request) {
       status: 200
     })
   } catch (error: any) {
-    const errorMessage = error.error?.message || "An unexpected error occurred"
+    console.error("[retrieve] Error:", error)
+    const errorMessage =
+      error.message || error.error?.message || "An unexpected error occurred"
     const errorCode = error.status || 500
     return new Response(JSON.stringify({ message: errorMessage }), {
       status: errorCode

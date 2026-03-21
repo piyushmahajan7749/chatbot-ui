@@ -9,22 +9,38 @@ import { WorkspaceSettings } from "../workspace/workspace-settings"
 import { SidebarContent } from "./sidebar-content"
 import { ProjectsSidebarContent } from "./projects-sidebar-content"
 
+// Define a constant for the sidebar switcher width
+export const SIDEBAR_SWITCHER_WIDTH = 180
+
 interface SidebarProps {
   contentType: ContentType
   showSidebar: boolean
 }
 
 export const Sidebar: FC<SidebarProps> = ({ contentType, showSidebar }) => {
-  const { folders, chats, files, collections, assistants, reports } =
-    useContext(ChatbotUIContext)
+  const {
+    folders,
+    chats,
+    files,
+    collections,
+    assistants,
+    reports,
+    designs,
+    dataCollections
+  } = useContext(ChatbotUIContext)
 
-  const chatFolders = folders.filter(folder => folder.type === "chats")
   const filesFolders = folders.filter(folder => folder.type === "files")
-  const collectionFolders = folders.filter(
+  const chatsFolders = folders.filter(folder => folder.type === "chats")
+  const collectionsFolders = folders.filter(
     folder => folder.type === "collections"
   )
-  const assistantFolders = folders.filter(
+  const assistantsFolders = folders.filter(
     folder => folder.type === "assistants"
+  )
+  const reportsFolders = folders.filter(folder => folder.type === "reports")
+  const designsFolders = folders.filter(folder => folder.type === "designs")
+  const dataCollectionsFolders = folders.filter(
+    folder => folder.type === "data-collections"
   )
 
   const renderSidebarContent = (
@@ -42,9 +58,15 @@ export const Sidebar: FC<SidebarProps> = ({ contentType, showSidebar }) => {
       className="m-0 w-full space-y-2"
       style={{
         // Sidebar - SidebarSwitcher
-        minWidth: showSidebar ? `calc(${SIDEBAR_WIDTH}px - 60px)` : "0px",
-        maxWidth: showSidebar ? `calc(${SIDEBAR_WIDTH}px - 60px)` : "0px",
-        width: showSidebar ? `calc(${SIDEBAR_WIDTH}px - 60px)` : "0px"
+        minWidth: showSidebar
+          ? `calc(${SIDEBAR_WIDTH}px - ${SIDEBAR_SWITCHER_WIDTH}px)`
+          : "0px",
+        maxWidth: showSidebar
+          ? `calc(${SIDEBAR_WIDTH}px - ${SIDEBAR_SWITCHER_WIDTH}px)`
+          : "0px",
+        width: showSidebar
+          ? `calc(${SIDEBAR_WIDTH}px - ${SIDEBAR_SWITCHER_WIDTH}px)`
+          : "0px"
       }}
       value={contentType}
     >
@@ -58,7 +80,7 @@ export const Sidebar: FC<SidebarProps> = ({ contentType, showSidebar }) => {
         {(() => {
           switch (contentType) {
             case "chats":
-              return renderSidebarContent("chats", chats, chatFolders)
+              return renderSidebarContent("chats", chats, chatsFolders)
 
             case "projects":
               return <ProjectsSidebarContent />
@@ -70,17 +92,27 @@ export const Sidebar: FC<SidebarProps> = ({ contentType, showSidebar }) => {
               return renderSidebarContent(
                 "collections",
                 collections,
-                collectionFolders
+                collectionsFolders
               )
 
             case "assistants":
               return renderSidebarContent(
                 "assistants",
                 assistants,
-                assistantFolders
+                assistantsFolders
               )
             case "reports":
-              return renderSidebarContent("reports", reports, filesFolders)
+              return renderSidebarContent("reports", reports, reportsFolders)
+
+            case "designs":
+              return renderSidebarContent("designs", designs, designsFolders)
+
+            case "data-collections":
+              return renderSidebarContent(
+                "data-collections",
+                dataCollections,
+                dataCollectionsFolders
+              )
 
             default:
               return null

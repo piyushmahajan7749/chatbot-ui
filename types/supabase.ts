@@ -6,6 +6,12 @@ export type Json =
   | { [key: string]: Json | undefined }
   | Json[]
 
+export interface ReportFileWithDetails {
+  id: string
+  file_type: "protocol" | "papers" | "dataFiles"
+  files: Tables<"files"> | null
+}
+
 export type Database = {
   graphql_public: {
     Tables: {
@@ -1338,25 +1344,28 @@ export type Database = {
       }
       report_files: {
         Row: {
-          created_at: string
-          file_id: string
+          id: string
           report_id: string
+          file_id: string
+          file_type: "protocol" | "papers" | "dataFiles"
+          created_at: string
           updated_at: string | null
-          user_id: string
         }
         Insert: {
-          created_at?: string
-          file_id: string
+          id?: string
           report_id: string
+          file_id: string
+          file_type: "protocol" | "papers" | "dataFiles"
+          created_at?: string
           updated_at?: string | null
-          user_id: string
         }
         Update: {
-          created_at?: string
-          file_id?: string
+          id?: string
           report_id?: string
+          file_id?: string
+          file_type?: "protocol" | "papers" | "dataFiles"
+          created_at?: string
           updated_at?: string | null
-          user_id?: string
         }
         Relationships: [
           {
@@ -1371,13 +1380,6 @@ export type Database = {
             columns: ["report_id"]
             isOneToOne: false
             referencedRelation: "reports"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "report_files_user_id_fkey"
-            columns: ["user_id"]
-            isOneToOne: false
-            referencedRelation: "users"
             referencedColumns: ["id"]
           }
         ]
@@ -1438,7 +1440,6 @@ export type Database = {
           sharing: string
           updated_at: string | null
           user_id: string
-          workspace_id: string
         }
         Insert: {
           created_at?: string
@@ -1449,7 +1450,6 @@ export type Database = {
           sharing?: string
           updated_at?: string | null
           user_id: string
-          workspace_id: string
         }
         Update: {
           created_at?: string
@@ -1460,7 +1460,6 @@ export type Database = {
           sharing?: string
           updated_at?: string | null
           user_id?: string
-          workspace_id?: string
         }
         Relationships: [
           {

@@ -13,7 +13,13 @@ import { ChatItem } from "./items/chat/chat-item"
 import { CollectionItem } from "./items/collections/collection-item"
 import { FileItem } from "./items/files/file-item"
 import { Folder } from "./items/folders/folder-item"
-import { updateReport } from "@/db/reports"
+import { updateReport } from "@/db/reports-firestore"
+import { ReportItem } from "./items/reports/report-item"
+import { updateDesign } from "@/db/designs-firestore"
+import { DesignItem } from "./items/designs/design-item"
+import { updateDataCollection } from "@/db/data-collections-firestore"
+import { DataCollectionItem } from "./items/data-collections/data-collection-item"
+import { DataCollectionItem as DataCollectionItemType } from "@/types/sidebar-data"
 
 // Add this type definition at the top of the file
 type ValidContentType =
@@ -22,6 +28,8 @@ type ValidContentType =
   | "assistants"
   | "collections"
   | "reports"
+  | "designs"
+  | "data-collections"
 
 interface SidebarDataListProps {
   contentType: ValidContentType
@@ -34,8 +42,15 @@ export const SidebarDataList: FC<SidebarDataListProps> = ({
   data,
   folders
 }) => {
-  const { setChats, setFiles, setCollections, setAssistants, setReports } =
-    useContext(ChatbotUIContext)
+  const {
+    setChats,
+    setFiles,
+    setCollections,
+    setAssistants,
+    setReports,
+    setDesigns,
+    setDataCollections
+  } = useContext(ChatbotUIContext)
 
   const divRef = useRef<HTMLDivElement>(null)
 
@@ -66,6 +81,19 @@ export const SidebarDataList: FC<SidebarDataListProps> = ({
           <AssistantItem
             key={item.id}
             assistant={item as Tables<"assistants">}
+          />
+        )
+      case "reports":
+        return <ReportItem key={item.id} report={item as Tables<"reports">} />
+
+      case "designs":
+        return <DesignItem key={item.id} design={item as Tables<"designs">} />
+
+      case "data-collections":
+        return (
+          <DataCollectionItem
+            key={item.id}
+            dataCollection={item as DataCollectionItemType}
           />
         )
 
@@ -118,8 +146,9 @@ export const SidebarDataList: FC<SidebarDataListProps> = ({
     files: updateFile,
     assistants: updateAssistant,
     reports: updateReport,
-
-    collections: updateCollection
+    collections: updateCollection,
+    designs: updateDesign,
+    "data-collections": updateDataCollection
   }
 
   const stateUpdateFunctions = {
@@ -127,7 +156,9 @@ export const SidebarDataList: FC<SidebarDataListProps> = ({
     files: setFiles,
     assistants: setAssistants,
     reports: setReports,
-    collections: setCollections
+    collections: setCollections,
+    designs: setDesigns,
+    "data-collections": setDataCollections
   }
 
   const updateFolder = async (itemId: string, folderId: string | null) => {
@@ -142,6 +173,7 @@ export const SidebarDataList: FC<SidebarDataListProps> = ({
     if (!updateFunction || !setStateFunction) return
 
     const updatedItem = await updateFunction(item.id, {
+      ...item,
       folder_id: folderId
     })
 

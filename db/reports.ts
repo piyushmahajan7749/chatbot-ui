@@ -1,5 +1,6 @@
 import { supabase } from "../lib/supabase/browser-client"
-import { Tables, TablesInsert, TablesUpdate } from "../supabase/types"
+import { Tables, TablesInsert } from "../supabase/types"
+import { createReportFiles } from "./report-files"
 
 export const getReports = async (userId: string) => {
   const { data, error } = await supabase
@@ -26,12 +27,26 @@ export const getReportsByProject = async (userId: string, projectId: string) => 
 }
 
 export const createReport = async (
-  report: TablesInsert<"reports">,
-  workspace_id: string
+  report: Omit<TablesInsert<"reports">, "workspace_id">,
+  workspace_id: string,
+  selectedFiles: {
+    protocol: Tables<"files">[]
+    papers: Tables<"files">[]
+    dataFiles: Tables<"files">[]
+  }
 ) => {
+  // First create the report without workspace_id
   const { data: createdReport, error } = await supabase
     .from("reports")
-    .insert([report])
+    .insert([
+      {
+        user_id: report.user_id,
+        name: report.name,
+        description: report.description,
+        sharing: report.sharing || "private",
+        folder_id: report.folder_id || null
+      }
+    ])
     .select("*")
     .single()
 
@@ -39,28 +54,61 @@ export const createReport = async (
     throw new Error(error.message)
   }
 
+  // Create the workspace association
   await createReportWorkspace({
-    user_id: createdReport.user_id,
+    user_id: report.user_id,
     report_id: createdReport.id,
-    workspace_id
+    workspace_id: workspace_id
   })
+
+  // Create report files associations
+  // Use a Set to track unique file IDs
+  const processedFileIds = new Set<string>()
+  const reportFiles: TablesInsert<"report_files">[] = []
+
+  // Helper function to add files while avoiding duplicates
+  const addFiles = (files: Tables<"files">[], fileType: string) => {
+    files.forEach(file => {
+      if (!processedFileIds.has(file.id)) {
+        processedFileIds.add(file.id)
+        reportFiles.push({
+          user_id: report.user_id,
+          report_id: createdReport.id,
+          file_id: file.id,
+          file_type: fileType
+        })
+      }
+    })
+  }
+
+  // Process files in order of priority
+  addFiles(selectedFiles.protocol, "protocol")
+  addFiles(selectedFiles.papers, "papers")
+  addFiles(selectedFiles.dataFiles, "dataFiles")
+
+  if (reportFiles.length > 0) {
+    await createReportFiles(reportFiles)
+  }
 
   return createdReport
 }
 
 export const updateReport = async (
-  id: string,
+  reportId: string,
   updates: Partial<Tables<"reports">>
 ) => {
-  const { data, error } = await supabase
+  const { data: report, error } = await supabase
     .from("reports")
     .update(updates)
-    .eq("id", id)
+    .eq("id", reportId)
+    .select()
     .single()
+
   if (error) {
-    throw error
+    throw new Error(error.message)
   }
-  return data as Tables<"reports">
+
+  return report
 }
 
 export const deleteReport = async (id: string) => {
@@ -68,6 +116,35 @@ export const deleteReport = async (id: string) => {
   if (error) {
     throw error
   }
+}
+
+export const getReportById = async (reportId: string) => {
+  const { data: report } = await supabase
+    .from("reports")
+    .select("*")
+    .eq("id", reportId)
+    .maybeSingle()
+
+  return report
+}
+
+export const getReportWorkspacesByWorkspaceId = async (workspaceId: string) => {
+  const { data: reportWorkspaces, error } = await supabase
+    .from("report_workspaces")
+    .select("reports(*)")
+    .eq("workspace_id", workspaceId)
+
+  if (error) {
+    throw new Error(error.message)
+  }
+  const reports = reportWorkspaces
+    .map(item => item.reports)
+    .sort(
+      (a, b) =>
+        new Date(b!.created_at).getTime() - new Date(a!.created_at).getTime()
+    )
+
+  return { reports: reports as Tables<"reports">[] }
 }
 
 export const getReportsByWorkspaceId = async (workspaceId: string) => {

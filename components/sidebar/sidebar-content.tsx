@@ -18,10 +18,11 @@ export const SidebarContent: FC<SidebarContentProps> = ({
   folders
 }) => {
   const [searchTerm, setSearchTerm] = useState("")
-  const [isCreatingReport, setIsCreatingReport] = useState(false)
 
   const filteredData: any = data.filter(item =>
-    item.name.toLowerCase().includes(searchTerm.toLowerCase())
+    item.name
+      ? item.name.toLowerCase().includes(searchTerm.toLowerCase())
+      : item.id.toLowerCase().includes(searchTerm.toLowerCase())
   )
 
   return (
@@ -31,12 +32,6 @@ export const SidebarContent: FC<SidebarContentProps> = ({
         <SidebarCreateButtons
           contentType={contentType}
           hasData={data.length > 0}
-          createReport={
-            <CreateReport
-              isOpen={isCreatingReport}
-              onOpenChange={setIsCreatingReport}
-            />
-          }
         />
       </div>
 
