@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useContext } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Loader } from "@/components/ui/loader"
@@ -16,9 +16,17 @@ import {
   ChevronUp,
   Sparkles,
   Download,
-  DownloadIcon
+  DownloadIcon,
+  FlaskConical,
+  Plus
 } from "lucide-react"
 import { useReportContext } from "@/context/reportcontext"
+import { ChatbotUIContext } from "@/context/context"
+import { ELNExportModal } from "@/components/eln/eln-export-modal"
+import { ELNConnectModal } from "@/components/eln/eln-connect-modal"
+import { ELNConnection } from "@/types/eln"
+import { getELNConnections } from "@/db/eln-connections"
+import { toast } from "sonner"
 
 interface ReportReviewProps {
   onSave: () => void
@@ -43,6 +51,13 @@ export function ReportReviewComponent({
   const { selectedData } = useReportContext()
   const [chartImage, setChartImage] = useState<string | null>(null)
   const [isQuestionSectionVisible, setIsQuestionSectionVisible] = useState(true)
+  
+  // ELN Integration state
+  const { profile } = useContext(ChatbotUIContext)
+  const [elnConnections, setElnConnections] = useState<ELNConnection[]>([])
+  const [showELNExportModal, setShowELNExportModal] = useState(false)
+  const [showELNConnectModal, setShowELNConnectModal] = useState(false)
+  const [loadingConnections, setLoadingConnections] = useState(false)
 
   useEffect(() => {
     const generateDraft = async () => {
@@ -77,6 +92,25 @@ export function ReportReviewComponent({
       generateDraft()
     }
   }, [selectedData])
+
+  // Load ELN connections on component mount
+  useEffect(() => {
+    const loadELNConnections = async () => {
+      if (!profile?.user_id) return
+      
+      setLoadingConnections(true)
+      try {
+        const connections = await getELNConnections(profile.user_id)
+        setElnConnections(connections)
+      } catch (error) {
+        console.error("Failed to load ELN connections:", error)
+      } finally {
+        setLoadingConnections(false)
+      }
+    }
+
+    loadELNConnections()
+  }, [profile?.user_id])
 
   const handleSave = () => {
     // Simulate saving data
@@ -125,6 +159,32 @@ export function ReportReviewComponent({
 
   const toggleQuestionSection = () => {
     setIsQuestionSectionVisible(!isQuestionSectionVisible)
+  }
+
+  const handleELNExport = () => {
+    if (elnConnections.length === 0) {
+      setShowELNConnectModal(true)
+    } else {
+      setShowELNExportModal(true)
+    }
+  }
+
+  const handleConnectionCreated = (connection: ELNConnection) => {
+    setElnConnections(prev => [...prev, connection])
+    setShowELNExportModal(true) // Open export modal after connection created
+  }
+
+  const getFullReportContent = (): string => {
+    const sections = generatedOutline.map(section => {
+      const content = sectionContents[section] || ""
+      return `## ${section}\n\n${content}\n\n`
+    }).join("")
+    
+    return `# Shadow AI Generated Report\n\nGenerated on: ${new Date().toLocaleDateString()}\n\n${sections}`
+  }
+
+  const getReportTitle = (): string => {
+    return generatedOutline[0] || "Shadow AI Report"
   }
 
   return (
@@ -185,6 +245,13 @@ export function ReportReviewComponent({
                     className="text-background ml-4 bg-blue-500"
                   >
                     Download Report <DownloadIcon className="ml-2 size-4" />
+                  </Button>
+                  <Button
+                    onClick={handleELNExport}
+                    className="text-background ml-2 bg-emerald-500"
+                    disabled={loadingConnections}
+                  >
+                    Export to ELN <FlaskConical className="ml-2 size-4" />
                   </Button>
                 </div>
               </div>
@@ -269,6 +336,28 @@ export function ReportReviewComponent({
           </div>
         </>
       )}
+      
+      {/* ELN Export Modal */}
+      <ELNExportModal
+        isOpen={showELNExportModal}
+        onOpenChange={setShowELNExportModal}
+        connections={elnConnections}
+        reportContent={getFullReportContent()}
+        reportTitle={getReportTitle()}
+        onExportSuccess={(result) => {
+          if (result.success) {
+            toast.success("Report exported to ELN successfully!")
+          }
+        }}
+      />
+
+      {/* ELN Connect Modal */}
+      <ELNConnectModal
+        isOpen={showELNConnectModal}
+        onOpenChange={setShowELNConnectModal}
+        userId={profile?.user_id || ""}
+        onConnectionCreated={handleConnectionCreated}
+      />
     </div>
   )
 }
