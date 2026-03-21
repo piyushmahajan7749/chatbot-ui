@@ -1,6 +1,7 @@
 "use client";
 
 import { useContext, useEffect, useState } from "react";
+import { ErrorBoundary } from "@/components/ui/error-boundary";
 import { usePathname, useRouter } from "next/navigation";
 import { ChatbotUIContext } from "@/context/context";
 import { getProjectsByWorkspaceId } from "@/db/projects";
@@ -71,12 +72,13 @@ export const AppSidebar = ({ isCollapsed, onToggle }: AppSidebarProps) => {
   ];
 
   return (
-    <aside 
-      className={cn(
-        "flex flex-col border-r border-zinc-800 bg-zinc-900 text-white transition-all duration-300",
-        isCollapsed ? "w-16" : "w-64"
-      )}
-    >
+    <ErrorBoundary>
+      <aside 
+        className={cn(
+          "flex flex-col border-r border-zinc-800 bg-zinc-900 text-white transition-all duration-300",
+          isCollapsed ? "w-16" : "w-64"
+        )}
+      >
       {/* Logo/Brand Header */}
       <div className="flex items-center justify-between border-b border-zinc-800 p-4">
         {!isCollapsed && (
@@ -196,6 +198,7 @@ export const AppSidebar = ({ isCollapsed, onToggle }: AppSidebarProps) => {
           </div>
         )}
       </div>
-    </aside>
+      </aside>
+    </ErrorBoundary>
   );
 };

@@ -51,6 +51,17 @@
   - Improved chat input file attachment UX with tooltips, multiple file support, and better visual styling
   - Enhanced inline code styling with better background and font rendering
   - Replaced simple loading indicator with elegant ThinkingIndicator component
+- ✅ Round 7: Search & filtering — global search across projects, chats, files; advanced filters
+  - Created `components/search/global-search.tsx` with global search modal supporting Cmd+K/Ctrl+K keyboard shortcut
+  - Global search component searches across projects, chats, files, and reports with result categorization and navigation
+  - Created `db/search.ts` with searchGlobalContent function for full-text search across content types
+  - Added getFilteredProjects and getFilteredChats functions for advanced filtering with database-level optimization
+  - Created `components/projects/project-filters.tsx` with tag filtering, date range selection, and advanced sort options
+  - Created `components/chat/chat-filters.tsx` with project/model filtering, date range selection, and search functionality
+  - Enhanced projects page to use new filtering system with real-time filter application
+  - Integrated GlobalSearch component into AppLayout for workspace-wide accessibility
+  - Added keyboard navigation (arrow keys, enter, escape) and visual feedback for search results
+  - Implemented filter persistence and clear functionality with visual active filter indicators
 
 ## Round Plan
 - Round 1 (DONE): Project management foundation — types, DB, CRUD, list page, detail page, sidebar

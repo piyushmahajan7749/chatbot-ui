@@ -6,6 +6,9 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Badge } from "@/components/ui/badge"
+import { Skeleton, StatsCardSkeleton, ChatItemSkeleton } from "@/components/ui/skeleton"
+import { ErrorBoundary, AsyncErrorFallback } from "@/components/ui/error-boundary"
+import { EmptyChats, EmptyReports } from "@/components/ui/empty-state"
 import { getProjectById, updateProject, deleteProject } from "@/db/projects"
 import { getChatsByWorkspaceId } from "@/db/chats"
 import { getFileWorkspacesByWorkspaceId } from "@/db/files"
@@ -31,12 +34,13 @@ import {
 } from "@tabler/icons-react"
 import { useToast } from "@/app/hooks/use-toast"
 import { useContext } from "react"
-import { ChatbotUIContext } from "@/context/chatbotui-context"
+import { ChatbotUIContext } from "@/context/context"
 
 interface StudioCanvasProps {
   children?: React.ReactNode
   projectId?: string
   workspaceId?: string
+  onOpenChat?: () => void
 }
 
 interface Chat {
@@ -74,7 +78,8 @@ interface Report {
 export function StudioCanvas({ 
   children, 
   projectId, 
-  workspaceId 
+  workspaceId,
+  onOpenChat
 }: StudioCanvasProps) {
   const params = useParams()
   const router = useRouter()
@@ -142,7 +147,7 @@ export function StudioCanvas({
 
       // Fetch files for this workspace (filter by project_id on frontend for now) 
       const fileData = await getFileWorkspacesByWorkspaceId(actualWorkspaceId)
-      const projectFiles = fileData.files.filter((file: any) => file.project_id === actualProjectId)
+      const projectFiles = fileData.files.filter((file: ProjectFile) => file.project_id === actualProjectId)
       setFiles(projectFiles)
 
       // Fetch reports for this project
@@ -257,8 +262,61 @@ export function StudioCanvas({
 
   if (loading) {
     return (
-      <div className="h-full bg-slate-50 flex items-center justify-center">
-        <div className="h-8 w-8 animate-spin rounded-full border-2 border-slate-300 border-t-blue-500" />
+      <div className="h-full bg-slate-50 flex flex-col">
+        {/* Header Skeleton */}
+        <div className="bg-white border-b border-slate-300 px-6 py-6">
+          <div className="flex items-start justify-between">
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-3 mb-2">
+                <Skeleton className="h-8 w-64" />
+                <Skeleton className="h-8 w-8 rounded" />
+              </div>
+              <Skeleton className="h-5 w-96 mb-3" />
+              <div className="flex flex-wrap gap-2">
+                <Skeleton className="h-6 w-16" />
+                <Skeleton className="h-6 w-20" />
+                <Skeleton className="h-6 w-14" />
+              </div>
+            </div>
+            <div className="flex items-center gap-2 ml-6">
+              <Skeleton className="h-10 w-28" />
+              <Skeleton className="h-10 w-32" />
+              <Skeleton className="h-10 w-28" />
+            </div>
+          </div>
+        </div>
+
+        {/* Content Skeleton */}
+        <div className="flex-1 p-6 overflow-auto">
+          <div className="mb-6">
+            <Skeleton className="h-10 w-96" />
+          </div>
+          
+          {/* Stats Cards Skeleton */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+            {[...Array(4)].map((_, i) => (
+              <StatsCardSkeleton key={i} />
+            ))}
+          </div>
+
+          {/* Content Grid Skeleton */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div className="space-y-4">
+              <Skeleton className="h-6 w-48" />
+              {[...Array(3)].map((_, i) => (
+                <ChatItemSkeleton key={i} />
+              ))}
+            </div>
+            <div className="space-y-4">
+              <Skeleton className="h-6 w-48" />
+              <div className="space-y-3">
+                {[...Array(4)].map((_, i) => (
+                  <Skeleton key={i} className="h-16 w-full" />
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
     )
   }
@@ -272,8 +330,9 @@ export function StudioCanvas({
   }
 
   return (
-    <div className="h-full bg-slate-50 flex flex-col">
-      {/* Enhanced Header with improved layout */}
+    <ErrorBoundary>
+      <div className="h-full bg-slate-50 flex flex-col">
+        {/* Enhanced Header with improved layout */}
       <div className="bg-white border-b border-slate-300 px-6 py-6">
         <div className="flex items-start justify-between">
           <div className="flex-1 min-w-0">
@@ -301,18 +360,27 @@ export function StudioCanvas({
           </div>
           
           {/* Quick Actions */}
-          <div className="flex items-center gap-2 ml-6">
-            <Button onClick={handleNewChat} className="gap-2 bg-blue-600 hover:bg-blue-700">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 ml-0 sm:ml-6 mt-4 sm:mt-0">
+            {onOpenChat && (
+              <Button onClick={onOpenChat} variant="outline" className="w-full sm:hidden gap-2 order-first">
+                <IconMessage size={16} />
+                Open Chat
+              </Button>
+            )}
+            <Button onClick={handleNewChat} className="w-full sm:w-auto gap-2 bg-blue-600 hover:bg-blue-700">
               <IconPlus size={16} />
-              New Chat
+              <span className="hidden sm:inline">New Chat</span>
+              <span className="sm:hidden">Chat</span>
             </Button>
-            <Button onClick={handleUploadFile} variant="outline" className="gap-2">
+            <Button onClick={handleUploadFile} variant="outline" className="w-full sm:w-auto gap-2">
               <IconUpload size={16} />
-              Upload File
+              <span className="hidden sm:inline">Upload File</span>
+              <span className="sm:hidden">Upload</span>
             </Button>
-            <Button onClick={handleNewReport} variant="outline" className="gap-2">
+            <Button onClick={handleNewReport} variant="outline" className="w-full sm:w-auto gap-2">
               <IconReport size={16} />
-              New Report
+              <span className="hidden sm:inline">New Report</span>
+              <span className="sm:hidden">Report</span>
             </Button>
           </div>
         </div>
@@ -338,7 +406,7 @@ export function StudioCanvas({
 
           <TabsContent value="overview" className="space-y-8">
             {/* Stats Cards - Inspired by JourneyMaker */}
-            <div className="grid grid-cols-4 gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
               <Card className="bg-blue-50 border-blue-100 hover:shadow-md transition-shadow">
                 <CardContent className="p-6">
                   <div className="flex items-center justify-between">
@@ -397,19 +465,15 @@ export function StudioCanvas({
             </div>
 
             {/* Recent Activity Section */}
-            <div className="grid grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               <Card className="bg-white">
                 <CardHeader className="border-b border-slate-100">
                   <CardTitle className="text-lg font-semibold text-slate-800">Recent Conversations</CardTitle>
                 </CardHeader>
                 <CardContent className="p-0">
                   {chats.length === 0 ? (
-                    <div className="p-6 text-center">
-                      <IconMessage size={32} className="mx-auto text-slate-300 mb-3" />
-                      <p className="text-slate-500 text-sm">No conversations yet</p>
-                      <Button onClick={handleNewChat} size="sm" className="mt-3">
-                        Start First Chat
-                      </Button>
+                    <div className="p-6">
+                      <EmptyChats onNewChat={handleNewChat} />
                     </div>
                   ) : (
                     <div className="max-h-80 overflow-auto">
@@ -485,21 +549,7 @@ export function StudioCanvas({
             </div>
 
             {chats.length === 0 ? (
-              <Card className="bg-white">
-                <CardContent className="py-12 text-center">
-                  <IconMessage size={48} className="mx-auto text-slate-300 mb-4" />
-                  <h3 className="text-lg font-medium text-slate-800 mb-2">
-                    No conversations yet
-                  </h3>
-                  <p className="text-sm text-slate-500 mb-6">
-                    Start your first conversation to analyze project data and get insights.
-                  </p>
-                  <Button onClick={handleNewChat} className="gap-2">
-                    <IconPlus size={16} />
-                    Start First Conversation
-                  </Button>
-                </CardContent>
-              </Card>
+              <EmptyChats onNewChat={handleNewChat} />
             ) : (
               <div className="grid gap-4">
                 {chats.map((chat) => (
@@ -545,21 +595,7 @@ export function StudioCanvas({
             </div>
 
             {reports.length === 0 ? (
-              <Card className="bg-white">
-                <CardContent className="py-12 text-center">
-                  <IconReport size={48} className="mx-auto text-slate-300 mb-4" />
-                  <h3 className="text-lg font-medium text-slate-800 mb-2">
-                    No reports yet
-                  </h3>
-                  <p className="text-sm text-slate-500 mb-6">
-                    Create your first report to analyze project data and insights.
-                  </p>
-                  <Button onClick={handleNewReport} className="gap-2">
-                    <IconPlus size={16} />
-                    Create First Report
-                  </Button>
-                </CardContent>
-              </Card>
+              <EmptyReports onCreateReport={handleNewReport} />
             ) : (
               <div className="grid gap-4">
                 {reports.map((report) => (
@@ -603,6 +639,7 @@ export function StudioCanvas({
         onUpdate={handleProjectUpdate}
         onDelete={handleProjectDelete}
       />
-    </div>
+      </div>
+    </ErrorBoundary>
   )
 }

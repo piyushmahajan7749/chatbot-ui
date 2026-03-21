@@ -1,6 +1,6 @@
 "use client"
 
-import { useCallback, useState } from "react"
+import { useCallback, useState, useEffect } from "react"
 import { cn } from "@/lib/utils"
 import { StudioChatPanel } from "./studio-chat-panel"
 import { StudioCanvas } from "./studio-canvas"
@@ -24,6 +24,22 @@ export function StudioLayout({
 }: StudioLayoutProps) {
   const [chatWidth, setChatWidth] = useState(DEFAULT_WIDTH)
   const [isDragging, setIsDragging] = useState(false)
+  const [isMobile, setIsMobile] = useState(false)
+  const [showChat, setShowChat] = useState(false)
+
+  useEffect(() => {
+    const checkMobile = () => {
+      const mobile = window.innerWidth < 1024
+      setIsMobile(mobile)
+      if (mobile) {
+        setShowChat(false)
+      }
+    }
+    
+    checkMobile()
+    window.addEventListener('resize', checkMobile)
+    return () => window.removeEventListener('resize', checkMobile)
+  }, [])
 
   const handleMouseDown = useCallback(
     (e: React.MouseEvent) => {
@@ -49,6 +65,34 @@ export function StudioLayout({
     },
     [chatWidth]
   )
+
+  if (isMobile) {
+    return (
+      <div className="flex flex-col h-screen bg-slate-50 font-sans text-slate-900 overflow-hidden">
+        {/* Mobile: Stack chat and canvas vertically */}
+        {showChat ? (
+          <div className="flex-1 overflow-hidden">
+            <StudioChatPanel 
+              width={0} // Full width on mobile
+              projectId={projectId}
+              workspaceId={workspaceId}
+              onBack={() => setShowChat(false)}
+            />
+          </div>
+        ) : (
+          <div className="flex-1 overflow-hidden">
+            <StudioCanvas 
+              projectId={projectId}
+              workspaceId={workspaceId}
+              onOpenChat={() => setShowChat(true)}
+            >
+              {children}
+            </StudioCanvas>
+          </div>
+        )}
+      </div>
+    )
+  }
 
   return (
     <div className="flex h-screen bg-slate-50 font-sans text-slate-900 overflow-hidden">
