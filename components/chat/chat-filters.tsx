@@ -18,7 +18,6 @@ import {
 import { Calendar } from "@/components/ui/calendar";
 import { Badge } from "@/components/ui/badge";
 import { 
-  Filter, 
   Search, 
   Calendar as CalendarIcon, 
   FolderOpen, 

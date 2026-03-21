@@ -14,10 +14,22 @@ export const ReportItem: FC<ReportItemProps> = ({ report }) => {
   const [projectName, setProjectName] = useState<string | null>(null)
 
   useEffect(() => {
+    let cancelled = false
+
     if (report.project_id) {
-      getProjectById(report.project_id).then(project => {
-        setProjectName(project?.name || null)
-      })
+      getProjectById(report.project_id)
+        .then(project => {
+          if (!cancelled) {
+            setProjectName(project?.name || null)
+          }
+        })
+        .catch(error => {
+          console.error("Failed to fetch project for report:", error)
+        })
+    }
+
+    return () => {
+      cancelled = true
     }
   }, [report.project_id])
 

@@ -2,11 +2,15 @@ import { supabase } from "@/lib/supabase/browser-client"
 import { Project } from "@/types/project"
 
 export const getProjectById = async (projectId: string): Promise<Project | null> => {
-  const { data: project } = await (supabase
+  const { data: project, error } = await (supabase
     .from("projects" as any)
     .select("*")
     .eq("id", projectId)
     .maybeSingle() as any)
+
+  if (error) {
+    throw new Error(error.message)
+  }
 
   return project as Project | null
 }

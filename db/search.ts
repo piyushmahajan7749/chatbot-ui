@@ -3,6 +3,15 @@ import { SearchResult } from "@/components/search/global-search";
 import { Project } from "@/types/project";
 
 /**
+ * Sanitize a string for use in PostgREST filter expressions.
+ * Escapes characters that have special meaning in `.or()` and `.ilike()` calls:
+ * backslash, dot, comma, parentheses, and asterisk/wildcard.
+ */
+const sanitizePostgrestValue = (value: string): string => {
+  return value.replace(/[\\.,()*]/g, (ch) => `\\${ch}`);
+};
+
+/**
  * Performs global search across projects, chats, files, and reports
  */
 export const searchGlobalContent = async (
@@ -10,7 +19,7 @@ export const searchGlobalContent = async (
   userId: string, 
   query: string
 ): Promise<SearchResult[]> => {
-  const searchTerm = query.trim().toLowerCase();
+  const searchTerm = sanitizePostgrestValue(query.trim().toLowerCase());
   if (!searchTerm) return [];
 
   const results: SearchResult[] = [];
@@ -41,7 +50,7 @@ export const searchGlobalContent = async (
           description: project.description || undefined,
           url: `/projects/${project.id}`,
           metadata: {
-            date: new Date(project.updated_at).toLocaleDateString(),
+            date: project.updated_at,
             tags: project.tags || []
           }
         });
@@ -72,7 +81,7 @@ export const searchGlobalContent = async (
           url: `/chat/${chat.id}`,
           metadata: {
             model: chat.model,
-            date: new Date(chat.updated_at).toLocaleDateString()
+            date: chat.updated_at
           }
         });
       });
@@ -103,7 +112,7 @@ export const searchGlobalContent = async (
           url: `/files/${file.id}`,
           metadata: {
             size: formatFileSize(file.size),
-            date: new Date(file.created_at).toLocaleDateString()
+            date: file.created_at
           }
         });
       });
@@ -132,7 +141,7 @@ export const searchGlobalContent = async (
           description: report.summary || undefined,
           url: `/reports/${report.id}`,
           metadata: {
-            date: new Date(report.created_at).toLocaleDateString()
+            date: report.created_at
           }
         });
       });
@@ -178,7 +187,8 @@ export const getFilteredProjects = async (
 
   // Apply search filter
   if (filters.searchTerm) {
-    query = query.or(`name.ilike.%${filters.searchTerm}%,description.ilike.%${filters.searchTerm}%`);
+    const sanitized = sanitizePostgrestValue(filters.searchTerm);
+    query = query.or(`name.ilike.%${sanitized}%,description.ilike.%${sanitized}%`);
   }
 
   // Apply tag filter
@@ -193,8 +203,9 @@ export const getFilteredProjects = async (
       .lte("created_at", filters.dateRange.end.toISOString());
   }
 
-  // Apply sorting
-  const sortBy = filters.sortBy || "updated_at";
+  // Apply sorting — map "activity" to the actual column name
+  const sortByRaw = filters.sortBy || "updated_at";
+  const sortBy = sortByRaw === "activity" ? "updated_at" : sortByRaw;
   const sortOrder = filters.sortOrder || "desc";
   const ascending = sortOrder === "asc";
 
@@ -233,7 +244,8 @@ export const getFilteredChats = async (
 
   // Apply search filter
   if (filters.searchTerm) {
-    query = query.ilike("name", `%${filters.searchTerm}%`);
+    const sanitized = sanitizePostgrestValue(filters.searchTerm);
+    query = query.ilike("name", `%${sanitized}%`);
   }
 
   // Apply project filter

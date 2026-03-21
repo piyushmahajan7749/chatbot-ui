@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useContext, useEffect } from "react";
+import { useState, useContext, useEffect, useRef } from "react";
 import { ChatbotUIContext } from "@/context/context";
 import useHotkey from "@/lib/hooks/use-hotkey";
 import { Dialog, DialogContent } from "../ui/dialog";
@@ -45,6 +45,7 @@ export const GlobalSearch = () => {
   const [selectedIndex, setSelectedIndex] = useState(0);
   const { selectedWorkspace, profile } = useContext(ChatbotUIContext);
   const router = useRouter();
+  const searchRequestId = useRef(0);
 
   // Global shortcut (Cmd+K / Ctrl+K)
   useHotkey("k", () => setIsOpen(true));
@@ -58,32 +59,39 @@ export const GlobalSearch = () => {
   }, [isOpen]);
 
   useEffect(() => {
-    if (query.trim() && selectedWorkspace?.id) {
-      performSearch(query);
-    } else {
+    if (!query.trim() || !selectedWorkspace?.id || !profile?.user_id) {
       setResults([]);
+      return;
     }
-  }, [query, selectedWorkspace?.id]);
 
-  const performSearch = async (searchQuery: string) => {
-    if (!selectedWorkspace?.id || !profile?.user_id) return;
-    
-    setIsLoading(true);
-    try {
-      const searchResults = await searchGlobalContent(
-        selectedWorkspace.id, 
-        profile.user_id, 
-        searchQuery
-      );
-      setResults(searchResults);
-      setSelectedIndex(0);
-    } catch (error) {
-      console.error("Search error:", error);
-      setResults([]);
-    } finally {
-      setIsLoading(false);
-    }
-  };
+    const debounceTimer = setTimeout(() => {
+      const requestId = ++searchRequestId.current;
+
+      setIsLoading(true);
+      searchGlobalContent(
+        selectedWorkspace.id,
+        profile.user_id,
+        query
+      )
+        .then((searchResults) => {
+          // Ignore stale responses
+          if (requestId !== searchRequestId.current) return;
+          setResults(searchResults);
+          setSelectedIndex(0);
+        })
+        .catch((error) => {
+          if (requestId !== searchRequestId.current) return;
+          console.error("Search error:", error);
+          setResults([]);
+        })
+        .finally(() => {
+          if (requestId !== searchRequestId.current) return;
+          setIsLoading(false);
+        });
+    }, 300);
+
+    return () => clearTimeout(debounceTimer);
+  }, [query, selectedWorkspace?.id, profile?.user_id]);
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Escape") {
@@ -197,7 +205,7 @@ export const GlobalSearch = () => {
               <div
                 key={`${result.type}-${result.id}`}
                 className={cn(
-                  "flex items-start gap-3 p-4 cursor-pointer border-l-2 hover:bg-muted/50 transition-colors",
+                  "group flex items-start gap-3 p-4 cursor-pointer border-l-2 hover:bg-muted/50 transition-colors",
                   selectedIndex === index ? "bg-muted border-l-blue-600" : "border-l-transparent"
                 )}
                 onClick={() => handleSelectResult(result)}

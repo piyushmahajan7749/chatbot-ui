@@ -2,13 +2,17 @@ import { supabase } from "@/lib/supabase/browser-client"
 import { Tables, TablesInsert, TablesUpdate } from "@/supabase/types"
 import { ELNConnection } from "@/types/eln"
 
-// Simple encryption for demo purposes - in production, use proper encryption
+// SECURITY WARNING: These functions use base64 encoding which is NOT encryption.
+// Base64 is trivially reversible and provides ZERO security for access tokens.
+// Any user with database read access (or XSS) can decode these tokens instantly.
+// TODO: Replace with server-side encryption (e.g. AES-256-GCM with a KMS-managed key)
+// before storing real provider tokens in production.
 const simpleEncrypt = (text: string): string => {
-  return btoa(text) // Base64 encoding - NOT secure for production
+  return btoa(text) // Base64 encoding - NOT secure, see warning above
 }
 
 const simpleDecrypt = (encrypted: string): string => {
-  return atob(encrypted) // Base64 decoding
+  return atob(encrypted) // Base64 decoding - NOT secure, see warning above
 }
 
 export const getELNConnections = async (userId: string): Promise<ELNConnection[]> => {

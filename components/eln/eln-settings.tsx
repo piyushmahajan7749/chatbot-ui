@@ -140,11 +140,21 @@ export function ELNSettings({ userId }: ELNSettingsProps) {
                             </div>
                             <div className="text-sm text-muted-foreground">
                               {provider?.name}
-                              {connection.tenant_url && (
-                                <Badge variant="secondary" className="ml-2">
-                                  {new URL(connection.tenant_url).hostname}
-                                </Badge>
-                              )}
+                              {connection.tenant_url && (() => {
+                                try {
+                                  return (
+                                    <Badge variant="secondary" className="ml-2">
+                                      {new URL(connection.tenant_url).hostname}
+                                    </Badge>
+                                  )
+                                } catch {
+                                  return (
+                                    <Badge variant="secondary" className="ml-2">
+                                      {connection.tenant_url}
+                                    </Badge>
+                                  )
+                                }
+                              })()}
                             </div>
                             <div className="text-xs text-muted-foreground">
                               Connected {new Date(connection.connected_at).toLocaleDateString()}

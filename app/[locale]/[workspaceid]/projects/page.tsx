@@ -15,8 +15,6 @@ import {
   IconEdit, 
   IconTrash,
   IconClock,
-  IconMessage,
-  IconFile,
   IconFolder
 } from "@tabler/icons-react"
 import { cn } from "@/lib/utils"
@@ -68,7 +66,12 @@ export default function ProjectsPage() {
   const [newProjectTags, setNewProjectTags] = useState("")
 
   useEffect(() => {
-    fetchProjects()
+    // Debounce when searchTerm changes to avoid hammering the API on every keystroke
+    const debounceTimer = setTimeout(() => {
+      fetchProjects()
+    }, filters.searchTerm ? 300 : 0)
+
+    return () => clearTimeout(debounceTimer)
   }, [workspaceId, filters])
 
   const fetchProjects = async () => {
@@ -191,7 +194,7 @@ export default function ProjectsPage() {
   const openEditModal = (project: Project) => {
     setEditingProject(project)
     setNewProjectName(project.name)
-    setNewProjectDescription(project.description)
+    setNewProjectDescription(project.description ?? "")
     setNewProjectTags(project.tags.join(", "))
   }
 
@@ -385,17 +388,7 @@ export default function ProjectsPage() {
                 )}
 
                 {/* Stats and timestamp */}
-                <div className="flex items-center justify-between text-xs text-zinc-400">
-                  <div className="flex gap-3">
-                    <div className="flex items-center gap-1">
-                      <IconMessage size={12} />
-                      <span>0</span>
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <IconFile size={12} />
-                      <span>0</span>
-                    </div>
-                  </div>
+                <div className="flex items-center justify-end text-xs text-zinc-400">
                   <div className="flex items-center gap-1">
                     <IconClock size={12} />
                     <span>{getTimeAgo(project.updated_at)}</span>

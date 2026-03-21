@@ -298,7 +298,7 @@ export function ELNExportModal({
                   <Checkbox
                     id="create-new"
                     checked={createNewExperiment}
-                    onCheckedChange={setCreateNewExperiment}
+                    onCheckedChange={(checked) => setCreateNewExperiment(checked === true)}
                   />
                   <Label htmlFor="create-new">Create new experiment</Label>
                 </div>
