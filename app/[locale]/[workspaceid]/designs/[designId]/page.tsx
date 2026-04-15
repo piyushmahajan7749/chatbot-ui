@@ -14,6 +14,8 @@ import {
   PopoverTrigger
 } from "@/components/ui/popover"
 import { AccentTabs } from "@/components/canvas/accent-tabs"
+import { ScopedChatRail } from "@/components/canvas/scoped-chat-rail"
+import { SplitRailLayout } from "@/components/canvas/split-rail-layout"
 import { ChatbotUIContext } from "@/context/context"
 import { useToast } from "@/app/hooks/use-toast"
 import type {
@@ -449,19 +451,31 @@ export default function DesignDetailPage() {
     [generatedDesigns]
   )
 
+  const rail = (
+    <ScopedChatRail
+      scope="design"
+      scopeId={designId}
+      scopeName={design?.name ?? title}
+    />
+  )
+
   if (loading) {
     return (
-      <div className="bg-ink-50 flex h-full items-center justify-center">
-        <div className="border-ink-200 border-t-teal-journey size-8 animate-spin rounded-full border-2" />
-      </div>
+      <SplitRailLayout rail={rail}>
+        <div className="bg-ink-50 flex h-full items-center justify-center">
+          <div className="border-ink-200 border-t-teal-journey size-8 animate-spin rounded-full border-2" />
+        </div>
+      </SplitRailLayout>
     )
   }
 
   if (!design) {
     return (
-      <div className="bg-ink-50 flex h-full items-center justify-center">
-        <p className="text-ink-400">Design not found</p>
-      </div>
+      <SplitRailLayout rail={rail}>
+        <div className="bg-ink-50 flex h-full items-center justify-center">
+          <p className="text-ink-400">Design not found</p>
+        </div>
+      </SplitRailLayout>
     )
   }
 
@@ -472,168 +486,170 @@ export default function DesignDetailPage() {
     simulatedDesigns[0]
 
   return (
-    <div className="bg-ink-50 flex h-full flex-col overflow-hidden">
-      {/* Header */}
-      <div className="border-ink-200 shrink-0 border-b bg-white px-6 py-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => {
-                const projectId = design?.project_id
-                router.push(
-                  projectId
-                    ? `/${locale}/${workspaceId}/projects/${projectId}`
-                    : `/${locale}/${workspaceId}/projects`
-                )
-              }}
-              className="text-ink-500 gap-1"
-            >
-              <IconArrowLeft size={16} />
-              Back
-            </Button>
-            <div>
-              <div className="text-ink-400 flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.13em]">
-                <span>Design</span>
-                {busy && (
-                  <span className="bg-teal-journey-tint text-teal-journey border-teal-journey/30 rounded border px-2 py-0.5 normal-case tracking-normal">
-                    Running {busy}…
-                  </span>
-                )}
+    <SplitRailLayout rail={rail}>
+      <div className="bg-ink-50 flex h-full flex-col overflow-hidden">
+        {/* Header */}
+        <div className="border-ink-200 shrink-0 border-b bg-white px-6 py-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  const projectId = design?.project_id
+                  router.push(
+                    projectId
+                      ? `/${locale}/${workspaceId}/projects/${projectId}`
+                      : `/${locale}/${workspaceId}/projects`
+                  )
+                }}
+                className="text-ink-500 gap-1"
+              >
+                <IconArrowLeft size={16} />
+                Back
+              </Button>
+              <div>
+                <div className="text-ink-400 flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.13em]">
+                  <span>Design</span>
+                  {busy && (
+                    <span className="bg-teal-journey-tint text-teal-journey border-teal-journey/30 rounded border px-2 py-0.5 normal-case tracking-normal">
+                      Running {busy}…
+                    </span>
+                  )}
+                </div>
+                <h1 className="text-ink-900 text-xl font-bold">
+                  {title || design.name || "Untitled Design"}
+                </h1>
               </div>
-              <h1 className="text-ink-900 text-xl font-bold">
-                {title || design.name || "Untitled Design"}
-              </h1>
             </div>
           </div>
         </div>
-      </div>
 
-      {/* 6-tab bar */}
-      <AccentTabs
-        activeKey={activeTab}
-        onChange={setActiveTab}
-        tabs={[
-          {
-            key: "problem",
-            label: "Problem",
-            accent: "teal-journey",
-            icon: <IconTargetArrow size={14} />
-          },
-          {
-            key: "literature",
-            label: "Literature Search",
-            accent: "orange-product",
-            icon: <IconBook size={14} />
-          },
-          {
-            key: "hypotheses",
-            label: "Hypotheses",
-            accent: "purple-persona",
-            icon: <IconBulb size={14} />
-          },
-          {
-            key: "design",
-            label: "Design",
-            accent: "sage-brand",
-            icon: <IconClipboardText size={14} />
-          },
-          {
-            key: "simulation",
-            label: "Simulation",
-            accent: "teal-journey",
-            icon: <IconChartBar size={14} />
-          },
-          {
-            key: "overview",
-            label: "Overview",
-            accent: "neutral",
-            icon: <IconLayoutGrid size={14} />
-          }
-        ]}
-      />
+        {/* 6-tab bar */}
+        <AccentTabs
+          activeKey={activeTab}
+          onChange={setActiveTab}
+          tabs={[
+            {
+              key: "problem",
+              label: "Problem",
+              accent: "teal-journey",
+              icon: <IconTargetArrow size={14} />
+            },
+            {
+              key: "literature",
+              label: "Literature Search",
+              accent: "orange-product",
+              icon: <IconBook size={14} />
+            },
+            {
+              key: "hypotheses",
+              label: "Hypotheses",
+              accent: "purple-persona",
+              icon: <IconBulb size={14} />
+            },
+            {
+              key: "design",
+              label: "Design",
+              accent: "sage-brand",
+              icon: <IconClipboardText size={14} />
+            },
+            {
+              key: "simulation",
+              label: "Simulation",
+              accent: "teal-journey",
+              icon: <IconChartBar size={14} />
+            },
+            {
+              key: "overview",
+              label: "Overview",
+              accent: "neutral",
+              icon: <IconLayoutGrid size={14} />
+            }
+          ]}
+        />
 
-      {/* Tab content */}
-      <div className="min-h-0 flex-1 overflow-auto">
-        <div className="mx-auto max-w-4xl p-6">
-          {activeTab === "problem" && (
-            <ProblemTab
-              title={title}
-              setTitle={setTitle}
-              problemStatement={problemStatement}
-              setProblemStatement={setProblemStatement}
-              goal={goal}
-              setGoal={setGoal}
-              variables={variables}
-              setVariables={setVariables}
-              constraints={constraints}
-              setConstraints={setConstraints}
-              updateListAt={updateListAt}
-              onStartLiteratureSearch={handleStartLiteratureSearch}
-              canSubmit={problemValid}
-            />
-          )}
+        {/* Tab content */}
+        <div className="min-h-0 flex-1 overflow-auto">
+          <div className="mx-auto max-w-4xl p-6">
+            {activeTab === "problem" && (
+              <ProblemTab
+                title={title}
+                setTitle={setTitle}
+                problemStatement={problemStatement}
+                setProblemStatement={setProblemStatement}
+                goal={goal}
+                setGoal={setGoal}
+                variables={variables}
+                setVariables={setVariables}
+                constraints={constraints}
+                setConstraints={setConstraints}
+                updateListAt={updateListAt}
+                onStartLiteratureSearch={handleStartLiteratureSearch}
+                canSubmit={problemValid}
+              />
+            )}
 
-          {activeTab === "literature" && (
-            <LiteratureTab
-              papers={papers}
-              onTogglePaper={handleTogglePaper}
-              onDeletePaper={handleDeletePaper}
-              onUploadPdfs={handleUploadPdfs}
-              onGenerateHypotheses={handleGenerateHypotheses}
-              canGenerate={selectedPapers.length > 0}
-            />
-          )}
+            {activeTab === "literature" && (
+              <LiteratureTab
+                papers={papers}
+                onTogglePaper={handleTogglePaper}
+                onDeletePaper={handleDeletePaper}
+                onUploadPdfs={handleUploadPdfs}
+                onGenerateHypotheses={handleGenerateHypotheses}
+                canGenerate={selectedPapers.length > 0}
+              />
+            )}
 
-          {activeTab === "hypotheses" && (
-            <HypothesesTab
-              hypotheses={hypotheses}
-              papers={papers}
-              onToggle={handleToggleHypothesis}
-              onGenerateDesign={handleGenerateDesign}
-              canGenerate={selectedHypotheses.length > 0}
-            />
-          )}
+            {activeTab === "hypotheses" && (
+              <HypothesesTab
+                hypotheses={hypotheses}
+                papers={papers}
+                onToggle={handleToggleHypothesis}
+                onGenerateDesign={handleGenerateDesign}
+                canGenerate={selectedHypotheses.length > 0}
+              />
+            )}
 
-          {activeTab === "design" && (
-            <DesignTab
-              designs={generatedDesigns}
-              activeId={activeDesignId}
-              onSelect={setActiveDesignId}
-              activeDesign={activeDesign}
-              onGenerateSimulation={handleGenerateSimulation}
-              onSave={handleSaveDesign}
-              onDownload={handleDownloadDesign}
-            />
-          )}
+            {activeTab === "design" && (
+              <DesignTab
+                designs={generatedDesigns}
+                activeId={activeDesignId}
+                onSelect={setActiveDesignId}
+                activeDesign={activeDesign}
+                onGenerateSimulation={handleGenerateSimulation}
+                onSave={handleSaveDesign}
+                onDownload={handleDownloadDesign}
+              />
+            )}
 
-          {activeTab === "simulation" && (
-            <SimulationTab
-              designs={simulatedDesigns}
-              activeId={activeSimDesignId}
-              onSelect={setActiveSimDesignId}
-              activeDesign={activeSimDesign}
-              onSave={handleSaveDesign}
-              onDownload={handleDownloadDesign}
-            />
-          )}
+            {activeTab === "simulation" && (
+              <SimulationTab
+                designs={simulatedDesigns}
+                activeId={activeSimDesignId}
+                onSelect={setActiveSimDesignId}
+                activeDesign={activeSimDesign}
+                onSave={handleSaveDesign}
+                onDownload={handleDownloadDesign}
+              />
+            )}
 
-          {activeTab === "overview" && (
-            <OverviewTab
-              title={title}
-              problemStatement={problemStatement}
-              goal={goal}
-              variables={variables.filter(v => v.trim() !== "")}
-              constraints={constraints.filter(c => c.trim() !== "")}
-              papers={papers}
-              hypotheses={hypotheses}
-              designs={generatedDesigns}
-            />
-          )}
+            {activeTab === "overview" && (
+              <OverviewTab
+                title={title}
+                problemStatement={problemStatement}
+                goal={goal}
+                variables={variables.filter(v => v.trim() !== "")}
+                constraints={constraints.filter(c => c.trim() !== "")}
+                papers={papers}
+                hypotheses={hypotheses}
+                designs={generatedDesigns}
+              />
+            )}
+          </div>
         </div>
       </div>
-    </div>
+    </SplitRailLayout>
   )
 }
 

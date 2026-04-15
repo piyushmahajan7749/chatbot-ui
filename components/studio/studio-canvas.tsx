@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useMemo, useState } from "react"
+import { useContext, useEffect, useMemo, useState } from "react"
 import { useParams, useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -8,13 +8,27 @@ import { Badge } from "@/components/ui/badge"
 import { EntityCard } from "@/components/cards/entity-card"
 import { Skeleton } from "@/components/ui/skeleton"
 import { ErrorBoundary } from "@/components/ui/error-boundary"
+import { AccentTabs } from "@/components/canvas/accent-tabs"
 import { getProjectById, updateProject, deleteProject } from "@/db/projects"
 import { getDesignsByProject } from "@/db/designs"
+import { getReportsByProject } from "@/db/reports"
+import { createChat, getChatsByWorkspaceId } from "@/db/chats"
 import type { Tables } from "@/supabase/types"
 import { Project } from "@/types/project"
 import { ProjectSettingsModal } from "./project-settings-modal"
-import { IconEdit, IconFlask, IconPlus, IconSearch } from "@tabler/icons-react"
+import {
+  IconClipboardText,
+  IconEdit,
+  IconFlask,
+  IconMessage,
+  IconMessagePlus,
+  IconPlus,
+  IconReport,
+  IconSearch
+} from "@tabler/icons-react"
 import { useToast } from "@/app/hooks/use-toast"
+import { ChatbotUIContext } from "@/context/context"
+import { supabase } from "@/lib/supabase/browser-client"
 
 interface StudioCanvasProps {
   children?: React.ReactNode
@@ -28,6 +42,11 @@ type DesignRow = Tables<"designs"> & {
   content?: unknown
 }
 
+type ReportRow = Tables<"reports">
+type ChatRow = Tables<"chats">
+
+type TabKey = "designs" | "reports" | "chats"
+
 export function StudioCanvas({
   children,
   projectId,
@@ -36,12 +55,18 @@ export function StudioCanvas({
   const params = useParams()
   const router = useRouter()
   const { toast } = useToast()
+  const { profile, selectedWorkspace, chatSettings } =
+    useContext(ChatbotUIContext)
 
   const [project, setProject] = useState<Project | null>(null)
   const [designs, setDesigns] = useState<DesignRow[]>([])
+  const [reports, setReports] = useState<ReportRow[]>([])
+  const [chats, setChats] = useState<ChatRow[]>([])
   const [loading, setLoading] = useState(true)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [search, setSearch] = useState("")
+  const [activeTab, setActiveTab] = useState<TabKey>("designs")
+  const [creatingChat, setCreatingChat] = useState(false)
 
   const actualProjectId = projectId || (params.projectId as string)
   const actualWorkspaceId = workspaceId || (params.workspaceid as string)
@@ -53,6 +78,11 @@ export function StudioCanvas({
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [actualProjectId, actualWorkspaceId])
+
+  // Reset search when switching tabs so the placeholder matches the context.
+  useEffect(() => {
+    setSearch("")
+  }, [activeTab])
 
   const fetchProjectData = async () => {
     try {
@@ -69,10 +99,24 @@ export function StudioCanvas({
       }
       setProject(projectData)
 
-      const projectDesigns = await getDesignsByProject(actualProjectId).catch(
-        () => []
-      )
+      const [projectDesigns, projectReports, workspaceChats] =
+        await Promise.all([
+          getDesignsByProject(actualProjectId).catch(() => []),
+          profile
+            ? getReportsByProject(profile.user_id, actualProjectId).catch(
+                () => []
+              )
+            : Promise.resolve([] as ReportRow[]),
+          getChatsByWorkspaceId(actualWorkspaceId).catch(() => [])
+        ])
+
       setDesigns(projectDesigns as DesignRow[])
+      setReports(projectReports as ReportRow[])
+      setChats(
+        (workspaceChats as ChatRow[]).filter(
+          c => c.project_id === actualProjectId
+        )
+      )
     } catch (error) {
       console.error("Error fetching project data:", error)
       toast({
@@ -89,6 +133,59 @@ export function StudioCanvas({
     router.push(
       `/${locale}/${actualWorkspaceId}/designs/new?projectId=${actualProjectId}`
     )
+  }
+
+  const handleNewReport = () => {
+    router.push(
+      `/${locale}/${actualWorkspaceId}/reports/new?projectId=${actualProjectId}`
+    )
+  }
+
+  const handleNewChat = async () => {
+    if (!selectedWorkspace || !project) return
+    setCreatingChat(true)
+    try {
+      const {
+        data: { user }
+      } = await supabase.auth.getUser()
+      if (!user) throw new Error("Not signed in")
+
+      const chat = await createChat({
+        user_id: user.id,
+        workspace_id: selectedWorkspace.id,
+        name: `${project.name} chat`,
+        scope: "project",
+        scope_id: project.id,
+        project_id: project.id,
+        model: chatSettings?.model ?? selectedWorkspace.default_model,
+        prompt: chatSettings?.prompt ?? selectedWorkspace.default_prompt ?? "",
+        temperature:
+          chatSettings?.temperature ?? selectedWorkspace.default_temperature,
+        context_length:
+          chatSettings?.contextLength ??
+          selectedWorkspace.default_context_length,
+        embeddings_provider:
+          chatSettings?.embeddingsProvider ??
+          selectedWorkspace.embeddings_provider,
+        include_profile_context:
+          chatSettings?.includeProfileContext ??
+          selectedWorkspace.include_profile_context,
+        include_workspace_instructions:
+          chatSettings?.includeWorkspaceInstructions ??
+          selectedWorkspace.include_workspace_instructions,
+        sharing: "private"
+      })
+      router.push(`/${locale}/${actualWorkspaceId}/chat/${chat.id}`)
+    } catch (error) {
+      console.error("Failed to create project chat:", error)
+      toast({
+        title: "Error",
+        description: "Failed to start a new chat.",
+        variant: "destructive"
+      })
+    } finally {
+      setCreatingChat(false)
+    }
   }
 
   const handleProjectUpdate = async (updates: Partial<Project>) => {
@@ -141,9 +238,6 @@ export function StudioCanvas({
     return new Date(date).toLocaleDateString()
   }
 
-  // Compute design sub-tab completion chips (matches Design detail: Problem /
-  // Literature / Hypothesis / Final). Best-effort parse from the stored
-  // content blob; falls back to "problem only" when nothing's generated yet.
   const chipsFor = (d: DesignRow) => {
     let parsed: any = null
     if (d.content) {
@@ -162,17 +256,17 @@ export function StudioCanvas({
       },
       {
         label: "Literature",
-        filled: !!parsed?.generatedLiteratureSummary,
+        filled: !!parsed?.papers || !!parsed?.generatedLiteratureSummary,
         accent: "orange-product" as const
       },
       {
         label: "Hypothesis",
-        filled: !!parsed?.selectedHypothesis,
+        filled: !!parsed?.hypotheses || !!parsed?.selectedHypothesis,
         accent: "purple-persona" as const
       },
       {
         label: "Final",
-        filled: !!parsed?.generatedDesign,
+        filled: !!parsed?.designs || !!parsed?.generatedDesign,
         accent: "sage-brand" as const
       }
     ]
@@ -187,6 +281,22 @@ export function StudioCanvas({
         (d.description && d.description.toLowerCase().includes(q))
     )
   }, [designs, search])
+
+  const filteredReports = useMemo(() => {
+    const q = search.trim().toLowerCase()
+    if (!q) return reports
+    return reports.filter(
+      r =>
+        r.name.toLowerCase().includes(q) ||
+        (r.description && r.description.toLowerCase().includes(q))
+    )
+  }, [reports, search])
+
+  const filteredChats = useMemo(() => {
+    const q = search.trim().toLowerCase()
+    if (!q) return chats
+    return chats.filter(c => c.name.toLowerCase().includes(q))
+  }, [chats, search])
 
   // Children override: used when the page-level route wants to render its own
   // content inside the StudioLayout shell (e.g. Design editor).
@@ -219,6 +329,47 @@ export function StudioCanvas({
       </div>
     )
   }
+
+  const toolbarCopy: Record<TabKey, { placeholder: string; cta: JSX.Element }> =
+    {
+      designs: {
+        placeholder: "Search designs…",
+        cta: (
+          <Button
+            onClick={handleNewDesign}
+            className="bg-brick hover:bg-brick-hover shrink-0 gap-2"
+          >
+            <IconPlus size={16} />
+            New Design
+          </Button>
+        )
+      },
+      reports: {
+        placeholder: "Search reports…",
+        cta: (
+          <Button
+            onClick={handleNewReport}
+            className="bg-brick hover:bg-brick-hover shrink-0 gap-2"
+          >
+            <IconPlus size={16} />
+            New Report
+          </Button>
+        )
+      },
+      chats: {
+        placeholder: "Search chats…",
+        cta: (
+          <Button
+            onClick={handleNewChat}
+            disabled={creatingChat || !selectedWorkspace}
+            className="bg-brick hover:bg-brick-hover shrink-0 gap-2"
+          >
+            <IconMessagePlus size={16} />
+            {creatingChat ? "Starting…" : "New Chat"}
+          </Button>
+        )
+      }
+    }
 
   return (
     <ErrorBoundary>
@@ -261,73 +412,89 @@ export function StudioCanvas({
           </div>
         </div>
 
-        {/* Designs toolbar */}
+        {/* Tab bar */}
+        <AccentTabs
+          activeKey={activeTab}
+          onChange={key => setActiveTab(key as TabKey)}
+          tabs={[
+            {
+              key: "designs",
+              label: `Designs${designs.length ? ` (${designs.length})` : ""}`,
+              accent: "teal-journey",
+              icon: <IconClipboardText size={14} />
+            },
+            {
+              key: "reports",
+              label: `Reports${reports.length ? ` (${reports.length})` : ""}`,
+              accent: "orange-product",
+              icon: <IconReport size={14} />
+            },
+            {
+              key: "chats",
+              label: `Chats${chats.length ? ` (${chats.length})` : ""}`,
+              accent: "purple-persona",
+              icon: <IconMessage size={14} />
+            }
+          ]}
+        />
+
+        {/* Toolbar */}
         <div className="border-ink-200 shrink-0 border-b bg-white px-6 py-3">
           <div className="flex items-center gap-3">
             <div className="border-ink-200 flex min-w-[240px] flex-1 items-center gap-2 rounded-md border px-3 py-1.5">
               <IconSearch size={14} className="text-ink-400 shrink-0" />
               <Input
-                placeholder="Search designs…"
+                placeholder={toolbarCopy[activeTab].placeholder}
                 value={search}
                 onChange={e => setSearch(e.target.value)}
                 className="border-none p-0 shadow-none focus-visible:ring-0"
               />
             </div>
-            <Button
-              onClick={handleNewDesign}
-              className="bg-brick hover:bg-brick-hover shrink-0 gap-2"
-            >
-              <IconPlus size={16} />
-              New Design
-            </Button>
+            {toolbarCopy[activeTab].cta}
           </div>
         </div>
 
-        {/* Designs grid */}
+        {/* Tab content */}
         <div className="min-h-0 flex-1 overflow-auto p-6">
-          {filteredDesigns.length === 0 ? (
-            <div className="flex h-full flex-col items-center justify-center gap-3 text-center">
-              <div className="bg-teal-journey-tint rounded-full p-4">
-                <IconFlask size={28} className="text-teal-journey" />
-              </div>
-              <p className="text-ink-700 text-sm font-semibold">
-                {search ? "No designs match your search." : "No designs yet"}
-              </p>
-              {!search && (
-                <>
-                  <p className="text-ink-400 max-w-sm text-xs">
-                    Kick off your research by starting a Design. You can move
-                    through Problem, Literature, Hypothesis, and Final Design in
-                    a guided flow.
-                  </p>
-                  <Button
-                    onClick={handleNewDesign}
-                    className="bg-brick hover:bg-brick-hover mt-2 gap-2"
-                  >
-                    <IconPlus size={16} />
-                    Start your first Design
-                  </Button>
-                </>
-              )}
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-              {filteredDesigns.map(design => (
-                <EntityCard
-                  key={design.id}
-                  title={design.name || "Untitled Design"}
-                  description={design.description || undefined}
-                  chips={chipsFor(design)}
-                  timestampLabel="Updated"
-                  timestamp={getTimeAgo(design.updated_at || design.created_at)}
-                  onClick={() =>
-                    router.push(
-                      `/${locale}/${actualWorkspaceId}/designs/${design.id}`
-                    )
-                  }
-                />
-              ))}
-            </div>
+          {activeTab === "designs" && (
+            <DesignsGrid
+              designs={filteredDesigns}
+              rawCount={designs.length}
+              searching={search.trim() !== ""}
+              chipsFor={chipsFor}
+              getTimeAgo={getTimeAgo}
+              onOpenDesign={id =>
+                router.push(`/${locale}/${actualWorkspaceId}/designs/${id}`)
+              }
+              onNewDesign={handleNewDesign}
+            />
+          )}
+
+          {activeTab === "reports" && (
+            <ReportsGrid
+              reports={filteredReports}
+              rawCount={reports.length}
+              searching={search.trim() !== ""}
+              getTimeAgo={getTimeAgo}
+              onOpenReport={id =>
+                router.push(`/${locale}/${actualWorkspaceId}/reports/${id}`)
+              }
+              onNewReport={handleNewReport}
+            />
+          )}
+
+          {activeTab === "chats" && (
+            <ChatsGrid
+              chats={filteredChats}
+              rawCount={chats.length}
+              searching={search.trim() !== ""}
+              getTimeAgo={getTimeAgo}
+              onOpenChat={id =>
+                router.push(`/${locale}/${actualWorkspaceId}/chat/${id}`)
+              }
+              onNewChat={handleNewChat}
+              creatingChat={creatingChat}
+            />
           )}
         </div>
 
@@ -341,5 +508,176 @@ export function StudioCanvas({
         />
       </div>
     </ErrorBoundary>
+  )
+}
+
+// ── Tab grids ──────────────────────────────────────────────────────────
+
+function DesignsGrid(props: {
+  designs: DesignRow[]
+  rawCount: number
+  searching: boolean
+  chipsFor: (d: DesignRow) => any
+  getTimeAgo: (d: string | null) => string
+  onOpenDesign: (id: string) => void
+  onNewDesign: () => void
+}) {
+  const { designs, rawCount, searching, chipsFor, getTimeAgo } = props
+  if (designs.length === 0) {
+    return (
+      <EmptyState
+        searching={searching}
+        searchEmpty="No designs match your search."
+        listEmpty="No designs yet"
+        icon={<IconFlask size={28} className="text-teal-journey" />}
+        tint="bg-teal-journey-tint"
+        description="Kick off your research by starting a Design. You can move through Problem, Literature, Hypothesis, and Final Design in a guided flow."
+        ctaLabel="Start your first Design"
+        onCta={props.onNewDesign}
+        hasRaw={rawCount > 0}
+      />
+    )
+  }
+  return (
+    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+      {designs.map(design => (
+        <EntityCard
+          key={design.id}
+          title={design.name || "Untitled Design"}
+          description={design.description || undefined}
+          chips={chipsFor(design)}
+          timestampLabel="Updated"
+          timestamp={getTimeAgo(design.updated_at || design.created_at)}
+          onClick={() => props.onOpenDesign(design.id)}
+        />
+      ))}
+    </div>
+  )
+}
+
+function ReportsGrid(props: {
+  reports: ReportRow[]
+  rawCount: number
+  searching: boolean
+  getTimeAgo: (d: string | null) => string
+  onOpenReport: (id: string) => void
+  onNewReport: () => void
+}) {
+  const { reports, rawCount, searching, getTimeAgo } = props
+  if (reports.length === 0) {
+    return (
+      <EmptyState
+        searching={searching}
+        searchEmpty="No reports match your search."
+        listEmpty="No reports yet"
+        icon={<IconReport size={28} className="text-orange-product" />}
+        tint="bg-orange-product-tint"
+        description="Summarize findings from this project into a shareable report."
+        ctaLabel="Create a Report"
+        onCta={props.onNewReport}
+        hasRaw={rawCount > 0}
+      />
+    )
+  }
+  return (
+    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+      {reports.map(report => (
+        <EntityCard
+          key={report.id}
+          title={report.name || "Untitled Report"}
+          description={report.description || undefined}
+          timestampLabel="Updated"
+          timestamp={getTimeAgo(report.updated_at || report.created_at)}
+          onClick={() => props.onOpenReport(report.id)}
+        />
+      ))}
+    </div>
+  )
+}
+
+function ChatsGrid(props: {
+  chats: ChatRow[]
+  rawCount: number
+  searching: boolean
+  getTimeAgo: (d: string | null) => string
+  onOpenChat: (id: string) => void
+  onNewChat: () => void
+  creatingChat: boolean
+}) {
+  const { chats, rawCount, searching, getTimeAgo } = props
+  if (chats.length === 0) {
+    return (
+      <EmptyState
+        searching={searching}
+        searchEmpty="No chats match your search."
+        listEmpty="No project chats yet"
+        icon={<IconMessage size={28} className="text-purple-persona" />}
+        tint="bg-purple-persona-tint"
+        description="Start a project-scoped chat to ask questions across this project's files and designs."
+        ctaLabel={props.creatingChat ? "Starting…" : "Start a Chat"}
+        onCta={props.onNewChat}
+        hasRaw={rawCount > 0}
+      />
+    )
+  }
+  return (
+    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+      {chats.map(chat => (
+        <EntityCard
+          key={chat.id}
+          title={chat.name || "Untitled Chat"}
+          timestampLabel="Updated"
+          timestamp={getTimeAgo(chat.updated_at || chat.created_at)}
+          onClick={() => props.onOpenChat(chat.id)}
+        />
+      ))}
+    </div>
+  )
+}
+
+function EmptyState(props: {
+  searching: boolean
+  searchEmpty: string
+  listEmpty: string
+  icon: React.ReactNode
+  tint: string
+  description: string
+  ctaLabel: string
+  onCta: () => void
+  hasRaw: boolean
+}) {
+  const {
+    searching,
+    searchEmpty,
+    listEmpty,
+    icon,
+    tint,
+    description,
+    ctaLabel,
+    onCta,
+    hasRaw
+  } = props
+
+  if (searching && hasRaw) {
+    return (
+      <div className="flex h-full flex-col items-center justify-center gap-2 text-center">
+        <p className="text-ink-500 text-sm">{searchEmpty}</p>
+      </div>
+    )
+  }
+
+  return (
+    <div className="flex h-full flex-col items-center justify-center gap-3 text-center">
+      <div className={`${tint} rounded-full p-4`}>{icon}</div>
+      <p className="text-ink-700 text-sm font-semibold">{listEmpty}</p>
+      <p className="text-ink-400 max-w-sm text-xs">{description}</p>
+      <Button
+        onClick={onCta}
+        className="bg-brick hover:bg-brick-hover mt-2 gap-2"
+      >
+        <IconPlus size={16} />
+        {ctaLabel}
+      </Button>
+    </div>
   )
 }
