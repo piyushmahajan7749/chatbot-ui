@@ -212,7 +212,7 @@ export const ChatInput: FC<ChatInputProps> = ({}) => {
         )}
       </div>
 
-      <div className="border-input relative mt-3 flex min-h-[60px] w-full items-center justify-center rounded-xl border-2">
+      <div className="border-input relative mt-3 flex min-h-[60px] w-full items-center justify-center rounded-xl border">
         <div className="absolute bottom-[76px] left-0 max-h-[300px] w-full overflow-auto rounded-xl dark:border-none">
           <ChatCommandInput />
         </div>
@@ -223,7 +223,7 @@ export const ChatInput: FC<ChatInputProps> = ({}) => {
               display={<div>Attach files</div>}
               trigger={
                 <IconCirclePlus
-                  className="cursor-pointer p-1 hover:opacity-50 transition-all hover:scale-110 text-muted-foreground hover:text-primary"
+                  className="text-muted-foreground hover:text-primary cursor-pointer p-1 transition-all hover:scale-110 hover:opacity-50"
                   size={32}
                   onClick={() => fileInputRef.current?.click()}
                 />

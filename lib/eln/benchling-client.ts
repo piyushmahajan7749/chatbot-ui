@@ -1,10 +1,10 @@
-import { 
-  ELNExportResult, 
-  BenchlingProject, 
-  BenchlingEntry, 
+import {
+  ELNExportResult,
+  BenchlingProject,
+  BenchlingEntry,
   BenchlingBlob,
   ELNProject,
-  ELNExperiment 
+  ELNExperiment
 } from "@/types/eln"
 
 export class BenchlingClient {
@@ -19,22 +19,24 @@ export class BenchlingClient {
   }
 
   private async makeRequest<T>(
-    endpoint: string, 
+    endpoint: string,
     options: RequestInit = {}
   ): Promise<T> {
     const url = `${this.baseUrl}${endpoint}`
-    
+
     const response = await fetch(url, {
       ...options,
       headers: {
-        "Authorization": `Basic ${btoa(this.apiKey + ":")}`,
+        Authorization: `Basic ${btoa(this.apiKey + ":")}`,
         "Content-Type": "application/json",
         ...options.headers
       }
     })
 
     if (!response.ok) {
-      throw new Error(`Benchling API error: ${response.status} ${response.statusText}`)
+      throw new Error(
+        `Benchling API error: ${response.status} ${response.statusText}`
+      )
     }
 
     return response.json()
@@ -53,7 +55,9 @@ export class BenchlingClient {
 
   async listProjects(): Promise<ELNProject[]> {
     try {
-      const data = await this.makeRequest<{ projects: BenchlingProject[] }>("/projects")
+      const data = await this.makeRequest<{ projects: BenchlingProject[] }>(
+        "/projects"
+      )
       return data.projects
         .filter(project => !project.archive_reason)
         .map(project => ({
@@ -83,35 +87,38 @@ export class BenchlingClient {
     }
   }
 
+  async listExperiments(projectId: string): Promise<ELNExperiment[]> {
+    return this.listEntries(projectId)
+  }
+
   async createEntry(
-    projectId: string, 
-    name: string, 
+    projectId: string,
+    name: string,
     content?: string
   ): Promise<ELNExperiment> {
     try {
       const entryData = {
         name,
         project_id: projectId,
-        days: content ? [
-          {
-            notes: [
+        days: content
+          ? [
               {
-                type: "text",
-                text: content
+                notes: [
+                  {
+                    type: "text",
+                    text: content
+                  }
+                ]
               }
             ]
-          }
-        ] : []
+          : []
       }
 
-      const data = await this.makeRequest<BenchlingEntry>(
-        "/entries",
-        {
-          method: "POST",
-          body: JSON.stringify(entryData)
-        }
-      )
-      
+      const data = await this.makeRequest<BenchlingEntry>("/entries", {
+        method: "POST",
+        body: JSON.stringify(entryData)
+      })
+
       return {
         id: data.id,
         name: data.name,
@@ -130,19 +137,18 @@ export class BenchlingClient {
   ): Promise<string> {
     try {
       // First, create a blob upload URL
-      const blobData = await this.makeRequest<BenchlingBlob>(
-        "/blobs",
-        {
-          method: "POST",
-          body: JSON.stringify({
-            name: filename,
-            type: "application/pdf",
-            parts: [{
+      const blobData = await this.makeRequest<BenchlingBlob>("/blobs", {
+        method: "POST",
+        body: JSON.stringify({
+          name: filename,
+          type: "application/pdf",
+          parts: [
+            {
               size: fileContent.size
-            }]
-          })
-        }
-      )
+            }
+          ]
+        })
+      })
 
       // Upload the file to the provided upload URL
       if (blobData.upload_url) {
@@ -160,38 +166,34 @@ export class BenchlingClient {
       }
 
       // Complete the upload
-      await this.makeRequest(
-        `/blobs/${blobData.id}/complete-upload`,
-        {
-          method: "POST",
-          body: JSON.stringify({
-            parts: [{
+      await this.makeRequest(`/blobs/${blobData.id}/complete-upload`, {
+        method: "POST",
+        body: JSON.stringify({
+          parts: [
+            {
               part_number: 1,
               etag: "dummy-etag" // In real implementation, get from upload response
-            }]
-          })
-        }
-      )
+            }
+          ]
+        })
+      })
 
       // Attach blob to entry
-      await this.makeRequest(
-        `/entries/${entryId}`,
-        {
-          method: "PATCH",
-          body: JSON.stringify({
-            days: [
-              {
-                notes: [
-                  {
-                    type: "attachment",
-                    attachment_id: blobData.id
-                  }
-                ]
-              }
-            ]
-          })
-        }
-      )
+      await this.makeRequest(`/entries/${entryId}`, {
+        method: "PATCH",
+        body: JSON.stringify({
+          days: [
+            {
+              notes: [
+                {
+                  type: "attachment",
+                  attachment_id: blobData.id
+                }
+              ]
+            }
+          ]
+        })
+      })
 
       return blobData.id
     } catch (error) {
@@ -229,7 +231,7 @@ export class BenchlingClient {
 
       // Convert report content to PDF blob (simplified)
       const reportBlob = new Blob([reportContent], { type: "application/pdf" })
-      
+
       // Upload report as attachment
       const blobId = await this.uploadBlob(
         entry.id,

@@ -203,8 +203,9 @@ export const SidebarUpdateItem: FC<SidebarUpdateItemProps> = ({
     },
     tools: null,
     models: null,
+    projects: null,
     "data-collections": null
-  }
+  } as Record<string, any>
 
   const fetchDataFunctions = {
     chats: null,
@@ -236,8 +237,9 @@ export const SidebarUpdateItem: FC<SidebarUpdateItemProps> = ({
     designs: null,
     "data-collections": null,
     tools: null,
-    models: null
-  }
+    models: null,
+    projects: null
+  } as Record<string, any>
 
   const fetchWorkpaceFunctions = {
     chats: null,
@@ -272,8 +274,9 @@ export const SidebarUpdateItem: FC<SidebarUpdateItemProps> = ({
     models: async (modelId: string) => {
       const item = await getModelWorkspacesByModelId(modelId)
       return item.workspaces
-    }
-  }
+    },
+    projects: null
+  } as Record<string, any>
 
   const fetchSelectedWorkspaces = async () => {
     const fetchFunction = fetchWorkpaceFunctions[contentType]
@@ -585,8 +588,9 @@ export const SidebarUpdateItem: FC<SidebarUpdateItemProps> = ({
       )
 
       return updatedModel
-    }
-  }
+    },
+    projects: null
+  } as Record<string, any>
 
   const stateUpdateFunctions = {
     chats: setChats,
@@ -599,8 +603,9 @@ export const SidebarUpdateItem: FC<SidebarUpdateItemProps> = ({
     models: setModels,
     reports: setReports,
     designs: setDesigns,
+    projects: null,
     "data-collections": null
-  }
+  } as Record<string, any>
 
   const handleUpdate = async () => {
     try {

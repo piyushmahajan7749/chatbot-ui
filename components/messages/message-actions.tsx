@@ -1,5 +1,12 @@
 import { ChatbotUIContext } from "@/context/context"
-import { IconBookmark, IconBookmarkFilled, IconCheck, IconCopy, IconEdit, IconRepeat } from "@tabler/icons-react"
+import {
+  IconBookmark,
+  IconBookmarkFilled,
+  IconCheck,
+  IconCopy,
+  IconEdit,
+  IconRepeat
+} from "@tabler/icons-react"
 import { FC, useContext, useEffect, useState } from "react"
 import { WithTooltip } from "../ui/with-tooltip"
 
@@ -89,7 +96,7 @@ export const MessageActions: FC<MessageActionsProps> = ({
           trigger={
             isBookmarked ? (
               <IconBookmarkFilled
-                className="cursor-pointer hover:opacity-50 text-blue-500"
+                className="cursor-pointer text-blue-500 hover:opacity-50"
                 size={MESSAGE_ICON_SIZE}
                 onClick={onBookmark}
               />

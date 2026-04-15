@@ -45,11 +45,15 @@ export function ELNConnectModal({
   const [tenantUrl, setTenantUrl] = useState("")
   const [displayName, setDisplayName] = useState("")
   const [isLoading, setIsLoading] = useState(false)
-  const [connectionStatus, setConnectionStatus] = useState<"none" | "testing" | "success" | "error">("none")
+  const [connectionStatus, setConnectionStatus] = useState<
+    "none" | "testing" | "success" | "error"
+  >("none")
   const [errorMessage, setErrorMessage] = useState("")
 
   const supportedProviders = getSupportedProviders()
-  const selectedProviderInfo = supportedProviders.find(p => p.id === selectedProvider)
+  const selectedProviderInfo = supportedProviders.find(
+    p => p.id === selectedProvider
+  )
 
   const resetForm = () => {
     setSelectedProvider("")
@@ -97,7 +101,8 @@ export function ELNConnectModal({
       }
     } catch (error) {
       setConnectionStatus("error")
-      const message = error instanceof Error ? error.message : "Connection failed"
+      const message =
+        error instanceof Error ? error.message : "Connection failed"
       setErrorMessage(message)
       toast.error(message)
     }
@@ -136,25 +141,29 @@ export function ELNConnectModal({
         <DialogHeader>
           <DialogTitle>Connect ELN</DialogTitle>
           <DialogDescription>
-            Connect your Electronic Lab Notebook to export Shadow AI reports directly.
+            Connect your Electronic Lab Notebook to export Shadow AI reports
+            directly.
           </DialogDescription>
         </DialogHeader>
 
         <div className="grid gap-4 py-4">
           <div className="grid gap-2">
             <Label htmlFor="provider">ELN Provider</Label>
-            <Select value={selectedProvider} onValueChange={setSelectedProvider}>
+            <Select
+              value={selectedProvider}
+              onValueChange={setSelectedProvider}
+            >
               <SelectTrigger>
                 <SelectValue placeholder="Select your ELN provider" />
               </SelectTrigger>
               <SelectContent>
-                {supportedProviders.map((provider) => (
+                {supportedProviders.map(provider => (
                   <SelectItem key={provider.id} value={provider.id}>
                     <div className="flex items-center gap-2">
                       <span>{provider.icon}</span>
                       <div>
                         <div className="font-medium">{provider.name}</div>
-                        <div className="text-sm text-muted-foreground">
+                        <div className="text-muted-foreground text-sm">
                           {provider.description}
                         </div>
                       </div>
@@ -172,7 +181,7 @@ export function ELNConnectModal({
                 id="tenant-url"
                 placeholder="https://your-tenant.benchling.com"
                 value={tenantUrl}
-                onChange={(e) => setTenantUrl(e.target.value)}
+                onChange={e => setTenantUrl(e.target.value)}
               />
             </div>
           )}
@@ -184,7 +193,7 @@ export function ELNConnectModal({
                 id="base-url"
                 placeholder="https://www.scinote.net (default)"
                 value={tenantUrl}
-                onChange={(e) => setTenantUrl(e.target.value)}
+                onChange={e => setTenantUrl(e.target.value)}
               />
             </div>
           )}
@@ -196,7 +205,7 @@ export function ELNConnectModal({
               type="password"
               placeholder="Enter your API key"
               value={apiKey}
-              onChange={(e) => setApiKey(e.target.value)}
+              onChange={e => setApiKey(e.target.value)}
             />
           </div>
 
@@ -206,7 +215,7 @@ export function ELNConnectModal({
               id="display-name"
               placeholder="My Lab ELN"
               value={displayName}
-              onChange={(e) => setDisplayName(e.target.value)}
+              onChange={e => setDisplayName(e.target.value)}
             />
           </div>
 
@@ -215,31 +224,33 @@ export function ELNConnectModal({
               type="button"
               variant="outline"
               onClick={testConnection}
-              disabled={!selectedProvider || !apiKey || connectionStatus === "testing"}
+              disabled={
+                !selectedProvider || !apiKey || connectionStatus === "testing"
+              }
             >
               {connectionStatus === "testing" && (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                <Loader2 className="mr-2 size-4 animate-spin" />
               )}
               Test Connection
             </Button>
 
             {connectionStatus === "success" && (
               <div className="flex items-center gap-1 text-green-600">
-                <CheckCircle className="h-4 w-4" />
+                <CheckCircle className="size-4" />
                 <span className="text-sm">Connected</span>
               </div>
             )}
 
             {connectionStatus === "error" && (
               <div className="flex items-center gap-1 text-red-600">
-                <AlertCircle className="h-4 w-4" />
+                <AlertCircle className="size-4" />
                 <span className="text-sm">Failed</span>
               </div>
             )}
           </div>
 
           {errorMessage && (
-            <div className="text-sm text-red-600 bg-red-50 p-2 rounded">
+            <div className="rounded bg-red-50 p-2 text-sm text-red-600">
               {errorMessage}
             </div>
           )}
@@ -253,7 +264,7 @@ export function ELNConnectModal({
             onClick={handleSave}
             disabled={connectionStatus !== "success" || isLoading}
           >
-            {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            {isLoading && <Loader2 className="mr-2 size-4 animate-spin" />}
             Save Connection
           </Button>
         </DialogFooter>

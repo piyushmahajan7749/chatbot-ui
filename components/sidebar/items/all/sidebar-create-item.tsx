@@ -232,8 +232,9 @@ export const SidebarCreateItem: FC<SidebarCreateItemProps> = ({
       return created
     },
     tools: createTool,
-    models: createModel
-  }
+    models: createModel,
+    projects: async (createState: any) => createState
+  } as Record<string, (...args: any[]) => any>
 
   const stateUpdateFunctions = {
     chats: setChats,
@@ -247,7 +248,7 @@ export const SidebarCreateItem: FC<SidebarCreateItemProps> = ({
     reports: setReports,
     designs: setDesigns,
     "data-collections": setDataCollections
-  }
+  } as Record<string, (...args: any[]) => any>
 
   const handleCreate = async () => {
     try {

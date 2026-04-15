@@ -11,13 +11,15 @@ const simpleDecrypt = (encrypted: string): string => {
   return atob(encrypted) // Base64 decoding
 }
 
-export const getELNConnections = async (userId: string): Promise<ELNConnection[]> => {
+export const getELNConnections = async (
+  userId: string
+): Promise<ELNConnection[]> => {
   const { data, error } = await supabase
     .from("eln_connections")
     .select("*")
     .eq("user_id", userId)
     .order("created_at", { ascending: false })
-  
+
   if (error) {
     throw error
   }
@@ -36,7 +38,7 @@ export const getELNConnections = async (userId: string): Promise<ELNConnection[]
 }
 
 export const getELNConnection = async (
-  userId: string, 
+  userId: string,
   connectionId: string
 ): Promise<ELNConnection | null> => {
   const { data, error } = await supabase
@@ -45,7 +47,7 @@ export const getELNConnection = async (
     .eq("user_id", userId)
     .eq("id", connectionId)
     .single()
-  
+
   if (error) {
     if (error.code === "PGRST116") {
       return null // Not found
@@ -103,10 +105,12 @@ export const createELNConnection = async (
 export const updateELNConnection = async (
   connectionId: string,
   userId: string,
-  updates: Partial<Omit<ELNConnection, "id" | "user_id" | "connected_at" | "updated_at">>
+  updates: Partial<
+    Omit<ELNConnection, "id" | "user_id" | "connected_at" | "updated_at">
+  >
 ): Promise<ELNConnection> => {
   const updateData: TablesUpdate<"eln_connections"> = {}
-  
+
   if (updates.access_token) {
     updateData.access_token_encrypted = simpleEncrypt(updates.access_token)
   }
@@ -158,7 +162,7 @@ export const deleteELNConnection = async (
 }
 
 export const getELNConnectionsByProvider = async (
-  userId: string, 
+  userId: string,
   provider: string
 ): Promise<ELNConnection[]> => {
   const { data, error } = await supabase
@@ -167,7 +171,7 @@ export const getELNConnectionsByProvider = async (
     .eq("user_id", userId)
     .eq("provider", provider)
     .order("created_at", { ascending: false })
-  
+
   if (error) {
     throw error
   }

@@ -21,7 +21,12 @@ import {
 } from "@/components/ui/select"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Loader2, ExternalLink, CheckCircle } from "lucide-react"
-import { ELNConnection, ELNProject, ELNExperiment, ELNExportResult } from "@/types/eln"
+import {
+  ELNConnection,
+  ELNProject,
+  ELNExperiment,
+  ELNExportResult
+} from "@/types/eln"
 import { getELNProvider } from "@/lib/eln/eln-providers"
 import { SciNoteClient } from "@/lib/eln/scinote-client"
 import { BenchlingClient } from "@/lib/eln/benchling-client"
@@ -56,8 +61,12 @@ export function ELNExportModal({
   const [isLoadingExperiments, setIsLoadingExperiments] = useState(false)
   const [exportResult, setExportResult] = useState<ELNExportResult | null>(null)
 
-  const selectedConnectionInfo = connections.find(c => c.id === selectedConnection)
-  const provider = selectedConnectionInfo ? getELNProvider(selectedConnectionInfo.provider) : null
+  const selectedConnectionInfo = connections.find(
+    c => c.id === selectedConnection
+  )
+  const provider = selectedConnectionInfo
+    ? getELNProvider(selectedConnectionInfo.provider)
+    : null
 
   // Reset form when modal opens/closes
   useEffect(() => {
@@ -90,7 +99,9 @@ export function ELNExportModal({
   // Set default experiment name when switching to create new
   useEffect(() => {
     if (createNewExperiment && !newExperimentName) {
-      setNewExperimentName(`${reportTitle} - ${new Date().toLocaleDateString()}`)
+      setNewExperimentName(
+        `${reportTitle} - ${new Date().toLocaleDateString()}`
+      )
     }
   }, [createNewExperiment, reportTitle])
 
@@ -157,7 +168,7 @@ export function ELNExportModal({
     setIsLoading(true)
     try {
       const client = createClient(selectedConnectionInfo)
-      
+
       const result = await client.exportReport(
         reportContent,
         selectedProject,
@@ -166,7 +177,7 @@ export function ELNExportModal({
       )
 
       setExportResult(result)
-      
+
       if (result.success) {
         toast.success("Report exported successfully!")
         onExportSuccess?.(result)
@@ -209,17 +220,17 @@ export function ELNExportModal({
         <DialogHeader>
           <DialogTitle>Export Report to ELN</DialogTitle>
           <DialogDescription>
-            Export "{reportTitle}" to your Electronic Lab Notebook.
+            Export &ldquo;{reportTitle}&rdquo; to your Electronic Lab Notebook.
           </DialogDescription>
         </DialogHeader>
 
         {exportResult?.success ? (
           <div className="py-6">
-            <div className="flex items-center justify-center mb-4">
-              <CheckCircle className="h-12 w-12 text-green-500" />
+            <div className="mb-4 flex items-center justify-center">
+              <CheckCircle className="size-12 text-green-500" />
             </div>
-            <div className="text-center mb-4">
-              <h3 className="text-lg font-semibold mb-2">Export Successful!</h3>
+            <div className="mb-4 text-center">
+              <h3 className="mb-2 text-lg font-semibold">Export Successful!</h3>
               <p className="text-muted-foreground">
                 Your report has been exported to {provider?.name}.
               </p>
@@ -227,13 +238,13 @@ export function ELNExportModal({
             {exportResult.entry_url && (
               <div className="text-center">
                 <Button asChild>
-                  <a 
-                    href={exportResult.entry_url} 
-                    target="_blank" 
+                  <a
+                    href={exportResult.entry_url}
+                    target="_blank"
                     rel="noopener noreferrer"
                   >
                     View in {provider?.name}
-                    <ExternalLink className="ml-2 h-4 w-4" />
+                    <ExternalLink className="ml-2 size-4" />
                   </a>
                 </Button>
               </div>
@@ -243,19 +254,23 @@ export function ELNExportModal({
           <div className="grid gap-4 py-4">
             <div className="grid gap-2">
               <Label htmlFor="connection">ELN Connection</Label>
-              <Select value={selectedConnection} onValueChange={setSelectedConnection}>
+              <Select
+                value={selectedConnection}
+                onValueChange={setSelectedConnection}
+              >
                 <SelectTrigger>
                   <SelectValue placeholder="Select ELN connection" />
                 </SelectTrigger>
                 <SelectContent>
-                  {connections.map((connection) => {
+                  {connections.map(connection => {
                     const providerInfo = getELNProvider(connection.provider)
                     return (
                       <SelectItem key={connection.id} value={connection.id}>
                         <div className="flex items-center gap-2">
                           <span>{providerInfo?.icon}</span>
                           <span>
-                            {connection.display_name || `${providerInfo?.name} Connection`}
+                            {connection.display_name ||
+                              `${providerInfo?.name} Connection`}
                           </span>
                         </div>
                       </SelectItem>
@@ -268,19 +283,26 @@ export function ELNExportModal({
             {selectedConnection && (
               <div className="grid gap-2">
                 <Label htmlFor="project">Project</Label>
-                <Select value={selectedProject} onValueChange={setSelectedProject}>
+                <Select
+                  value={selectedProject}
+                  onValueChange={setSelectedProject}
+                >
                   <SelectTrigger>
-                    <SelectValue placeholder={
-                      isLoadingProjects ? "Loading projects..." : "Select project"
-                    } />
+                    <SelectValue
+                      placeholder={
+                        isLoadingProjects
+                          ? "Loading projects..."
+                          : "Select project"
+                      }
+                    />
                   </SelectTrigger>
                   <SelectContent>
-                    {projects.map((project) => (
+                    {projects.map(project => (
                       <SelectItem key={project.id} value={project.id}>
                         <div>
                           <div className="font-medium">{project.name}</div>
                           {project.description && (
-                            <div className="text-sm text-muted-foreground">
+                            <div className="text-muted-foreground text-sm">
                               {project.description}
                             </div>
                           )}
@@ -298,7 +320,9 @@ export function ELNExportModal({
                   <Checkbox
                     id="create-new"
                     checked={createNewExperiment}
-                    onCheckedChange={setCreateNewExperiment}
+                    onCheckedChange={checked =>
+                      setCreateNewExperiment(checked === true)
+                    }
                   />
                   <Label htmlFor="create-new">Create new experiment</Label>
                 </div>
@@ -310,25 +334,34 @@ export function ELNExportModal({
                       id="experiment-name"
                       placeholder="Enter experiment name"
                       value={newExperimentName}
-                      onChange={(e) => setNewExperimentName(e.target.value)}
+                      onChange={e => setNewExperimentName(e.target.value)}
                     />
                   </div>
                 ) : (
                   <div className="grid gap-2">
                     <Label htmlFor="experiment">Experiment</Label>
-                    <Select value={selectedExperiment} onValueChange={setSelectedExperiment}>
+                    <Select
+                      value={selectedExperiment}
+                      onValueChange={setSelectedExperiment}
+                    >
                       <SelectTrigger>
-                        <SelectValue placeholder={
-                          isLoadingExperiments ? "Loading experiments..." : "Select experiment"
-                        } />
+                        <SelectValue
+                          placeholder={
+                            isLoadingExperiments
+                              ? "Loading experiments..."
+                              : "Select experiment"
+                          }
+                        />
                       </SelectTrigger>
                       <SelectContent>
-                        {experiments.map((experiment) => (
+                        {experiments.map(experiment => (
                           <SelectItem key={experiment.id} value={experiment.id}>
                             <div>
-                              <div className="font-medium">{experiment.name}</div>
+                              <div className="font-medium">
+                                {experiment.name}
+                              </div>
                               {experiment.description && (
-                                <div className="text-sm text-muted-foreground">
+                                <div className="text-muted-foreground text-sm">
                                   {experiment.description}
                                 </div>
                               )}
@@ -352,14 +385,14 @@ export function ELNExportModal({
             <Button
               onClick={handleExport}
               disabled={
-                isLoading || 
-                !selectedConnection || 
-                !selectedProject || 
+                isLoading ||
+                !selectedConnection ||
+                !selectedProject ||
                 (!createNewExperiment && !selectedExperiment) ||
                 (createNewExperiment && !newExperimentName.trim())
               }
             >
-              {isLoading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {isLoading && <Loader2 className="mr-2 size-4 animate-spin" />}
               Export Report
             </Button>
           )}

@@ -56,8 +56,9 @@ export const DeleteFolder: FC<DeleteFolderProps> = ({
     models: setModels,
     reports: setReports,
     designs: setDesigns,
+    projects: null,
     "data-collections": setDataCollections
-  }
+  } as Record<string, any>
 
   const handleDeleteFolderOnly = async () => {
     await deleteFolder(folder.id)

@@ -12,7 +12,7 @@ import {
   DialogDescription,
   DialogFooter,
   DialogHeader,
-  DialogTitle,
+  DialogTitle
 } from "@/components/ui/dialog"
 import {
   AlertDialog,
@@ -23,7 +23,7 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  AlertDialogTrigger,
+  AlertDialogTrigger
 } from "@/components/ui/alert-dialog"
 import { Project } from "@/types/project"
 import { IconX, IconTrash, IconPlus } from "@tabler/icons-react"
@@ -90,16 +90,18 @@ export function ProjectSettingsModal({
     }
   }
 
-  const isChanged = 
+  const isChanged =
     name !== project.name ||
     description !== (project.description || "") ||
     JSON.stringify(tags.sort()) !== JSON.stringify((project.tags || []).sort())
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[500px] max-h-[80vh] overflow-auto">
+      <DialogContent className="max-h-[80vh] overflow-auto sm:max-w-[500px]">
         <DialogHeader>
-          <DialogTitle className="text-xl font-semibold">Project Settings</DialogTitle>
+          <DialogTitle className="text-xl font-semibold">
+            Project Settings
+          </DialogTitle>
           <DialogDescription>
             Update your project information and settings.
           </DialogDescription>
@@ -114,7 +116,7 @@ export function ProjectSettingsModal({
             <Input
               id="name"
               value={name}
-              onChange={(e) => setName(e.target.value)}
+              onChange={e => setName(e.target.value)}
               placeholder="Enter project name"
               className="w-full"
             />
@@ -128,7 +130,7 @@ export function ProjectSettingsModal({
             <Textarea
               id="description"
               value={description}
-              onChange={(e) => setDescription(e.target.value)}
+              onChange={e => setDescription(e.target.value)}
               placeholder="Describe your project"
               className="w-full resize-none"
               rows={3}
@@ -138,12 +140,12 @@ export function ProjectSettingsModal({
           {/* Tags */}
           <div className="space-y-3">
             <Label className="text-sm font-medium">Tags</Label>
-            
+
             {/* Add new tag */}
             <div className="flex gap-2">
               <Input
                 value={newTag}
-                onChange={(e) => setNewTag(e.target.value)}
+                onChange={e => setNewTag(e.target.value)}
                 onKeyDown={handleKeyPress}
                 placeholder="Add a tag"
                 className="flex-1"
@@ -162,7 +164,7 @@ export function ProjectSettingsModal({
             {/* Existing tags */}
             {tags.length > 0 && (
               <div className="flex flex-wrap gap-2">
-                {tags.map((tag) => (
+                {tags.map(tag => (
                   <Badge
                     key={tag}
                     variant="secondary"
@@ -172,7 +174,7 @@ export function ProjectSettingsModal({
                     <button
                       type="button"
                       onClick={() => handleRemoveTag(tag)}
-                      className="ml-1 hover:bg-slate-200 rounded-full p-0.5"
+                      className="ml-1 rounded-full p-0.5 hover:bg-slate-200"
                     >
                       <IconX size={12} />
                     </button>
@@ -183,24 +185,35 @@ export function ProjectSettingsModal({
           </div>
 
           {/* Project Info */}
-          <div className="pt-4 border-t border-slate-200">
-            <div className="text-sm text-slate-500 space-y-1">
-              <p><strong>Created:</strong> {new Date(project.created_at).toLocaleDateString()}</p>
-              <p><strong>Last updated:</strong> {new Date(project.updated_at).toLocaleDateString()}</p>
-              <p><strong>Project ID:</strong> {project.id}</p>
+          <div className="border-t border-slate-200 pt-4">
+            <div className="space-y-1 text-sm text-slate-500">
+              <p>
+                <strong>Created:</strong>{" "}
+                {new Date(project.created_at).toLocaleDateString()}
+              </p>
+              <p>
+                <strong>Last updated:</strong>{" "}
+                {new Date(project.updated_at).toLocaleDateString()}
+              </p>
+              <p>
+                <strong>Project ID:</strong> {project.id}
+              </p>
             </div>
           </div>
 
           {/* Danger Zone */}
-          <div className="pt-6 border-t border-red-200">
+          <div className="border-t border-red-200 pt-6">
             <div className="space-y-3">
               <div>
-                <h4 className="text-sm font-medium text-red-800 mb-1">Danger Zone</h4>
-                <p className="text-xs text-red-600 mb-3">
-                  This action cannot be undone. All conversations, files, and reports will be permanently deleted.
+                <h4 className="mb-1 text-sm font-medium text-red-800">
+                  Danger Zone
+                </h4>
+                <p className="mb-3 text-xs text-red-600">
+                  This action cannot be undone. All conversations, files, and
+                  reports will be permanently deleted.
                 </p>
               </div>
-              
+
               <AlertDialog>
                 <AlertDialogTrigger asChild>
                   <Button variant="destructive" size="sm" className="gap-2">
@@ -210,10 +223,19 @@ export function ProjectSettingsModal({
                 </AlertDialogTrigger>
                 <AlertDialogContent>
                   <AlertDialogHeader>
-                    <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                    <AlertDialogTitle>
+                      Are you absolutely sure?
+                    </AlertDialogTitle>
                     <AlertDialogDescription className="space-y-2">
-                      <p>This will permanently delete the project <strong>"{project.name}"</strong> and all of its data.</p>
-                      <p>This action cannot be undone. All conversations, files, and reports associated with this project will be lost.</p>
+                      <p>
+                        This will permanently delete the project{" "}
+                        <strong>&ldquo;{project.name}&rdquo;</strong> and all of
+                        its data.
+                      </p>
+                      <p>
+                        This action cannot be undone. All conversations, files,
+                        and reports associated with this project will be lost.
+                      </p>
                     </AlertDialogDescription>
                   </AlertDialogHeader>
                   <AlertDialogFooter>
@@ -233,11 +255,7 @@ export function ProjectSettingsModal({
         </div>
 
         <DialogFooter className="gap-2">
-          <Button
-            variant="outline"
-            onClick={onClose}
-            disabled={loading}
-          >
+          <Button variant="outline" onClick={onClose} disabled={loading}>
             Cancel
           </Button>
           <Button

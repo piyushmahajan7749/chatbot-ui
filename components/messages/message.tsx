@@ -124,7 +124,9 @@ export const Message: FC<MessageProps> = ({
   const handleBookmark = () => {
     setIsBookmarked(!isBookmarked)
     // TODO: Implement actual bookmark persistence to database
-    console.log(`${isBookmarked ? 'Removed' : 'Added'} bookmark for message ${message.id}`)
+    console.log(
+      `${isBookmarked ? "Removed" : "Added"} bookmark for message ${message.id}`
+    )
   }
 
   useEffect(() => {
@@ -210,191 +212,210 @@ export const Message: FC<MessageProps> = ({
       ? azureDeploymentName
       : MODEL_DATA?.modelName
 
+  const isUser = message.role === "user"
+  const isAssistant = message.role === "assistant"
+  const isSystem = message.role === "system"
+
+  const senderName = isAssistant
+    ? message.assistant_id
+      ? assistants.find(a => a.id === message.assistant_id)?.name
+      : selectedAssistant
+        ? selectedAssistant?.name
+        : displayedModelName
+    : (profile?.display_name ?? profile?.username)
+
   return (
     <div
       className={cn(
-        "flex w-full justify-center",
-        message.role === "user" ? "" : "bg-secondary"
+        "group flex w-full px-4 py-2",
+        isUser ? "justify-end" : "justify-start"
       )}
       onMouseEnter={() => setIsHovering(true)}
       onMouseLeave={() => setIsHovering(false)}
       onKeyDown={handleKeyDown}
     >
-      <div className="relative flex w-full flex-col p-6 sm:w-[550px] sm:px-0 md:w-[650px] lg:w-[650px] xl:w-[700px]">
-        <div className="absolute right-5 top-7 sm:right-0">
-          <MessageActions
-            onCopy={handleCopy}
-            onEdit={handleStartEdit}
-            isAssistant={message.role === "assistant"}
-            isLast={isLast}
-            isEditing={isEditing}
-            isHovering={isHovering}
-            onRegenerate={handleRegenerate}
-            onBookmark={handleBookmark}
-            isBookmarked={isBookmarked}
-          />
-        </div>
-        <div className="space-y-3">
-          {message.role === "system" ? (
-            <div className="flex items-center space-x-4">
-              <IconPencil
-                className="border-primary bg-primary text-secondary rounded border-DEFAULT p-1"
-                size={ICON_SIZE}
-              />
-
-              <div className="text-lg font-semibold">Prompt</div>
-            </div>
-          ) : (
-            <div className="flex items-center space-x-3">
-              {message.role === "assistant" ? (
-                messageAssistantImage ? (
-                  <Image
-                    style={{
-                      width: `${ICON_SIZE}px`,
-                      height: `${ICON_SIZE}px`
-                    }}
-                    className="rounded"
-                    src={messageAssistantImage}
-                    alt="assistant image"
-                    height={ICON_SIZE}
-                    width={ICON_SIZE}
-                  />
-                ) : (
-                  <WithTooltip
-                    display={<div>{displayedModelName}</div>}
-                    trigger={
-                      <ModelIcon
-                        provider={modelDetails?.provider || "custom"}
-                        height={ICON_SIZE}
-                        width={ICON_SIZE}
-                      />
-                    }
-                  />
-                )
-              ) : profile?.image_url ? (
+      <div
+        className={cn(
+          "relative flex max-w-[85%] flex-col",
+          isUser ? "items-end" : "items-start"
+        )}
+      >
+        {/* Sender name + avatar row */}
+        {!isSystem && (
+          <div
+            className={cn(
+              "mb-1.5 flex items-center gap-2 px-1",
+              isUser ? "flex-row-reverse" : "flex-row"
+            )}
+          >
+            {isAssistant ? (
+              messageAssistantImage ? (
                 <Image
-                  className={`size-[32px] rounded`}
-                  src={profile?.image_url}
-                  height={32}
-                  width={32}
-                  alt="user image"
+                  className="size-5 rounded"
+                  src={messageAssistantImage}
+                  alt="assistant"
+                  height={20}
+                  width={20}
                 />
               ) : (
-                <IconMoodSmile
-                  className="bg-primary text-secondary border-primary rounded border-DEFAULT p-1"
-                  size={ICON_SIZE}
+                <ModelIcon
+                  provider={modelDetails?.provider || "custom"}
+                  height={20}
+                  width={20}
                 />
-              )}
-
-              <div className="font-semibold">
-                {message.role === "assistant"
-                  ? message.assistant_id
-                    ? assistants.find(
-                        assistant => assistant.id === message.assistant_id
-                      )?.name
-                    : selectedAssistant
-                      ? selectedAssistant?.name
-                      : displayedModelName
-                  : (profile?.display_name ?? profile?.username)}
+              )
+            ) : profile?.image_url ? (
+              <Image
+                className="size-5 rounded-full"
+                src={profile?.image_url}
+                height={20}
+                width={20}
+                alt="user"
+              />
+            ) : (
+              <div className="flex size-5 items-center justify-center rounded-full bg-gradient-to-br from-blue-500 to-purple-600">
+                <IconMoodSmile size={12} className="text-white" />
               </div>
-            </div>
-          )}
-          {!firstTokenReceived &&
-          isGenerating &&
-          isLast &&
-          message.role === "assistant" ? (
-            <>
-              {(() => {
-                switch (toolInUse) {
-                  case "none":
-                    return <ThinkingIndicator />
-                  case "retrieval":
-                    return (
-                      <div className="flex animate-pulse items-center space-x-2 text-muted-foreground">
-                        <IconFileText size={20} />
-                        <div>Searching files...</div>
-                      </div>
-                    )
-                  default:
-                    return (
-                      <div className="flex animate-pulse items-center space-x-2 text-muted-foreground">
-                        <IconBolt size={20} />
-                        <div>Using {toolInUse}...</div>
-                      </div>
-                    )
-                }
-              })()}
-            </>
-          ) : isEditing ? (
-            <TextareaAutosize
-              textareaRef={editInputRef}
-              className="text-md"
-              value={editedMessage}
-              onValueChange={setEditedMessage}
-              maxRows={20}
-            />
-          ) : (
-            <MessageMarkdown content={message.content} />
-          )}
-        </div>
+            )}
+            <span className="text-xs font-medium text-slate-500">
+              {senderName}
+            </span>
+          </div>
+        )}
 
+        {/* System message */}
+        {isSystem && (
+          <div className="flex w-full items-center gap-3 rounded-xl bg-slate-100 px-4 py-3">
+            <IconPencil
+              className="shrink-0 rounded bg-slate-800 p-1 text-white"
+              size={24}
+            />
+            <div className="text-sm font-semibold text-slate-700">Prompt</div>
+          </div>
+        )}
+
+        {/* Message bubble */}
+        {!isSystem && (
+          <div
+            className={cn(
+              "relative rounded-2xl px-4 py-2.5 text-sm shadow-sm",
+              isUser
+                ? "rounded-tr-sm bg-blue-600 text-white"
+                : "rounded-tl-sm border border-slate-200 bg-white text-slate-800"
+            )}
+          >
+            {/* Hover actions */}
+            <div
+              className={cn(
+                "absolute top-1 z-10 opacity-0 transition-opacity group-hover:opacity-100",
+                isUser ? "-left-8" : "-right-8"
+              )}
+            >
+              <MessageActions
+                onCopy={handleCopy}
+                onEdit={handleStartEdit}
+                isAssistant={isAssistant}
+                isLast={isLast}
+                isEditing={isEditing}
+                isHovering={isHovering}
+                onRegenerate={handleRegenerate}
+                onBookmark={handleBookmark}
+                isBookmarked={isBookmarked}
+              />
+            </div>
+
+            {/* Content */}
+            {isLoadingThisMessage ? (
+              <>
+                {(() => {
+                  switch (toolInUse) {
+                    case "none":
+                      return <ThinkingIndicator />
+                    case "retrieval":
+                      return (
+                        <div className="flex animate-pulse items-center space-x-2 text-slate-500">
+                          <IconFileText size={18} />
+                          <div>Searching files...</div>
+                        </div>
+                      )
+                    default:
+                      return (
+                        <div className="flex animate-pulse items-center space-x-2 text-slate-500">
+                          <IconBolt size={18} />
+                          <div>Using {toolInUse}...</div>
+                        </div>
+                      )
+                  }
+                })()}
+              </>
+            ) : isEditing ? (
+              <TextareaAutosize
+                textareaRef={editInputRef}
+                className="text-md w-full bg-transparent"
+                value={editedMessage}
+                onValueChange={setEditedMessage}
+                maxRows={20}
+              />
+            ) : (
+              <MessageMarkdown content={message.content} isUser={isUser} />
+            )}
+          </div>
+        )}
+
+        {/* Sources */}
         {fileItems.length > 0 && (
-          <div className="border-primary mt-6 border-t pt-4 font-bold">
+          <div className="mt-2 w-full rounded-xl border border-slate-100 bg-slate-50 px-3 py-2 text-sm">
             {!viewSources ? (
               <div
-                className="flex cursor-pointer items-center text-lg hover:opacity-50"
+                className="flex cursor-pointer items-center font-medium text-slate-600 hover:text-slate-800"
                 onClick={() => setViewSources(true)}
               >
                 {fileItems.length}
                 {fileItems.length > 1 ? " Sources " : " Source "}
                 from {Object.keys(fileSummary).length}{" "}
                 {Object.keys(fileSummary).length > 1 ? "Files" : "File"}{" "}
-                <IconCaretRightFilled className="ml-1" />
+                <IconCaretRightFilled className="ml-1" size={14} />
               </div>
             ) : (
               <>
                 <div
-                  className="flex cursor-pointer items-center text-lg hover:opacity-50"
+                  className="flex cursor-pointer items-center font-medium text-slate-600 hover:text-slate-800"
                   onClick={() => setViewSources(false)}
                 >
                   {fileItems.length}
                   {fileItems.length > 1 ? " Sources " : " Source "}
                   from {Object.keys(fileSummary).length}{" "}
                   {Object.keys(fileSummary).length > 1 ? "Files" : "File"}{" "}
-                  <IconCaretDownFilled className="ml-1" />
+                  <IconCaretDownFilled className="ml-1" size={14} />
                 </div>
 
-                <div className="mt-3 space-y-4">
+                <div className="mt-2 space-y-3">
                   {Object.values(fileSummary).map((file, index) => (
                     <div key={index}>
                       <div className="flex items-center space-x-2">
-                        <div>
-                          <FileIcon type={file.type} />
+                        <FileIcon type={file.type} />
+                        <div className="truncate font-medium text-slate-700">
+                          {file.name}
                         </div>
-
-                        <div className="truncate">{file.name}</div>
                       </div>
 
                       {fileItems
                         .filter(fileItem => {
                           const parentFile = files.find(
-                            parentFile => parentFile.id === fileItem.file_id
+                            pf => pf.id === fileItem.file_id
                           )
                           return parentFile?.id === file.id
                         })
-                        .map((fileItem, index) => (
+                        .map((fileItem, idx) => (
                           <div
-                            key={index}
-                            className="ml-8 mt-1.5 flex cursor-pointer items-center space-x-2 hover:opacity-50"
+                            key={idx}
+                            className="ml-6 mt-1 cursor-pointer text-xs font-normal text-slate-500 hover:text-slate-700"
                             onClick={() => {
                               setSelectedFileItem(fileItem)
                               setShowFileItemPreview(true)
                             }}
                           >
-                            <div className="text-sm font-normal">
-                              <span className="mr-1 text-lg font-bold">-</span>{" "}
-                              {fileItem.content.substring(0, 200)}...
-                            </div>
+                            {fileItem.content.substring(0, 200)}...
                           </div>
                         ))}
                     </div>
@@ -405,40 +426,44 @@ export const Message: FC<MessageProps> = ({
           </div>
         )}
 
-        <div className="mt-3 flex flex-wrap gap-2">
-          {message.image_paths.map((path, index) => {
-            const item = chatImages.find(image => image.path === path)
+        {/* Images */}
+        {message.image_paths.length > 0 && (
+          <div className="mt-2 flex flex-wrap gap-2">
+            {message.image_paths.map((path, index) => {
+              const item = chatImages.find(image => image.path === path)
+              return (
+                <Image
+                  key={index}
+                  className="cursor-pointer rounded-lg hover:opacity-80"
+                  src={path.startsWith("data") ? path : item?.base64}
+                  alt="message image"
+                  width={200}
+                  height={200}
+                  onClick={() => {
+                    setSelectedImage({
+                      messageId: message.id,
+                      path,
+                      base64: path.startsWith("data")
+                        ? path
+                        : item?.base64 || "",
+                      url: path.startsWith("data") ? "" : item?.url || "",
+                      file: null
+                    })
+                    setShowImagePreview(true)
+                  }}
+                  loading="lazy"
+                />
+              )
+            })}
+          </div>
+        )}
 
-            return (
-              <Image
-                key={index}
-                className="cursor-pointer rounded hover:opacity-50"
-                src={path.startsWith("data") ? path : item?.base64}
-                alt="message image"
-                width={300}
-                height={300}
-                onClick={() => {
-                  setSelectedImage({
-                    messageId: message.id,
-                    path,
-                    base64: path.startsWith("data") ? path : item?.base64 || "",
-                    url: path.startsWith("data") ? "" : item?.url || "",
-                    file: null
-                  })
-
-                  setShowImagePreview(true)
-                }}
-                loading="lazy"
-              />
-            )
-          })}
-        </div>
+        {/* Edit buttons */}
         {isEditing && (
-          <div className="mt-4 flex justify-center space-x-2">
+          <div className="mt-3 flex gap-2">
             <Button size="sm" onClick={handleSendEdit}>
               Save & Send
             </Button>
-
             <Button size="sm" variant="outline" onClick={onCancelEdit}>
               Cancel
             </Button>

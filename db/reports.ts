@@ -13,7 +13,10 @@ export const getReports = async (userId: string) => {
   return data as Tables<"reports">[]
 }
 
-export const getReportsByProject = async (userId: string, projectId: string) => {
+export const getReportsByProject = async (
+  userId: string,
+  projectId: string
+) => {
   const { data, error } = await supabase
     .from("reports")
     .select("*")

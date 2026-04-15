@@ -29,6 +29,7 @@ type ValidContentType =
   | "collections"
   | "reports"
   | "designs"
+  | "projects"
   | "data-collections"
 
 interface SidebarDataListProps {
@@ -148,8 +149,9 @@ export const SidebarDataList: FC<SidebarDataListProps> = ({
     reports: updateReport,
     collections: updateCollection,
     designs: updateDesign,
-    "data-collections": updateDataCollection
-  }
+    "data-collections": updateDataCollection,
+    projects: null
+  } as Record<string, any>
 
   const stateUpdateFunctions = {
     chats: setChats,
@@ -158,8 +160,9 @@ export const SidebarDataList: FC<SidebarDataListProps> = ({
     reports: setReports,
     collections: setCollections,
     designs: setDesigns,
-    "data-collections": setDataCollections
-  }
+    "data-collections": setDataCollections,
+    projects: null
+  } as Record<string, any>
 
   const updateFolder = async (itemId: string, folderId: string | null) => {
     const item: any = data.find(item => item.id === itemId)

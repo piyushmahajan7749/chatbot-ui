@@ -8,7 +8,7 @@ import { useEffect } from "react"
 export const ProjectsSidebarContent = () => {
   const params = useParams()
   const router = useRouter()
-  
+
   const workspaceId = params.workspaceid as string
   const locale = params.locale as string
 
@@ -27,17 +27,17 @@ export const ProjectsSidebarContent = () => {
       </div>
 
       {/* Content */}
-      <div className="flex-1 flex flex-col items-center justify-center text-center py-8">
-        <IconFolder size={48} className="text-zinc-300 mb-4" />
-        <h4 className="text-sm font-medium text-zinc-600 mb-2">
+      <div className="flex flex-1 flex-col items-center justify-center py-8 text-center">
+        <IconFolder size={48} className="mb-4 text-zinc-300" />
+        <h4 className="mb-2 text-sm font-medium text-zinc-600">
           Organize your work
         </h4>
-        <p className="text-xs text-zinc-400 mb-6 px-4">
+        <p className="mb-6 px-4 text-xs text-zinc-400">
           Projects help you group related chats, files, and reports together.
         </p>
-        <Button 
+        <Button
           onClick={handleViewAllProjects}
-          variant="outline" 
+          variant="outline"
           size="sm"
           className="gap-2"
         >

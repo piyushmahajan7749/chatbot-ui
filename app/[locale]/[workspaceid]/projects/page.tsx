@@ -5,14 +5,22 @@ import { useParams, useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { getProjectsByWorkspaceId, createProject, deleteProject, updateProject } from "@/db/projects"
+import {
+  getProjectsByWorkspaceId,
+  createProject,
+  deleteProject,
+  updateProject
+} from "@/db/projects"
 import { getFilteredProjects } from "@/db/search"
 import { Project } from "@/types/project"
-import { ProjectFiltersComponent, ProjectFilters } from "@/components/projects/project-filters"
-import { 
-  IconPlus, 
-  IconSearch, 
-  IconEdit, 
+import {
+  ProjectFiltersComponent,
+  ProjectFilters
+} from "@/components/projects/project-filters"
+import {
+  IconPlus,
+  IconSearch,
+  IconEdit,
   IconTrash,
   IconClock,
   IconMessage,
@@ -27,7 +35,7 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
+  DialogTrigger
 } from "@/components/ui/dialog"
 import {
   AlertDialog,
@@ -38,7 +46,7 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  AlertDialogTrigger,
+  AlertDialogTrigger
 } from "@/components/ui/alert-dialog"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
@@ -61,7 +69,7 @@ export default function ProjectsPage() {
     sortOrder: "desc"
   })
   const [availableTags, setAvailableTags] = useState<string[]>([])
-  
+
   // New project form state
   const [newProjectName, setNewProjectName] = useState("")
   const [newProjectDescription, setNewProjectDescription] = useState("")
@@ -82,22 +90,22 @@ export default function ProjectsPage() {
         sortOrder: filters.sortOrder
       })
       setProjects(data)
-      
+
       // Extract available tags
-      const allTags = data.reduce((tags: string[], project) => {
+      const allTags = data.reduce((tags: string[], project: Project) => {
         if (project.tags) {
           return [...tags, ...project.tags]
         }
         return tags
-      }, [])
-      const uniqueTags = Array.from(new Set(allTags))
+      }, [] as string[])
+      const uniqueTags = Array.from(new Set(allTags)) as string[]
       setAvailableTags(uniqueTags)
     } catch (error) {
       console.error("Error fetching projects:", error)
       toast({
         title: "Error",
         description: "Failed to load projects.",
-        variant: "destructive",
+        variant: "destructive"
       })
     } finally {
       setLoading(false)
@@ -106,7 +114,9 @@ export default function ProjectsPage() {
 
   const handleCreateProject = async () => {
     try {
-      const { data: { user } } = await supabase.auth.getUser()
+      const {
+        data: { user }
+      } = await supabase.auth.getUser()
       if (!user) return
 
       const project = await createProject({
@@ -114,7 +124,9 @@ export default function ProjectsPage() {
         workspace_id: workspaceId,
         name: newProjectName || "Untitled Project",
         description: newProjectDescription,
-        tags: newProjectTags ? newProjectTags.split(",").map(tag => tag.trim()) : []
+        tags: newProjectTags
+          ? newProjectTags.split(",").map(tag => tag.trim())
+          : []
       })
 
       setProjects(prev => [project, ...prev])
@@ -122,17 +134,17 @@ export default function ProjectsPage() {
       setNewProjectName("")
       setNewProjectDescription("")
       setNewProjectTags("")
-      
+
       toast({
         title: "Success",
-        description: "Project created successfully.",
+        description: "Project created successfully."
       })
     } catch (error) {
       console.error("Error creating project:", error)
       toast({
         title: "Error",
         description: "Failed to create project.",
-        variant: "destructive",
+        variant: "destructive"
       })
     }
   }
@@ -144,28 +156,30 @@ export default function ProjectsPage() {
       const updatedProject = await updateProject(editingProject.id, {
         name: newProjectName,
         description: newProjectDescription,
-        tags: newProjectTags ? newProjectTags.split(",").map(tag => tag.trim()) : []
+        tags: newProjectTags
+          ? newProjectTags.split(",").map(tag => tag.trim())
+          : []
       })
 
-      setProjects(prev => 
-        prev.map(p => p.id === updatedProject.id ? updatedProject : p)
+      setProjects(prev =>
+        prev.map(p => (p.id === updatedProject.id ? updatedProject : p))
       )
-      
+
       setEditingProject(null)
       setNewProjectName("")
       setNewProjectDescription("")
       setNewProjectTags("")
-      
+
       toast({
         title: "Success",
-        description: "Project updated successfully.",
+        description: "Project updated successfully."
       })
     } catch (error) {
       console.error("Error updating project:", error)
       toast({
         title: "Error",
         description: "Failed to update project.",
-        variant: "destructive",
+        variant: "destructive"
       })
     }
   }
@@ -176,14 +190,14 @@ export default function ProjectsPage() {
       setProjects(prev => prev.filter(p => p.id !== projectId))
       toast({
         title: "Success",
-        description: "Project deleted successfully.",
+        description: "Project deleted successfully."
       })
     } catch (error) {
       console.error("Error deleting project:", error)
       toast({
         title: "Error",
         description: "Failed to delete project.",
-        variant: "destructive",
+        variant: "destructive"
       })
     }
   }
@@ -217,7 +231,7 @@ export default function ProjectsPage() {
   }
 
   return (
-    <div className="h-full p-6 space-y-6 bg-zinc-50">
+    <div className="h-full space-y-6 bg-zinc-50 p-6">
       {/* Header */}
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold text-zinc-800">Projects</h1>
@@ -239,7 +253,7 @@ export default function ProjectsPage() {
                   id="name"
                   placeholder="Enter project name..."
                   value={newProjectName}
-                  onChange={(e) => setNewProjectName(e.target.value)}
+                  onChange={e => setNewProjectName(e.target.value)}
                 />
               </div>
               <div>
@@ -248,7 +262,7 @@ export default function ProjectsPage() {
                   id="description"
                   placeholder="Enter project description..."
                   value={newProjectDescription}
-                  onChange={(e) => setNewProjectDescription(e.target.value)}
+                  onChange={e => setNewProjectDescription(e.target.value)}
                 />
               </div>
               <div>
@@ -257,15 +271,15 @@ export default function ProjectsPage() {
                   id="tags"
                   placeholder="molecular biology, cell culture, microscopy..."
                   value={newProjectTags}
-                  onChange={(e) => setNewProjectTags(e.target.value)}
+                  onChange={e => setNewProjectTags(e.target.value)}
                 />
               </div>
               <div className="flex gap-2 pt-4">
                 <Button onClick={handleCreateProject} className="flex-1">
                   Create Project
                 </Button>
-                <Button 
-                  variant="outline" 
+                <Button
+                  variant="outline"
                   onClick={() => setIsCreateModalOpen(false)}
                   className="flex-1"
                 >
@@ -282,23 +296,25 @@ export default function ProjectsPage() {
         filters={filters}
         onFiltersChange={setFilters}
         availableTags={availableTags}
-        className="bg-white rounded-lg border border-zinc-200 p-4"
+        className="rounded-lg border border-zinc-200 bg-white p-4"
       />
 
       {/* Project Grid */}
       {loading ? (
-        <div className="flex items-center justify-center h-64">
-          <div className="h-8 w-8 animate-spin rounded-full border-2 border-zinc-300 border-t-blue-500" />
+        <div className="flex h-64 items-center justify-center">
+          <div className="size-8 animate-spin rounded-full border-2 border-zinc-300 border-t-blue-500" />
         </div>
       ) : projects.length === 0 ? (
-        <div className="flex flex-col items-center justify-center h-64 text-center">
-          <IconFolder size={48} className="text-zinc-300 mb-4" />
-          <p className="text-zinc-400 mb-4">
-            {filters.searchTerm || filters.tags.length > 0 ? "No projects found" : "No projects yet"}
+        <div className="flex h-64 flex-col items-center justify-center text-center">
+          <IconFolder size={48} className="mb-4 text-zinc-300" />
+          <p className="mb-4 text-zinc-400">
+            {filters.searchTerm || filters.tags.length > 0
+              ? "No projects found"
+              : "No projects yet"}
           </p>
           {!filters.searchTerm && filters.tags.length === 0 && (
-            <Button 
-              variant="outline" 
+            <Button
+              variant="outline"
               className="gap-2"
               onClick={() => setIsCreateModalOpen(true)}
             >
@@ -308,33 +324,37 @@ export default function ProjectsPage() {
           )}
         </div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-          {projects.map((project) => (
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          {projects.map(project => (
             <Card
               key={project.id}
-              className="group cursor-pointer transition-all hover:shadow-md hover:border-blue-300 active:scale-[0.98]"
-              onClick={() => router.push(`/${params.locale}/${workspaceId}/projects/${project.id}`)}
+              className="group cursor-pointer rounded-2xl transition-all duration-200 hover:-translate-y-1 hover:border-blue-300 hover:shadow-lg active:scale-[0.98]"
+              onClick={() =>
+                router.push(
+                  `/${params.locale}/${workspaceId}/projects/${project.id}`
+                )
+              }
             >
               <CardHeader className="pb-3">
                 <div className="flex items-start justify-between">
-                  <CardTitle className="text-sm font-semibold text-zinc-800 truncate">
+                  <CardTitle className="truncate text-sm font-semibold text-zinc-800">
                     {project.name}
                   </CardTitle>
-                  <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <div className="flex gap-1 opacity-0 transition-opacity group-hover:opacity-100">
                     <button
-                      onClick={(e) => {
+                      onClick={e => {
                         e.stopPropagation()
                         openEditModal(project)
                       }}
-                      className="p-1 rounded hover:bg-zinc-100"
+                      className="rounded p-1 hover:bg-zinc-100"
                     >
                       <IconEdit size={14} className="text-zinc-500" />
                     </button>
                     <AlertDialog>
                       <AlertDialogTrigger asChild>
                         <button
-                          onClick={(e) => e.stopPropagation()}
-                          className="p-1 rounded hover:bg-red-50"
+                          onClick={e => e.stopPropagation()}
+                          className="rounded p-1 hover:bg-red-50"
                         >
                           <IconTrash size={14} className="text-red-500" />
                         </button>
@@ -343,12 +363,13 @@ export default function ProjectsPage() {
                         <AlertDialogHeader>
                           <AlertDialogTitle>Delete Project</AlertDialogTitle>
                           <AlertDialogDescription>
-                            Are you sure you want to delete "{project.name}"? This action cannot be undone.
+                            Are you sure you want to delete &ldquo;
+                            {project.name}&rdquo;? This action cannot be undone.
                           </AlertDialogDescription>
                         </AlertDialogHeader>
                         <AlertDialogFooter>
                           <AlertDialogCancel>Cancel</AlertDialogCancel>
-                          <AlertDialogAction 
+                          <AlertDialogAction
                             onClick={() => handleDeleteProject(project.id)}
                             className="bg-red-600 hover:bg-red-700"
                           >
@@ -361,23 +382,23 @@ export default function ProjectsPage() {
                 </div>
               </CardHeader>
               <CardContent className="pt-0">
-                <p className="text-xs text-zinc-600 mb-4 line-clamp-3">
+                <p className="mb-4 line-clamp-3 text-xs text-zinc-600">
                   {project.description || "No description"}
                 </p>
-                
+
                 {/* Tags */}
                 {project.tags.length > 0 && (
-                  <div className="flex flex-wrap gap-1 mb-4">
-                    {project.tags.slice(0, 3).map((tag) => (
+                  <div className="mb-4 flex flex-wrap gap-1">
+                    {project.tags.slice(0, 3).map(tag => (
                       <span
                         key={tag}
-                        className="px-2 py-1 text-xs bg-blue-50 text-blue-700 rounded-md"
+                        className="rounded-md bg-blue-50 px-2 py-1 text-xs text-blue-700"
                       >
                         {tag}
                       </span>
                     ))}
                     {project.tags.length > 3 && (
-                      <span className="px-2 py-1 text-xs bg-zinc-50 text-zinc-500 rounded-md">
+                      <span className="rounded-md bg-zinc-50 px-2 py-1 text-xs text-zinc-500">
                         +{project.tags.length - 3}
                       </span>
                     )}
@@ -408,7 +429,10 @@ export default function ProjectsPage() {
       )}
 
       {/* Edit Project Modal */}
-      <Dialog open={editingProject !== null} onOpenChange={(open) => !open && closeEditModal()}>
+      <Dialog
+        open={editingProject !== null}
+        onOpenChange={open => !open && closeEditModal()}
+      >
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Edit Project</DialogTitle>
@@ -420,7 +444,7 @@ export default function ProjectsPage() {
                 id="edit-name"
                 placeholder="Enter project name..."
                 value={newProjectName}
-                onChange={(e) => setNewProjectName(e.target.value)}
+                onChange={e => setNewProjectName(e.target.value)}
               />
             </div>
             <div>
@@ -429,7 +453,7 @@ export default function ProjectsPage() {
                 id="edit-description"
                 placeholder="Enter project description..."
                 value={newProjectDescription}
-                onChange={(e) => setNewProjectDescription(e.target.value)}
+                onChange={e => setNewProjectDescription(e.target.value)}
               />
             </div>
             <div>
@@ -438,14 +462,18 @@ export default function ProjectsPage() {
                 id="edit-tags"
                 placeholder="molecular biology, cell culture, microscopy..."
                 value={newProjectTags}
-                onChange={(e) => setNewProjectTags(e.target.value)}
+                onChange={e => setNewProjectTags(e.target.value)}
               />
             </div>
             <div className="flex gap-2 pt-4">
               <Button onClick={handleUpdateProject} className="flex-1">
                 Update Project
               </Button>
-              <Button variant="outline" onClick={closeEditModal} className="flex-1">
+              <Button
+                variant="outline"
+                onClick={closeEditModal}
+                className="flex-1"
+              >
                 Cancel
               </Button>
             </div>

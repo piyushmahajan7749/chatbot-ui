@@ -86,14 +86,16 @@ export const MessageCodeBlock: FC<MessageCodeBlockProps> = memo(
     }
 
     return (
-      <div className="codeblock relative w-full bg-zinc-950 font-sans rounded-lg overflow-hidden border border-zinc-800 shadow-sm">
-        <div className="flex w-full items-center justify-between bg-zinc-800 px-4 py-2 text-white border-b border-zinc-700">
-          <span className="text-xs font-medium uppercase tracking-wide text-zinc-300">{language || 'code'}</span>
+      <div className="codeblock relative w-full overflow-hidden rounded-lg border border-zinc-800 bg-zinc-950 font-sans shadow-sm">
+        <div className="flex w-full items-center justify-between border-b border-zinc-700 bg-zinc-800 px-4 py-2 text-white">
+          <span className="text-xs font-medium uppercase tracking-wide text-zinc-300">
+            {language || "code"}
+          </span>
           <div className="flex items-center space-x-1">
             <Button
               variant="ghost"
               size="icon"
-              className="h-7 w-7 hover:bg-zinc-700 focus-visible:ring-1 focus-visible:ring-slate-700 focus-visible:ring-offset-0 transition-colors"
+              className="size-7 transition-colors hover:bg-zinc-700 focus-visible:ring-1 focus-visible:ring-slate-700 focus-visible:ring-offset-0"
               onClick={downloadAsFile}
             >
               <IconDownload size={14} />
@@ -102,7 +104,7 @@ export const MessageCodeBlock: FC<MessageCodeBlockProps> = memo(
             <Button
               variant="ghost"
               size="icon"
-              className="h-7 w-7 hover:bg-zinc-700 focus-visible:ring-1 focus-visible:ring-slate-700 focus-visible:ring-offset-0 transition-colors"
+              className="size-7 transition-colors hover:bg-zinc-700 focus-visible:ring-1 focus-visible:ring-slate-700 focus-visible:ring-offset-0"
               onClick={onCopy}
             >
               {isCopied ? (
@@ -116,7 +118,7 @@ export const MessageCodeBlock: FC<MessageCodeBlockProps> = memo(
         <SyntaxHighlighter
           language={language}
           style={oneDark}
-          showLineNumbers={value.split('\n').length > 10}
+          showLineNumbers={value.split("\n").length > 10}
           customStyle={{
             margin: 0,
             width: "100%",
@@ -134,7 +136,8 @@ export const MessageCodeBlock: FC<MessageCodeBlockProps> = memo(
           codeTagProps={{
             style: {
               fontSize: "13px",
-              fontFamily: "ui-monospace, SFMono-Regular, 'SF Mono', Monaco, Consolas, 'Liberation Mono', 'Menlo', monospace",
+              fontFamily:
+                "ui-monospace, SFMono-Regular, 'SF Mono', Monaco, Consolas, 'Liberation Mono', 'Menlo', monospace",
               lineHeight: "1.5"
             }
           }}

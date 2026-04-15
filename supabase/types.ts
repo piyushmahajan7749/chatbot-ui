@@ -459,6 +459,7 @@ export type Database = {
           include_workspace_instructions: boolean
           model: string
           name: string
+          project_id: string | null
           prompt: string
           sharing: string
           temperature: number
@@ -477,6 +478,7 @@ export type Database = {
           include_workspace_instructions: boolean
           model: string
           name: string
+          project_id?: string | null
           prompt: string
           sharing?: string
           temperature: number
@@ -495,6 +497,7 @@ export type Database = {
           include_workspace_instructions?: boolean
           model?: string
           name?: string
+          project_id?: string | null
           prompt?: string
           sharing?: string
           temperature?: number
@@ -684,6 +687,42 @@ export type Database = {
           },
         ]
       }
+      eln_connections: {
+        Row: {
+          access_token_encrypted: string
+          connected_at: string
+          created_at: string
+          display_name: string | null
+          id: string
+          provider: string
+          tenant_url: string | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          access_token_encrypted: string
+          connected_at?: string
+          created_at?: string
+          display_name?: string | null
+          id?: string
+          provider: string
+          tenant_url?: string | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          access_token_encrypted?: string
+          connected_at?: string
+          created_at?: string
+          display_name?: string | null
+          id?: string
+          provider?: string
+          tenant_url?: string | null
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       designs: {
         Row: {
           created_at: string
@@ -819,6 +858,7 @@ export type Database = {
           folder_id: string | null
           id: string
           name: string
+          project_id: string | null
           sharing: string
           size: number
           tokens: number
@@ -833,6 +873,7 @@ export type Database = {
           folder_id?: string | null
           id?: string
           name: string
+          project_id?: string | null
           sharing?: string
           size: number
           tokens: number
@@ -847,6 +888,7 @@ export type Database = {
           folder_id?: string | null
           id?: string
           name?: string
+          project_id?: string | null
           sharing?: string
           size?: number
           tokens?: number
@@ -1361,6 +1403,47 @@ export type Database = {
           },
         ]
       }
+      projects: {
+        Row: {
+          created_at: string
+          description: string
+          id: string
+          name: string
+          tags: string[]
+          updated_at: string
+          user_id: string
+          workspace_id: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string
+          id?: string
+          name: string
+          tags?: string[]
+          updated_at?: string
+          user_id: string
+          workspace_id: string
+        }
+        Update: {
+          created_at?: string
+          description?: string
+          id?: string
+          name?: string
+          tags?: string[]
+          updated_at?: string
+          user_id?: string
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "projects_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       report_collections: {
         Row: {
           collection_id: string
@@ -1489,11 +1572,14 @@ export type Database = {
           folder_id: string | null
           id: string
           name: string
+          project_id: string | null
           report_draft: Json | null
           report_outline: string[] | null
           sharing: string
+          summary: string | null
           updated_at: string | null
           user_id: string
+          workspace_id: string | null
         }
         Insert: {
           chart_image?: string | null
@@ -1502,11 +1588,14 @@ export type Database = {
           folder_id?: string | null
           id?: string
           name: string
+          project_id?: string | null
           report_draft?: Json | null
           report_outline?: string[] | null
           sharing?: string
+          summary?: string | null
           updated_at?: string | null
           user_id: string
+          workspace_id?: string | null
         }
         Update: {
           chart_image?: string | null
@@ -1515,11 +1604,14 @@ export type Database = {
           folder_id?: string | null
           id?: string
           name?: string
+          project_id?: string | null
           report_draft?: Json | null
           report_outline?: string[] | null
           sharing?: string
+          summary?: string | null
           updated_at?: string | null
           user_id?: string
+          workspace_id?: string | null
         }
         Relationships: [
           {

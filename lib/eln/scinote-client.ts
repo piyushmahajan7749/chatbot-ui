@@ -1,10 +1,10 @@
-import { 
-  ELNExportResult, 
-  SciNoteProject, 
-  SciNoteExperiment, 
+import {
+  ELNExportResult,
+  SciNoteProject,
+  SciNoteExperiment,
   SciNoteTask,
   ELNProject,
-  ELNExperiment 
+  ELNExperiment
 } from "@/types/eln"
 
 export class SciNoteClient {
@@ -17,22 +17,24 @@ export class SciNoteClient {
   }
 
   private async makeRequest<T>(
-    endpoint: string, 
+    endpoint: string,
     options: RequestInit = {}
   ): Promise<T> {
     const url = `${this.baseUrl}/api/v1${endpoint}`
-    
+
     const response = await fetch(url, {
       ...options,
       headers: {
-        "Authorization": `Bearer ${this.apiToken}`,
+        Authorization: `Bearer ${this.apiToken}`,
         "Content-Type": "application/json",
         ...options.headers
       }
     })
 
     if (!response.ok) {
-      throw new Error(`SciNote API error: ${response.status} ${response.statusText}`)
+      throw new Error(
+        `SciNote API error: ${response.status} ${response.statusText}`
+      )
     }
 
     return response.json()
@@ -51,7 +53,9 @@ export class SciNoteClient {
 
   async listProjects(): Promise<ELNProject[]> {
     try {
-      const data = await this.makeRequest<{ data: SciNoteProject[] }>("/projects")
+      const data = await this.makeRequest<{ data: SciNoteProject[] }>(
+        "/projects"
+      )
       return data.data
         .filter(project => !project.archived)
         .map(project => ({
@@ -83,8 +87,8 @@ export class SciNoteClient {
   }
 
   async createExperiment(
-    projectId: string, 
-    name: string, 
+    projectId: string,
+    name: string,
     description?: string
   ): Promise<ELNExperiment> {
     try {
@@ -103,7 +107,7 @@ export class SciNoteClient {
           })
         }
       )
-      
+
       return {
         id: data.data.id.toString(),
         name: data.data.name,
@@ -137,7 +141,7 @@ export class SciNoteClient {
           })
         }
       )
-      
+
       return data.data
     } catch (error) {
       console.error("Failed to create SciNote task:", error)
@@ -153,20 +157,22 @@ export class SciNoteClient {
     try {
       const formData = new FormData()
       formData.append("file", fileContent, filename)
-      
+
       const response = await fetch(
         `${this.baseUrl}/api/v1/tasks/${taskId}/attachments`,
         {
           method: "POST",
           headers: {
-            "Authorization": `Bearer ${this.apiToken}`
+            Authorization: `Bearer ${this.apiToken}`
           },
           body: formData
         }
       )
 
       if (!response.ok) {
-        throw new Error(`Upload failed: ${response.status} ${response.statusText}`)
+        throw new Error(
+          `Upload failed: ${response.status} ${response.statusText}`
+        )
       }
 
       const data = await response.json()
@@ -201,7 +207,9 @@ export class SciNoteClient {
           "Shadow AI Generated Report"
         )
       } else {
-        throw new Error("Either targetExperimentId or experimentName must be provided")
+        throw new Error(
+          "Either targetExperimentId or experimentName must be provided"
+        )
       }
 
       // Create a task for the report
@@ -211,10 +219,10 @@ export class SciNoteClient {
         "Generated report from Shadow AI analysis"
       )
 
-      // Convert report content to PDF blob (simplified - in real implementation, 
+      // Convert report content to PDF blob (simplified - in real implementation,
       // you'd use a proper PDF generation library)
       const reportBlob = new Blob([reportContent], { type: "text/plain" })
-      
+
       // Upload report as attachment
       const attachmentId = await this.uploadAttachment(
         task.id.toString(),

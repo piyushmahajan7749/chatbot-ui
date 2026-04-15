@@ -16,11 +16,11 @@ const MIN_WIDTH = 320
 const MAX_WIDTH = 640
 const DEFAULT_WIDTH = 400
 
-export function StudioLayout({ 
-  children, 
-  projectId, 
-  workspaceId, 
-  onBack 
+export function StudioLayout({
+  children,
+  projectId,
+  workspaceId,
+  onBack
 }: StudioLayoutProps) {
   const [chatWidth, setChatWidth] = useState(DEFAULT_WIDTH)
   const [isDragging, setIsDragging] = useState(false)
@@ -35,10 +35,10 @@ export function StudioLayout({
         setShowChat(false)
       }
     }
-    
+
     checkMobile()
-    window.addEventListener('resize', checkMobile)
-    return () => window.removeEventListener('resize', checkMobile)
+    window.addEventListener("resize", checkMobile)
+    return () => window.removeEventListener("resize", checkMobile)
   }, [])
 
   const handleMouseDown = useCallback(
@@ -50,7 +50,10 @@ export function StudioLayout({
 
       const handleMouseMove = (e: MouseEvent) => {
         const delta = e.clientX - startX
-        const newWidth = Math.max(MIN_WIDTH, Math.min(MAX_WIDTH, startWidth + delta))
+        const newWidth = Math.max(
+          MIN_WIDTH,
+          Math.min(MAX_WIDTH, startWidth + delta)
+        )
         setChatWidth(newWidth)
       }
 
@@ -68,11 +71,11 @@ export function StudioLayout({
 
   if (isMobile) {
     return (
-      <div className="flex flex-col h-screen bg-slate-50 font-sans text-slate-900 overflow-hidden">
+      <div className="flex h-screen flex-col overflow-hidden bg-slate-50 font-sans text-slate-900">
         {/* Mobile: Stack chat and canvas vertically */}
         {showChat ? (
           <div className="flex-1 overflow-hidden">
-            <StudioChatPanel 
+            <StudioChatPanel
               width={0} // Full width on mobile
               projectId={projectId}
               workspaceId={workspaceId}
@@ -81,7 +84,7 @@ export function StudioLayout({
           </div>
         ) : (
           <div className="flex-1 overflow-hidden">
-            <StudioCanvas 
+            <StudioCanvas
               projectId={projectId}
               workspaceId={workspaceId}
               onOpenChat={() => setShowChat(true)}
@@ -95,9 +98,9 @@ export function StudioLayout({
   }
 
   return (
-    <div className="flex h-screen bg-slate-50 font-sans text-slate-900 overflow-hidden">
+    <div className="flex h-screen overflow-hidden bg-slate-50 font-sans text-slate-900">
       {/* Chat Panel */}
-      <StudioChatPanel 
+      <StudioChatPanel
         width={chatWidth}
         projectId={projectId}
         workspaceId={workspaceId}
@@ -108,26 +111,25 @@ export function StudioLayout({
       <div
         onMouseDown={handleMouseDown}
         className={cn(
-          "w-2 cursor-col-resize z-50 flex justify-center group shrink-0",
+          "group z-50 flex w-2 shrink-0 cursor-col-resize justify-center",
           isDragging ? "bg-blue-500/20" : "hover:bg-blue-400/10"
         )}
       >
         <div
           className={cn(
-            "w-1 h-full transition-colors",
-            isDragging ? "bg-blue-500" : "bg-transparent group-hover:bg-blue-400"
+            "h-full w-1 transition-colors",
+            isDragging
+              ? "bg-blue-500"
+              : "bg-transparent group-hover:bg-blue-400"
           )}
         />
       </div>
 
       {/* Canvas/Main Content */}
-      <main className="flex-1 overflow-hidden relative">
-        <div className="flex flex-col h-full">
-          <div className="flex-1 relative overflow-hidden">
-            <StudioCanvas 
-              projectId={projectId}
-              workspaceId={workspaceId}
-            >
+      <main className="relative flex-1 overflow-hidden">
+        <div className="flex h-full flex-col">
+          <div className="relative flex-1 overflow-hidden">
+            <StudioCanvas projectId={projectId} workspaceId={workspaceId}>
               {children}
             </StudioCanvas>
           </div>

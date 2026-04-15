@@ -48,10 +48,10 @@ export function ReportReviewComponent({
   const [question, setQuestion] = useState("")
   const [isEditing, setIsEditing] = useState(false)
   const [editedContent, setEditedContent] = useState("")
-  const { selectedData } = useReportContext()
+  const { selectedFiles } = useReportContext()
   const [chartImage, setChartImage] = useState<string | null>(null)
   const [isQuestionSectionVisible, setIsQuestionSectionVisible] = useState(true)
-  
+
   // ELN Integration state
   const { profile } = useContext(ChatbotUIContext)
   const [elnConnections, setElnConnections] = useState<ELNConnection[]>([])
@@ -66,7 +66,7 @@ export function ReportReviewComponent({
         const response = await fetch("/api/report/outline", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(selectedData)
+          body: JSON.stringify(selectedFiles)
         })
         const data = await response.json()
         console.log("Received data from API:", data)
@@ -85,19 +85,19 @@ export function ReportReviewComponent({
     }
 
     if (
-      selectedData.protocol ||
-      selectedData.papers ||
-      selectedData.dataFiles
+      selectedFiles.protocol ||
+      selectedFiles.papers ||
+      selectedFiles.dataFiles
     ) {
       generateDraft()
     }
-  }, [selectedData])
+  }, [selectedFiles])
 
   // Load ELN connections on component mount
   useEffect(() => {
     const loadELNConnections = async () => {
       if (!profile?.user_id) return
-      
+
       setLoadingConnections(true)
       try {
         const connections = await getELNConnections(profile.user_id)
@@ -175,11 +175,13 @@ export function ReportReviewComponent({
   }
 
   const getFullReportContent = (): string => {
-    const sections = generatedOutline.map(section => {
-      const content = sectionContents[section] || ""
-      return `## ${section}\n\n${content}\n\n`
-    }).join("")
-    
+    const sections = generatedOutline
+      .map(section => {
+        const content = sectionContents[section] || ""
+        return `## ${section}\n\n${content}\n\n`
+      })
+      .join("")
+
     return `# Shadow AI Generated Report\n\nGenerated on: ${new Date().toLocaleDateString()}\n\n${sections}`
   }
 
@@ -336,7 +338,7 @@ export function ReportReviewComponent({
           </div>
         </>
       )}
-      
+
       {/* ELN Export Modal */}
       <ELNExportModal
         isOpen={showELNExportModal}
@@ -344,7 +346,7 @@ export function ReportReviewComponent({
         connections={elnConnections}
         reportContent={getFullReportContent()}
         reportTitle={getReportTitle()}
-        onExportSuccess={(result) => {
+        onExportSuccess={result => {
           if (result.success) {
             toast.success("Report exported to ELN successfully!")
           }

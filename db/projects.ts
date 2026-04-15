@@ -1,74 +1,89 @@
-import { supabase } from "@/lib/supabase/browser-client"
-import { TablesInsert, TablesUpdate } from "@/supabase/types"
+import { Project } from "@/types/project"
 
-export const getProjectById = async (projectId: string) => {
-  const { data: project } = await supabase
-    .from("projects")
-    .select("*")
-    .eq("id", projectId)
-    .maybeSingle()
-
-  return project
+export const getProjectById = async (
+  projectId: string
+): Promise<Project | null> => {
+  try {
+    const response = await fetch(`/api/projects/${projectId}`)
+    if (!response.ok) {
+      if (response.status === 404) return null
+      throw new Error("Failed to fetch project")
+    }
+    return await response.json()
+  } catch (error) {
+    console.error("[Projects API] Error getting project:", error)
+    return null
+  }
 }
 
-export const getProjectsByWorkspaceId = async (workspaceId: string) => {
-  const { data: projects, error } = await supabase
-    .from("projects")
-    .select(`
-      *,
-      chats!projects_chats_fkey(count),
-      files!projects_files_fkey(count)
-    `)
-    .eq("workspace_id", workspaceId)
-    .order("created_at", { ascending: false })
-
-  if (error) {
-    throw new Error(error.message)
+export const getProjectsByWorkspaceId = async (
+  workspaceId: string
+): Promise<Project[]> => {
+  try {
+    const response = await fetch(`/api/projects?workspaceId=${workspaceId}`)
+    if (!response.ok) {
+      throw new Error("Failed to fetch projects")
+    }
+    const data = await response.json()
+    return data.projects || []
+  } catch (error) {
+    console.error("[Projects API] Error getting projects:", error)
+    return []
   }
-
-  return projects || []
 }
 
-export const createProject = async (project: TablesInsert<"projects">) => {
-  const { data: createdProject, error } = await supabase
-    .from("projects")
-    .insert([project])
-    .select("*")
-    .single()
+export const createProject = async (project: {
+  user_id: string
+  workspace_id: string
+  name: string
+  description?: string
+  tags?: string[]
+}): Promise<Project> => {
+  const response = await fetch("/api/projects", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      name: project.name,
+      description: project.description || "",
+      tags: project.tags || [],
+      workspace_id: project.workspace_id
+    })
+  })
 
-  if (error) {
-    throw new Error(error.message)
+  if (!response.ok) {
+    const errorData = await response.json()
+    throw new Error(errorData.error || "Failed to create project")
   }
 
-  return createdProject
+  return await response.json()
 }
 
 export const updateProject = async (
   projectId: string,
-  project: TablesUpdate<"projects">
-) => {
-  const { data: updatedProject, error } = await supabase
-    .from("projects")
-    .update({
-      ...project,
-      updated_at: new Date().toISOString()
-    })
-    .eq("id", projectId)
-    .select("*")
-    .single()
+  updates: Partial<Project>
+): Promise<Project> => {
+  const response = await fetch(`/api/projects/${projectId}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(updates)
+  })
 
-  if (error) {
-    throw new Error(error.message)
+  if (!response.ok) {
+    const errorData = await response.json()
+    throw new Error(errorData.error || "Failed to update project")
   }
 
-  return updatedProject
+  return await response.json()
 }
 
-export const deleteProject = async (projectId: string) => {
-  const { error } = await supabase.from("projects").delete().eq("id", projectId)
+export const deleteProject = async (projectId: string): Promise<boolean> => {
+  const response = await fetch(`/api/projects/${projectId}`, {
+    method: "DELETE"
+  })
 
-  if (error) {
-    throw new Error(error.message)
+  if (!response.ok) {
+    const errorData = await response.json()
+    throw new Error(errorData.error || "Failed to delete project")
   }
 
   return true
