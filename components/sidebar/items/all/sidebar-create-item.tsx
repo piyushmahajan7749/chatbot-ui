@@ -218,12 +218,26 @@ export const SidebarCreateItem: FC<SidebarCreateItemProps> = ({
       return createdReport
     },
     designs: async (
-      createState: {} & Omit<Tables<"designs">, "workspace_id">,
+      createState: {} & Omit<Tables<"designs">, "workspace_id"> & {
+          project_id?: string | null
+        },
       workspaceId: string
     ) => {
-      const { ...designData } = createState
+      const { project_id, ...designData } = createState as any
 
       const createdDesign = await createDesign(designData, workspaceId)
+
+      // If a projectId was provided (e.g. from /designs/new?projectId=...),
+      // link the Supabase row so the Project page picks it up.
+      if (project_id && createdDesign?.id) {
+        try {
+          const { linkDesignToProject } = await import("@/db/designs")
+          await linkDesignToProject(createdDesign.id, project_id)
+          return { ...createdDesign, project_id }
+        } catch (err) {
+          console.warn("Failed to link new design to project:", err)
+        }
+      }
 
       return createdDesign
     },

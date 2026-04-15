@@ -8,7 +8,12 @@ import useHotkey from "@/lib/hooks/use-hotkey"
 import { cn } from "@/lib/utils"
 import { ContentType } from "@/types"
 import { IconChevronCompactRight } from "@tabler/icons-react"
-import { usePathname, useRouter, useSearchParams } from "next/navigation"
+import {
+  useParams,
+  usePathname,
+  useRouter,
+  useSearchParams
+} from "next/navigation"
 import { FC, useState } from "react"
 import { useSelectFileHandler } from "../chat/chat-hooks/use-select-file-handler"
 import { CommandK } from "../utility/command-k"
@@ -24,8 +29,12 @@ export const Dashboard: FC<DashboardProps> = ({ children }) => {
 
   const pathname = usePathname()
   const router = useRouter()
+  const params = useParams()
   const searchParams = useSearchParams()
   const tabValue = searchParams.get("tab") || "chats"
+
+  const workspaceId = params.workspaceid as string | undefined
+  const locale = (params.locale as string | undefined) ?? "en"
 
   const { handleSelectDeviceFile } = useSelectFileHandler()
 
@@ -88,6 +97,17 @@ export const Dashboard: FC<DashboardProps> = ({ children }) => {
             value={contentType}
             onValueChange={tabValue => {
               setContentType(tabValue as ContentType)
+
+              // Primary-nav shortcuts: clicking Projects or Chat History also
+              // navigates the main content to the corresponding page.
+              if (workspaceId && tabValue === "projects") {
+                router.push(`/${locale}/${workspaceId}/projects`)
+                return
+              }
+              if (workspaceId && tabValue === "chat-history") {
+                router.push(`/${locale}/${workspaceId}/chat-history`)
+                return
+              }
               router.replace(`${pathname}?tab=${tabValue}`)
             }}
           >

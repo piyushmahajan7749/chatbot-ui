@@ -1,10 +1,12 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useContext, useEffect, useMemo, useState } from "react"
 import { useParams, useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { EntityCard } from "@/components/cards/entity-card"
+// Card primitives no longer used — replaced by EntityCard
+import { ChatbotUIContext } from "@/context/context"
 import {
   getProjectsByWorkspaceId,
   createProject,
@@ -17,17 +19,7 @@ import {
   ProjectFiltersComponent,
   ProjectFilters
 } from "@/components/projects/project-filters"
-import {
-  IconPlus,
-  IconSearch,
-  IconEdit,
-  IconTrash,
-  IconClock,
-  IconMessage,
-  IconFile,
-  IconFolder
-} from "@tabler/icons-react"
-import { cn } from "@/lib/utils"
+import { IconPlus, IconEdit, IconTrash, IconFolder } from "@tabler/icons-react"
 import { supabase } from "@/lib/supabase/browser-client"
 import { useToast } from "@/app/hooks/use-toast"
 import {
@@ -230,11 +222,39 @@ export default function ProjectsPage() {
     return new Date(date).toLocaleDateString()
   }
 
+  const { designs } = useContext(ChatbotUIContext)
+
+  const designStatsByProject = useMemo(() => {
+    const map = new Map<string, { total: number; complete: number }>()
+    for (const p of projects) {
+      const projectDesigns = designs.filter((d: any) => d.project_id === p.id)
+      const complete = projectDesigns.filter((d: any) => {
+        if (!d.content) return false
+        try {
+          const parsed =
+            typeof d.content === "string" ? JSON.parse(d.content) : d.content
+          return !!parsed?.generatedDesign
+        } catch {
+          return false
+        }
+      }).length
+      map.set(p.id, { total: projectDesigns.length, complete })
+    }
+    return map
+  }, [projects, designs])
+
   return (
-    <div className="h-full space-y-6 bg-zinc-50 p-6">
+    <div className="bg-ink-50 h-full space-y-6 p-6">
       {/* Header */}
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-zinc-800">Projects</h1>
+        <div>
+          <div className="text-ink-400 text-[11px] font-bold uppercase tracking-[0.13em]">
+            Workspace
+          </div>
+          <h1 className="text-ink-900 text-2xl font-extrabold tracking-tight">
+            Projects
+          </h1>
+        </div>
         <Dialog open={isCreateModalOpen} onOpenChange={setIsCreateModalOpen}>
           <DialogTrigger asChild>
             <Button className="gap-2">
@@ -325,30 +345,51 @@ export default function ProjectsPage() {
         </div>
       ) : (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-          {projects.map(project => (
-            <Card
-              key={project.id}
-              className="group cursor-pointer rounded-2xl transition-all duration-200 hover:-translate-y-1 hover:border-blue-300 hover:shadow-lg active:scale-[0.98]"
-              onClick={() =>
-                router.push(
-                  `/${params.locale}/${workspaceId}/projects/${project.id}`
-                )
-              }
-            >
-              <CardHeader className="pb-3">
-                <div className="flex items-start justify-between">
-                  <CardTitle className="truncate text-sm font-semibold text-zinc-800">
-                    {project.name}
-                  </CardTitle>
-                  <div className="flex gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+          {projects.map(project => {
+            const stats = designStatsByProject.get(project.id) ?? {
+              total: 0,
+              complete: 0
+            }
+            const countLabel =
+              stats.total === 0
+                ? "No designs"
+                : `${stats.total} design${stats.total === 1 ? "" : "s"}${
+                    stats.complete > 0 ? ` · ${stats.complete} complete` : ""
+                  }`
+            return (
+              <EntityCard
+                key={project.id}
+                title={project.name}
+                description={project.description || "No description"}
+                badges={[countLabel, ...project.tags]}
+                chips={[
+                  {
+                    label: "Has designs",
+                    filled: stats.total > 0,
+                    accent: "teal-journey"
+                  },
+                  {
+                    label: "Has completed designs",
+                    filled: stats.complete > 0,
+                    accent: "sage-brand"
+                  }
+                ]}
+                timestamp={getTimeAgo(project.updated_at)}
+                onClick={() =>
+                  router.push(
+                    `/${params.locale}/${workspaceId}/projects/${project.id}`
+                  )
+                }
+                actions={
+                  <div className="flex gap-1">
                     <button
                       onClick={e => {
                         e.stopPropagation()
                         openEditModal(project)
                       }}
-                      className="rounded p-1 hover:bg-zinc-100"
+                      className="hover:bg-ink-100 rounded p-1"
                     >
-                      <IconEdit size={14} className="text-zinc-500" />
+                      <IconEdit size={14} className="text-ink-500" />
                     </button>
                     <AlertDialog>
                       <AlertDialogTrigger asChild>
@@ -379,52 +420,10 @@ export default function ProjectsPage() {
                       </AlertDialogContent>
                     </AlertDialog>
                   </div>
-                </div>
-              </CardHeader>
-              <CardContent className="pt-0">
-                <p className="mb-4 line-clamp-3 text-xs text-zinc-600">
-                  {project.description || "No description"}
-                </p>
-
-                {/* Tags */}
-                {project.tags.length > 0 && (
-                  <div className="mb-4 flex flex-wrap gap-1">
-                    {project.tags.slice(0, 3).map(tag => (
-                      <span
-                        key={tag}
-                        className="rounded-md bg-blue-50 px-2 py-1 text-xs text-blue-700"
-                      >
-                        {tag}
-                      </span>
-                    ))}
-                    {project.tags.length > 3 && (
-                      <span className="rounded-md bg-zinc-50 px-2 py-1 text-xs text-zinc-500">
-                        +{project.tags.length - 3}
-                      </span>
-                    )}
-                  </div>
-                )}
-
-                {/* Stats and timestamp */}
-                <div className="flex items-center justify-between text-xs text-zinc-400">
-                  <div className="flex gap-3">
-                    <div className="flex items-center gap-1">
-                      <IconMessage size={12} />
-                      <span>0</span>
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <IconFile size={12} />
-                      <span>0</span>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-1">
-                    <IconClock size={12} />
-                    <span>{getTimeAgo(project.updated_at)}</span>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
+                }
+              />
+            )
+          })}
         </div>
       )}
 

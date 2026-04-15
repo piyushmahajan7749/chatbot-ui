@@ -16,6 +16,32 @@ export const getDesigns = async (userId: string) => {
   return data as Tables<"designs">[]
 }
 
+export const getDesignsByProject = async (projectId: string) => {
+  const { data, error } = await supabase
+    .from("designs")
+    .select("*")
+    .eq("project_id", projectId)
+    .order("updated_at", { ascending: false })
+
+  if (error) throw new Error(error.message)
+  return (data ?? []) as Tables<"designs">[]
+}
+
+export const linkDesignToProject = async (
+  designId: string,
+  projectId: string | null
+) => {
+  const { data, error } = await supabase
+    .from("designs")
+    .update({ project_id: projectId })
+    .eq("id", designId)
+    .select("*")
+    .single()
+
+  if (error) throw new Error(error.message)
+  return data as Tables<"designs">
+}
+
 export const createDesign = async (
   design: Omit<TablesInsert<"designs">, "workspace_id"> & { problem?: string },
   workspaceId: string

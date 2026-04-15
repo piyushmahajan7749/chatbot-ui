@@ -4,9 +4,17 @@ import { useEffect, useState, useContext } from "react"
 import { useParams, useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { AccentTabs } from "@/components/canvas/accent-tabs"
 import { ChatbotUIContext } from "@/context/context"
 import { useToast } from "@/app/hooks/use-toast"
-import { IconArrowLeft, IconClock, IconFlask } from "@tabler/icons-react"
+import {
+  IconArrowLeft,
+  IconBook,
+  IconBulb,
+  IconClipboardText,
+  IconClock,
+  IconTargetArrow
+} from "@tabler/icons-react"
 import { ExternalLink, Download } from "lucide-react"
 
 interface DesignContent {
@@ -31,6 +39,7 @@ export default function DesignDetailPage() {
   const [design, setDesign] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [parsedContent, setParsedContent] = useState<DesignContent | null>(null)
+  const [activeTab, setActiveTab] = useState("problem")
 
   useEffect(() => {
     if (designId) fetchDesign()
@@ -46,7 +55,7 @@ export default function DesignDetailPage() {
           description: "Design not found.",
           variant: "destructive"
         })
-        router.push(`/${locale}/${workspaceId}/designs`)
+        router.push(`/${locale}/${workspaceId}/projects`)
         return
       }
       const data = await response.json()
@@ -179,7 +188,14 @@ export default function DesignDetailPage() {
             <Button
               variant="ghost"
               size="sm"
-              onClick={() => router.push(`/${locale}/${workspaceId}/designs`)}
+              onClick={() => {
+                const projectId = design?.project_id
+                router.push(
+                  projectId
+                    ? `/${locale}/${workspaceId}/projects/${projectId}`
+                    : `/${locale}/${workspaceId}/projects`
+                )
+              }}
               className="gap-1 text-slate-600"
             >
               <IconArrowLeft size={16} />
@@ -225,203 +241,265 @@ export default function DesignDetailPage() {
         </div>
       </div>
 
+      {/* Sub-tabs — JourneyMaker pattern applied to a Design */}
+      <AccentTabs
+        activeKey={activeTab}
+        onChange={setActiveTab}
+        tabs={[
+          {
+            key: "problem",
+            label: "Problem",
+            accent: "teal-journey",
+            icon: <IconTargetArrow size={14} />
+          },
+          {
+            key: "literature",
+            label: "Literature",
+            accent: "orange-product",
+            icon: <IconBook size={14} />
+          },
+          {
+            key: "hypotheses",
+            label: "Hypotheses",
+            accent: "purple-persona",
+            icon: <IconBulb size={14} />
+          },
+          {
+            key: "final",
+            label: "Final Design",
+            accent: "sage-brand",
+            icon: <IconClipboardText size={14} />
+          }
+        ]}
+      />
+
       {/* Content */}
       <div className="mx-auto max-w-4xl p-6">
-        {design.description && (
-          <p className="mb-6 text-slate-600">{design.description}</p>
-        )}
-
-        {/* Hypothesis */}
-        {parsedContent?.selectedHypothesis && (
-          <Card className="mb-6 rounded-2xl">
+        {/* Problem tab */}
+        {activeTab === "problem" && (
+          <Card className="rounded-2xl">
             <CardHeader>
-              <CardTitle className="text-lg">Selected Hypothesis</CardTitle>
+              <CardTitle className="text-teal-journey text-lg">
+                Research Problem
+              </CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="text-sm leading-relaxed text-slate-700">
-                {parsedContent.selectedHypothesis.content}
-              </p>
-              {parsedContent.selectedHypothesis.explanation && (
-                <p className="mt-3 text-sm text-slate-500">
-                  {parsedContent.selectedHypothesis.explanation}
+              {design.description ? (
+                <p className="text-ink-700 whitespace-pre-wrap text-sm leading-relaxed">
+                  {design.description}
+                </p>
+              ) : (
+                <p className="text-ink-400 text-sm">
+                  No problem statement yet. Open the editor to define the
+                  research question this design addresses.
                 </p>
               )}
             </CardContent>
           </Card>
         )}
 
-        {/* Experiment Design */}
-        {parsedContent?.generatedDesign?.experimentDesign && (
-          <Card className="mb-6 rounded-2xl">
-            <CardHeader>
-              <CardTitle className="text-lg">Experiment Design</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {Object.entries(
-                parsedContent.generatedDesign.experimentDesign
-              ).map(([key, value]) => {
-                const title = key
-                  .replace(/([A-Z])/g, " $1")
-                  .replace(/^./, (s: string) => s.toUpperCase())
-                return (
-                  <div key={key}>
-                    <h4 className="mb-1 text-sm font-medium text-slate-700">
-                      {title}
-                    </h4>
-                    <p className="whitespace-pre-wrap text-sm text-slate-600">
-                      {typeof value === "string"
-                        ? value
-                        : JSON.stringify(value, null, 2)}
-                    </p>
-                  </div>
-                )
-              })}
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Execution Plan */}
-        {parsedContent?.generatedDesign?.executionPlan && (
-          <Card className="mb-6 rounded-2xl">
-            <CardHeader>
-              <CardTitle className="text-lg">Execution Plan</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {Object.entries(parsedContent.generatedDesign.executionPlan).map(
-                ([key, value]) => {
-                  const title = key
-                    .replace(/([A-Z])/g, " $1")
-                    .replace(/^./, (s: string) => s.toUpperCase())
-                  return (
-                    <div key={key}>
-                      <h4 className="mb-1 text-sm font-medium text-slate-700">
-                        {title}
-                      </h4>
-                      <p className="whitespace-pre-wrap text-sm text-slate-600">
-                        {typeof value === "string"
-                          ? value
-                          : JSON.stringify(value, null, 2)}
-                      </p>
-                    </div>
-                  )
-                }
-              )}
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Statistical Review */}
-        {parsedContent?.generatedStatReview && (
-          <Card className="mb-6 rounded-2xl">
-            <CardHeader>
-              <CardTitle className="text-lg">Statistical Review</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {parsedContent.generatedStatReview.whatLooksGood && (
-                <div>
-                  <h4 className="mb-1 text-sm font-medium text-emerald-700">
-                    What Looks Good
-                  </h4>
-                  <p className="whitespace-pre-wrap text-sm text-slate-600">
-                    {parsedContent.generatedStatReview.whatLooksGood}
+        {/* Hypotheses tab */}
+        {activeTab === "hypotheses" &&
+          (parsedContent?.selectedHypothesis ? (
+            <Card className="rounded-2xl">
+              <CardHeader>
+                <CardTitle className="text-purple-persona text-lg">
+                  Selected Hypothesis
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-ink-700 text-sm leading-relaxed">
+                  {parsedContent.selectedHypothesis.content}
+                </p>
+                {parsedContent.selectedHypothesis.explanation && (
+                  <p className="text-ink-500 mt-3 text-sm">
+                    {parsedContent.selectedHypothesis.explanation}
                   </p>
-                </div>
-              )}
-              {parsedContent.generatedStatReview.problemsOrRisks?.length >
-                0 && (
-                <div>
-                  <h4 className="mb-1 text-sm font-medium text-amber-700">
-                    Problems or Risks
-                  </h4>
-                  <ul className="list-disc space-y-1 pl-5 text-sm text-slate-600">
-                    {parsedContent.generatedStatReview.problemsOrRisks.map(
-                      (item: string, i: number) => (
-                        <li key={i}>{item}</li>
-                      )
-                    )}
-                  </ul>
-                </div>
-              )}
-              {parsedContent.generatedStatReview.suggestedImprovements?.length >
-                0 && (
-                <div>
-                  <h4 className="mb-1 text-sm font-medium text-blue-700">
-                    Suggested Improvements
-                  </h4>
-                  <ul className="list-disc space-y-1 pl-5 text-sm text-slate-600">
-                    {parsedContent.generatedStatReview.suggestedImprovements.map(
-                      (item: string, i: number) => (
-                        <li key={i}>{item}</li>
-                      )
-                    )}
-                  </ul>
-                </div>
-              )}
-              {parsedContent.generatedStatReview.overallAssessment && (
-                <div>
-                  <h4 className="mb-1 text-sm font-medium text-slate-700">
-                    Overall Assessment
-                  </h4>
-                  <p className="whitespace-pre-wrap text-sm text-slate-600">
-                    {parsedContent.generatedStatReview.overallAssessment}
-                  </p>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Literature Summary */}
-        {parsedContent?.generatedLiteratureSummary && (
-          <Card className="mb-6 rounded-2xl">
-            <CardHeader>
-              <CardTitle className="text-lg">Literature Summary</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {Object.entries(parsedContent.generatedLiteratureSummary).map(
-                ([key, value]) => {
-                  if (key === "citations") return null
-                  const title = key
-                    .replace(/([A-Z])/g, " $1")
-                    .replace(/^./, (s: string) => s.toUpperCase())
-                  return (
-                    <div key={key}>
-                      <h4 className="mb-1 text-sm font-medium text-slate-700">
-                        {title}
-                      </h4>
-                      <p className="whitespace-pre-wrap text-sm text-slate-600">
-                        {typeof value === "string"
-                          ? value
-                          : JSON.stringify(value, null, 2)}
-                      </p>
-                    </div>
-                  )
-                }
-              )}
-            </CardContent>
-          </Card>
-        )}
-
-        {/* No content message */}
-        {!hasGeneratedContent && (
-          <div className="flex flex-col items-center justify-center py-12 text-center">
-            <div className="mb-4 rounded-full bg-amber-50 p-4">
-              <IconFlask size={32} className="text-amber-400" />
+                )}
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="border-purple-persona/30 bg-purple-persona-tint text-ink-500 rounded-xl border border-dashed p-8 text-center text-xs">
+              No hypothesis selected yet. Generate hypotheses from the editor.
             </div>
-            <p className="font-medium text-slate-600">
-              Design not yet generated
-            </p>
-            <p className="mt-1 text-sm text-slate-400">
-              Open the editor to generate hypotheses and create your experiment
-              design.
-            </p>
-            <Button
-              className="mt-4 gap-2 bg-teal-600 hover:bg-teal-700"
-              onClick={handleOpenEditor}
-            >
-              <ExternalLink className="size-4" />
-              Generate Design
-            </Button>
+          ))}
+
+        {/* Literature tab */}
+        {activeTab === "literature" &&
+          (parsedContent?.generatedLiteratureSummary ? (
+            <Card className="rounded-2xl">
+              <CardHeader>
+                <CardTitle className="text-orange-product text-lg">
+                  Literature Summary
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {Object.entries(parsedContent.generatedLiteratureSummary).map(
+                  ([key, value]) => {
+                    if (key === "citations") return null
+                    const title = key
+                      .replace(/([A-Z])/g, " $1")
+                      .replace(/^./, (s: string) => s.toUpperCase())
+                    return (
+                      <div key={key}>
+                        <h4 className="text-ink-700 mb-1 text-sm font-medium">
+                          {title}
+                        </h4>
+                        <p className="text-ink-500 whitespace-pre-wrap text-sm">
+                          {typeof value === "string"
+                            ? value
+                            : JSON.stringify(value, null, 2)}
+                        </p>
+                      </div>
+                    )
+                  }
+                )}
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="border-orange-product/30 bg-orange-product-tint text-ink-500 rounded-xl border border-dashed p-8 text-center text-xs">
+              No literature summary yet. Generate one from the editor.
+            </div>
+          ))}
+
+        {/* Final Design tab — experiment design + execution plan + stat review */}
+        {activeTab === "final" && (
+          <div className="space-y-6">
+            {!parsedContent?.generatedDesign?.experimentDesign &&
+              !parsedContent?.generatedDesign?.executionPlan &&
+              !parsedContent?.generatedStatReview && (
+                <div className="border-sage-brand/30 bg-sage-brand-tint text-ink-500 rounded-xl border border-dashed p-8 text-center text-xs">
+                  No final design yet. Run the design generator from the editor
+                  to populate this tab.
+                </div>
+              )}
+
+            {/* Experiment Design */}
+            {parsedContent?.generatedDesign?.experimentDesign && (
+              <Card className="rounded-2xl">
+                <CardHeader>
+                  <CardTitle className="text-sage-brand text-lg">
+                    Experiment Design
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {Object.entries(
+                    parsedContent.generatedDesign.experimentDesign
+                  ).map(([key, value]) => {
+                    const title = key
+                      .replace(/([A-Z])/g, " $1")
+                      .replace(/^./, (s: string) => s.toUpperCase())
+                    return (
+                      <div key={key}>
+                        <h4 className="text-ink-700 mb-1 text-sm font-medium">
+                          {title}
+                        </h4>
+                        <p className="text-ink-500 whitespace-pre-wrap text-sm">
+                          {typeof value === "string"
+                            ? value
+                            : JSON.stringify(value, null, 2)}
+                        </p>
+                      </div>
+                    )
+                  })}
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Execution Plan */}
+            {parsedContent?.generatedDesign?.executionPlan && (
+              <Card className="rounded-2xl">
+                <CardHeader>
+                  <CardTitle className="text-sage-brand text-lg">
+                    Execution Plan
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {Object.entries(
+                    parsedContent.generatedDesign.executionPlan
+                  ).map(([key, value]) => {
+                    const title = key
+                      .replace(/([A-Z])/g, " $1")
+                      .replace(/^./, (s: string) => s.toUpperCase())
+                    return (
+                      <div key={key}>
+                        <h4 className="text-ink-700 mb-1 text-sm font-medium">
+                          {title}
+                        </h4>
+                        <p className="text-ink-500 whitespace-pre-wrap text-sm">
+                          {typeof value === "string"
+                            ? value
+                            : JSON.stringify(value, null, 2)}
+                        </p>
+                      </div>
+                    )
+                  })}
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Statistical Review */}
+            {parsedContent?.generatedStatReview && (
+              <Card className="rounded-2xl">
+                <CardHeader>
+                  <CardTitle className="text-sage-brand text-lg">
+                    Statistical Review
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {parsedContent.generatedStatReview.whatLooksGood && (
+                    <div>
+                      <h4 className="mb-1 text-sm font-medium text-emerald-700">
+                        What Looks Good
+                      </h4>
+                      <p className="text-ink-500 whitespace-pre-wrap text-sm">
+                        {parsedContent.generatedStatReview.whatLooksGood}
+                      </p>
+                    </div>
+                  )}
+                  {parsedContent.generatedStatReview.problemsOrRisks?.length >
+                    0 && (
+                    <div>
+                      <h4 className="mb-1 text-sm font-medium text-amber-700">
+                        Problems or Risks
+                      </h4>
+                      <ul className="text-ink-500 list-disc space-y-1 pl-5 text-sm">
+                        {parsedContent.generatedStatReview.problemsOrRisks.map(
+                          (item: string, i: number) => (
+                            <li key={i}>{item}</li>
+                          )
+                        )}
+                      </ul>
+                    </div>
+                  )}
+                  {parsedContent.generatedStatReview.suggestedImprovements
+                    ?.length > 0 && (
+                    <div>
+                      <h4 className="mb-1 text-sm font-medium text-blue-700">
+                        Suggested Improvements
+                      </h4>
+                      <ul className="text-ink-500 list-disc space-y-1 pl-5 text-sm">
+                        {parsedContent.generatedStatReview.suggestedImprovements.map(
+                          (item: string, i: number) => (
+                            <li key={i}>{item}</li>
+                          )
+                        )}
+                      </ul>
+                    </div>
+                  )}
+                  {parsedContent.generatedStatReview.overallAssessment && (
+                    <div>
+                      <h4 className="text-ink-700 mb-1 text-sm font-medium">
+                        Overall Assessment
+                      </h4>
+                      <p className="text-ink-500 whitespace-pre-wrap text-sm">
+                        {parsedContent.generatedStatReview.overallAssessment}
+                      </p>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            )}
           </div>
         )}
       </div>

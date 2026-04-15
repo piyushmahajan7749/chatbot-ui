@@ -1,5 +1,6 @@
 export type ContentType =
   | "chats"
+  | "chat-history"
   | "projects"
   | "files"
   | "collections"

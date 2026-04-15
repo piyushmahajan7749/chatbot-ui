@@ -44,7 +44,10 @@ export const SidebarContent: FC<SidebarContentProps> = ({
       </div>
 
       <SidebarDataList
-        contentType={contentType}
+        // Sidebar.tsx's switch always forwards a ValidContentType (e.g. "chats"
+        // even when the user picked "chat-history"); the wider ContentType
+        // union here is just a relay.
+        contentType={contentType as any}
         data={filteredData}
         folders={folders}
       />

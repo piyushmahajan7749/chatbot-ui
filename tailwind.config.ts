@@ -49,6 +49,42 @@ module.exports = {
         card: {
           DEFAULT: 'hsl(var(--card))',
           foreground: 'hsl(var(--card-foreground))'
+        },
+        // JourneyMaker-derived palette for ShadowAI v2 UI
+        brick: {
+          DEFAULT: '#7A3828',
+          hover: '#9B4831',
+          disabled: '#FBEADF'
+        },
+        'teal-journey': {
+          DEFAULT: '#007E8C',
+          dark: '#003135',
+          active: '#E0F2F4',
+          tint: '#F1F9F9'
+        },
+        'orange-product': {
+          DEFAULT: '#C4845A',
+          active: '#F4EAE0',
+          tint: '#F8F4F1'
+        },
+        'purple-persona': {
+          DEFAULT: '#7B5B8E',
+          active: '#E9E0F4',
+          tint: '#F4F1F8'
+        },
+        'sage-brand': {
+          DEFAULT: '#7A8B5A',
+          active: '#EEF4E0',
+          tint: '#F5F8F1'
+        },
+        ink: {
+          900: '#111111',
+          700: '#333333',
+          500: '#445566',
+          400: '#8899AA',
+          200: '#D0D8E4',
+          100: '#F0F3F7',
+          50: '#F8F9FA'
         }
       },
       borderRadius: {

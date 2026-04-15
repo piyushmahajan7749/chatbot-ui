@@ -90,8 +90,9 @@ export const DeleteFolder: FC<DeleteFolderProps> = ({
 
     if (!setStateFunction) return
 
-    // Data collections are stored in Firestore, not Supabase
-    if (contentType !== "data-collections") {
+    // Data collections are stored in Firestore, not Supabase; chat-history is
+    // a view-only content type with no table of its own.
+    if (contentType !== "data-collections" && contentType !== "chat-history") {
       const { error } = await supabase
         .from(contentType)
         .delete()

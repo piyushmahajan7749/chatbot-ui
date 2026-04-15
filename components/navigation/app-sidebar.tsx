@@ -20,8 +20,6 @@ import {
   Brain,
   Bot,
   Library,
-  Database,
-  Sparkles,
   Plus
 } from "lucide-react"
 import { WorkspaceSwitcher } from "@/components/utility/workspace-switcher"
@@ -75,33 +73,23 @@ export const AppSidebar = ({ isCollapsed, onToggle }: AppSidebarProps) => {
   const currentProjectId = pathname.split("/projects/")[1]?.split("/")[0]
   const wsId = selectedWorkspace?.id
 
-  const mainNavItems = [
-    {
-      title: "Designs",
-      icon: FlaskConical,
-      href: `/${wsId}/designs`,
-      active: pathname.includes("/designs")
-    },
-    {
-      title: "Reports",
-      icon: Sparkles,
-      href: `/${wsId}/reports`,
-      active: pathname.includes("/reports")
-    },
-    {
-      title: "Data Collection",
-      icon: Database,
-      href: `/${wsId}/data-collection`,
-      active: pathname.includes("/data-collection")
-    }
-  ]
+  // Modules section (Designs / Reports / Data Collection) is intentionally
+  // removed in v2 — those artifacts now live inside a Project. Keeping the
+  // array empty (rather than rendering the section) keeps the file diff small
+  // while the section block below short-circuits on empty.
+  const mainNavItems: {
+    title: string
+    icon: typeof FlaskConical
+    href: string
+    active: boolean
+  }[] = []
 
   const knowledgeItems = [
     {
       title: "All Chats",
       icon: MessageSquare,
-      href: `/${wsId}/chat`,
-      active: pathname.includes("/chat")
+      href: `/${wsId}/chat-history`,
+      active: pathname.includes("/chat-history")
     },
     {
       title: "Assistants",
@@ -167,35 +155,38 @@ export const AppSidebar = ({ isCollapsed, onToggle }: AppSidebarProps) => {
 
         {/* Navigation */}
         <nav className="flex-1 space-y-4 overflow-y-auto p-3">
-          {/* Main Modules */}
-          <div>
-            {!isCollapsed && (
-              <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-zinc-500">
-                Modules
-              </h3>
-            )}
-            <div className="space-y-0.5">
-              {mainNavItems.map(item => {
-                const Icon = item.icon
-                return (
-                  <button
-                    key={item.title}
-                    onClick={() => router.push(item.href)}
-                    className={cn(
-                      "flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-sm transition-colors",
-                      item.active
-                        ? "bg-zinc-800 font-medium text-white"
-                        : "text-zinc-400 hover:bg-zinc-800/50 hover:text-zinc-300"
-                    )}
-                    title={isCollapsed ? item.title : undefined}
-                  >
-                    <Icon className="size-4 shrink-0" />
-                    {!isCollapsed && <span>{item.title}</span>}
-                  </button>
-                )
-              })}
+          {/* Main Modules — removed in v2; Designs/Reports/Data Collection
+              now live inside a Project. Block kept for fast reinstatement. */}
+          {mainNavItems.length > 0 && (
+            <div>
+              {!isCollapsed && (
+                <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-zinc-500">
+                  Modules
+                </h3>
+              )}
+              <div className="space-y-0.5">
+                {mainNavItems.map(item => {
+                  const Icon = item.icon
+                  return (
+                    <button
+                      key={item.title}
+                      onClick={() => router.push(item.href)}
+                      className={cn(
+                        "flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-sm transition-colors",
+                        item.active
+                          ? "bg-zinc-800 font-medium text-white"
+                          : "text-zinc-400 hover:bg-zinc-800/50 hover:text-zinc-300"
+                      )}
+                      title={isCollapsed ? item.title : undefined}
+                    >
+                      <Icon className="size-4 shrink-0" />
+                      {!isCollapsed && <span>{item.title}</span>}
+                    </button>
+                  )
+                })}
+              </div>
             </div>
-          </div>
+          )}
 
           {/* Projects Section */}
           <div>

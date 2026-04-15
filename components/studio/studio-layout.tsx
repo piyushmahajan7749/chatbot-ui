@@ -2,7 +2,8 @@
 
 import { useCallback, useState, useEffect } from "react"
 import { cn } from "@/lib/utils"
-import { StudioChatPanel } from "./studio-chat-panel"
+import { ScopedChatRail } from "@/components/canvas/scoped-chat-rail"
+import { getProjectById } from "@/db/projects"
 import { StudioCanvas } from "./studio-canvas"
 
 interface StudioLayoutProps {
@@ -20,12 +21,32 @@ export function StudioLayout({
   children,
   projectId,
   workspaceId,
-  onBack
+  onBack: _onBack
 }: StudioLayoutProps) {
+  // `onBack` is accepted for backwards compatibility with the project detail
+  // page but no longer used directly — the Projects grid entry is reached
+  // via the sidebar/browser back button now that the chat rail is always on.
+  void _onBack
   const [chatWidth, setChatWidth] = useState(DEFAULT_WIDTH)
   const [isDragging, setIsDragging] = useState(false)
   const [isMobile, setIsMobile] = useState(false)
   const [showChat, setShowChat] = useState(false)
+  const [projectName, setProjectName] = useState<string | undefined>()
+
+  useEffect(() => {
+    if (!projectId) return
+    let cancelled = false
+    getProjectById(projectId)
+      .then(p => {
+        if (!cancelled) setProjectName(p?.name ?? undefined)
+      })
+      .catch(() => {
+        if (!cancelled) setProjectName(undefined)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [projectId])
 
   useEffect(() => {
     const checkMobile = () => {
@@ -71,15 +92,14 @@ export function StudioLayout({
 
   if (isMobile) {
     return (
-      <div className="flex h-screen flex-col overflow-hidden bg-slate-50 font-sans text-slate-900">
+      <div className="bg-ink-50 text-ink-900 flex h-screen flex-col overflow-hidden font-sans">
         {/* Mobile: Stack chat and canvas vertically */}
         {showChat ? (
           <div className="flex-1 overflow-hidden">
-            <StudioChatPanel
-              width={0} // Full width on mobile
-              projectId={projectId}
-              workspaceId={workspaceId}
-              onBack={() => setShowChat(false)}
+            <ScopedChatRail
+              scope="project"
+              scopeId={projectId}
+              scopeName={projectName}
             />
           </div>
         ) : (
@@ -98,35 +118,9 @@ export function StudioLayout({
   }
 
   return (
-    <div className="flex h-screen overflow-hidden bg-slate-50 font-sans text-slate-900">
-      {/* Chat Panel */}
-      <StudioChatPanel
-        width={chatWidth}
-        projectId={projectId}
-        workspaceId={workspaceId}
-        onBack={onBack}
-      />
-
-      {/* Resize handle */}
-      <div
-        onMouseDown={handleMouseDown}
-        className={cn(
-          "group z-50 flex w-2 shrink-0 cursor-col-resize justify-center",
-          isDragging ? "bg-blue-500/20" : "hover:bg-blue-400/10"
-        )}
-      >
-        <div
-          className={cn(
-            "h-full w-1 transition-colors",
-            isDragging
-              ? "bg-blue-500"
-              : "bg-transparent group-hover:bg-blue-400"
-          )}
-        />
-      </div>
-
+    <div className="bg-ink-50 text-ink-900 flex h-screen overflow-hidden font-sans">
       {/* Canvas/Main Content */}
-      <main className="relative flex-1 overflow-hidden">
+      <main className="relative min-w-0 flex-1 overflow-hidden">
         <div className="flex h-full flex-col">
           <div className="relative flex-1 overflow-hidden">
             <StudioCanvas projectId={projectId} workspaceId={workspaceId}>
@@ -135,6 +129,36 @@ export function StudioLayout({
           </div>
         </div>
       </main>
+
+      {/* Resize handle */}
+      <div
+        onMouseDown={handleMouseDown}
+        className={cn(
+          "group z-50 flex w-1.5 shrink-0 cursor-col-resize justify-center",
+          isDragging ? "bg-teal-journey/30" : "hover:bg-teal-journey/20"
+        )}
+      >
+        <div
+          className={cn(
+            "h-full w-px transition-colors",
+            isDragging
+              ? "bg-teal-journey"
+              : "bg-ink-200 group-hover:bg-teal-journey"
+          )}
+        />
+      </div>
+
+      {/* Chat Rail (right side — JourneyMaker pattern) */}
+      <aside
+        className="border-ink-200 shrink-0 border-l bg-white"
+        style={{ width: chatWidth }}
+      >
+        <ScopedChatRail
+          scope="project"
+          scopeId={projectId}
+          scopeName={projectName}
+        />
+      </aside>
     </div>
   )
 }

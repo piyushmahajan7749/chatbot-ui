@@ -80,6 +80,7 @@ export const Sidebar: FC<SidebarProps> = ({ contentType, showSidebar }) => {
         {(() => {
           switch (contentType) {
             case "chats":
+            case "chat-history":
               return renderSidebarContent("chats", chats, chatsFolders)
 
             case "projects":

@@ -22,12 +22,19 @@ import { ChatSecondaryButtons } from "./chat-secondary-buttons"
 
 interface ChatUIProps {
   variant?: "full" | "panel"
+  /**
+   * Optional override for the active chat id. When set, ChatUI loads this chat
+   * directly (used by ScopedChatRail to render a pinned thread inline without
+   * routing). Falls back to the :chatid route param otherwise.
+   */
+  chatId?: string
 }
 
-export const ChatUI: FC<ChatUIProps> = ({ variant = "full" }) => {
+export const ChatUI: FC<ChatUIProps> = ({ variant = "full", chatId }) => {
   useHotkey("o", () => handleNewChat())
 
   const params = useParams()
+  const effectiveChatId = chatId ?? (params.chatid as string | undefined)
 
   const {
     setChatMessages,
@@ -69,7 +76,8 @@ export const ChatUI: FC<ChatUIProps> = ({ variant = "full" }) => {
       setIsAtBottom(true)
     }
 
-    if (params.chatid) {
+    if (effectiveChatId) {
+      setLoading(true)
       fetchData().then(() => {
         handleFocusChatInput()
         setLoading(false)
@@ -77,10 +85,12 @@ export const ChatUI: FC<ChatUIProps> = ({ variant = "full" }) => {
     } else {
       setLoading(false)
     }
-  }, [])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [effectiveChatId])
 
   const fetchMessages = async () => {
-    const fetchedMessages = await getMessagesByChatId(params.chatid as string)
+    if (!effectiveChatId) return
+    const fetchedMessages = await getMessagesByChatId(effectiveChatId)
 
     const imagePromises: Promise<MessageImage>[] = fetchedMessages.flatMap(
       message =>
@@ -125,7 +135,7 @@ export const ChatUI: FC<ChatUIProps> = ({ variant = "full" }) => {
     const uniqueFileItems = messageFileItems.flatMap(item => item.file_items)
     setChatFileItems(uniqueFileItems)
 
-    const chatFiles = await getChatFilesByChatId(params.chatid as string)
+    const chatFiles = await getChatFilesByChatId(effectiveChatId)
 
     setChatFiles(
       chatFiles.files.map(file => ({
@@ -154,7 +164,8 @@ export const ChatUI: FC<ChatUIProps> = ({ variant = "full" }) => {
   }
 
   const fetchChat = async () => {
-    const chat = await getChatById(params.chatid as string)
+    if (!effectiveChatId) return
+    const chat = await getChatById(effectiveChatId)
     if (!chat) return
 
     if (chat.assistant_id) {

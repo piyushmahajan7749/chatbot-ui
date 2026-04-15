@@ -461,6 +461,8 @@ export type Database = {
           name: string
           project_id: string | null
           prompt: string
+          scope: string | null
+          scope_id: string | null
           sharing: string
           temperature: number
           updated_at: string | null
@@ -480,6 +482,8 @@ export type Database = {
           name: string
           project_id?: string | null
           prompt: string
+          scope?: string | null
+          scope_id?: string | null
           sharing?: string
           temperature: number
           updated_at?: string | null
@@ -499,6 +503,8 @@ export type Database = {
           name?: string
           project_id?: string | null
           prompt?: string
+          scope?: string | null
+          scope_id?: string | null
           sharing?: string
           temperature?: number
           updated_at?: string | null
@@ -730,6 +736,7 @@ export type Database = {
           folder_id: string | null
           id: string
           name: string
+          project_id: string | null
           sharing: string
           updated_at: string | null
           user_id: string
@@ -740,6 +747,7 @@ export type Database = {
           folder_id?: string | null
           id?: string
           name: string
+          project_id?: string | null
           sharing?: string
           updated_at?: string | null
           user_id: string
@@ -750,6 +758,7 @@ export type Database = {
           folder_id?: string | null
           id?: string
           name?: string
+          project_id?: string | null
           sharing?: string
           updated_at?: string | null
           user_id?: string
@@ -760,6 +769,13 @@ export type Database = {
             columns: ["folder_id"]
             isOneToOne: false
             referencedRelation: "folders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "designs_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
             referencedColumns: ["id"]
           },
         ]

@@ -1,268 +1,158 @@
-import { SidebarCreateItem } from "../sidebar/items/all/sidebar-create-item"
-import { Input } from "../ui/input"
-import { Label } from "../ui/label"
+"use client"
+
 import { ChatbotUIContext } from "@/context/context"
-import { FC, useContext, useRef, useState, useEffect } from "react"
-import { Tables } from "@/supabase/types"
 import { useDesignContext } from "@/context/designcontext"
-import { TextareaAutosize } from "../ui/textarea-autosize"
-import { Button } from "../ui/button"
-import { Plus, X } from "lucide-react"
+import { createDesign } from "@/db/designs-firestore"
+import { linkDesignToProject } from "@/db/designs"
+import { useParams, useRouter } from "next/navigation"
+import { FC, useContext, useEffect, useRef, useState } from "react"
+import { toast } from "sonner"
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle
+} from "@/components/ui/dialog"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
 
 interface CreateDesignProps {
   isOpen: boolean
   onOpenChange: (isOpen: boolean) => void
+  projectId?: string | null
 }
 
+/**
+ * Simplified Create Design modal: asks only for a name. Description and the
+ * richer metadata (objectives, variables, considerations) are captured later
+ * inside the Design view itself (4-tab canvas). On create we land the user
+ * on /designs/[id] so they see the empty Problem tab ready to fill in.
+ */
 export const CreateDesign: FC<CreateDesignProps> = ({
   isOpen,
-  onOpenChange
+  onOpenChange,
+  projectId
 }) => {
-  const { profile, selectedWorkspace } = useContext(ChatbotUIContext)
+  const { profile, selectedWorkspace, designs, setDesigns } =
+    useContext(ChatbotUIContext)
+  const { setSelectedDesign } = useDesignContext()
 
-  const [problem, setProblem] = useState("")
-  const [description, setDescription] = useState("")
-  const [objective, setObjective] = useState("")
-  const [objectives, setObjectives] = useState<string[]>([])
-  const [variable, setVariable] = useState("")
-  const [variables, setVariables] = useState<string[]>([])
-  const [consideration, setConsideration] = useState("")
-  const [specialConsiderations, setSpecialConsiderations] = useState<string[]>(
-    []
-  )
+  const router = useRouter()
+  const params = useParams()
 
-  const problemInputRef = useRef<HTMLTextAreaElement>(null)
-  const descInputRef = useRef<HTMLTextAreaElement>(null)
+  const [name, setName] = useState("")
+  const [creating, setCreating] = useState(false)
+  const nameRef = useRef<HTMLInputElement>(null)
 
-  // Debug logging for state changes
-  useEffect(() => {
-    console.log("🔧 [CREATE_DESIGN] State updated:")
-    console.log("  Problem:", problem)
-    console.log("  Description:", description)
-    console.log("  Objectives:", objectives)
-    console.log("  Variables:", variables)
-    console.log("  Special Considerations:", specialConsiderations)
-  }, [problem, description, objectives, variables, specialConsiderations])
-
-  const addObjective = () => {
-    if (objective && !objectives.includes(objective)) {
-      console.log("➕ [CREATE_DESIGN] Adding objective:", objective)
-      setObjectives([...objectives, objective])
-      setObjective("")
-    }
-  }
-
-  const removeObjective = (index: number) => {
-    setObjectives(objectives.filter((_, i) => i !== index))
-  }
-
-  const addVariable = () => {
-    if (variable && !variables.includes(variable)) {
-      console.log("➕ [CREATE_DESIGN] Adding variable:", variable)
-      setVariables([...variables, variable])
-      setVariable("")
-    }
-  }
-
-  const removeVariable = (index: number) => {
-    setVariables(variables.filter((_, i) => i !== index))
-  }
-
-  const addConsideration = () => {
-    if (consideration && !specialConsiderations.includes(consideration)) {
-      console.log("➕ [CREATE_DESIGN] Adding consideration:", consideration)
-      setSpecialConsiderations([...specialConsiderations, consideration])
-      setConsideration("")
-    }
-  }
-
-  const removeConsideration = (index: number) => {
-    setSpecialConsiderations(
-      specialConsiderations.filter((_, i) => i !== index)
-    )
-  }
-
-  // Debug the createState before it's passed
-  const createState = {
-    user_id: profile?.user_id || "",
-    problem,
-    name: problem,
-    description,
-    sharing: "private" as const,
-    objectives,
-    variables,
-    specialConsiderations
-  }
-
-  // Log the createState when modal is open and values change
   useEffect(() => {
     if (isOpen) {
-      console.log("📝 [CREATE_DESIGN] Current createState:", createState)
+      setName("")
+      setTimeout(() => nameRef.current?.focus(), 0)
     }
-  }, [
-    isOpen,
-    problem,
-    description,
-    objectives,
-    variables,
-    specialConsiderations
-  ])
+  }, [isOpen])
 
   if (!profile || !selectedWorkspace) return null
 
-  return (
-    <SidebarCreateItem
-      contentType="designs"
-      isTyping={false}
-      createState={createState}
-      isOpen={isOpen}
-      onOpenChange={onOpenChange}
-      renderInputs={() => (
-        <>
-          <div className="space-y-1">
-            <Label>Research Problem</Label>
-            <TextareaAutosize
-              textareaRef={problemInputRef}
-              className="text-md"
-              value={problem}
-              onValueChange={setProblem}
-              minRows={2}
-              maxRows={4}
-            />
-          </div>
+  const handleCreate = async () => {
+    const trimmed = name.trim()
+    if (!trimmed) return
+    setCreating(true)
+    try {
+      const created = await createDesign(
+        {
+          user_id: profile.user_id,
+          name: trimmed,
+          problem: trimmed,
+          // Seed description from name so downstream draft APIs that require
+          // a non-empty description don't fail out of the gate. User edits it
+          // in the Problem tab.
+          description: trimmed,
+          sharing: "private" as const,
+          objectives: [],
+          variables: [],
+          specialConsiderations: []
+        },
+        selectedWorkspace.id
+      )
 
-          <div className="space-y-1 pt-2">
-            <Label>
-              Description <span className="text-destructive">*</span>
-            </Label>
-            <TextareaAutosize
-              textareaRef={descInputRef}
-              className="text-md"
-              value={description}
-              onValueChange={setDescription}
-              minRows={2}
-              maxRows={4}
+      if (projectId && created?.id) {
+        try {
+          await linkDesignToProject(created.id, projectId)
+          created.project_id = projectId
+        } catch (err) {
+          console.warn("Failed to link new design to project:", err)
+        }
+      }
+
+      setDesigns([created, ...designs])
+      setSelectedDesign(created)
+
+      const locale = (params.locale as string) ?? "en"
+      const wsId = params.workspaceid as string
+      // Navigate to the new Design detail view (the 4-tab canvas).
+      // We intentionally do NOT call onOpenChange(false) here: callers that
+      // live under /designs/new use it to route back to /projects on close,
+      // which would race with this push. The source page unmounts on nav.
+      router.push(`/${locale}/${wsId}/designs/${created.id}`)
+    } catch (error) {
+      console.error("Failed to create design:", error)
+      toast.error("Failed to create design.")
+    } finally {
+      setCreating(false)
+    }
+  }
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter" && name.trim() && !creating) {
+      e.preventDefault()
+      void handleCreate()
+    }
+  }
+
+  return (
+    <Dialog open={isOpen} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>New Design</DialogTitle>
+        </DialogHeader>
+
+        <div className="space-y-3 py-2">
+          <div className="space-y-1.5">
+            <Label htmlFor="design-name">Name</Label>
+            <Input
+              id="design-name"
+              ref={nameRef}
+              placeholder="e.g. Effect of pH on enzyme activity"
+              value={name}
+              onChange={e => setName(e.target.value)}
+              onKeyDown={handleKeyDown}
             />
             <p className="text-muted-foreground text-xs">
-              Required. The design draft API won’t run without a description.
+              You can add the problem, literature, hypotheses, and final design
+              in the next view.
             </p>
           </div>
+        </div>
 
-          <div className="space-y-1 pt-2">
-            <Label>Objectives</Label>
-            <div className="flex space-x-2">
-              <Input
-                value={objective}
-                onChange={e => setObjective(e.target.value)}
-                placeholder="Add an objective"
-                onKeyDown={e => {
-                  if (e.key === "Enter") {
-                    e.preventDefault()
-                    addObjective()
-                  }
-                }}
-              />
-              <Button type="button" size="icon" onClick={addObjective}>
-                <Plus className="size-4" />
-              </Button>
-            </div>
-            <div className="mt-2 space-y-1">
-              {objectives.map((obj, index) => (
-                <div
-                  key={index}
-                  className="bg-secondary/50 flex items-center justify-between rounded-md p-2"
-                >
-                  <span className="text-sm">{obj}</span>
-                  <Button
-                    type="button"
-                    size="icon"
-                    variant="ghost"
-                    onClick={() => removeObjective(index)}
-                  >
-                    <X className="size-4" />
-                  </Button>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <div className="space-y-1 pt-2">
-            <Label>Variables</Label>
-            <div className="flex space-x-2">
-              <Input
-                value={variable}
-                onChange={e => setVariable(e.target.value)}
-                placeholder="Add a variable"
-                onKeyDown={e => {
-                  if (e.key === "Enter") {
-                    e.preventDefault()
-                    addVariable()
-                  }
-                }}
-              />
-              <Button type="button" size="icon" onClick={addVariable}>
-                <Plus className="size-4" />
-              </Button>
-            </div>
-            <div className="mt-2 space-y-1">
-              {variables.map((v, index) => (
-                <div
-                  key={index}
-                  className="bg-secondary/50 flex items-center justify-between rounded-md p-2"
-                >
-                  <span className="text-sm">{v}</span>
-                  <Button
-                    type="button"
-                    size="icon"
-                    variant="ghost"
-                    onClick={() => removeVariable(index)}
-                  >
-                    <X className="size-4" />
-                  </Button>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <div className="space-y-1 pt-2">
-            <Label>Special Considerations</Label>
-            <div className="flex space-x-2">
-              <Input
-                value={consideration}
-                onChange={e => setConsideration(e.target.value)}
-                placeholder="Add a consideration"
-                onKeyDown={e => {
-                  if (e.key === "Enter") {
-                    e.preventDefault()
-                    addConsideration()
-                  }
-                }}
-              />
-              <Button type="button" size="icon" onClick={addConsideration}>
-                <Plus className="size-4" />
-              </Button>
-            </div>
-            <div className="mt-2 space-y-1">
-              {specialConsiderations.map((sc, index) => (
-                <div
-                  key={index}
-                  className="bg-secondary/50 flex items-center justify-between rounded-md p-2"
-                >
-                  <span className="text-sm">{sc}</span>
-                  <Button
-                    type="button"
-                    size="icon"
-                    variant="ghost"
-                    onClick={() => removeConsideration(index)}
-                  >
-                    <X className="size-4" />
-                  </Button>
-                </div>
-              ))}
-            </div>
-          </div>
-        </>
-      )}
-    />
+        <DialogFooter>
+          <Button
+            variant="outline"
+            onClick={() => onOpenChange(false)}
+            disabled={creating}
+          >
+            Cancel
+          </Button>
+          <Button
+            onClick={handleCreate}
+            disabled={creating || !name.trim()}
+            className="bg-brick hover:bg-brick-hover"
+          >
+            {creating ? "Creating…" : "Create"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   )
 }
