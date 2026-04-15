@@ -31,6 +31,7 @@ export async function POST(request: Request) {
       id: designId,
       user_id: user.id,
       workspace_id: workspaceId,
+      project_id: design.project_id ?? null,
       name: design.problem || design.name || "",
       description: design.description || "",
       sharing: design.sharing || "private",
@@ -41,7 +42,12 @@ export async function POST(request: Request) {
 
     await adminDb.collection("designs").doc(designId).set(designData)
 
-    console.log("✅ [DESIGNS_API] Design created:", designId)
+    console.log(
+      "✅ [DESIGNS_API] Design created:",
+      designId,
+      "project:",
+      designData.project_id
+    )
     return NextResponse.json({ ...designData, id: designId })
   } catch (error) {
     console.error("❌ [DESIGNS_API] Error creating design:", error)
@@ -67,10 +73,17 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url)
     const workspaceId = searchParams.get("workspaceId")
     const userId = searchParams.get("userId")
+    const projectId = searchParams.get("projectId")
 
-    let query = adminDb.collection("designs")
+    let query: FirebaseFirestore.Query = adminDb.collection("designs")
 
-    if (workspaceId) {
+    if (projectId) {
+      // Backed by composite index (user_id, project_id, created_at) defined
+      // in firestore.indexes.json.
+      query = query
+        .where("user_id", "==", user.id)
+        .where("project_id", "==", projectId)
+    } else if (workspaceId) {
       query = query.where("workspace_id", "==", workspaceId)
     } else if (userId) {
       query = query.where("user_id", "==", userId)

@@ -72,12 +72,17 @@ export const CreateDesign: FC<CreateDesignProps> = ({
           sharing: "private" as const,
           objectives: [],
           variables: [],
-          specialConsiderations: []
+          specialConsiderations: [],
+          // /api/designs persists project_id directly when present, so the
+          // design appears in the Project's Designs tab immediately. We still
+          // run linkDesignToProject below as a belt-and-suspenders safety net
+          // in case anything in the API contract changes.
+          project_id: projectId ?? null
         },
         selectedWorkspace.id
       )
 
-      if (projectId && created?.id) {
+      if (projectId && created?.id && created.project_id !== projectId) {
         try {
           await linkDesignToProject(created.id, projectId)
           created.project_id = projectId

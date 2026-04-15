@@ -16,30 +16,40 @@ export const getDesigns = async (userId: string) => {
   return data as Tables<"designs">[]
 }
 
-export const getDesignsByProject = async (projectId: string) => {
-  const { data, error } = await supabase
-    .from("designs")
-    .select("*")
-    .eq("project_id", projectId)
-    .order("updated_at", { ascending: false })
-
-  if (error) throw new Error(error.message)
-  return (data ?? []) as Tables<"designs">[]
+/**
+ * Designs live in Firestore (see /api/designs and /api/design/[id]). The
+ * earlier Supabase-backed implementation here was dead code: rows were never
+ * being written to the Supabase `designs` table, so project queries always
+ * came back empty. These helpers proxy to the Firestore API instead.
+ */
+export const getDesignsByProject = async (
+  projectId: string
+): Promise<Tables<"designs">[]> => {
+  const res = await fetch(
+    `/api/designs?projectId=${encodeURIComponent(projectId)}`
+  )
+  if (!res.ok) {
+    if (res.status === 401) return []
+    throw new Error(`Failed to fetch designs (${res.status})`)
+  }
+  const json = await res.json()
+  return (json.designs ?? []) as Tables<"designs">[]
 }
 
 export const linkDesignToProject = async (
   designId: string,
   projectId: string | null
-) => {
-  const { data, error } = await supabase
-    .from("designs")
-    .update({ project_id: projectId })
-    .eq("id", designId)
-    .select("*")
-    .single()
-
-  if (error) throw new Error(error.message)
-  return data as Tables<"designs">
+): Promise<Tables<"designs">> => {
+  const res = await fetch(`/api/design/${designId}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ project_id: projectId })
+  })
+  if (!res.ok) {
+    const msg = await res.text().catch(() => "")
+    throw new Error(msg || `Failed to link design (${res.status})`)
+  }
+  return (await res.json()) as Tables<"designs">
 }
 
 export const createDesign = async (
