@@ -19,7 +19,13 @@ import {
   ProjectFiltersComponent,
   ProjectFilters
 } from "@/components/projects/project-filters"
-import { IconPlus, IconEdit, IconTrash, IconFolder } from "@tabler/icons-react"
+import {
+  IconPlus,
+  IconEdit,
+  IconTrash,
+  IconFolder,
+  IconMessagePlus
+} from "@tabler/icons-react"
 import { supabase } from "@/lib/supabase/browser-client"
 import { useToast } from "@/app/hooks/use-toast"
 import {
@@ -255,60 +261,72 @@ export default function ProjectsPage() {
             Projects
           </h1>
         </div>
-        <Dialog open={isCreateModalOpen} onOpenChange={setIsCreateModalOpen}>
-          <DialogTrigger asChild>
-            <Button className="gap-2">
-              <IconPlus size={16} />
-              New Project
-            </Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Create New Project</DialogTitle>
-            </DialogHeader>
-            <div className="space-y-4">
-              <div>
-                <Label htmlFor="name">Project Name</Label>
-                <Input
-                  id="name"
-                  placeholder="Enter project name..."
-                  value={newProjectName}
-                  onChange={e => setNewProjectName(e.target.value)}
-                />
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            className="gap-2"
+            onClick={() =>
+              router.push(`/${params.locale}/${workspaceId}/chat-history`)
+            }
+          >
+            <IconMessagePlus size={16} />
+            New Chat
+          </Button>
+          <Dialog open={isCreateModalOpen} onOpenChange={setIsCreateModalOpen}>
+            <DialogTrigger asChild>
+              <Button className="gap-2">
+                <IconPlus size={16} />
+                New Project
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Create New Project</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-4">
+                <div>
+                  <Label htmlFor="name">Project Name</Label>
+                  <Input
+                    id="name"
+                    placeholder="Enter project name..."
+                    value={newProjectName}
+                    onChange={e => setNewProjectName(e.target.value)}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="description">Description</Label>
+                  <Textarea
+                    id="description"
+                    placeholder="Enter project description..."
+                    value={newProjectDescription}
+                    onChange={e => setNewProjectDescription(e.target.value)}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="tags">Tags (comma-separated)</Label>
+                  <Input
+                    id="tags"
+                    placeholder="molecular biology, cell culture, microscopy..."
+                    value={newProjectTags}
+                    onChange={e => setNewProjectTags(e.target.value)}
+                  />
+                </div>
+                <div className="flex gap-2 pt-4">
+                  <Button onClick={handleCreateProject} className="flex-1">
+                    Create Project
+                  </Button>
+                  <Button
+                    variant="outline"
+                    onClick={() => setIsCreateModalOpen(false)}
+                    className="flex-1"
+                  >
+                    Cancel
+                  </Button>
+                </div>
               </div>
-              <div>
-                <Label htmlFor="description">Description</Label>
-                <Textarea
-                  id="description"
-                  placeholder="Enter project description..."
-                  value={newProjectDescription}
-                  onChange={e => setNewProjectDescription(e.target.value)}
-                />
-              </div>
-              <div>
-                <Label htmlFor="tags">Tags (comma-separated)</Label>
-                <Input
-                  id="tags"
-                  placeholder="molecular biology, cell culture, microscopy..."
-                  value={newProjectTags}
-                  onChange={e => setNewProjectTags(e.target.value)}
-                />
-              </div>
-              <div className="flex gap-2 pt-4">
-                <Button onClick={handleCreateProject} className="flex-1">
-                  Create Project
-                </Button>
-                <Button
-                  variant="outline"
-                  onClick={() => setIsCreateModalOpen(false)}
-                  className="flex-1"
-                >
-                  Cancel
-                </Button>
-              </div>
-            </div>
-          </DialogContent>
-        </Dialog>
+            </DialogContent>
+          </Dialog>
+        </div>
       </div>
 
       {/* Filters */}

@@ -10,7 +10,6 @@ import {
   Settings,
   FolderOpen,
   MessageSquare,
-  File,
   BarChart3,
   ChevronLeft,
   ChevronRight,
@@ -18,8 +17,6 @@ import {
   User,
   FlaskConical,
   Brain,
-  Bot,
-  Library,
   Plus
 } from "lucide-react"
 import { WorkspaceSwitcher } from "@/components/utility/workspace-switcher"
@@ -90,24 +87,6 @@ export const AppSidebar = ({ isCollapsed, onToggle }: AppSidebarProps) => {
       icon: MessageSquare,
       href: `/${wsId}/chat-history`,
       active: pathname.includes("/chat-history")
-    },
-    {
-      title: "Assistants",
-      icon: Bot,
-      href: `/${wsId}?tab=assistants`,
-      active: pathname.includes("tab=assistants")
-    },
-    {
-      title: "Files",
-      icon: File,
-      href: `/${wsId}?tab=files`,
-      active: pathname.includes("tab=files")
-    },
-    {
-      title: "Collections",
-      icon: Library,
-      href: `/${wsId}?tab=collections`,
-      active: pathname.includes("tab=collections")
     }
   ]
 
@@ -254,7 +233,7 @@ export const AppSidebar = ({ isCollapsed, onToggle }: AppSidebarProps) => {
                 onClick={() => setKnowledgeOpen(!knowledgeOpen)}
                 className="mb-2 flex w-full items-center justify-between text-xs font-semibold uppercase tracking-wide text-zinc-500 hover:text-zinc-400"
               >
-                <span>Knowledge</span>
+                <span>Chat History</span>
                 <ChevronDown
                   className={cn(
                     "size-3 transition-transform",
