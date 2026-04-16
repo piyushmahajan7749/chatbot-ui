@@ -10,8 +10,21 @@ const getSupabaseUrl = () =>
     ? `${window.location.origin}/supabase-proxy`
     : process.env.NEXT_PUBLIC_SUPABASE_URL!
 
+// Pin the auth storage key to the project ref so the browser client reads the
+// same cookie the server-side client writes (the auto-derived key would differ
+// when the proxy URL is in use).
+const projectRef = new URL(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!
+).hostname.split(".")[0]
+
 export const createClient = () =>
   createBrowserClient(
     getSupabaseUrl(),
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+    {
+      cookies: {},
+      auth: {
+        storageKey: `sb-${projectRef}-auth-token`
+      }
+    }
   )
