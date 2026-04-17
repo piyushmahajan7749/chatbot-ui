@@ -34,18 +34,24 @@ import {
   IconBulb,
   IconChartBar,
   IconCheck,
+  IconChevronDown,
   IconClipboardText,
   IconDownload,
   IconFlask,
   IconInfoCircle,
   IconLayoutGrid,
+  IconPencil,
   IconPlus,
   IconRefresh,
+  IconSearch,
+  IconSend,
   IconShare,
+  IconSparkles,
   IconStarFilled,
   IconTargetArrow,
   IconTrash,
   IconUpload,
+  IconVariable,
   IconX
 } from "@tabler/icons-react"
 
@@ -89,7 +95,7 @@ export default function DesignDetailPage() {
   const params = useParams()
   const router = useRouter()
   const { toast } = useToast()
-  const { profile } = useContext(ChatbotUIContext)
+  const { profile, setUserInput } = useContext(ChatbotUIContext)
   void profile
 
   const designId = params.designId as string
@@ -130,6 +136,10 @@ export default function DesignDetailPage() {
 
   // Rail toggle
   const [showRail, setShowRail] = useState(false)
+
+  // Agent popover
+  const [agentPopoverOpen, setAgentPopoverOpen] = useState(false)
+  const [agentPrompt, setAgentPrompt] = useState("")
 
   // Autosave debounce for Problem tab
   const problemSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
@@ -700,6 +710,188 @@ export default function DesignDetailPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [approvedPhases, papers, hypotheses, generatedDesigns, problemValid])
 
+  // ── Agent popover helpers ──────────────────────────────────────────
+
+  const sendAgentPrompt = (prompt: string) => {
+    if (!prompt.trim()) return
+    setUserInput(prompt.trim())
+    setShowRail(true)
+    setAgentPopoverOpen(false)
+    setAgentPrompt("")
+  }
+
+  type QuickAction = { label: string; prompt: string; icon: React.ReactNode }
+
+  const QUICK_ACTIONS: Record<
+    string,
+    { heading: string; actions: QuickAction[] }
+  > = {
+    problem: {
+      heading: "Problem Definition",
+      actions: [
+        {
+          label: "Refine problem statement",
+          prompt:
+            "Help me refine and sharpen my problem statement to make it more specific and testable.",
+          icon: <IconPencil size={14} />
+        },
+        {
+          label: "Suggest key variables",
+          prompt:
+            "Based on my problem statement and goal, suggest additional key variables I should consider for this experiment.",
+          icon: <IconVariable size={14} />
+        },
+        {
+          label: "Recommend constraints",
+          prompt:
+            "What practical constraints should I add to make this experiment design more realistic and feasible?",
+          icon: <IconTargetArrow size={14} />
+        },
+        {
+          label: "Clarify research goal",
+          prompt:
+            "Help me clarify and improve my research goal to better guide the experiment design.",
+          icon: <IconBulb size={14} />
+        }
+      ]
+    },
+    literature: {
+      heading: "Literature Search",
+      actions: [
+        {
+          label: "Find more related papers",
+          prompt:
+            "Search for more relevant papers related to my research problem that I might have missed.",
+          icon: <IconSearch size={14} />
+        },
+        {
+          label: "Summarize selected papers",
+          prompt:
+            "Provide a concise summary of the key findings and methodologies from the selected papers.",
+          icon: <IconClipboardText size={14} />
+        },
+        {
+          label: "Identify research gaps",
+          prompt:
+            "Analyze the selected literature and identify gaps or unexplored areas relevant to my problem.",
+          icon: <IconSparkles size={14} />
+        },
+        {
+          label: "Compare methodologies",
+          prompt:
+            "Compare the research methodologies used across the selected papers and highlight their strengths and weaknesses.",
+          icon: <IconBook size={14} />
+        }
+      ]
+    },
+    hypotheses: {
+      heading: "Hypotheses",
+      actions: [
+        {
+          label: "Generate alternative hypotheses",
+          prompt:
+            "Suggest alternative hypotheses I haven't considered based on the literature and problem context.",
+          icon: <IconPlus size={14} />
+        },
+        {
+          label: "Strengthen reasoning",
+          prompt:
+            "Help me strengthen the reasoning and justification behind my selected hypotheses.",
+          icon: <IconBulb size={14} />
+        },
+        {
+          label: "Identify potential confounds",
+          prompt:
+            "What confounding variables or biases might affect the validity of these hypotheses?",
+          icon: <IconInfoCircle size={14} />
+        },
+        {
+          label: "Simplify hypotheses",
+          prompt:
+            "Simplify the language and structure of my hypotheses to make them clearer and more testable.",
+          icon: <IconPencil size={14} />
+        }
+      ]
+    },
+    design: {
+      heading: "Experiment Design",
+      actions: [
+        {
+          label: "Improve methodology",
+          prompt:
+            "Review and suggest improvements to the experimental methodology to strengthen internal validity.",
+          icon: <IconSparkles size={14} />
+        },
+        {
+          label: "Suggest control groups",
+          prompt:
+            "Recommend appropriate control groups and conditions for this experiment design.",
+          icon: <IconFlask size={14} />
+        },
+        {
+          label: "Refine sample size",
+          prompt:
+            "Help me determine an appropriate sample size with a power analysis justification.",
+          icon: <IconChartBar size={14} />
+        },
+        {
+          label: "Strengthen validity",
+          prompt:
+            "How can I improve the internal and external validity of this experiment design?",
+          icon: <IconCheck size={14} />
+        }
+      ]
+    },
+    simulation: {
+      heading: "Simulation",
+      actions: [
+        {
+          label: "Adjust parameters",
+          prompt:
+            "Suggest different parameter values to explore in the simulation for more comprehensive results.",
+          icon: <IconVariable size={14} />
+        },
+        {
+          label: "Run sensitivity analysis",
+          prompt:
+            "Perform a sensitivity analysis to identify which parameters have the most impact on results.",
+          icon: <IconChartBar size={14} />
+        },
+        {
+          label: "Compare scenarios",
+          prompt:
+            "Compare different simulation scenarios and summarize the key differences in outcomes.",
+          icon: <IconClipboardText size={14} />
+        }
+      ]
+    },
+    overview: {
+      heading: "Summary",
+      actions: [
+        {
+          label: "Generate abstract",
+          prompt:
+            "Generate a concise academic abstract summarizing this entire research design.",
+          icon: <IconClipboardText size={14} />
+        },
+        {
+          label: "Summarize findings",
+          prompt:
+            "Summarize the key findings and decisions made across all phases of this design.",
+          icon: <IconSparkles size={14} />
+        },
+        {
+          label: "Identify limitations",
+          prompt:
+            "What are the key limitations of this research design that should be acknowledged?",
+          icon: <IconInfoCircle size={14} />
+        }
+      ]
+    }
+  }
+
+  const currentActions = QUICK_ACTIONS[activeTab] ?? QUICK_ACTIONS.problem
+
   // ── Render ────────────────────────────────────────────────────────────
 
   const rail = (
@@ -796,19 +988,114 @@ export default function DesignDetailPage() {
 
             {/* ── Toolbar actions (right side) ───────────────── */}
             <div className="flex items-center gap-3">
-              {/* Agent toggle */}
-              <Button
-                size="sm"
-                onClick={() => setShowRail(v => !v)}
-                className={
-                  showRail
-                    ? "bg-ink-700 hover:bg-ink-800 gap-1.5 text-white"
-                    : "bg-brick hover:bg-brick-hover gap-1.5 text-white"
-                }
+              {/* Phase progress summary */}
+              <div className="text-ink-400 hidden items-center gap-1.5 text-xs sm:flex">
+                {PHASE_ORDER.map((phase, i) => {
+                  const state = getPhaseState(phase)
+                  return (
+                    <span key={phase} className="flex items-center gap-1.5">
+                      {i > 0 && <span className="text-ink-200">&#8594;</span>}
+                      <span
+                        className={
+                          state === "approved"
+                            ? "font-semibold text-emerald-600"
+                            : state === "review"
+                              ? "font-semibold text-amber-500"
+                              : state === "active"
+                                ? "text-ink-600"
+                                : "text-ink-300"
+                        }
+                      >
+                        {phase === "problem"
+                          ? "P"
+                          : phase === "literature"
+                            ? "L"
+                            : phase === "hypotheses"
+                              ? "H"
+                              : phase === "design"
+                                ? "D"
+                                : "S"}
+                      </span>
+                    </span>
+                  )
+                })}
+              </div>
+
+              <div className="bg-ink-200 hidden h-6 w-px sm:block" />
+
+              {/* Agent popover */}
+              <Popover
+                open={agentPopoverOpen}
+                onOpenChange={setAgentPopoverOpen}
               >
-                <IconStarFilled size={14} />
-                Agent
-              </Button>
+                <PopoverTrigger asChild>
+                  <Button
+                    size="sm"
+                    className={
+                      showRail
+                        ? "bg-ink-700 hover:bg-ink-800 gap-1.5 text-white"
+                        : "bg-brick hover:bg-brick-hover gap-1.5 text-white"
+                    }
+                  >
+                    <IconStarFilled size={14} />
+                    Agent
+                    <IconChevronDown size={14} />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent
+                  align="end"
+                  className="w-[400px] p-0"
+                  sideOffset={8}
+                >
+                  {/* Input area */}
+                  <div className="border-ink-200 border-b p-4">
+                    <div className="text-ink-500 mb-2 text-[11px] font-semibold uppercase tracking-wide">
+                      Ask the agent
+                    </div>
+                    <div className="border-ink-200 focus-within:border-brick flex items-start gap-2 rounded-lg border p-3 transition-colors">
+                      <Textarea
+                        value={agentPrompt}
+                        onChange={e => setAgentPrompt(e.target.value)}
+                        placeholder="Ask me to refine, analyze, or improve anything…"
+                        rows={2}
+                        className="min-h-[48px] flex-1 resize-none border-none p-0 text-sm shadow-none focus-visible:ring-0"
+                        onKeyDown={e => {
+                          if (e.key === "Enter" && !e.shiftKey) {
+                            e.preventDefault()
+                            sendAgentPrompt(agentPrompt)
+                          }
+                        }}
+                      />
+                      <button
+                        onClick={() => sendAgentPrompt(agentPrompt)}
+                        disabled={!agentPrompt.trim()}
+                        className="text-ink-400 hover:text-brick disabled:text-ink-200 mt-1 shrink-0 transition-colors"
+                      >
+                        <IconSend size={18} />
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Quick actions */}
+                  <div className="p-4">
+                    <div className="text-ink-400 mb-2 text-[10px] font-bold uppercase tracking-widest">
+                      {currentActions.heading}
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      {currentActions.actions.map(action => (
+                        <button
+                          key={action.label}
+                          onClick={() => sendAgentPrompt(action.prompt)}
+                          className="border-ink-200 text-ink-700 hover:border-brick hover:text-brick hover:bg-brick/5 flex items-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-medium transition-colors"
+                        >
+                          {action.icon}
+                          {action.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </PopoverContent>
+              </Popover>
             </div>
           </div>
         </div>

@@ -4,7 +4,13 @@ import { useContext, useEffect, useMemo, useState } from "react"
 import { useParams, useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger
+} from "@/components/ui/popover"
 import { EntityCard } from "@/components/cards/entity-card"
 import { Skeleton } from "@/components/ui/skeleton"
 import { ErrorBoundary } from "@/components/ui/error-boundary"
@@ -17,6 +23,8 @@ import type { Tables } from "@/supabase/types"
 import { Project } from "@/types/project"
 import { ProjectSettingsModal } from "./project-settings-modal"
 import {
+  IconBulb,
+  IconChevronDown,
   IconClipboardText,
   IconEdit,
   IconFlask,
@@ -25,6 +33,8 @@ import {
   IconPlus,
   IconReport,
   IconSearch,
+  IconSend,
+  IconSparkles,
   IconStarFilled
 } from "@tabler/icons-react"
 import { useToast } from "@/app/hooks/use-toast"
@@ -60,7 +70,7 @@ export function StudioCanvas({
   const params = useParams()
   const router = useRouter()
   const { toast } = useToast()
-  const { profile, selectedWorkspace, chatSettings } =
+  const { profile, selectedWorkspace, chatSettings, setUserInput } =
     useContext(ChatbotUIContext)
 
   const [project, setProject] = useState<Project | null>(null)
@@ -72,6 +82,18 @@ export function StudioCanvas({
   const [search, setSearch] = useState("")
   const [activeTab, setActiveTab] = useState<TabKey>("designs")
   const [creatingChat, setCreatingChat] = useState(false)
+
+  // Agent popover
+  const [agentPopoverOpen, setAgentPopoverOpen] = useState(false)
+  const [agentPrompt, setAgentPrompt] = useState("")
+
+  const sendAgentPrompt = (prompt: string) => {
+    if (!prompt.trim()) return
+    setUserInput(prompt.trim())
+    if (!showRail) onToggleRail?.()
+    setAgentPopoverOpen(false)
+    setAgentPrompt("")
+  }
 
   const actualProjectId = projectId || (params.projectId as string)
   const actualWorkspaceId = workspaceId || (params.workspaceid as string)
@@ -415,20 +437,105 @@ export function StudioCanvas({
               )}
             </div>
 
-            {/* Agent toggle */}
+            {/* Agent popover */}
             {onToggleRail && (
-              <Button
-                size="sm"
-                onClick={onToggleRail}
-                className={
-                  showRail
-                    ? "bg-ink-700 hover:bg-ink-800 gap-1.5 text-white"
-                    : "bg-brick hover:bg-brick-hover gap-1.5 text-white"
-                }
+              <Popover
+                open={agentPopoverOpen}
+                onOpenChange={setAgentPopoverOpen}
               >
-                <IconStarFilled size={14} />
-                Agent
-              </Button>
+                <PopoverTrigger asChild>
+                  <Button
+                    size="sm"
+                    className={
+                      showRail
+                        ? "bg-ink-700 hover:bg-ink-800 gap-1.5 text-white"
+                        : "bg-brick hover:bg-brick-hover gap-1.5 text-white"
+                    }
+                  >
+                    <IconStarFilled size={14} />
+                    Agent
+                    <IconChevronDown size={14} />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent
+                  align="end"
+                  className="w-[400px] p-0"
+                  sideOffset={8}
+                >
+                  {/* Input area */}
+                  <div className="border-ink-200 border-b p-4">
+                    <div className="text-ink-500 mb-2 text-[11px] font-semibold uppercase tracking-wide">
+                      Ask the agent
+                    </div>
+                    <div className="border-ink-200 focus-within:border-brick flex items-start gap-2 rounded-lg border p-3 transition-colors">
+                      <Textarea
+                        value={agentPrompt}
+                        onChange={e => setAgentPrompt(e.target.value)}
+                        placeholder="Ask me to help with your project…"
+                        rows={2}
+                        className="min-h-[48px] flex-1 resize-none border-none p-0 text-sm shadow-none focus-visible:ring-0"
+                        onKeyDown={e => {
+                          if (e.key === "Enter" && !e.shiftKey) {
+                            e.preventDefault()
+                            sendAgentPrompt(agentPrompt)
+                          }
+                        }}
+                      />
+                      <button
+                        onClick={() => sendAgentPrompt(agentPrompt)}
+                        disabled={!agentPrompt.trim()}
+                        className="text-ink-400 hover:text-brick disabled:text-ink-200 mt-1 shrink-0 transition-colors"
+                      >
+                        <IconSend size={18} />
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Quick actions */}
+                  <div className="p-4">
+                    <div className="text-ink-400 mb-2 text-[10px] font-bold uppercase tracking-widest">
+                      Project
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      {[
+                        {
+                          label: "Summarize progress",
+                          prompt:
+                            "Summarize the current progress across all designs in this project.",
+                          icon: <IconClipboardText size={14} />
+                        },
+                        {
+                          label: "Suggest next steps",
+                          prompt:
+                            "Based on the current state of this project, what should I focus on next?",
+                          icon: <IconBulb size={14} />
+                        },
+                        {
+                          label: "Compare designs",
+                          prompt:
+                            "Compare the designs in this project and highlight their key differences.",
+                          icon: <IconFlask size={14} />
+                        },
+                        {
+                          label: "Generate insights",
+                          prompt:
+                            "Analyze this project and generate key insights or patterns across the research.",
+                          icon: <IconSparkles size={14} />
+                        }
+                      ].map(action => (
+                        <button
+                          key={action.label}
+                          onClick={() => sendAgentPrompt(action.prompt)}
+                          className="border-ink-200 text-ink-700 hover:border-brick hover:text-brick hover:bg-brick/5 flex items-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-medium transition-colors"
+                        >
+                          {action.icon}
+                          {action.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </PopoverContent>
+              </Popover>
             )}
           </div>
         </div>
