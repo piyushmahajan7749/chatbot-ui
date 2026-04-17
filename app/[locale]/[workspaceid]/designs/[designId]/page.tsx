@@ -1023,25 +1023,40 @@ export default function DesignDetailPage() {
 
               <div className="bg-ink-200 hidden h-6 w-px sm:block" />
 
-              {/* Agent popover */}
+              {/* Agent: split button — star/label toggles rail, chevron opens popover */}
               <Popover
                 open={agentPopoverOpen}
                 onOpenChange={setAgentPopoverOpen}
               >
-                <PopoverTrigger asChild>
-                  <Button
-                    size="sm"
+                <div
+                  className={
+                    "flex h-9 items-stretch overflow-hidden rounded-md " +
+                    (showRail ? "bg-ink-700" : "bg-brick")
+                  }
+                >
+                  <button
+                    onClick={() => setShowRail(v => !v)}
                     className={
-                      showRail
-                        ? "bg-ink-700 hover:bg-ink-800 gap-1.5 text-white"
-                        : "bg-brick hover:bg-brick-hover gap-1.5 text-white"
+                      "flex items-center gap-1.5 px-3 text-xs font-medium text-white transition-colors " +
+                      (showRail ? "hover:bg-ink-800" : "hover:bg-brick-hover")
                     }
                   >
                     <IconStarFilled size={14} />
                     Agent
-                    <IconChevronDown size={14} />
-                  </Button>
-                </PopoverTrigger>
+                  </button>
+                  <div className="w-px bg-white/25" />
+                  <PopoverTrigger asChild>
+                    <button
+                      className={
+                        "flex items-center px-2 text-white transition-colors " +
+                        (showRail ? "hover:bg-ink-800" : "hover:bg-brick-hover")
+                      }
+                      aria-label="Open agent actions"
+                    >
+                      <IconChevronDown size={14} />
+                    </button>
+                  </PopoverTrigger>
+                </div>
                 <PopoverContent
                   align="end"
                   className="w-[400px] p-0"
