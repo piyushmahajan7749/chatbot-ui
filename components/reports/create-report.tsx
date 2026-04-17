@@ -1,12 +1,20 @@
-import { SidebarCreateItem } from "../sidebar/items/all/sidebar-create-item"
-import { Input } from "../ui/input"
-import { Label } from "../ui/label"
-import { ChatbotUIContext } from "../../context/context"
-import { FC, useContext, useState } from "react"
-import { Tables, TablesInsert } from "@/supabase/types"
-import { REPORT_DESCRIPTION_MAX } from "@/db/limits"
-import { ReportRetrievalSelect } from "./report-retrieval-select"
-import { useReportContext } from "@/context/reportcontext"
+"use client"
+
+import { ChatbotUIContext } from "@/context/context"
+import { createReport } from "@/db/reports-firestore"
+import { useParams, useRouter } from "next/navigation"
+import { FC, useContext, useEffect, useRef, useState } from "react"
+import { toast } from "sonner"
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle
+} from "@/components/ui/dialog"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
 
 interface CreateReportProps {
   isOpen: boolean
@@ -19,117 +27,107 @@ export const CreateReport: FC<CreateReportProps> = ({
   onOpenChange,
   projectId
 }) => {
-  const { profile, selectedWorkspace } = useContext(ChatbotUIContext)
+  const { profile, selectedWorkspace, setReports } =
+    useContext(ChatbotUIContext)
+
+  const router = useRouter()
+  const params = useParams()
 
   const [name, setName] = useState("")
-  const [description, setDescription] = useState("")
-  const [selectedFiles, setSelectedFiles] = useState<{
-    protocol: Tables<"files">[]
-    papers: Tables<"files">[]
-    dataFiles: Tables<"files">[]
-  }>({
-    protocol: [],
-    papers: [],
-    dataFiles: []
-  })
+  const [creating, setCreating] = useState(false)
+  const nameRef = useRef<HTMLInputElement>(null)
 
-  const handleFileSelect = (
-    fileType: "protocol" | "papers" | "dataFiles",
-    item: Tables<"files">
-  ) => {
-    setSelectedFiles(prev => {
-      // For protocol, only allow one file
-      if (fileType === "protocol") {
-        return {
-          ...prev,
-          [fileType]: [item]
-        }
-      }
-
-      // For other types, allow multiple files
-      const currentFiles = prev[fileType]
-      const isItemSelected = currentFiles.find(file => file.id === item.id)
-
-      return {
-        ...prev,
-        [fileType]: isItemSelected
-          ? currentFiles.filter(file => file.id !== item.id)
-          : [...currentFiles, item]
-      }
-    })
-  }
+  useEffect(() => {
+    if (isOpen) {
+      setName("")
+      setTimeout(() => nameRef.current?.focus(), 0)
+    }
+  }, [isOpen])
 
   if (!profile || !selectedWorkspace) return null
 
+  const handleCreate = async () => {
+    const trimmed = name.trim()
+    if (!trimmed) return
+    setCreating(true)
+    try {
+      const created = await createReport(
+        {
+          user_id: profile.user_id,
+          name: trimmed,
+          description: "",
+          sharing: "private",
+          project_id: projectId ?? null
+        },
+        selectedWorkspace.id,
+        { protocol: [], papers: [], dataFiles: [] },
+        []
+      )
+
+      setReports(prev => [created, ...prev])
+
+      const locale = (params.locale as string) ?? "en"
+      const wsId = params.workspaceid as string
+      router.push(`/${locale}/${wsId}/reports/${created.id}`)
+    } catch (error: any) {
+      console.error("Failed to create report:", error)
+      toast.error(
+        `Failed to create report: ${error?.message || "Unknown error"}`
+      )
+    } finally {
+      setCreating(false)
+    }
+  }
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter" && name.trim() && !creating) {
+      e.preventDefault()
+      void handleCreate()
+    }
+  }
+
   return (
-    <SidebarCreateItem
-      contentType="reports"
-      isTyping={false}
-      createState={{
-        user_id: profile.user_id,
-        name,
-        description,
-        sharing: "private",
-        workspace_id: selectedWorkspace.id,
-        project_id: projectId || null,
-        files: selectedFiles
-      }}
-      isOpen={isOpen}
-      onOpenChange={onOpenChange}
-      renderInputs={() => (
-        <>
-          <div className="space-y-1">
-            <Label>Name</Label>
+    <Dialog open={isOpen} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>New Report</DialogTitle>
+        </DialogHeader>
+
+        <div className="space-y-3 py-2">
+          <div className="space-y-1.5">
+            <Label htmlFor="report-name">Name</Label>
             <Input
-              placeholder="Report name..."
+              id="report-name"
+              ref={nameRef}
+              placeholder="e.g. pH effect on enzyme activity"
               value={name}
               onChange={e => setName(e.target.value)}
+              onKeyDown={handleKeyDown}
             />
+            <p className="text-muted-foreground text-xs">
+              You can add the objective, protocol, papers, and data files in the
+              next view before generating the report.
+            </p>
           </div>
+        </div>
 
-          <div className="space-y-1 pt-2">
-            <Label>Objective</Label>
-            <Input
-              placeholder="Experiment objective..."
-              value={description}
-              onChange={e => setDescription(e.target.value)}
-            />
-          </div>
-
-          <div className="space-y-1 pt-2">
-            <Label>Protocol</Label>
-            <ReportRetrievalSelect
-              selectedRetrievalItems={selectedFiles.protocol}
-              onRetrievalItemSelect={item =>
-                handleFileSelect("protocol", item as Tables<"files">)
-              }
-              fileType="protocol"
-            />
-          </div>
-
-          <div className="space-y-1 pt-2">
-            <Label>Preparation Files</Label>
-            <ReportRetrievalSelect
-              selectedRetrievalItems={selectedFiles.papers}
-              onRetrievalItemSelect={item =>
-                handleFileSelect("papers", item as Tables<"files">)
-              }
-              fileType="papers"
-            />
-          </div>
-
-          <div className="space-y-1 pt-2">
-            <Label>Data Files</Label>
-            <ReportRetrievalSelect
-              selectedRetrievalItems={selectedFiles.dataFiles}
-              onRetrievalItemSelect={item =>
-                handleFileSelect("dataFiles", item as Tables<"files">)
-              }
-              fileType="dataFiles"
-            />
-          </div>
-        </>
-      )}
-    />
+        <DialogFooter>
+          <Button
+            variant="outline"
+            onClick={() => onOpenChange(false)}
+            disabled={creating}
+          >
+            Cancel
+          </Button>
+          <Button
+            onClick={handleCreate}
+            disabled={creating || !name.trim()}
+            className="bg-brick hover:bg-brick-hover"
+          >
+            {creating ? "Creating…" : "Create"}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   )
 }

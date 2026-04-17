@@ -293,9 +293,21 @@ export const SidebarCreateItem: FC<SidebarCreateItemProps> = ({
 
           setReports((prevItems: any) => [...prevItems, newReport])
 
-          const reportUrl = `/${selectedWorkspace.id}/report/${newReport.id}`
+          const reportUrl = `/${selectedWorkspace.id}/reports/${newReport.id}`
           router.push(reportUrl)
           onOpenChange(false)
+
+          const files = createState?.files || {}
+          const hasInputs =
+            !!(newReport?.description || createState?.description) &&
+            (files?.protocol?.length || 0) > 0
+
+          // If the caller didn't provide inputs, land the user on the detail
+          // page in an "empty" state — the Inputs tab will trigger generation.
+          if (!hasInputs) {
+            setCreating(false)
+            return
+          }
 
           toast.loading("Generating report draft...", {
             id: `report-generate-${newReport.id}`,
@@ -309,7 +321,6 @@ export const SidebarCreateItem: FC<SidebarCreateItemProps> = ({
             generation_error: null
           }).catch(() => {})
 
-          const files = createState?.files || {}
           const payload = {
             experimentObjective:
               newReport?.description || createState?.description || "",

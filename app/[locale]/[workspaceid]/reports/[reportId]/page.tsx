@@ -1,23 +1,64 @@
 "use client"
 
-import { useEffect, useState, useContext } from "react"
+import { useEffect, useMemo, useRef, useState, useContext } from "react"
 import { useParams, useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { getReportById } from "@/db/reports-firestore"
-import { useToast } from "@/app/hooks/use-toast"
+import { AccentTabs, type TabStatus } from "@/components/canvas/accent-tabs"
 import { ChatbotUIContext } from "@/context/context"
+import { useToast } from "@/app/hooks/use-toast"
 import { ELNExportModal } from "@/components/eln/eln-export-modal"
 import { ELNConnectModal } from "@/components/eln/eln-connect-modal"
 import { ELNConnection } from "@/types/eln"
 import { getELNConnections } from "@/db/eln-connections"
+import { getReportById, updateReport } from "@/db/reports-firestore"
+import { Tables } from "@/supabase/types"
+import { toast as sonnerToast } from "sonner"
 import {
   IconArrowLeft,
+  IconBulb,
+  IconChartBar,
   IconClock,
-  IconDownload,
-  IconReport
+  IconFlask,
+  IconLayoutGrid,
+  IconUpload
 } from "@tabler/icons-react"
-import { FlaskConical, Download } from "lucide-react"
+import { FlaskConical, Download, Copy } from "lucide-react"
+import {
+  OverviewTab,
+  type ReportTab
+} from "@/components/reports/tabs/overview-tab"
+import { InputsTab } from "@/components/reports/tabs/inputs-tab"
+import { TheoryTab } from "@/components/reports/tabs/theory-tab"
+import { MethodTab } from "@/components/reports/tabs/method-tab"
+import { AnalysisTab } from "@/components/reports/tabs/analysis-tab"
+
+type Draft = Record<string, any>
+
+type GenerationStatus = "idle" | "generating" | "ready" | "error"
+
+function getGenerationStatus(report: any): GenerationStatus {
+  const raw = report?.generation_status
+  if (raw === "generating") return "generating"
+  if (raw === "error") return "error"
+  if (report?.report_draft) return "ready"
+  if (raw === "ready") return "ready"
+  return "idle"
+}
+
+function draftToText(draft: Draft | null): string {
+  if (!draft) return ""
+  return Object.entries(draft)
+    .filter(([key, value]) => value && key !== "_chartData")
+    .map(([key, value]) => {
+      const title = key
+        .replace(/([A-Z])/g, " $1")
+        .replace(/^./, s => s.toUpperCase())
+      const text =
+        typeof value === "string" ? value : JSON.stringify(value, null, 2)
+      return `## ${title}\n\n${text}`
+    })
+    .join("\n\n")
+}
 
 export default function ReportDetailPage() {
   const params = useParams()
@@ -30,22 +71,30 @@ export default function ReportDetailPage() {
 
   const [report, setReport] = useState<any>(null)
   const [loading, setLoading] = useState(true)
+  const [activeTab, setActiveTab] = useState<ReportTab>("overview")
 
-  // ELN Integration state
+  const [objective, setObjective] = useState("")
+  const [protocolFiles, setProtocolFiles] = useState<Tables<"files">[]>([])
+  const [paperFiles, setPaperFiles] = useState<Tables<"files">[]>([])
+  const [dataFiles, setDataFilesState] = useState<Tables<"files">[]>([])
+
+  const [isGenerating, setIsGenerating] = useState(false)
+  const [regeneratingKey, setRegeneratingKey] = useState<string | null>(null)
+
   const [elnConnections, setElnConnections] = useState<ELNConnection[]>([])
   const [showELNExportModal, setShowELNExportModal] = useState(false)
   const [showELNConnectModal, setShowELNConnectModal] = useState(false)
   const [loadingConnections, setLoadingConnections] = useState(false)
 
+  const objectiveSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+
   useEffect(() => {
-    if (reportId) {
-      fetchReport()
-    }
+    if (reportId) void fetchReport()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [reportId])
 
-  // Load ELN connections
   useEffect(() => {
-    const loadELNConnections = async () => {
+    const load = async () => {
       if (!profile?.user_id) return
       setLoadingConnections(true)
       try {
@@ -57,39 +106,22 @@ export default function ReportDetailPage() {
         setLoadingConnections(false)
       }
     }
-    loadELNConnections()
+    void load()
   }, [profile?.user_id])
 
-  const handleELNExport = () => {
-    if (elnConnections.length === 0) {
-      setShowELNConnectModal(true)
-    } else {
-      setShowELNExportModal(true)
-    }
-  }
+  // Poll while generation is running so sublabels / tab content update.
+  useEffect(() => {
+    if (report?.generation_status !== "generating") return
+    const interval = setInterval(() => {
+      void fetchReport({ silent: true })
+    }, 3000)
+    return () => clearInterval(interval)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [report?.generation_status])
 
-  const handleConnectionCreated = (connection: ELNConnection) => {
-    setElnConnections(prev => [...prev, connection])
-    setShowELNExportModal(true)
-  }
-
-  const handleDownload = () => {
-    if (!report) return
-    const content =
-      renderContent(report.report_draft) || renderContent(report.report_outline)
-    if (!content) return
-    const blob = new Blob([content], { type: "text/plain" })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement("a")
-    a.href = url
-    a.download = `${report.name || "report"}.txt`
-    a.click()
-    URL.revokeObjectURL(url)
-  }
-
-  const fetchReport = async () => {
+  const fetchReport = async ({ silent }: { silent?: boolean } = {}) => {
     try {
-      setLoading(true)
+      if (!silent) setLoading(true)
       const data = await getReportById(reportId)
       if (!data) {
         toast({
@@ -101,6 +133,10 @@ export default function ReportDetailPage() {
         return
       }
       setReport(data)
+      setObjective(data.description ?? "")
+      setProtocolFiles(data.files?.protocol ?? [])
+      setPaperFiles(data.files?.papers ?? [])
+      setDataFilesState(data.files?.dataFiles ?? [])
     } catch (error) {
       console.error("Error fetching report:", error)
       toast({
@@ -109,8 +145,207 @@ export default function ReportDetailPage() {
         variant: "destructive"
       })
     } finally {
-      setLoading(false)
+      if (!silent) setLoading(false)
     }
+  }
+
+  const generationStatus = getGenerationStatus(report)
+  const draft: Draft | null =
+    report?.report_draft && typeof report.report_draft === "object"
+      ? (report.report_draft as Draft)
+      : null
+  const hasDraft = !!draft
+  const fileCount = protocolFiles.length + paperFiles.length + dataFiles.length
+
+  const handleObjectiveChange = (value: string) => {
+    setObjective(value)
+    if (objectiveSaveTimer.current) clearTimeout(objectiveSaveTimer.current)
+    objectiveSaveTimer.current = setTimeout(() => {
+      updateReport(reportId, { description: value }).catch(err => {
+        console.warn("Failed to save objective:", err)
+      })
+    }, 600)
+  }
+
+  const persistFiles = (next: {
+    protocol: Tables<"files">[]
+    papers: Tables<"files">[]
+    dataFiles: Tables<"files">[]
+  }) => {
+    updateReport(reportId, { files: next }).catch(err => {
+      console.warn("Failed to save files:", err)
+    })
+  }
+
+  const handleToggleFile = (
+    type: "protocol" | "papers" | "dataFiles",
+    item: Tables<"files">
+  ) => {
+    if (type === "protocol") {
+      const next = [item]
+      setProtocolFiles(next)
+      persistFiles({ protocol: next, papers: paperFiles, dataFiles })
+      return
+    }
+    const current = type === "papers" ? paperFiles : dataFiles
+    const setter = type === "papers" ? setPaperFiles : setDataFilesState
+    const exists = current.some(f => f.id === item.id)
+    const next = exists
+      ? current.filter(f => f.id !== item.id)
+      : [...current, item]
+    setter(next)
+    persistFiles({
+      protocol: protocolFiles,
+      papers: type === "papers" ? next : paperFiles,
+      dataFiles: type === "dataFiles" ? next : dataFiles
+    })
+  }
+
+  const handleGenerate = async () => {
+    if (!objective.trim() || protocolFiles.length === 0) return
+    setIsGenerating(true)
+    const toastId = `report-generate-${reportId}`
+    sonnerToast.loading("Generating report draft…", {
+      id: toastId,
+      duration: Infinity
+    })
+    try {
+      await updateReport(reportId, {
+        description: objective,
+        files: {
+          protocol: protocolFiles,
+          papers: paperFiles,
+          dataFiles
+        },
+        generation_status: "generating",
+        generation_started_at: new Date().toISOString(),
+        generation_error: null
+      })
+      setReport((prev: any) => ({
+        ...prev,
+        description: objective,
+        generation_status: "generating"
+      }))
+
+      const response = await fetch("/api/report/outline", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          experimentObjective: objective,
+          protocol: protocolFiles.map(f => f.id),
+          papers: paperFiles.map(f => f.id),
+          dataFiles: dataFiles.map(f => f.id)
+        })
+      })
+      if (!response.ok) {
+        throw new Error(`Generation failed (${response.status})`)
+      }
+      const data = await response.json()
+      if (!data?.reportOutline || !data?.reportDraft) {
+        throw new Error("Generation returned no output")
+      }
+
+      await updateReport(reportId, {
+        report_outline: data.reportOutline,
+        report_draft: data.reportDraft,
+        chart_image: data.chartImage || null,
+        chart_data: data.chartData || null,
+        generation_status: "ready",
+        generation_completed_at: new Date().toISOString(),
+        generation_error: null
+      })
+      await fetchReport({ silent: true })
+
+      sonnerToast.success("Report draft generated.", {
+        id: toastId,
+        duration: 5000
+      })
+      setActiveTab("theory")
+    } catch (error: any) {
+      console.error("Report generation failed:", error)
+      const message = error?.message || "Unknown error"
+      await updateReport(reportId, {
+        generation_status: "error",
+        generation_error: message,
+        generation_completed_at: new Date().toISOString()
+      }).catch(() => {})
+      await fetchReport({ silent: true })
+      sonnerToast.error(`Report generation failed: ${message}`, {
+        id: toastId,
+        duration: 7000
+      })
+    } finally {
+      setIsGenerating(false)
+    }
+  }
+
+  const handleRegenerateSection = async (
+    sectionKey: string,
+    feedback: string
+  ) => {
+    if (!draft) return
+    setRegeneratingKey(sectionKey)
+    try {
+      const response = await fetch("/api/report/regenerate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          sectionName: sectionKey,
+          currentContent: draft[sectionKey] ?? "",
+          userFeedback: feedback
+        })
+      })
+      if (!response.ok) {
+        throw new Error(`Regeneration failed (${response.status})`)
+      }
+      const data = await response.json()
+      const nextDraft = {
+        ...draft,
+        [sectionKey]: data.regeneratedContent ?? draft[sectionKey]
+      }
+      await updateReport(reportId, { report_draft: nextDraft })
+      setReport((prev: any) => ({ ...prev, report_draft: nextDraft }))
+      sonnerToast.success("Section regenerated.")
+    } catch (error: any) {
+      console.error("Section regenerate failed:", error)
+      sonnerToast.error(
+        `Regeneration failed: ${error?.message || "Unknown error"}`
+      )
+    } finally {
+      setRegeneratingKey(null)
+    }
+  }
+
+  const handleELNExport = () => {
+    if (elnConnections.length === 0) setShowELNConnectModal(true)
+    else setShowELNExportModal(true)
+  }
+
+  const handleConnectionCreated = (connection: ELNConnection) => {
+    setElnConnections(prev => [...prev, connection])
+    setShowELNExportModal(true)
+  }
+
+  const draftText = draftToText(draft)
+
+  const handleDownload = () => {
+    if (!report || !draftText) return
+    const blob = new Blob([draftText], { type: "text/plain" })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement("a")
+    a.href = url
+    a.download = `${report.name || "report"}.txt`
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+
+  const handleCopy = async () => {
+    if (!draftText) return
+    await navigator.clipboard.writeText(draftText)
+    toast({
+      title: "Copied",
+      description: "Report copied to clipboard."
+    })
   }
 
   const getTimeAgo = (date: string): string => {
@@ -126,78 +361,155 @@ export default function ReportDetailPage() {
     return new Date(date).toLocaleDateString()
   }
 
+  const tabDefs = useMemo(() => {
+    const sublabelForContent = (keys: string[]) => {
+      if (generationStatus === "generating") return "Generating…"
+      if (!draft) return "Pending"
+      return keys.some(k => draft[k]) ? "Ready" : "Empty"
+    }
+
+    return [
+      {
+        key: "overview",
+        label: "Overview",
+        sublabel: report?.name || "Untitled report",
+        accent: "teal-journey" as const,
+        icon: <IconLayoutGrid size={20} />,
+        disabled: false,
+        status: undefined as TabStatus | undefined,
+        primary: true
+      },
+      {
+        key: "inputs",
+        label: "Inputs",
+        sublabel: fileCount
+          ? `${fileCount} file${fileCount === 1 ? "" : "s"}`
+          : "Add inputs",
+        accent: "neutral" as const,
+        icon: <IconUpload size={18} />,
+        disabled: false,
+        status: (protocolFiles.length > 0 && objective.trim()
+          ? "review"
+          : "active") as TabStatus
+      },
+      {
+        key: "theory",
+        label: "Theory",
+        sublabel: sublabelForContent(["aim", "introduction", "principle"]),
+        accent: "purple-persona" as const,
+        icon: <IconBulb size={18} />,
+        disabled: false,
+        status: (draft && (draft.aim || draft.introduction || draft.principle)
+          ? "review"
+          : "active") as TabStatus
+      },
+      {
+        key: "method",
+        label: "Method",
+        sublabel: sublabelForContent([
+          "material",
+          "preparation",
+          "procedure",
+          "setup"
+        ]),
+        accent: "orange-product" as const,
+        icon: <IconFlask size={18} />,
+        disabled: false,
+        status: (draft &&
+        (draft.material || draft.preparation || draft.procedure || draft.setup)
+          ? "review"
+          : "active") as TabStatus
+      },
+      {
+        key: "analysis",
+        label: "Analysis",
+        sublabel: sublabelForContent([
+          "dataAnalysis",
+          "results",
+          "discussion",
+          "conclusion",
+          "nextSteps"
+        ]),
+        accent: "sage-brand" as const,
+        icon: <IconChartBar size={18} />,
+        disabled: false,
+        status: (draft &&
+        (draft.dataAnalysis ||
+          draft.results ||
+          draft.discussion ||
+          draft.conclusion ||
+          draft.nextSteps ||
+          report?.chart_image)
+          ? "review"
+          : "active") as TabStatus
+      }
+    ]
+  }, [
+    report,
+    draft,
+    fileCount,
+    generationStatus,
+    protocolFiles.length,
+    objective
+  ])
+
   if (loading) {
     return (
-      <div className="flex h-full items-center justify-center bg-slate-50">
-        <div className="size-8 animate-spin rounded-full border-2 border-zinc-300 border-t-blue-500" />
+      <div className="bg-ink-50 flex h-full items-center justify-center">
+        <div className="border-ink-200 border-t-teal-journey size-8 animate-spin rounded-full border-2" />
       </div>
     )
-  }
-
-  // Helper to render content that could be a string or object
-  const renderContent = (content: any): string => {
-    if (!content) return ""
-    if (typeof content === "string") return content
-    if (typeof content === "object") {
-      // Handle structured report data (e.g. {aim, introduction, results, ...})
-      return Object.entries(content)
-        .filter(([key, value]) => value && key !== "_chartData")
-        .map(([key, value]) => {
-          const title = key
-            .replace(/([A-Z])/g, " $1")
-            .replace(/^./, s => s.toUpperCase())
-          const text =
-            typeof value === "string" ? value : JSON.stringify(value, null, 2)
-          return `## ${title}\n\n${text}`
-        })
-        .join("\n\n")
-    }
-    return String(content)
   }
 
   if (!report) {
     return (
-      <div className="flex h-full items-center justify-center bg-slate-50">
-        <p className="text-slate-500">Report not found</p>
+      <div className="bg-ink-50 flex h-full items-center justify-center">
+        <p className="text-ink-400">Report not found</p>
       </div>
     )
   }
 
-  const outlineText = renderContent(report.report_outline)
-  const draftText = renderContent(report.report_draft)
-
   return (
-    <div className="h-full overflow-auto bg-slate-50">
+    <div className="bg-ink-50 flex h-full flex-col overflow-hidden">
       {/* Header */}
-      <div className="border-b border-slate-200 bg-white px-6 py-4">
+      <div className="border-ink-200 shrink-0 border-b bg-white px-6 py-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
             <Button
               variant="ghost"
               size="sm"
               onClick={() => router.push(`/${locale}/${workspaceId}/reports`)}
-              className="gap-1 text-slate-600"
+              className="text-ink-500 gap-1"
             >
               <IconArrowLeft size={16} />
               Back
             </Button>
             <div>
-              <h1 className="text-xl font-bold text-slate-800">
-                {report.name}
+              <div className="text-ink-400 flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.13em]">
+                <span>Report</span>
+                {generationStatus === "generating" && (
+                  <span className="rounded border border-amber-200 bg-amber-50 px-2 py-0.5 normal-case tracking-normal text-amber-700">
+                    Generating…
+                  </span>
+                )}
+              </div>
+              <h1 className="text-ink-900 text-xl font-bold">
+                {report.name || "Untitled Report"}
               </h1>
-              <div className="mt-1 flex items-center gap-3 text-sm text-slate-500">
+              <div className="text-ink-500 mt-1 flex items-center gap-3 text-sm">
                 <span className="flex items-center gap-1">
                   <IconClock size={14} />
                   Created {getTimeAgo(report.created_at)}
                 </span>
-                {report.updated_at !== report.created_at && (
-                  <span>Updated {getTimeAgo(report.updated_at)}</span>
-                )}
+                {report.updated_at &&
+                  report.updated_at !== report.created_at && (
+                    <span>Updated {getTimeAgo(report.updated_at)}</span>
+                  )}
               </div>
             </div>
           </div>
           <div className="flex items-center gap-2">
-            {(draftText || outlineText) && (
+            {hasDraft && (
               <>
                 <Button
                   variant="outline"
@@ -212,15 +524,9 @@ export default function ReportDetailPage() {
                   variant="outline"
                   size="sm"
                   className="gap-2"
-                  onClick={() => {
-                    navigator.clipboard.writeText(draftText || outlineText)
-                    toast({
-                      title: "Copied",
-                      description: "Report copied to clipboard."
-                    })
-                  }}
+                  onClick={handleCopy}
                 >
-                  <IconDownload size={16} />
+                  <Copy className="size-4" />
                   Copy
                 </Button>
                 <Button
@@ -238,79 +544,73 @@ export default function ReportDetailPage() {
         </div>
       </div>
 
-      {/* Content */}
-      <div className="mx-auto max-w-4xl p-6">
-        {report.description && (
-          <p className="mb-6 text-slate-600">{report.description}</p>
-        )}
+      {/* Tabs */}
+      <AccentTabs
+        activeKey={activeTab}
+        onChange={key => setActiveTab(key as ReportTab)}
+        tabs={tabDefs}
+      />
 
-        {/* Report Draft (show first if available — it's the full report) */}
-        {draftText && (
-          <Card className="mb-6 rounded-2xl">
-            <CardHeader>
-              <CardTitle className="text-lg">Full Report</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="prose max-w-none whitespace-pre-wrap text-sm leading-relaxed text-slate-700">
-                {draftText}
-              </div>
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Report Outline (show if no draft, or as secondary) */}
-        {outlineText && !draftText && (
-          <Card className="mb-6 rounded-2xl">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-lg">
-                <IconReport size={20} className="text-purple-600" />
-                Report Outline
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="prose max-w-none whitespace-pre-wrap text-sm text-slate-700">
-                {outlineText}
-              </div>
-            </CardContent>
-          </Card>
-        )}
-
-        {/* Chart Image */}
-        {report.chart_image && (
-          <Card className="mt-6 rounded-2xl">
-            <CardHeader>
-              <CardTitle className="text-lg">Chart</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <img
-                src={report.chart_image}
-                alt="Report chart"
-                className="max-w-full rounded-lg"
-              />
-            </CardContent>
-          </Card>
-        )}
-
-        {/* No content message */}
-        {!outlineText && !draftText && (
-          <div className="flex flex-col items-center justify-center py-12 text-center">
-            <div className="mb-4 rounded-full bg-amber-50 p-4">
-              <IconReport size={32} className="text-amber-400" />
-            </div>
-            <p className="font-medium text-slate-600">Report in progress</p>
-            <p className="mt-1 text-sm text-slate-400">
-              This report hasn&apos;t been generated yet.
-            </p>
-          </div>
-        )}
+      {/* Tab content */}
+      <div className="min-h-0 flex-1 overflow-auto">
+        <div className="mx-auto max-w-4xl p-6">
+          {activeTab === "overview" && (
+            <OverviewTab
+              report={report}
+              fileCount={fileCount}
+              generationStatus={generationStatus}
+              generationError={report?.generation_error ?? null}
+              onGoToTab={setActiveTab}
+            />
+          )}
+          {activeTab === "inputs" && (
+            <InputsTab
+              objective={objective}
+              onObjectiveChange={handleObjectiveChange}
+              protocol={protocolFiles}
+              papers={paperFiles}
+              dataFiles={dataFiles}
+              onToggleFile={handleToggleFile}
+              isGenerating={isGenerating || generationStatus === "generating"}
+              hasDraft={hasDraft}
+              onGenerate={handleGenerate}
+              generationError={
+                generationStatus === "error"
+                  ? (report?.generation_error ?? null)
+                  : null
+              }
+            />
+          )}
+          {activeTab === "theory" && (
+            <TheoryTab
+              draft={draft}
+              regenerating={regeneratingKey}
+              onRegenerate={handleRegenerateSection}
+            />
+          )}
+          {activeTab === "method" && (
+            <MethodTab
+              draft={draft}
+              regenerating={regeneratingKey}
+              onRegenerate={handleRegenerateSection}
+            />
+          )}
+          {activeTab === "analysis" && (
+            <AnalysisTab
+              draft={draft}
+              chartImage={report?.chart_image ?? null}
+              regenerating={regeneratingKey}
+              onRegenerate={handleRegenerateSection}
+            />
+          )}
+        </div>
       </div>
 
-      {/* ELN Export Modal */}
       <ELNExportModal
         isOpen={showELNExportModal}
         onOpenChange={setShowELNExportModal}
         connections={elnConnections}
-        reportContent={draftText || outlineText}
+        reportContent={draftText}
         reportTitle={report?.name || "Shadow AI Report"}
         onExportSuccess={(result: any) => {
           if (result.success) {
@@ -322,7 +622,6 @@ export default function ReportDetailPage() {
         }}
       />
 
-      {/* ELN Connect Modal */}
       <ELNConnectModal
         isOpen={showELNConnectModal}
         onOpenChange={setShowELNConnectModal}

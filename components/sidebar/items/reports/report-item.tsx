@@ -17,12 +17,13 @@ export const ReportItem: FC<ReportItemProps> = ({ report }) => {
 
   const router = useRouter()
   const params = useParams()
-  const isActive = params.reportid === report.id
+  const isActive =
+    params.reportid === report.id || params.reportId === report.id
 
   const handleClick = () => {
     if (!selectedWorkspace) return
     setSelectedReport(report)
-    return router.push(`/${selectedWorkspace.id}/report/${report.id}`)
+    return router.push(`/${selectedWorkspace.id}/reports/${report.id}`)
   }
 
   if (!selectedWorkspace) return null
