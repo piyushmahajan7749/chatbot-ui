@@ -206,8 +206,12 @@ export async function POST(
         }
 
         // ── Step 1: Generate 20 hypotheses (5 agents x 4 each) ──────
+        // Include the user's selected papers so hypotheses are grounded in them
+        const selectedPapers = (body.papers ?? existing.papers ?? []).filter(
+          p => p.selected
+        )
         console.log(
-          `[GENERATE] Step 1/5: Running ${GENERATION_AGENT_COUNT} generation agents...`
+          `[GENERATE] Step 1/5: Running ${GENERATION_AGENT_COUNT} generation agents (${selectedPapers.length} selected papers as context)...`
         )
         const genTasks: AgentTask[] = []
         for (let i = 0; i < GENERATION_AGENT_COUNT; i++) {
@@ -219,7 +223,13 @@ export async function POST(
             priority: 1,
             metadata: {
               plan: planMeta,
-              ...(litCtx ? { literatureContext: litCtx } : {})
+              ...(litCtx ? { literatureContext: litCtx } : {}),
+              selectedPapers: selectedPapers.map((p, idx) => ({
+                index: idx + 1,
+                title: p.title,
+                summary: p.summary,
+                sourceUrl: p.sourceUrl
+              }))
             }
           })
         }
@@ -471,10 +481,18 @@ Return every hypothesis with its original index number, a score, and a one-sente
         const model = getDesignDeployment()
         const designs: GeneratedDesign[] = []
 
-        // Shared context block for all prompts
+        // Shared context blocks for all prompts
         const litBlock = litCtx
           ? `\nLiterature context:\n- What others have done: ${litCtx.whatOthersHaveDone}\n- Good methods: ${litCtx.goodMethodsAndTools}\n- Pitfalls: ${litCtx.potentialPitfalls}`
           : ""
+
+        const selectedPapersForDesign = (existing.papers ?? []).filter(
+          p => p.selected
+        )
+        const papersBlock =
+          selectedPapersForDesign.length > 0
+            ? `\nSelected papers (chosen by the researcher as most relevant):\n${selectedPapersForDesign.map((p, i) => `[${i + 1}] ${p.title}${p.summary ? ` — ${p.summary}` : ""}`).join("\n")}`
+            : ""
 
         // ── Schemas for each sub-phase ──────────────────────────────
 
@@ -527,7 +545,7 @@ Return every hypothesis with its original index number, a score, and a one-sente
                 },
                 {
                   role: "user",
-                  content: `${problemBlock}\n\n${hypBlock}${litBlock}\n\nDesign the experimental setup.`
+                  content: `${problemBlock}\n\n${hypBlock}${litBlock}${papersBlock}\n\nDesign the experimental setup. Reference specific methods or findings from the selected papers where relevant.`
                 }
               ],
               response_format: zodResponseFormat(
@@ -554,7 +572,7 @@ Return every hypothesis with its original index number, a score, and a one-sente
                 },
                 {
                   role: "user",
-                  content: `${problemBlock}\n\n${hypBlock}\n\n${setupSummary}\n\nSpecify all materials, tools, and setup needed.`
+                  content: `${problemBlock}\n\n${hypBlock}\n\n${setupSummary}${papersBlock}\n\nSpecify all materials, tools, and setup needed. Reference specific tools or protocols from the selected papers where applicable.`
                 }
               ],
               response_format: zodResponseFormat(materialsSchema, "materials")

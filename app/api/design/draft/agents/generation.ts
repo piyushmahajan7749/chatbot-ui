@@ -1,6 +1,6 @@
 import { AgentTask, AgentResult } from "../types/interfaces"
 import type { LiteratureScoutOutput } from "../types"
-import { getGenerationPrompt } from "./prompts/generation"
+import { getGenerationPrompt, type SelectedPaper } from "./prompts/generation"
 import {
   getAzureOpenAIForDesign,
   getDesignDeployment
@@ -42,7 +42,15 @@ export async function generationAdapter(task: AgentTask): Promise<AgentResult> {
       | LiteratureScoutOutput
       | undefined
 
-    const promptConfig = getGenerationPrompt(plan, literatureContext)
+    const selectedPapers = task.metadata?.selectedPapers as
+      | SelectedPaper[]
+      | undefined
+
+    const promptConfig = getGenerationPrompt(
+      plan,
+      literatureContext,
+      selectedPapers
+    )
 
     // Call model using structured parsing (same approach as report pipeline).
     // This makes JSON-format failures far less likely and provides richer errors.
