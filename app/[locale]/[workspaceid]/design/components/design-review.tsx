@@ -773,13 +773,11 @@ export function DesignReview({
           {generatedDesign.experimentDesign && (
             <SectionCard
               title="Experiment Blueprint"
-              description="Design parameters and execution plan."
+              description="Design parameters — domain- and phase-aware."
             >
               {(() => {
-                const blueprint =
-                  generatedDesign.experimentDesign.experimentDesign || {}
-                const executionPlan =
-                  generatedDesign.experimentDesign.executionPlan || {}
+                const designer = generatedDesign.experimentDesign
+                const blueprint = designer.experimentDesign || {}
                 const blueprintHighlights = [
                   {
                     label: "What is Tested",
@@ -823,52 +821,37 @@ export function DesignReview({
                   }
                 ].filter(tile => tile.value)
 
-                const executionSteps = (
+                const designSteps = (
                   [
                     {
-                      label: "Materials List",
-                      value: executionPlan.materialsList,
-                      accent: "emerald"
-                    },
-                    {
-                      label: "Material Preparation",
-                      value: executionPlan.materialPreparation,
-                      accent: "blue"
-                    },
-                    {
-                      label: "Step-by-Step Procedure",
-                      value: executionPlan.stepByStepProcedure,
-                      accent: "violet"
-                    },
-                    {
-                      label: "Timeline",
-                      value: executionPlan.timeline,
-                      accent: "amber"
-                    },
-                    {
-                      label: "Setup Instructions",
-                      value: executionPlan.setupInstructions,
-                      accent: "blue"
-                    },
-                    {
-                      label: "Data Collection Plan",
-                      value: executionPlan.dataCollectionPlan,
+                      label: "Design Summary",
+                      value: designer.designSummary,
                       accent: "emerald"
                     },
                     {
                       label: "Conditions Table",
-                      value: executionPlan.conditionsTable,
+                      value: designer.conditionsTable,
                       accent: "rose"
                     },
                     {
-                      label: "Storage & Disposal",
-                      value: executionPlan.storageDisposal,
+                      label: "Experimental Groups Overview",
+                      value: designer.experimentalGroupsOverview,
+                      accent: "blue"
+                    },
+                    {
+                      label: "Statistical Rationale",
+                      value: designer.statisticalRationale,
+                      accent: "violet"
+                    },
+                    {
+                      label: "Critical Technical Requirements",
+                      value: designer.criticalTechnicalRequirements,
                       accent: "amber"
                     },
                     {
-                      label: "Safety Notes",
-                      value: executionPlan.safetyNotes,
-                      accent: "rose"
+                      label: "Handoff Note for Planner",
+                      value: designer.handoffNoteForPlanner,
+                      accent: "emerald"
                     }
                   ] satisfies ExecutionStep[]
                 ).filter(step => step.value)
@@ -887,36 +870,266 @@ export function DesignReview({
                         ))}
                       </div>
                     )}
-                    {executionSteps.length > 0 && (
-                      <div className="space-y-3">
-                        <div className="flex items-center justify-between">
-                          <p className="text-muted-foreground text-xs font-semibold uppercase tracking-wide">
-                            Execution Plan
-                          </p>
-                          {executionPlan.timeline && (
-                            <span className="bg-primary/10 text-primary rounded-full px-3 py-1 text-xs font-semibold">
-                              Timeline in plan
-                            </span>
-                          )}
-                        </div>
-                        <div className="grid gap-3">
-                          {executionSteps.map(step => (
-                            <StepCard
-                              key={step.label}
-                              title={step.label}
-                              body={step.value}
-                              accent={step.accent}
-                            />
-                          ))}
-                        </div>
+                    {designSteps.length > 0 && (
+                      <div className="grid gap-3">
+                        {designSteps.map(step => (
+                          <StepCard
+                            key={step.label}
+                            title={step.label}
+                            body={step.value}
+                            accent={step.accent}
+                          />
+                        ))}
                       </div>
                     )}
-                    {generatedDesign.experimentDesign.rationale && (
+                    {designer.rationale && (
                       <p className="text-foreground italic">
-                        {generatedDesign.experimentDesign.rationale}
+                        {designer.rationale}
                       </p>
                     )}
                   </div>
+                )
+              })()}
+            </SectionCard>
+          )}
+          {generatedDesign.statisticalReview?.correctedDesign && (
+            <SectionCard
+              title="Stat-Check Corrected Design"
+              description="The design after Stat Check's review — this is what Planner and Procedure build on."
+              badge="Corrected"
+            >
+              <div className="space-y-3">
+                <StepCard
+                  title="Corrected Conditions Table"
+                  body={generatedDesign.statisticalReview.correctedDesign}
+                  accent="emerald"
+                />
+                {generatedDesign.statisticalReview.changeLog?.length > 0 && (
+                  <StepCard
+                    title="Change Log"
+                    body={generatedDesign.statisticalReview.changeLog
+                      .map((item: string) => `- ${item}`)
+                      .join("\n")}
+                    accent="blue"
+                  />
+                )}
+                {generatedDesign.statisticalReview.improvementRationale && (
+                  <StepCard
+                    title="Improvement Rationale"
+                    body={
+                      generatedDesign.statisticalReview.improvementRationale
+                    }
+                    accent="violet"
+                  />
+                )}
+              </div>
+            </SectionCard>
+          )}
+          {generatedDesign.executionPlan && (
+            <SectionCard
+              title="Execution Plan"
+              description="Calculation-complete preparation plan from the Planner agent."
+              badge="Planner"
+            >
+              {(() => {
+                const planner = generatedDesign.executionPlan || {}
+                const plannerSteps = (
+                  [
+                    {
+                      label: "Feasibility Check",
+                      value: planner.feasibilityCheck,
+                      accent: "emerald"
+                    },
+                    {
+                      label: "Summary of Totals",
+                      value: planner.summaryOfTotals,
+                      accent: "blue"
+                    },
+                    {
+                      label: "Materials Checklist",
+                      value: planner.materialsChecklist,
+                      accent: "emerald"
+                    },
+                    {
+                      label: "Reagent & Buffer Preparation",
+                      value: planner.reagentAndBufferPreparation,
+                      accent: "blue"
+                    },
+                    {
+                      label: "Stock Solution Preparation",
+                      value: planner.stockSolutionPreparation,
+                      accent: "violet"
+                    },
+                    {
+                      label: "Master Mix Strategy",
+                      value: planner.masterMixStrategy,
+                      accent: "amber"
+                    },
+                    {
+                      label: "Working Solution Tables",
+                      value: planner.workingSolutionTables,
+                      accent: "rose"
+                    },
+                    {
+                      label: "Tube & Label Planning",
+                      value: planner.tubeAndLabelPlanning,
+                      accent: "emerald"
+                    },
+                    {
+                      label: "Consumable Prep & QC",
+                      value: planner.consumablePrepAndQC,
+                      accent: "blue"
+                    },
+                    {
+                      label: "Study Layout",
+                      value: planner.studyLayout,
+                      accent: "violet"
+                    },
+                    {
+                      label: "Prep Schedule",
+                      value: planner.prepSchedule,
+                      accent: "amber"
+                    },
+                    {
+                      label: "Kit Pack List",
+                      value: planner.kitPackList,
+                      accent: "emerald"
+                    },
+                    {
+                      label: "Critical Error Points",
+                      value: planner.criticalErrorPoints,
+                      accent: "rose"
+                    },
+                    {
+                      label: "Material Optimization",
+                      value: planner.materialOptimizationSummary,
+                      accent: "blue"
+                    },
+                    {
+                      label: "Assumptions & Confirmations",
+                      value: planner.assumptionsAndConfirmations,
+                      accent: "amber"
+                    }
+                  ] satisfies ExecutionStep[]
+                ).filter(step => step.value && step.value !== "Not specified")
+
+                return plannerSteps.length > 0 ? (
+                  <div className="grid gap-3">
+                    {plannerSteps.map(step => (
+                      <StepCard
+                        key={step.label}
+                        title={step.label}
+                        body={step.value}
+                        accent={step.accent}
+                      />
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-muted-foreground">
+                    Planner output pending.
+                  </p>
+                )
+              })()}
+            </SectionCard>
+          )}
+          {generatedDesign.procedure && (
+            <SectionCard
+              title="Procedure (SOP)"
+              description="Bench-ready step-by-step SOP from the Procedure agent."
+              badge="SOP"
+            >
+              {(() => {
+                const procedure = generatedDesign.procedure || {}
+                const procedureSteps = (
+                  [
+                    {
+                      label: "Pre-run Checklist",
+                      value: procedure.preRunChecklist,
+                      accent: "emerald"
+                    },
+                    {
+                      label: "Bench Setup & Safety",
+                      value: procedure.benchSetupAndSafety,
+                      accent: "amber"
+                    },
+                    {
+                      label: "Sample Labeling & ID Scheme",
+                      value: procedure.sampleLabelingIdScheme,
+                      accent: "blue"
+                    },
+                    {
+                      label: "Instrument Setup & Calibration",
+                      value: procedure.instrumentSetupCalibration,
+                      accent: "violet"
+                    },
+                    {
+                      label: "Critical Handling Rules",
+                      value: procedure.criticalHandlingRules,
+                      accent: "rose"
+                    },
+                    {
+                      label: "Sample Preparation",
+                      value: procedure.samplePreparation,
+                      accent: "emerald"
+                    },
+                    {
+                      label: "Measurement Steps",
+                      value: procedure.measurementSteps,
+                      accent: "blue"
+                    },
+                    {
+                      label: "Experimental Condition Execution",
+                      value: procedure.experimentalConditionExecution,
+                      accent: "violet"
+                    },
+                    {
+                      label: "Data Recording & Processing",
+                      value: procedure.dataRecordingProcessing,
+                      accent: "amber"
+                    },
+                    {
+                      label: "Acceptance Criteria",
+                      value: procedure.acceptanceCriteria,
+                      accent: "emerald"
+                    },
+                    {
+                      label: "Troubleshooting Guide",
+                      value: procedure.troubleshootingGuide,
+                      accent: "rose"
+                    },
+                    {
+                      label: "Run Log Template",
+                      value: procedure.runLogTemplate,
+                      accent: "blue"
+                    },
+                    {
+                      label: "Cleanup & Disposal",
+                      value: procedure.cleanupDisposal,
+                      accent: "amber"
+                    },
+                    {
+                      label: "Data Handoff",
+                      value: procedure.dataHandoff,
+                      accent: "violet"
+                    }
+                  ] satisfies ExecutionStep[]
+                ).filter(step => step.value && step.value !== "Not specified")
+
+                return procedureSteps.length > 0 ? (
+                  <div className="grid gap-3">
+                    {procedureSteps.map(step => (
+                      <StepCard
+                        key={step.label}
+                        title={step.label}
+                        body={step.value}
+                        accent={step.accent}
+                      />
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-muted-foreground">
+                    Procedure output pending.
+                  </p>
                 )
               })()}
             </SectionCard>
@@ -967,6 +1180,16 @@ export function DesignReview({
                   </ReactMarkdown>
                 </div>
               </div>
+              {generatedDesign.statisticalReview.finalAssessment && (
+                <div className="mt-3 rounded-lg bg-violet-500/10 p-3">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-violet-400">
+                    Final Assessment
+                  </p>
+                  <ReactMarkdown className={markdownClasses}>
+                    {generatedDesign.statisticalReview.finalAssessment}
+                  </ReactMarkdown>
+                </div>
+              )}
             </SectionCard>
           )}
           {generatedDesign.finalNotes && (
@@ -1403,7 +1626,17 @@ export function DesignReview({
               },
               {
                 title: "Stat Check",
-                description: "Validating assumptions and power."
+                description:
+                  "Reviewing and upgrading the design for statistical soundness."
+              },
+              {
+                title: "Planner",
+                description:
+                  "Computing materials, buffers, and logistics for execution."
+              },
+              {
+                title: "Procedure",
+                description: "Writing the bench-ready SOP."
               },
               {
                 title: "Report Writer",

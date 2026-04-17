@@ -42,9 +42,57 @@ export interface GeneratedDesign {
   saved: boolean
 }
 
+export const DESIGN_DOMAIN_OPTIONS = [
+  { value: "formulation_development", label: "Formulation development" },
+  {
+    value: "discovery_biology",
+    label: "Discovery biology / target identification"
+  },
+  { value: "molecular_biology", label: "Molecular biology / genomics" },
+  {
+    value: "protein_expression",
+    label: "Protein expression and purification"
+  },
+  { value: "cell_culture", label: "Cell culture / upstream" },
+  { value: "fermentation", label: "Fermentation / bioprocess" },
+  { value: "analytics_qc", label: "Analytics / QC" }
+] as const
+
+export type DesignDomain = (typeof DESIGN_DOMAIN_OPTIONS)[number]["value"]
+
+export const DESIGN_PHASE_OPTIONS = [
+  { value: "screening", label: "Screening" },
+  { value: "optimization", label: "Optimization" },
+  { value: "robustness", label: "Robustness" },
+  { value: "scale_up", label: "Scale-up" },
+  { value: "validation", label: "Validation" }
+] as const
+
+export type DesignPhase = (typeof DESIGN_PHASE_OPTIONS)[number]["value"]
+
+export interface ProblemContextConstraints {
+  material?: string
+  time?: string
+  equipment?: string
+}
+
+export interface ProblemContextVariables {
+  known?: string
+  unknown?: string
+}
+
 export interface ProblemContext {
   title?: string
   problemStatement?: string
+  domain?: DesignDomain
+  phase?: DesignPhase
+  objective?: string
+  /** Structured v3 constraints — Material/Time/Equipment. */
+  constraintsStructured?: ProblemContextConstraints
+  /** Structured v3 variables — known vs unknown open text. */
+  variablesStructured?: ProblemContextVariables
+
+  // ── Legacy v2 fields (kept so older saved designs still load) ──────────
   goal?: string
   variables?: string[]
   constraints?: string[]

@@ -2,6 +2,8 @@ export type DesignAgentPromptId =
   | "literatureScout"
   | "experimentDesigner"
   | "statCheck"
+  | "planner"
+  | "procedure"
   | "reportWriter"
 
 export type PromptSectionType =

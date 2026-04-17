@@ -3,10 +3,18 @@ import { NextResponse } from "next/server"
 import {
   callExperimentDesignerAgent,
   callLiteratureScoutAgent,
+  callPlannerAgent,
+  callProcedureAgent,
   callReportWriterAgent,
   callStatCheckAgent
 } from "../../../agents"
-import { ExperimentDesignState } from "../../../types"
+import {
+  DESIGN_DOMAINS,
+  DESIGN_PHASES,
+  Domain,
+  ExperimentDesignState,
+  Phase
+} from "../../../types"
 import {
   getHypothesisById,
   getResearchPlan,
@@ -68,6 +76,38 @@ const sanitizePromptOverrides = (
   return hasAnyOverrides ? cleanOverrides : undefined
 }
 
+const ensureArray = (value: unknown): string[] => {
+  if (Array.isArray(value)) {
+    return value.filter(
+      (item): item is string =>
+        typeof item === "string" && item.trim().length > 0
+    )
+  }
+  if (typeof value === "string" && value.trim().length > 0) {
+    return [value.trim()]
+  }
+  return []
+}
+
+const coerceDomain = (value: unknown): Domain | undefined => {
+  if (typeof value !== "string") return undefined
+  return (DESIGN_DOMAINS as readonly string[]).includes(value)
+    ? (value as Domain)
+    : undefined
+}
+
+const coercePhase = (value: unknown): Phase | undefined => {
+  if (typeof value !== "string") return undefined
+  return (DESIGN_PHASES as readonly string[]).includes(value)
+    ? (value as Phase)
+    : undefined
+}
+
+const coerceString = (value: unknown): string => {
+  if (typeof value === "string") return value.trim()
+  return ""
+}
+
 export async function POST(
   req: Request,
   { params }: { params: { hypothesisId: string } }
@@ -118,18 +158,6 @@ export async function POST(
     }
 
     const planConstraints = plan.constraints || {}
-    const ensureArray = (value: unknown): string[] => {
-      if (Array.isArray(value)) {
-        return value.filter(
-          (item): item is string =>
-            typeof item === "string" && item.trim().length > 0
-        )
-      }
-      if (typeof value === "string" && value.trim().length > 0) {
-        return [value.trim()]
-      }
-      return []
-    }
 
     const pipelineStart = Date.now()
     const promptsUsed: AgentPromptUsage[] = []
@@ -145,10 +173,37 @@ export async function POST(
       }
     })
 
+    const domain = coerceDomain(planConstraints.domain)
+    const phase = coercePhase(planConstraints.phase)
+
+    const objectives =
+      ensureArray(planConstraints.objectives).length > 0
+        ? ensureArray(planConstraints.objectives)
+        : planConstraints.objective
+          ? [coerceString(planConstraints.objective)].filter(Boolean)
+          : []
+
+    const knownVariables =
+      ensureArray(planConstraints.knownVariables).length > 0
+        ? ensureArray(planConstraints.knownVariables)
+        : ensureArray(planConstraints.variables)
+
+    const unknownVariables = ensureArray(planConstraints.unknownVariables)
+
     const state: ExperimentDesignState = {
       problem: plan.title || plan.description || "Untitled research problem",
-      objectives: ensureArray(planConstraints.objectives),
-      variables: ensureArray(planConstraints.variables),
+      domain,
+      phase,
+      objectives,
+      variables: {
+        known: knownVariables,
+        unknown: unknownVariables
+      },
+      constraints: {
+        material: coerceString(planConstraints.material),
+        time: coerceString(planConstraints.time),
+        equipment: coerceString(planConstraints.equipment)
+      },
       specialConsiderations: ensureArray(planConstraints.specialConsiderations)
     }
 
@@ -195,6 +250,18 @@ export async function POST(
     state.statCheckOutput = statResult.output
     promptsUsed.push(statResult.prompt)
 
+    const plannerResult = await trackStep("planner", async () =>
+      callPlannerAgent(state, promptOverrides?.planner)
+    )
+    state.plannerOutput = plannerResult.output
+    promptsUsed.push(plannerResult.prompt)
+
+    const procedureResult = await trackStep("procedure", async () =>
+      callProcedureAgent(state, promptOverrides?.procedure)
+    )
+    state.procedureOutput = procedureResult.output
+    promptsUsed.push(procedureResult.prompt)
+
     const reportResult = await trackStep("report_writer", async () =>
       callReportWriterAgent(state, promptOverrides?.reportWriter)
     )
@@ -224,6 +291,8 @@ export async function POST(
         generatedDesign: state.reportWriterOutput,
         generatedLiteratureSummary: state.literatureScoutOutput,
         generatedStatReview: state.statCheckOutput,
+        generatedPlannerOutput: state.plannerOutput,
+        generatedProcedureOutput: state.procedureOutput,
         promptsUsed
       })
 
@@ -252,6 +321,8 @@ export async function POST(
       literatureSummary: state.literatureScoutOutput,
       experimentDesign: state.experimentDesignerOutput,
       statReview: state.statCheckOutput,
+      planner: state.plannerOutput,
+      procedure: state.procedureOutput,
       metrics: {
         totalTimeMs,
         steps: stepTimings

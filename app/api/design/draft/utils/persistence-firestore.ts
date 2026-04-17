@@ -257,6 +257,8 @@ export async function saveHypothesisDesign(
     generatedDesign: any
     generatedLiteratureSummary?: any
     generatedStatReview?: any
+    generatedPlannerOutput?: any
+    generatedProcedureOutput?: any
     promptsUsed?: any[]
   }
 ): Promise<boolean> {
@@ -306,6 +308,8 @@ export async function getHypothesisSavedDesign(hypothesisId: string): Promise<{
   generatedDesign: any
   generatedLiteratureSummary?: any
   generatedStatReview?: any
+  generatedPlannerOutput?: any
+  generatedProcedureOutput?: any
   promptsUsed?: any[]
   savedAt?: string
 } | null> {

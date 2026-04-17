@@ -121,7 +121,15 @@ export async function POST(
         [ctx.title, ctx.problemStatement].filter(Boolean).join(" — ") ||
         "Untitled",
       objectives: ctx.goal ? [ctx.goal] : [],
-      variables: ctx.variables ?? [],
+      variables: {
+        known: ctx.variables ?? [],
+        unknown: []
+      },
+      constraints: {
+        material: "",
+        time: "",
+        equipment: ""
+      },
       specialConsiderations: ctx.constraints ?? [],
       ...(litCtx
         ? {

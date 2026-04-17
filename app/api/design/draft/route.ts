@@ -23,20 +23,29 @@ export async function POST(req: Request) {
     let preferences: Record<string, any> = {}
 
     if (requestData.planId || requestData.title) {
-      // New format
+      // New format: accept the structured constraints shape (domain, phase,
+      // objectives, knownVariables/unknownVariables, material/time/equipment).
       planId = requestData.planId || uuidv4()
       title = requestData.title
       description = requestData.description || requestData.problem || ""
       constraints = requestData.constraints || {}
       preferences = requestData.preferences || {}
     } else {
-      // Old format (backward compatibility)
+      // Old format (backward compatibility) — maps legacy freeform arrays
+      // into the new constraints shape as best we can.
       planId = uuidv4()
       title = requestData.problem || "Untitled Research Plan"
       description = requestData.problem || ""
       constraints = {
+        domain: requestData.domain,
+        phase: requestData.phase,
         objectives: requestData.objectives || [],
-        variables: requestData.variables || [],
+        knownVariables:
+          requestData.knownVariables || requestData.variables || [],
+        unknownVariables: requestData.unknownVariables || [],
+        material: requestData.material || "",
+        time: requestData.time || "",
+        equipment: requestData.equipment || "",
         specialConsiderations: requestData.specialConsiderations || []
       }
       preferences = {

@@ -66,8 +66,16 @@ export async function PUT(
       content,
       name,
       description,
+      domain,
+      phase,
       objectives,
+      objective,
       variables,
+      knownVariables,
+      unknownVariables,
+      material,
+      time,
+      equipment,
       specialConsiderations
     } = payload ?? {}
 
@@ -96,11 +104,35 @@ export async function PUT(
     if (typeof description !== "undefined") {
       updates.description = description
     }
+    if (typeof domain !== "undefined") {
+      updates.domain = domain
+    }
+    if (typeof phase !== "undefined") {
+      updates.phase = phase
+    }
     if (typeof objectives !== "undefined") {
       updates.objectives = objectives
     }
+    if (typeof objective !== "undefined") {
+      updates.objective = objective
+    }
     if (typeof variables !== "undefined") {
       updates.variables = variables
+    }
+    if (typeof knownVariables !== "undefined") {
+      updates.known_variables = knownVariables
+    }
+    if (typeof unknownVariables !== "undefined") {
+      updates.unknown_variables = unknownVariables
+    }
+    if (typeof material !== "undefined") {
+      updates.material = material
+    }
+    if (typeof time !== "undefined") {
+      updates.time = time
+    }
+    if (typeof equipment !== "undefined") {
+      updates.equipment = equipment
     }
     if (typeof specialConsiderations !== "undefined") {
       updates.special_considerations = specialConsiderations

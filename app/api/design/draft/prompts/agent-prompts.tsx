@@ -24,7 +24,7 @@ import {
   PromptSectionType
 } from "@/types/design-prompts"
 
-import { ExperimentDesignState } from "../types"
+import { ExperimentDesignState, Domain, Phase } from "../types"
 
 type SectionOverride = PromptSectionOverrides | undefined
 
@@ -47,6 +47,24 @@ const sourceLabels: Record<string, string> = {
   semanticScholar: "Semantic Scholar",
   scholar: "Google Scholar",
   tavily: "Recent Web"
+}
+
+const domainLabels: Record<Domain, string> = {
+  formulation_development: "Formulation development",
+  discovery_biology: "Discovery biology / target identification",
+  molecular_biology: "Molecular biology / genomics",
+  protein_expression: "Protein expression and purification",
+  cell_culture: "Cell culture / upstream",
+  fermentation: "Fermentation / bioprocess",
+  analytics_qc: "Analytics / QC"
+}
+
+const phaseLabels: Record<Phase, string> = {
+  screening: "Screening",
+  optimization: "Optimization",
+  robustness: "Robustness",
+  scale_up: "Scale-up",
+  validation: "Validation"
 }
 
 const getSectionValue = (
@@ -92,16 +110,40 @@ const renderList = (label: string, items?: string[]) => {
   )
 }
 
-const renderPlanContext = (state: ExperimentDesignState) => (
-  <Data>
-    <Task>
-      <p>Research Problem: {state.problem || "Not specified"}</p>
-    </Task>
-    {renderList("Objectives", state.objectives)}
-    {renderList("Variables", state.variables)}
-    {renderList("Special Considerations", state.specialConsiderations)}
-  </Data>
-)
+const renderPlanContext = (state: ExperimentDesignState) => {
+  const domainLabel = state.domain
+    ? domainLabels[state.domain]
+    : "(not specified)"
+  const phaseLabel = state.phase ? phaseLabels[state.phase] : "(not specified)"
+  const material = state.constraints?.material?.trim()
+  const time = state.constraints?.time?.trim()
+  const equipment = state.constraints?.equipment?.trim()
+  const hasAnyConstraint = Boolean(material || time || equipment)
+
+  return (
+    <Data>
+      <Task>
+        <p>Research Problem: {state.problem || "Not specified"}</p>
+      </Task>
+      <p>Domain: {domainLabel}</p>
+      <p>Phase: {phaseLabel}</p>
+      {renderList("Objectives", state.objectives)}
+      {renderList("Known variables", state.variables?.known)}
+      {renderList("Unknown variables", state.variables?.unknown)}
+      {hasAnyConstraint && (
+        <>
+          <p>Constraints:</p>
+          <ul>
+            {material && <li>Material: {material}</li>}
+            {time && <li>Time: {time}</li>}
+            {equipment && <li>Equipment: {equipment}</li>}
+          </ul>
+        </>
+      )}
+      {renderList("Additional considerations", state.specialConsiderations)}
+    </Data>
+  )
+}
 
 const renderLiteratureSummary = (
   state: ExperimentDesignState,
@@ -149,16 +191,18 @@ const renderHypothesisData = (state: ExperimentDesignState) => {
 }
 
 const renderExperimentDesignData = (state: ExperimentDesignState) => {
-  if (!state.experimentDesignerOutput) {
+  const designerOutput = state.experimentDesignerOutput
+  if (!designerOutput) {
     return null
   }
 
-  const design = state.experimentDesignerOutput.experimentDesign
-  const execution = state.experimentDesignerOutput.executionPlan
+  const design = designerOutput.experimentDesign
 
   return (
     <Result>
-      <p>Experiment Design Overview:</p>
+      <p>Experiment Design Summary:</p>
+      <p>{designerOutput.designSummary}</p>
+      <p>Design Components:</p>
       <ul>
         <li>What Will Be Tested: {design.whatWillBeTested}</li>
         <li>What Will Be Measured: {design.whatWillBeMeasured}</li>
@@ -169,20 +213,18 @@ const renderExperimentDesignData = (state: ExperimentDesignState) => {
         <li>Replicates & Conditions: {design.replicatesAndConditions}</li>
         <li>Specific Requirements: {design.specificRequirements}</li>
       </ul>
-      <p>Execution Plan:</p>
-      <ul>
-        <li>Materials List: {execution.materialsList}</li>
-        <li>Material Preparation: {execution.materialPreparation}</li>
-        <li>Step-by-Step Procedure: {execution.stepByStepProcedure}</li>
-        <li>Timeline: {execution.timeline}</li>
-        <li>Setup Instructions: {execution.setupInstructions}</li>
-        <li>Data Collection Plan: {execution.dataCollectionPlan}</li>
-        <li>Conditions Table: {execution.conditionsTable}</li>
-        <li>Storage & Disposal: {execution.storageDisposal}</li>
-        <li>Safety Notes: {execution.safetyNotes}</li>
-      </ul>
-      {state.experimentDesignerOutput.rationale && (
-        <p>Rationale: {state.experimentDesignerOutput.rationale}</p>
+      <p>Conditions Table (markdown):</p>
+      <p>{designerOutput.conditionsTable}</p>
+      <p>Experimental Groups Overview:</p>
+      <p>{designerOutput.experimentalGroupsOverview}</p>
+      <p>Statistical Rationale:</p>
+      <p>{designerOutput.statisticalRationale}</p>
+      <p>Critical Technical Requirements:</p>
+      <p>{designerOutput.criticalTechnicalRequirements}</p>
+      <p>Handoff Note for Planner:</p>
+      <p>{designerOutput.handoffNoteForPlanner}</p>
+      {designerOutput.rationale && (
+        <p>Designer Rationale: {designerOutput.rationale}</p>
       )}
     </Result>
   )
@@ -218,8 +260,105 @@ const renderStatCheckData = (state: ExperimentDesignState) => {
           </ul>
         </>
       )}
-      <p>Overall Assessment: {review.overallAssessment}</p>
+      {review.correctedDesign && (
+        <>
+          <p>
+            Corrected Design (use this as the current design going forward):
+          </p>
+          <p>{review.correctedDesign}</p>
+        </>
+      )}
+      {review.changeLog?.length > 0 && (
+        <>
+          <p>Change Log:</p>
+          <ul>
+            {review.changeLog.map((entry, index) => (
+              <li key={`change-${index}`}>{entry}</li>
+            ))}
+          </ul>
+        </>
+      )}
+      {review.improvementRationale && (
+        <>
+          <p>Improvement Rationale:</p>
+          <p>{review.improvementRationale}</p>
+        </>
+      )}
+      {review.overallAssessment && (
+        <p>Overall Assessment: {review.overallAssessment}</p>
+      )}
+      {review.finalAssessment && (
+        <p>Final Assessment: {review.finalAssessment}</p>
+      )}
     </Analysis>
+  )
+}
+
+const renderPlannerData = (state: ExperimentDesignState) => {
+  const planner = state.plannerOutput
+  if (!planner) return null
+
+  return (
+    <Result>
+      <p>Planner Output:</p>
+      <ul>
+        <li>Feasibility Check: {planner.feasibilityCheck}</li>
+        <li>Summary of Totals: {planner.summaryOfTotals}</li>
+        <li>Materials Checklist: {planner.materialsChecklist}</li>
+        <li>
+          Reagent & Buffer Preparation: {planner.reagentAndBufferPreparation}
+        </li>
+        <li>Stock Solution Preparation: {planner.stockSolutionPreparation}</li>
+        <li>Master Mix Strategy: {planner.masterMixStrategy}</li>
+        <li>Working Solution Tables: {planner.workingSolutionTables}</li>
+        <li>Tube & Label Planning: {planner.tubeAndLabelPlanning}</li>
+        <li>Consumable Prep & QC: {planner.consumablePrepAndQC}</li>
+        <li>Study Layout: {planner.studyLayout}</li>
+        <li>Prep Schedule: {planner.prepSchedule}</li>
+        <li>Kit Pack List: {planner.kitPackList}</li>
+        <li>Critical Error Points: {planner.criticalErrorPoints}</li>
+        <li>
+          Material Optimization Summary: {planner.materialOptimizationSummary}
+        </li>
+        <li>
+          Assumptions & Confirmations: {planner.assumptionsAndConfirmations}
+        </li>
+      </ul>
+    </Result>
+  )
+}
+
+const renderProcedureData = (state: ExperimentDesignState) => {
+  const procedure = state.procedureOutput
+  if (!procedure) return null
+
+  return (
+    <Result>
+      <p>Procedure (SOP):</p>
+      <ul>
+        <li>Pre-run Checklist: {procedure.preRunChecklist}</li>
+        <li>Bench Setup & Safety: {procedure.benchSetupAndSafety}</li>
+        <li>Sample Labeling & ID Scheme: {procedure.sampleLabelingIdScheme}</li>
+        <li>
+          Instrument Setup & Calibration: {procedure.instrumentSetupCalibration}
+        </li>
+        <li>Critical Handling Rules: {procedure.criticalHandlingRules}</li>
+        <li>Sample Preparation: {procedure.samplePreparation}</li>
+        <li>Measurement Steps: {procedure.measurementSteps}</li>
+        <li>
+          Experimental Condition Execution:{" "}
+          {procedure.experimentalConditionExecution}
+        </li>
+        <li>
+          Data Recording & Processing: {procedure.dataRecordingProcessing}
+        </li>
+        <li>Acceptance Criteria: {procedure.acceptanceCriteria}</li>
+        <li>Troubleshooting Guide: {procedure.troubleshootingGuide}</li>
+        <li>Run Log Template: {procedure.runLogTemplate}</li>
+        <li>Cleanup & Disposal: {procedure.cleanupDisposal}</li>
+        <li>Data Handoff: {procedure.dataHandoff}</li>
+      </ul>
+    </Result>
   )
 }
 
@@ -331,6 +470,14 @@ export const createLiteratureScoutPrompt = (
 export const createHypothesisBuilderPrompt = (
   state: ExperimentDesignState
 ): string => {
+  const knownVars = state.variables?.known?.join("; ") || ""
+  const unknownVars = state.variables?.unknown?.join("; ") || ""
+  const constraintsParts = [
+    state.constraints?.material && `Material: ${state.constraints.material}`,
+    state.constraints?.time && `Time: ${state.constraints.time}`,
+    state.constraints?.equipment && `Equipment: ${state.constraints.equipment}`
+  ].filter(Boolean)
+
   return `You are **Hypothesis Builder**, a senior scientific reasoning agent.
 
 Your mission is to generate high-quality, testable research hypotheses based strictly on:
@@ -345,11 +492,13 @@ Return exactly ONE best hypothesis in \`hypothesis\` (do not return a list), and
 
 <Inputs>
 Research problem: ${state.problem}
+Domain: ${state.domain || "(not specified)"}
+Phase: ${state.phase || "(not specified)"}
 Research objective(s): ${state.objectives.join("; ") || "(not specified)"}
-Key variables: ${state.variables.join("; ") || "(not specified)"}
-Constraints / special considerations: ${
-    state.specialConsiderations.join("; ") || "(not specified)"
-  }
+Known variables: ${knownVars || "(not specified)"}
+Unknown variables: ${unknownVars || "(not specified)"}
+Constraints: ${constraintsParts.join(" | ") || "(not specified)"}
+Additional considerations: ${state.specialConsiderations.join("; ") || "(not specified)"}
 Literature Scout summary:
 ${
   state.literatureScoutOutput
@@ -395,8 +544,38 @@ export const createStatCheckPrompt = (
     "statCheck",
     overrides,
     renderPlanContext(state),
+    renderLiteratureSummary(state),
     renderHypothesisData(state),
     renderExperimentDesignData(state)
+  )
+}
+
+export const createPlannerPrompt = (
+  state: ExperimentDesignState,
+  overrides?: AgentPromptOverrides["planner"]
+): string => {
+  return buildSystemPrompt(
+    "planner",
+    overrides,
+    renderPlanContext(state),
+    renderHypothesisData(state),
+    renderExperimentDesignData(state),
+    renderStatCheckData(state)
+  )
+}
+
+export const createProcedurePrompt = (
+  state: ExperimentDesignState,
+  overrides?: AgentPromptOverrides["procedure"]
+): string => {
+  return buildSystemPrompt(
+    "procedure",
+    overrides,
+    renderPlanContext(state),
+    renderHypothesisData(state),
+    renderExperimentDesignData(state),
+    renderStatCheckData(state),
+    renderPlannerData(state)
   )
 }
 
@@ -411,6 +590,8 @@ export const createReportWriterPrompt = (
     renderLiteratureSummary(state, { includeCitations: true }),
     renderHypothesisData(state),
     renderExperimentDesignData(state),
-    renderStatCheckData(state)
+    renderStatCheckData(state),
+    renderPlannerData(state),
+    renderProcedureData(state)
   )
 }

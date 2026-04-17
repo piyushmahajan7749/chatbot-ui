@@ -121,10 +121,25 @@ export async function supervisorEnqueue(plan: ResearchPlan): Promise<{
     })
 
     const planConstraints = plan.constraints || {}
+    const ensureStr = (value: unknown): string =>
+      typeof value === "string" ? value.trim() : ""
     const state: ExperimentDesignState = {
       problem: plan.title || plan.description || "Untitled research problem",
+      domain: (planConstraints as any).domain,
+      phase: (planConstraints as any).phase,
       objectives: ensureArray(planConstraints.objectives),
-      variables: ensureArray(planConstraints.variables),
+      variables: {
+        known:
+          ensureArray((planConstraints as any).knownVariables).length > 0
+            ? ensureArray((planConstraints as any).knownVariables)
+            : ensureArray(planConstraints.variables),
+        unknown: ensureArray((planConstraints as any).unknownVariables)
+      },
+      constraints: {
+        material: ensureStr((planConstraints as any).material),
+        time: ensureStr((planConstraints as any).time),
+        equipment: ensureStr((planConstraints as any).equipment)
+      },
       specialConsiderations: ensureArray(planConstraints.specialConsiderations)
     }
 

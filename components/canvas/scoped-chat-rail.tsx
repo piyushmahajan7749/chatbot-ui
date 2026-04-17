@@ -23,6 +23,8 @@ interface ScopedChatRailProps {
   scopeName?: string
   className?: string
   headerSlot?: ReactNode
+  /** If true, a pinned thread is auto-created as soon as none is found. */
+  autoStart?: boolean
 }
 
 const SCOPE_LABELS: Record<ChatScope, string> = {
@@ -50,7 +52,8 @@ export function ScopedChatRail({
   scopeId,
   scopeName,
   className,
-  headerSlot
+  headerSlot,
+  autoStart = false
 }: ScopedChatRailProps) {
   const params = useParams()
   const router = useRouter()
@@ -80,6 +83,24 @@ export function ScopedChatRail({
       cancelled = true
     }
   }, [scope, scopeId, onChatRoute])
+
+  useEffect(() => {
+    if (!autoStart) return
+    if (onChatRoute) return
+    if (resolving) return
+    if (pinnedChat) return
+    if (!scopeId || !selectedWorkspace) return
+    if (creating) return
+    void handleStartThread()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    autoStart,
+    onChatRoute,
+    resolving,
+    pinnedChat,
+    scopeId,
+    selectedWorkspace
+  ])
 
   const handleStartThread = async () => {
     if (!scopeId || !selectedWorkspace) return

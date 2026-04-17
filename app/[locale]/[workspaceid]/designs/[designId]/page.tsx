@@ -13,14 +13,27 @@ import {
   PopoverContent,
   PopoverTrigger
 } from "@/components/ui/popover"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue
+} from "@/components/ui/select"
 import { AccentTabs, type TabStatus } from "@/components/canvas/accent-tabs"
 import { ScopedChatRail } from "@/components/canvas/scoped-chat-rail"
 import { SplitRailLayout } from "@/components/canvas/split-rail-layout"
 import { ChatbotUIContext } from "@/context/context"
 import { useToast } from "@/app/hooks/use-toast"
+import { cn } from "@/lib/utils"
 import {
+  DESIGN_DOMAIN_OPTIONS,
+  DESIGN_PHASE_OPTIONS,
   PHASE_ORDER,
   type DesignContentV2,
+  type DesignDomain,
+  type DesignPhase,
+  type DesignSection,
   type GeneratedDesign,
   type Hypothesis,
   type Paper,
@@ -104,9 +117,9 @@ export default function DesignDetailPage() {
 
   const [design, setDesign] = useState<any>(null)
   const [loading, setLoading] = useState(true)
-  const [activeTab, setActiveTab] = useState("problem")
+  const [activeTab, setActiveTab] = useState("overview")
   const [busy, setBusy] = useState<
-    null | "literature" | "hypotheses" | "design" | "simulation" | "save"
+    null | "literature" | "hypotheses" | "design" | "save"
   >(null)
 
   // Phase gating
@@ -115,9 +128,14 @@ export default function DesignDetailPage() {
   // Problem tab state
   const [title, setTitle] = useState("")
   const [problemStatement, setProblemStatement] = useState("")
-  const [goal, setGoal] = useState("")
-  const [variables, setVariables] = useState<string[]>([""])
-  const [constraints, setConstraints] = useState<string[]>([""])
+  const [domain, setDomain] = useState<DesignDomain | "">("")
+  const [phase, setPhase] = useState<DesignPhase | "">("")
+  const [objective, setObjective] = useState("")
+  const [constraintMaterial, setConstraintMaterial] = useState("")
+  const [constraintTime, setConstraintTime] = useState("")
+  const [constraintEquipment, setConstraintEquipment] = useState("")
+  const [variablesKnown, setVariablesKnown] = useState("")
+  const [variablesUnknown, setVariablesUnknown] = useState("")
 
   // Literature tab state
   const [papers, setPapers] = useState<Paper[]>([])
@@ -125,17 +143,14 @@ export default function DesignDetailPage() {
   // Hypotheses tab state
   const [hypotheses, setHypotheses] = useState<Hypothesis[]>([])
 
-  // Designs + simulations state
+  // Designs state
   const [generatedDesigns, setGeneratedDesigns] = useState<GeneratedDesign[]>(
     []
   )
   const [activeDesignId, setActiveDesignId] = useState<string | null>(null)
-  const [activeSimDesignId, setActiveSimDesignId] = useState<string | null>(
-    null
-  )
 
   // Rail toggle
-  const [showRail, setShowRail] = useState(false)
+  const [showRail, setShowRail] = useState(true)
 
   // Agent popover
   const [agentPopoverOpen, setAgentPopoverOpen] = useState(false)
@@ -163,8 +178,6 @@ export default function DesignDetailPage() {
         return hypotheses.length > 0 ? "review" : "active"
       case "design":
         return generatedDesigns.length > 0 ? "review" : "active"
-      case "simulation":
-        return generatedDesigns.some(d => d.simulation) ? "review" : "active"
       default:
         return "active"
     }
@@ -179,7 +192,6 @@ export default function DesignDetailPage() {
       if (phase === "design") {
         setGeneratedDesigns([])
         setActiveDesignId(null)
-        setActiveSimDesignId(null)
       }
     }
     const keep = approvedPhases.filter(p => PHASE_ORDER.indexOf(p) < idx)
@@ -214,25 +226,27 @@ export default function DesignDetailPage() {
       const problem = content?.problem ?? {}
       setTitle(problem.title ?? data.name ?? "")
       setProblemStatement(problem.problemStatement ?? data.description ?? "")
-      setGoal(problem.goal ?? "")
-      setVariables(
-        problem.variables && problem.variables.length > 0
-          ? problem.variables
-          : [""]
+      setDomain((problem.domain as DesignDomain | undefined) ?? "")
+      setPhase((problem.phase as DesignPhase | undefined) ?? "")
+      setObjective(problem.objective ?? problem.goal ?? "")
+      setConstraintMaterial(problem.constraintsStructured?.material ?? "")
+      setConstraintTime(problem.constraintsStructured?.time ?? "")
+      setConstraintEquipment(problem.constraintsStructured?.equipment ?? "")
+      // Migrate legacy array fields into the Known-variables textarea so older
+      // designs don't lose content on first load.
+      setVariablesKnown(
+        problem.variablesStructured?.known ??
+          (problem.variables?.length
+            ? problem.variables.filter(Boolean).join("\n")
+            : "")
       )
-      setConstraints(
-        problem.constraints && problem.constraints.length > 0
-          ? problem.constraints
-          : [""]
-      )
+      setVariablesUnknown(problem.variablesStructured?.unknown ?? "")
 
       if (content?.papers) setPapers(content.papers)
       if (content?.hypotheses) setHypotheses(content.hypotheses)
       if (content?.designs) {
         setGeneratedDesigns(content.designs)
         setActiveDesignId(content.designs[0]?.id ?? null)
-        const firstSim = content.designs.find(d => d.simulation)
-        if (firstSim) setActiveSimDesignId(firstSim.id)
       }
       if (content?.approvedPhases) setApprovedPhases(content.approvedPhases)
     } catch (error) {
@@ -270,9 +284,19 @@ export default function DesignDetailPage() {
   const currentProblem = (): ProblemContext => ({
     title,
     problemStatement,
-    goal,
-    variables: variables.filter(v => v.trim() !== ""),
-    constraints: constraints.filter(c => c.trim() !== "")
+    domain: domain || undefined,
+    phase: phase || undefined,
+    objective,
+    goal: objective, // mirror into legacy field so old consumers still read a value
+    constraintsStructured: {
+      material: constraintMaterial,
+      time: constraintTime,
+      equipment: constraintEquipment
+    },
+    variablesStructured: {
+      known: variablesKnown,
+      unknown: variablesUnknown
+    }
   })
 
   useEffect(() => {
@@ -287,21 +311,24 @@ export default function DesignDetailPage() {
       if (problemSaveTimer.current) clearTimeout(problemSaveTimer.current)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [title, problemStatement, goal, variables, constraints])
+  }, [
+    title,
+    problemStatement,
+    domain,
+    phase,
+    objective,
+    constraintMaterial,
+    constraintTime,
+    constraintEquipment,
+    variablesKnown,
+    variablesUnknown
+  ])
 
-  // ── Problem tab helpers ───────────────────────────────────────────────
-
-  const updateListAt = (
-    list: string[],
-    idx: number,
-    value: string
-  ): string[] => {
-    const next = [...list]
-    next[idx] = value
-    return next
-  }
-
-  const problemValid = problemStatement.trim() !== "" && goal.trim() !== ""
+  const problemValid =
+    problemStatement.trim() !== "" &&
+    objective.trim() !== "" &&
+    domain !== "" &&
+    phase !== ""
 
   // ── Approve & Generate handlers ───────────────────────────────────────
 
@@ -408,19 +435,6 @@ export default function DesignDetailPage() {
       "literature",
       "hypotheses",
       "design"
-    ]
-    setApprovedPhases(nextApproved)
-    await persistContent({ approvedPhases: nextApproved })
-    setActiveTab("simulation")
-  }
-
-  const handleFinalizeSimulation = async () => {
-    const nextApproved: PhaseKey[] = [
-      "problem",
-      "literature",
-      "hypotheses",
-      "design",
-      "simulation"
     ]
     setApprovedPhases(nextApproved)
     await persistContent({ approvedPhases: nextApproved })
@@ -571,33 +585,6 @@ export default function DesignDetailPage() {
     [hypotheses]
   )
 
-  // ── Simulation ────────────────────────────────────────────────────────
-
-  const handleGenerateSimulation = async (targetDesignId: string) => {
-    setBusy("simulation")
-    try {
-      const content = await runAgentPhase(designId, {
-        phase: "simulation",
-        problem: currentProblem(),
-        designId: targetDesignId
-      })
-      if (content.designs) setGeneratedDesigns(content.designs)
-      setActiveSimDesignId(targetDesignId)
-      toast({
-        title: "Simulation ready",
-        description: "Review the simulation results below."
-      })
-    } catch (error: any) {
-      toast({
-        title: "Simulation failed",
-        description: error?.message ?? "Try again in a moment.",
-        variant: "destructive"
-      })
-    } finally {
-      setBusy(null)
-    }
-  }
-
   const handleSaveDesign = async (id: string) => {
     setBusy("save")
     try {
@@ -627,12 +614,6 @@ export default function DesignDetailPage() {
       "",
       ...d.sections.flatMap(s => [`## ${s.heading}`, s.body, ""])
     ]
-    if (d.simulation) {
-      body.push("## Simulation")
-      body.push(d.simulation.summary)
-      body.push("")
-      body.push(...d.simulation.metrics.map(m => `- ${m.name}: ${m.value}`))
-    }
     const blob = new Blob([body.join("\n")], { type: "text/markdown" })
     const url = URL.createObjectURL(blob)
     const a = document.createElement("a")
@@ -642,17 +623,13 @@ export default function DesignDetailPage() {
     URL.revokeObjectURL(url)
   }
 
-  const simulatedDesigns = useMemo(
-    () => generatedDesigns.filter(d => d.simulation),
-    [generatedDesigns]
-  )
-
   // ── Tab configuration ─────────────────────────────────────────────────
 
   const tabDefs = useMemo(() => {
     const phaseTabConfig: Array<{
       key: PhaseKey
       label: string
+      sublabel: string
       accent:
         | "teal-journey"
         | "orange-product"
@@ -663,52 +640,66 @@ export default function DesignDetailPage() {
       {
         key: "problem",
         label: "Problem",
+        sublabel: title || "Define problem",
         accent: "teal-journey",
-        icon: <IconTargetArrow size={14} />
+        icon: <IconTargetArrow size={18} />
       },
       {
         key: "literature",
         label: "Literature",
+        sublabel: papers.length > 0 ? `${papers.length} papers` : "No papers",
         accent: "orange-product",
-        icon: <IconBook size={14} />
+        icon: <IconBook size={18} />
       },
       {
         key: "hypotheses",
         label: "Hypotheses",
+        sublabel:
+          hypotheses.length > 0
+            ? `${hypotheses.length} hypotheses`
+            : "No hypotheses",
         accent: "purple-persona",
-        icon: <IconBulb size={14} />
+        icon: <IconBulb size={18} />
       },
       {
         key: "design",
         label: "Design",
+        sublabel:
+          generatedDesigns.length > 0
+            ? `${generatedDesigns.length} designs`
+            : "No designs",
         accent: "sage-brand",
-        icon: <IconClipboardText size={14} />
-      },
-      {
-        key: "simulation",
-        label: "Simulation",
-        accent: "teal-journey",
-        icon: <IconChartBar size={14} />
+        icon: <IconClipboardText size={18} />
       }
     ]
 
     return [
+      {
+        key: "overview",
+        label: "Design Overview",
+        sublabel: title || design?.name || "Untitled Design",
+        accent: "teal-journey" as const,
+        icon: <IconLayoutGrid size={20} />,
+        disabled: false,
+        status: undefined as TabStatus | undefined,
+        primary: true
+      },
       ...phaseTabConfig.map(t => ({
         ...t,
         disabled: getPhaseState(t.key) === "locked",
-        status: getPhaseState(t.key)
-      })),
-      {
-        key: "overview",
-        label: "Overview",
-        accent: "neutral" as const,
-        icon: <IconLayoutGrid size={14} />,
-        disabled: false,
-        status: undefined
-      }
+        status: getPhaseState(t.key) as TabStatus | undefined,
+        primary: false
+      }))
     ]
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [approvedPhases, papers, hypotheses, generatedDesigns, problemValid])
+  }, [
+    approvedPhases,
+    papers,
+    hypotheses,
+    generatedDesigns,
+    problemValid,
+    title
+  ])
 
   // ── Agent popover helpers ──────────────────────────────────────────
 
@@ -842,29 +833,6 @@ export default function DesignDetailPage() {
         }
       ]
     },
-    simulation: {
-      heading: "Simulation",
-      actions: [
-        {
-          label: "Adjust parameters",
-          prompt:
-            "Suggest different parameter values to explore in the simulation for more comprehensive results.",
-          icon: <IconVariable size={14} />
-        },
-        {
-          label: "Run sensitivity analysis",
-          prompt:
-            "Perform a sensitivity analysis to identify which parameters have the most impact on results.",
-          icon: <IconChartBar size={14} />
-        },
-        {
-          label: "Compare scenarios",
-          prompt:
-            "Compare different simulation scenarios and summarize the key differences in outcomes.",
-          icon: <IconClipboardText size={14} />
-        }
-      ]
-    },
     overview: {
       heading: "Summary",
       actions: [
@@ -899,6 +867,7 @@ export default function DesignDetailPage() {
       scope="design"
       scopeId={designId}
       scopeName={design?.name ?? title}
+      autoStart
     />
   )
 
@@ -932,9 +901,6 @@ export default function DesignDetailPage() {
 
   const activeDesign =
     generatedDesigns.find(d => d.id === activeDesignId) ?? generatedDesigns[0]
-  const activeSimDesign =
-    simulatedDesigns.find(d => d.id === activeSimDesignId) ??
-    simulatedDesigns[0]
 
   const handleTabChange = (key: string) => {
     if (key !== "overview") {
@@ -988,41 +954,6 @@ export default function DesignDetailPage() {
 
             {/* ── Toolbar actions (right side) ───────────────── */}
             <div className="flex items-center gap-3">
-              {/* Phase progress summary */}
-              <div className="text-ink-400 hidden items-center gap-1.5 text-xs sm:flex">
-                {PHASE_ORDER.map((phase, i) => {
-                  const state = getPhaseState(phase)
-                  return (
-                    <span key={phase} className="flex items-center gap-1.5">
-                      {i > 0 && <span className="text-ink-200">&#8594;</span>}
-                      <span
-                        className={
-                          state === "approved"
-                            ? "font-semibold text-emerald-600"
-                            : state === "review"
-                              ? "font-semibold text-amber-500"
-                              : state === "active"
-                                ? "text-ink-600"
-                                : "text-ink-300"
-                        }
-                      >
-                        {phase === "problem"
-                          ? "P"
-                          : phase === "literature"
-                            ? "L"
-                            : phase === "hypotheses"
-                              ? "H"
-                              : phase === "design"
-                                ? "D"
-                                : "S"}
-                      </span>
-                    </span>
-                  )
-                })}
-              </div>
-
-              <div className="bg-ink-200 hidden h-6 w-px sm:block" />
-
               {/* Agent: split button — star/label toggles rail, chevron opens popover */}
               <Popover
                 open={agentPopoverOpen}
@@ -1124,20 +1055,35 @@ export default function DesignDetailPage() {
 
         {/* Tab content */}
         <div className="min-h-0 flex-1 overflow-auto">
-          <div className="mx-auto max-w-4xl p-6">
+          <div
+            className={
+              activeTab === "overview" || activeTab === "design"
+                ? "mx-auto max-w-6xl p-6"
+                : "mx-auto max-w-4xl p-6"
+            }
+          >
             {activeTab === "problem" && (
               <ProblemTab
                 title={title}
                 setTitle={setTitle}
                 problemStatement={problemStatement}
                 setProblemStatement={setProblemStatement}
-                goal={goal}
-                setGoal={setGoal}
-                variables={variables}
-                setVariables={setVariables}
-                constraints={constraints}
-                setConstraints={setConstraints}
-                updateListAt={updateListAt}
+                domain={domain}
+                setDomain={setDomain}
+                phase={phase}
+                setPhase={setPhase}
+                objective={objective}
+                setObjective={setObjective}
+                constraintMaterial={constraintMaterial}
+                setConstraintMaterial={setConstraintMaterial}
+                constraintTime={constraintTime}
+                setConstraintTime={setConstraintTime}
+                constraintEquipment={constraintEquipment}
+                setConstraintEquipment={setConstraintEquipment}
+                variablesKnown={variablesKnown}
+                setVariablesKnown={setVariablesKnown}
+                variablesUnknown={variablesUnknown}
+                setVariablesUnknown={setVariablesUnknown}
                 onApproveAndGenerate={handleApproveAndGenerateLiterature}
                 canSubmit={problemValid}
                 isApproved={isPhaseApproved("problem")}
@@ -1181,31 +1127,13 @@ export default function DesignDetailPage() {
                 activeId={activeDesignId}
                 onSelect={setActiveDesignId}
                 activeDesign={activeDesign}
-                onGenerateSimulation={handleGenerateSimulation}
                 onSave={handleSaveDesign}
                 onDownload={handleDownloadDesign}
                 onApproveAndContinue={handleApproveDesignAndContinue}
                 onRegenerate={handleRegenerateDesign}
                 isApproved={isPhaseApproved("design")}
-                isBusy={busy === "design" || busy === "simulation"}
+                isBusy={busy === "design"}
                 onRevise={() => handleRevisePhase("design")}
-              />
-            )}
-
-            {activeTab === "simulation" && (
-              <SimulationTab
-                designs={simulatedDesigns}
-                allDesigns={generatedDesigns}
-                activeId={activeSimDesignId}
-                onSelect={setActiveSimDesignId}
-                activeDesign={activeSimDesign}
-                onGenerateSimulation={handleGenerateSimulation}
-                onSave={handleSaveDesign}
-                onDownload={handleDownloadDesign}
-                onFinalize={handleFinalizeSimulation}
-                isApproved={isPhaseApproved("simulation")}
-                isBusy={busy === "simulation"}
-                onRevise={() => handleRevisePhase("simulation")}
               />
             )}
 
@@ -1213,13 +1141,20 @@ export default function DesignDetailPage() {
               <OverviewTab
                 title={title}
                 problemStatement={problemStatement}
-                goal={goal}
-                variables={variables.filter(v => v.trim() !== "")}
-                constraints={constraints.filter(c => c.trim() !== "")}
+                domain={domain}
+                phase={phase}
+                objective={objective}
+                constraintMaterial={constraintMaterial}
+                constraintTime={constraintTime}
+                constraintEquipment={constraintEquipment}
+                variablesKnown={variablesKnown}
+                variablesUnknown={variablesUnknown}
                 papers={papers}
                 hypotheses={hypotheses}
                 designs={generatedDesigns}
                 approvedPhases={approvedPhases}
+                activeDesign={activeDesign}
+                onGoToTab={setActiveTab}
               />
             )}
           </div>
@@ -1309,13 +1244,22 @@ function ProblemTab(props: {
   setTitle: (v: string) => void
   problemStatement: string
   setProblemStatement: (v: string) => void
-  goal: string
-  setGoal: (v: string) => void
-  variables: string[]
-  setVariables: (v: string[]) => void
-  constraints: string[]
-  setConstraints: (v: string[]) => void
-  updateListAt: (list: string[], idx: number, v: string) => string[]
+  domain: DesignDomain | ""
+  setDomain: (v: DesignDomain | "") => void
+  phase: DesignPhase | ""
+  setPhase: (v: DesignPhase | "") => void
+  objective: string
+  setObjective: (v: string) => void
+  constraintMaterial: string
+  setConstraintMaterial: (v: string) => void
+  constraintTime: string
+  setConstraintTime: (v: string) => void
+  constraintEquipment: string
+  setConstraintEquipment: (v: string) => void
+  variablesKnown: string
+  setVariablesKnown: (v: string) => void
+  variablesUnknown: string
+  setVariablesUnknown: (v: string) => void
   onApproveAndGenerate: () => void
   canSubmit: boolean
   isApproved: boolean
@@ -1327,13 +1271,22 @@ function ProblemTab(props: {
     setTitle,
     problemStatement,
     setProblemStatement,
-    goal,
-    setGoal,
-    variables,
-    setVariables,
-    constraints,
-    setConstraints,
-    updateListAt,
+    domain,
+    setDomain,
+    phase,
+    setPhase,
+    objective,
+    setObjective,
+    constraintMaterial,
+    setConstraintMaterial,
+    constraintTime,
+    setConstraintTime,
+    constraintEquipment,
+    setConstraintEquipment,
+    variablesKnown,
+    setVariablesKnown,
+    variablesUnknown,
+    setVariablesUnknown,
     onApproveAndGenerate,
     canSubmit,
     isApproved,
@@ -1379,45 +1332,130 @@ function ProblemTab(props: {
             />
           </div>
 
+          <div className="grid gap-4 md:grid-cols-2">
+            <div className="space-y-1.5">
+              <Label>
+                Domain <span className="text-red-500">*</span>
+              </Label>
+              <Select
+                value={domain || undefined}
+                onValueChange={value => setDomain(value as DesignDomain)}
+                disabled={isApproved}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select scientific domain" />
+                </SelectTrigger>
+                <SelectContent>
+                  {DESIGN_DOMAIN_OPTIONS.map(option => (
+                    <SelectItem key={option.value} value={option.value}>
+                      {option.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label>
+                Phase <span className="text-red-500">*</span>
+              </Label>
+              <Select
+                value={phase || undefined}
+                onValueChange={value => setPhase(value as DesignPhase)}
+                disabled={isApproved}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select development phase" />
+                </SelectTrigger>
+                <SelectContent>
+                  {DESIGN_PHASE_OPTIONS.map(option => (
+                    <SelectItem key={option.value} value={option.value}>
+                      {option.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
           <div className="space-y-1.5">
             <Label>
-              Goal of the Experiment Design{" "}
-              <span className="text-red-500">*</span>
+              Objective <span className="text-red-500">*</span>
             </Label>
             <Textarea
-              value={goal}
-              onChange={e => setGoal(e.target.value)}
-              placeholder="What should the design achieve — hypothesis confirmation, optimization, mechanistic insight?"
+              value={objective}
+              onChange={e => setObjective(e.target.value)}
+              placeholder="What should this experiment achieve?"
               rows={3}
               disabled={isApproved}
             />
           </div>
 
-          <ListInput
-            label="Variables"
-            items={variables}
-            placeholder="e.g. Concentration (0.1-0.6%)"
-            onAdd={() => setVariables([...variables, ""])}
-            onRemove={idx =>
-              setVariables(variables.filter((_, i) => i !== idx))
-            }
-            onChange={(idx, v) => setVariables(updateListAt(variables, idx, v))}
-            disabled={isApproved}
-          />
+          <div className="space-y-3">
+            <Label className="text-sm font-semibold">Constraints</Label>
+            <div className="space-y-3">
+              <div className="space-y-1.5">
+                <Label className="text-muted-foreground text-xs">
+                  Material
+                </Label>
+                <Textarea
+                  value={constraintMaterial}
+                  onChange={e => setConstraintMaterial(e.target.value)}
+                  placeholder="e.g. ≤ 500 mg API; limited to in-house excipients"
+                  rows={2}
+                  disabled={isApproved}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-muted-foreground text-xs">Time</Label>
+                <Textarea
+                  value={constraintTime}
+                  onChange={e => setConstraintTime(e.target.value)}
+                  placeholder="e.g. Must complete within 2 weeks of receipt"
+                  rows={2}
+                  disabled={isApproved}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-muted-foreground text-xs">
+                  Equipment
+                </Label>
+                <Textarea
+                  value={constraintEquipment}
+                  onChange={e => setConstraintEquipment(e.target.value)}
+                  placeholder="e.g. UPLC, plate reader, no DLS available"
+                  rows={2}
+                  disabled={isApproved}
+                />
+              </div>
+            </div>
+          </div>
 
-          <ListInput
-            label="Constraints"
-            items={constraints}
-            placeholder="e.g. Budget <= $5k; must run within 2 weeks"
-            onAdd={() => setConstraints([...constraints, ""])}
-            onRemove={idx =>
-              setConstraints(constraints.filter((_, i) => i !== idx))
-            }
-            onChange={(idx, v) =>
-              setConstraints(updateListAt(constraints, idx, v))
-            }
-            disabled={isApproved}
-          />
+          <div className="space-y-3">
+            <Label className="text-sm font-semibold">Variables</Label>
+            <div className="space-y-3">
+              <div className="space-y-1.5">
+                <Label className="text-muted-foreground text-xs">Known</Label>
+                <Textarea
+                  value={variablesKnown}
+                  onChange={e => setVariablesKnown(e.target.value)}
+                  placeholder="Variables you want to vary or control — one per line (e.g. pH 5–7, polymer concentration 0.1–0.6%)"
+                  rows={3}
+                  disabled={isApproved}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label className="text-muted-foreground text-xs">Unknown</Label>
+                <Textarea
+                  value={variablesUnknown}
+                  onChange={e => setVariablesUnknown(e.target.value)}
+                  placeholder="Variables you suspect matter but don't fully characterize yet — one per line"
+                  rows={3}
+                  disabled={isApproved}
+                />
+              </div>
+            </div>
+          </div>
         </CardContent>
       </Card>
 
@@ -1428,60 +1466,6 @@ function ProblemTab(props: {
         isBusy={isBusy}
         isApproved={isApproved}
       />
-    </div>
-  )
-}
-
-function ListInput(props: {
-  label: string
-  items: string[]
-  placeholder: string
-  onAdd: () => void
-  onRemove: (idx: number) => void
-  onChange: (idx: number, value: string) => void
-  disabled?: boolean
-}) {
-  const { label, items, placeholder, onAdd, onRemove, onChange, disabled } =
-    props
-  return (
-    <div className="space-y-1.5">
-      <Label>{label}</Label>
-      <div className="space-y-2">
-        {items.map((item, idx) => (
-          <div key={idx} className="flex items-start gap-2">
-            <Textarea
-              value={item}
-              onChange={e => onChange(idx, e.target.value)}
-              placeholder={placeholder}
-              rows={2}
-              className="flex-1"
-              disabled={disabled}
-            />
-            {items.length > 1 && !disabled && (
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => onRemove(idx)}
-                className="text-ink-400 hover:text-red-500"
-              >
-                <IconX size={16} />
-              </Button>
-            )}
-          </div>
-        ))}
-      </div>
-      {!disabled && (
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          onClick={onAdd}
-          className="gap-1"
-        >
-          <IconPlus size={14} />
-          Add {label.toLowerCase().replace(/s$/, "")}
-        </Button>
-      )}
     </div>
   )
 }
@@ -1745,12 +1729,129 @@ function HypothesesTab(props: {
   )
 }
 
+function slugifyHeading(s: string): string {
+  return s
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/(^-|-$)/g, "")
+}
+
+function DesignSectionIndex(props: {
+  sections: { heading: string }[]
+  containerId: string
+}) {
+  const [activeId, setActiveId] = useState<string>("")
+
+  useEffect(() => {
+    const container = document.getElementById(props.containerId)
+    if (!container) return
+    const headings = Array.from(
+      container.querySelectorAll<HTMLElement>("[data-section-id]")
+    )
+    const observer = new IntersectionObserver(
+      entries => {
+        const visible = entries
+          .filter(e => e.isIntersecting)
+          .sort((a, b) => b.intersectionRatio - a.intersectionRatio)
+        if (visible[0]) {
+          setActiveId(visible[0].target.getAttribute("data-section-id") ?? "")
+        }
+      },
+      {
+        root: container,
+        rootMargin: "-20% 0px -60% 0px",
+        threshold: [0, 0.25, 0.5, 0.75, 1]
+      }
+    )
+    headings.forEach(h => observer.observe(h))
+    return () => observer.disconnect()
+  }, [props.containerId, props.sections])
+
+  const handleClick = (id: string) => {
+    const el = document.getElementById(id)
+    const container = document.getElementById(props.containerId)
+    if (!el || !container) return
+    const top = el.offsetTop - container.offsetTop - 16
+    container.scrollTo({ top, behavior: "smooth" })
+  }
+
+  return (
+    <nav className="sticky top-0 space-y-1">
+      <div className="text-ink-400 mb-3 text-[10px] font-bold uppercase tracking-[0.13em]">
+        On this page
+      </div>
+      <ul className="space-y-1">
+        {props.sections.map(sec => {
+          const id = `section-${slugifyHeading(sec.heading)}`
+          const isActive = id === activeId
+          return (
+            <li key={id}>
+              <button
+                type="button"
+                onClick={() => handleClick(id)}
+                className={cn(
+                  "w-full border-l-2 py-1.5 pl-3 pr-2 text-left text-xs leading-snug transition-colors",
+                  isActive
+                    ? "border-sage-brand text-sage-brand font-semibold"
+                    : "border-ink-200 text-ink-500 hover:border-sage-brand/60 hover:text-ink-900"
+                )}
+              >
+                {sec.heading}
+              </button>
+            </li>
+          )
+        })}
+      </ul>
+    </nav>
+  )
+}
+
+function DesignSectionContent(props: { section: DesignSection }) {
+  const { section } = props
+  const id = `section-${slugifyHeading(section.heading)}`
+
+  const lines = section.body.split(/\r?\n/).map(l => l.trim())
+  const nonEmpty = lines.filter(l => l.length > 0)
+  const allBulleted =
+    nonEmpty.length > 1 && nonEmpty.every(l => /^([-*•]|\d+\.)\s+/.test(l))
+
+  return (
+    <section
+      id={id}
+      data-section-id={id}
+      className="scroll-mt-4 border-b border-dashed border-transparent pb-6 last:border-b-0 last:pb-0"
+    >
+      <h3 className="text-ink-900 mb-3 text-base font-semibold">
+        {section.heading}
+      </h3>
+      {allBulleted ? (
+        <ul className="text-ink-700 list-disc space-y-1.5 pl-5 text-sm leading-relaxed">
+          {nonEmpty.map((l, i) => (
+            <li key={i}>{l.replace(/^([-*•]|\d+\.)\s+/, "")}</li>
+          ))}
+        </ul>
+      ) : (
+        <div className="text-ink-700 space-y-2 text-sm leading-relaxed">
+          {section.body
+            .split(/\n{2,}/)
+            .map(p => p.trim())
+            .filter(Boolean)
+            .map((p, i) => (
+              <p key={i} className="whitespace-pre-wrap">
+                {p}
+              </p>
+            ))}
+        </div>
+      )}
+    </section>
+  )
+}
+
 function DesignTab(props: {
   designs: GeneratedDesign[]
   activeId: string | null
   onSelect: (id: string) => void
   activeDesign?: GeneratedDesign
-  onGenerateSimulation: (id: string) => void
   onSave: (id: string) => void
   onDownload: (d: GeneratedDesign) => void
   onApproveAndContinue: () => void
@@ -1772,6 +1873,8 @@ function DesignTab(props: {
     isBusy,
     onRevise
   } = props
+
+  const scrollContainerId = "design-detail-scroll"
 
   return (
     <div className="space-y-4">
@@ -1813,201 +1916,53 @@ function DesignTab(props: {
           </div>
 
           {activeDesign && (
-            <Card className="rounded-2xl">
-              <CardHeader className="pb-3">
-                <div>
-                  <div className="text-ink-400 text-[10px] font-bold uppercase tracking-[0.13em]">
-                    Experiment Design
-                  </div>
-                  <CardTitle className="text-sage-brand mt-1 text-lg">
-                    {activeDesign.title}
-                  </CardTitle>
-                </div>
-              </CardHeader>
-              <CardContent>
-                <div className="max-h-[55vh] space-y-5 overflow-auto pr-2">
-                  {activeDesign.sections.map(sec => (
-                    <div key={sec.heading}>
-                      <h4 className="text-ink-900 mb-1 text-sm font-semibold">
-                        {sec.heading}
-                      </h4>
-                      <p className="text-ink-700 whitespace-pre-wrap text-sm leading-relaxed">
-                        {sec.body}
-                      </p>
-                    </div>
-                  ))}
-                </div>
-
-                <DesignActionsBar
-                  design={activeDesign}
-                  onSave={onSave}
-                  onDownload={onDownload}
+            <div className="grid grid-cols-[200px_minmax(0,1fr)] gap-6">
+              <aside className="hidden md:block">
+                <DesignSectionIndex
+                  sections={activeDesign.sections}
+                  containerId={scrollContainerId}
                 />
-              </CardContent>
-            </Card>
+              </aside>
+
+              <Card className="rounded-2xl">
+                <CardHeader className="pb-3">
+                  <div>
+                    <div className="text-ink-400 text-[10px] font-bold uppercase tracking-[0.13em]">
+                      Experiment Design
+                    </div>
+                    <CardTitle className="text-sage-brand mt-1 text-lg">
+                      {activeDesign.title}
+                    </CardTitle>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <div
+                    id={scrollContainerId}
+                    className="max-h-[60vh] space-y-5 overflow-auto pr-2"
+                  >
+                    {activeDesign.sections.map(sec => (
+                      <DesignSectionContent key={sec.heading} section={sec} />
+                    ))}
+                  </div>
+
+                  <DesignActionsBar
+                    design={activeDesign}
+                    onSave={onSave}
+                    onDownload={onDownload}
+                  />
+                </CardContent>
+              </Card>
+            </div>
           )}
         </>
       )}
 
       <PhaseActionBar
         onApprove={onApproveAndContinue}
-        approveLabel="Approve & Continue to Simulation"
+        approveLabel="Approve & Finalize Design"
         approveDisabled={designs.length === 0}
         onRegenerate={designs.length > 0 ? onRegenerate : undefined}
         regenerateLabel="Regenerate Designs"
-        isBusy={isBusy}
-        isApproved={isApproved}
-      />
-    </div>
-  )
-}
-
-function SimulationTab(props: {
-  designs: GeneratedDesign[]
-  allDesigns: GeneratedDesign[]
-  activeId: string | null
-  onSelect: (id: string) => void
-  activeDesign?: GeneratedDesign
-  onGenerateSimulation: (id: string) => void
-  onSave: (id: string) => void
-  onDownload: (d: GeneratedDesign) => void
-  onFinalize: () => void
-  isApproved: boolean
-  isBusy: boolean
-  onRevise: () => void
-}) {
-  const {
-    designs,
-    allDesigns,
-    activeId,
-    onSelect,
-    activeDesign,
-    onGenerateSimulation,
-    onSave,
-    onDownload,
-    onFinalize,
-    isApproved,
-    isBusy,
-    onRevise
-  } = props
-
-  const unsimulated = allDesigns.filter(d => !d.simulation)
-
-  return (
-    <div className="space-y-4">
-      <PhaseBanner
-        isApproved={isApproved}
-        phaseName="Simulation"
-        onRevise={onRevise}
-      />
-
-      <div>
-        <h3 className="text-teal-journey text-sm font-bold uppercase tracking-widest">
-          Simulations
-        </h3>
-        <p className="text-ink-500 mt-0.5 text-xs">
-          {isApproved
-            ? "All phases finalized."
-            : "Run simulations on your approved designs, then finalize when ready."}
-        </p>
-      </div>
-
-      {!isApproved && unsimulated.length > 0 && (
-        <div className="space-y-2">
-          <p className="text-ink-400 text-xs font-semibold uppercase tracking-wide">
-            Run simulation for:
-          </p>
-          <div className="flex flex-wrap gap-2">
-            {unsimulated.map(d => (
-              <Button
-                key={d.id}
-                size="sm"
-                variant="outline"
-                disabled={isBusy}
-                onClick={() => onGenerateSimulation(d.id)}
-                className="gap-1.5"
-              >
-                <IconChartBar size={14} />
-                {d.title.length > 40 ? d.title.slice(0, 40) + "..." : d.title}
-              </Button>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {designs.length === 0 ? (
-        <div className="border-teal-journey/30 bg-teal-journey-tint text-ink-500 rounded-xl border border-dashed p-8 text-center text-xs">
-          {isBusy
-            ? "Running simulation..."
-            : "No simulations yet. Use the buttons above to run simulations on your designs."}
-        </div>
-      ) : (
-        <>
-          <div className="flex flex-wrap gap-2">
-            {designs.map(d => {
-              const isActive = d.id === (activeId ?? designs[0].id)
-              return (
-                <button
-                  key={d.id}
-                  onClick={() => onSelect(d.id)}
-                  className={
-                    "rounded-lg border px-3 py-1.5 text-xs font-semibold transition-colors " +
-                    (isActive
-                      ? "border-teal-journey bg-teal-journey-active text-teal-journey"
-                      : "border-ink-200 text-ink-500 hover:bg-ink-100")
-                  }
-                >
-                  {d.title.length > 48 ? d.title.slice(0, 48) + "..." : d.title}
-                </button>
-              )
-            })}
-          </div>
-
-          {activeDesign?.simulation && (
-            <Card className="rounded-2xl">
-              <CardHeader className="pb-3">
-                <div className="text-ink-400 text-[10px] font-bold uppercase tracking-[0.13em]">
-                  Simulation
-                </div>
-                <CardTitle className="text-teal-journey mt-1 text-lg">
-                  {activeDesign.title}
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <p className="text-ink-700 text-sm leading-relaxed">
-                  {activeDesign.simulation.summary}
-                </p>
-                <div className="grid grid-cols-2 gap-3">
-                  {activeDesign.simulation.metrics.map(m => (
-                    <div
-                      key={m.name}
-                      className="border-ink-200 rounded-lg border bg-white p-3"
-                    >
-                      <div className="text-ink-400 text-[10px] font-bold uppercase tracking-wide">
-                        {m.name}
-                      </div>
-                      <div className="text-ink-900 mt-1 text-sm font-semibold">
-                        {m.value}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-
-                <DesignActionsBar
-                  design={activeDesign}
-                  onSave={onSave}
-                  onDownload={onDownload}
-                />
-              </CardContent>
-            </Card>
-          )}
-        </>
-      )}
-
-      <PhaseActionBar
-        onApprove={onFinalize}
-        approveLabel="Finalize Design"
-        approveDisabled={designs.length === 0}
         isBusy={isBusy}
         isApproved={isApproved}
       />
@@ -2081,120 +2036,499 @@ function DesignActionsBar(props: {
 function OverviewTab(props: {
   title: string
   problemStatement: string
-  goal: string
-  variables: string[]
-  constraints: string[]
+  domain: DesignDomain | ""
+  phase: DesignPhase | ""
+  objective: string
+  constraintMaterial: string
+  constraintTime: string
+  constraintEquipment: string
+  variablesKnown: string
+  variablesUnknown: string
   papers: Paper[]
   hypotheses: Hypothesis[]
   designs: GeneratedDesign[]
   approvedPhases: PhaseKey[]
+  activeDesign?: GeneratedDesign
+  onGoToTab: (key: string) => void
 }) {
   const {
     title,
     problemStatement,
-    goal,
-    variables,
-    constraints,
+    domain,
+    phase,
+    objective,
+    constraintMaterial,
+    constraintTime,
+    constraintEquipment,
+    variablesKnown,
+    variablesUnknown,
     papers,
     hypotheses,
     designs,
-    approvedPhases
+    approvedPhases,
+    activeDesign,
+    onGoToTab
   } = props
+
+  const domainLabel =
+    DESIGN_DOMAIN_OPTIONS.find(option => option.value === domain)?.label ?? ""
+  const phaseLabel =
+    DESIGN_PHASE_OPTIONS.find(option => option.value === phase)?.label ?? ""
+  const splitLines = (value: string) =>
+    value
+      .split(/\r?\n/)
+      .map(line => line.trim())
+      .filter(Boolean)
+  const knownList = splitLines(variablesKnown)
+  const unknownList = splitLines(variablesUnknown)
+  const constraintRows = [
+    { label: "Material", value: constraintMaterial },
+    { label: "Time", value: constraintTime },
+    { label: "Equipment", value: constraintEquipment }
+  ].filter(row => row.value.trim().length > 0)
 
   const selectedPapers = papers.filter(p => p.selected)
   const selectedHypotheses = hypotheses.filter(h => h.selected)
-  const withSimulation = designs.filter(d => d.simulation)
+  const scrollContainerId = "overview-detail-scroll"
+
+  const sections: { id: string; heading: string }[] = [
+    { id: "section-summary", heading: "Summary" },
+    { id: "section-problem", heading: "Problem & Goal" },
+    { id: "section-variables", heading: "Variables & Constraints" },
+    { id: "section-literature", heading: "Literature" },
+    { id: "section-hypotheses", heading: "Hypotheses" },
+    { id: "section-design", heading: "Experiment Design" }
+  ]
 
   return (
-    <div className="space-y-4">
-      <Card className="rounded-2xl">
-        <CardHeader className="pb-2">
-          <CardTitle className="text-ink-900 text-lg">Phase Progress</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex items-center gap-2">
-            {PHASE_ORDER.map((phase, i) => {
-              const approved = approvedPhases.includes(phase)
-              return (
-                <div key={phase} className="flex items-center gap-2">
-                  {i > 0 && (
+    <div className="grid grid-cols-[200px_minmax(0,1fr)] gap-6">
+      {/* Floating section index */}
+      <aside className="hidden md:block">
+        <OverviewIndex sections={sections} containerId={scrollContainerId} />
+      </aside>
+
+      {/* Right scrollable content */}
+      <div
+        id={scrollContainerId}
+        className="max-h-[calc(100vh-220px)] space-y-5 overflow-auto pr-2"
+      >
+        {/* Summary */}
+        <section
+          id="section-summary"
+          data-section-id="section-summary"
+          className="scroll-mt-4"
+        >
+          <Card className="rounded-2xl">
+            <CardHeader className="pb-2">
+              <div className="text-ink-400 text-[10px] font-bold uppercase tracking-[0.13em]">
+                Design Overview
+              </div>
+              <CardTitle className="text-ink-900 mt-1 text-xl">
+                {title || "Untitled Design"}
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="mb-4 flex flex-wrap items-center gap-2">
+                {PHASE_ORDER.map(pipelinePhase => {
+                  const approved = approvedPhases.includes(pipelinePhase)
+                  return (
                     <div
-                      className={`h-0.5 w-6 ${approved ? "bg-emerald-400" : "bg-ink-200"}`}
-                    />
-                  )}
-                  <div
-                    className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold ${
-                      approved
-                        ? "bg-emerald-100 text-emerald-700"
-                        : "bg-ink-100 text-ink-400"
-                    }`}
-                  >
-                    {approved && <IconCheck size={12} />}
-                    <span className="capitalize">{phase}</span>
+                      key={pipelinePhase}
+                      className={cn(
+                        "flex items-center gap-1.5 rounded-full px-3 py-1 text-[11px] font-semibold capitalize",
+                        approved
+                          ? "bg-emerald-100 text-emerald-700"
+                          : "bg-ink-100 text-ink-400"
+                      )}
+                    >
+                      {approved && <IconCheck size={11} />}
+                      {pipelinePhase}
+                    </div>
+                  )
+                })}
+              </div>
+              <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+                <OverviewStat
+                  label="Papers reviewed"
+                  value={`${selectedPapers.length}/${papers.length}`}
+                />
+                <OverviewStat
+                  label="Hypotheses selected"
+                  value={`${selectedHypotheses.length}/${hypotheses.length}`}
+                />
+                <OverviewStat label="Designs" value={`${designs.length}`} />
+                <OverviewStat
+                  label="Saved designs"
+                  value={`${designs.filter(d => d.saved).length}`}
+                />
+              </div>
+            </CardContent>
+          </Card>
+        </section>
+
+        {/* Problem & Objective */}
+        <section
+          id="section-problem"
+          data-section-id="section-problem"
+          className="scroll-mt-4"
+        >
+          <Card className="rounded-2xl">
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardTitle className="text-teal-journey text-base font-bold uppercase tracking-widest">
+                Problem & Objective
+              </CardTitle>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => onGoToTab("problem")}
+                className="text-ink-500 h-7 text-xs"
+              >
+                Edit
+              </Button>
+            </CardHeader>
+            <CardContent className="space-y-4 text-sm">
+              <div className="grid gap-4 md:grid-cols-2">
+                <OverviewField label="Domain">
+                  {domainLabel || "\u2014"}
+                </OverviewField>
+                <OverviewField label="Phase">
+                  {phaseLabel || "\u2014"}
+                </OverviewField>
+              </div>
+              <OverviewField label="Problem Statement">
+                {problemStatement || "\u2014"}
+              </OverviewField>
+              <OverviewField label="Objective">
+                {objective || "\u2014"}
+              </OverviewField>
+            </CardContent>
+          </Card>
+        </section>
+
+        {/* Variables & Constraints — structured */}
+        <section
+          id="section-variables"
+          data-section-id="section-variables"
+          className="scroll-mt-4"
+        >
+          <Card className="rounded-2xl">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-teal-journey text-base font-bold uppercase tracking-widest">
+                Variables & Constraints
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid gap-4 md:grid-cols-2">
+                <div>
+                  <div className="text-ink-400 mb-2 text-[10px] font-bold uppercase tracking-[0.13em]">
+                    Known variables
                   </div>
+                  {knownList.length > 0 ? (
+                    <ul className="border-ink-200 divide-ink-100 divide-y overflow-hidden rounded-lg border bg-white text-sm">
+                      {knownList.map((v, i) => (
+                        <li
+                          key={i}
+                          className="text-ink-700 flex items-center gap-2 px-3 py-2"
+                        >
+                          <span className="text-ink-400 w-5 shrink-0 text-[11px]">
+                            {i + 1}.
+                          </span>
+                          <span>{v}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <div className="text-ink-400 text-xs">
+                      No known variables specified.
+                    </div>
+                  )}
                 </div>
-              )
-            })}
-          </div>
-        </CardContent>
-      </Card>
+                <div>
+                  <div className="text-ink-400 mb-2 text-[10px] font-bold uppercase tracking-[0.13em]">
+                    Unknown variables
+                  </div>
+                  {unknownList.length > 0 ? (
+                    <ul className="border-ink-200 divide-ink-100 divide-y overflow-hidden rounded-lg border bg-white text-sm">
+                      {unknownList.map((v, i) => (
+                        <li
+                          key={i}
+                          className="text-ink-700 flex items-center gap-2 px-3 py-2"
+                        >
+                          <span className="text-ink-400 w-5 shrink-0 text-[11px]">
+                            {i + 1}.
+                          </span>
+                          <span>{v}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  ) : (
+                    <div className="text-ink-400 text-xs">
+                      No unknown variables specified.
+                    </div>
+                  )}
+                </div>
+              </div>
+              <div className="mt-4">
+                <div className="text-ink-400 mb-2 text-[10px] font-bold uppercase tracking-[0.13em]">
+                  Constraints
+                </div>
+                {constraintRows.length > 0 ? (
+                  <ul className="border-ink-200 divide-ink-100 divide-y overflow-hidden rounded-lg border bg-white text-sm">
+                    {constraintRows.map(row => (
+                      <li
+                        key={row.label}
+                        className="text-ink-700 flex items-start gap-3 px-3 py-2"
+                      >
+                        <span className="text-ink-400 w-20 shrink-0 text-[11px] font-semibold uppercase tracking-wide">
+                          {row.label}
+                        </span>
+                        <span>{row.value}</span>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <div className="text-ink-400 text-xs">
+                    No constraints specified.
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        </section>
 
-      <Card className="rounded-2xl">
-        <CardHeader className="pb-2">
-          <CardTitle className="text-ink-900 text-lg">
-            {title || "Untitled Design"}
-          </CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4 text-sm">
-          <OverviewSection label="Problem Statement">
-            {problemStatement || "\u2014"}
-          </OverviewSection>
-          <OverviewSection label="Goal">{goal || "\u2014"}</OverviewSection>
-          <OverviewSection label="Variables">
-            {variables.length > 0 ? (
-              <ul className="list-disc pl-5">
-                {variables.map((v, i) => (
-                  <li key={i}>{v}</li>
-                ))}
-              </ul>
-            ) : (
-              "\u2014"
-            )}
-          </OverviewSection>
-          <OverviewSection label="Constraints">
-            {constraints.length > 0 ? (
-              <ul className="list-disc pl-5">
-                {constraints.map((c, i) => (
-                  <li key={i}>{c}</li>
-                ))}
-              </ul>
-            ) : (
-              "\u2014"
-            )}
-          </OverviewSection>
-        </CardContent>
-      </Card>
+        {/* Literature table */}
+        <section
+          id="section-literature"
+          data-section-id="section-literature"
+          className="scroll-mt-4"
+        >
+          <Card className="rounded-2xl">
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardTitle className="text-orange-product text-base font-bold uppercase tracking-widest">
+                Literature ({selectedPapers.length}/{papers.length} selected)
+              </CardTitle>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => onGoToTab("literature")}
+                className="text-ink-500 h-7 text-xs"
+              >
+                Manage
+              </Button>
+            </CardHeader>
+            <CardContent>
+              {papers.length === 0 ? (
+                <div className="text-ink-400 text-xs">No papers yet.</div>
+              ) : (
+                <div className="border-ink-200 overflow-hidden rounded-lg border">
+                  <table className="w-full text-left text-sm">
+                    <thead className="bg-ink-50 text-ink-500 text-[10px] font-bold uppercase tracking-wide">
+                      <tr>
+                        <th className="w-8 px-3 py-2">#</th>
+                        <th className="px-3 py-2">Title</th>
+                        <th className="w-20 px-3 py-2">Status</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-ink-100 divide-y bg-white">
+                      {papers.map((p, i) => (
+                        <tr key={p.id}>
+                          <td className="text-ink-400 px-3 py-2 text-xs">
+                            {i + 1}
+                          </td>
+                          <td className="text-ink-800 px-3 py-2">
+                            <div className="font-medium">{p.title}</div>
+                            {p.summary && (
+                              <div className="text-ink-500 mt-0.5 line-clamp-2 text-xs">
+                                {p.summary}
+                              </div>
+                            )}
+                          </td>
+                          <td className="px-3 py-2">
+                            {p.selected ? (
+                              <span className="text-orange-product bg-orange-product-tint rounded px-2 py-0.5 text-[10px] font-bold uppercase">
+                                Selected
+                              </span>
+                            ) : (
+                              <span className="text-ink-400 text-[10px]">
+                                —
+                              </span>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </section>
 
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-        <OverviewStat
-          label="Papers reviewed"
-          value={`${selectedPapers.length}/${papers.length}`}
-        />
-        <OverviewStat
-          label="Hypotheses selected"
-          value={`${selectedHypotheses.length}/${hypotheses.length}`}
-        />
-        <OverviewStat label="Designs generated" value={`${designs.length}`} />
-        <OverviewStat
-          label="Simulations"
-          value={`${withSimulation.length}/${designs.length}`}
-        />
+        {/* Hypotheses */}
+        <section
+          id="section-hypotheses"
+          data-section-id="section-hypotheses"
+          className="scroll-mt-4"
+        >
+          <Card className="rounded-2xl">
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardTitle className="text-purple-persona text-base font-bold uppercase tracking-widest">
+                Hypotheses ({selectedHypotheses.length}/{hypotheses.length}{" "}
+                selected)
+              </CardTitle>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => onGoToTab("hypotheses")}
+                className="text-ink-500 h-7 text-xs"
+              >
+                Manage
+              </Button>
+            </CardHeader>
+            <CardContent>
+              {hypotheses.length === 0 ? (
+                <div className="text-ink-400 text-xs">No hypotheses yet.</div>
+              ) : (
+                <ol className="space-y-2">
+                  {hypotheses.map((h, i) => (
+                    <li
+                      key={h.id}
+                      className={cn(
+                        "border-ink-200 flex items-start gap-3 rounded-lg border bg-white p-3 text-sm",
+                        h.selected &&
+                          "border-purple-persona bg-purple-persona-tint"
+                      )}
+                    >
+                      <span className="text-ink-400 w-5 shrink-0 text-xs">
+                        {i + 1}.
+                      </span>
+                      <span className="text-ink-800">{h.text}</span>
+                    </li>
+                  ))}
+                </ol>
+              )}
+            </CardContent>
+          </Card>
+        </section>
+
+        {/* Experiment Design sections */}
+        <section
+          id="section-design"
+          data-section-id="section-design"
+          className="scroll-mt-4"
+        >
+          <Card className="rounded-2xl">
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardTitle className="text-sage-brand text-base font-bold uppercase tracking-widest">
+                Experiment Design
+              </CardTitle>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => onGoToTab("design")}
+                className="text-ink-500 h-7 text-xs"
+              >
+                Open
+              </Button>
+            </CardHeader>
+            <CardContent>
+              {activeDesign ? (
+                <div className="space-y-5">
+                  <div>
+                    <div className="text-ink-400 text-[10px] font-bold uppercase tracking-[0.13em]">
+                      Title
+                    </div>
+                    <div className="text-ink-900 mt-1 text-sm font-semibold">
+                      {activeDesign.title}
+                    </div>
+                  </div>
+                  {activeDesign.sections.map(sec => (
+                    <DesignSectionContent key={sec.heading} section={sec} />
+                  ))}
+                </div>
+              ) : (
+                <div className="text-ink-400 text-xs">
+                  No design generated yet.
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </section>
       </div>
     </div>
   )
 }
 
-function OverviewSection(props: { label: string; children: React.ReactNode }) {
+function OverviewIndex(props: {
+  sections: { id: string; heading: string }[]
+  containerId: string
+}) {
+  const [activeId, setActiveId] = useState(props.sections[0]?.id ?? "")
+
+  useEffect(() => {
+    const container = document.getElementById(props.containerId)
+    if (!container) return
+    const observer = new IntersectionObserver(
+      entries => {
+        const visible = entries
+          .filter(e => e.isIntersecting)
+          .sort((a, b) => b.intersectionRatio - a.intersectionRatio)
+        if (visible[0]) {
+          setActiveId(visible[0].target.getAttribute("data-section-id") ?? "")
+        }
+      },
+      {
+        root: container,
+        rootMargin: "-20% 0px -60% 0px",
+        threshold: [0, 0.25, 0.5, 0.75, 1]
+      }
+    )
+    props.sections.forEach(s => {
+      const el = document.getElementById(s.id)
+      if (el) observer.observe(el)
+    })
+    return () => observer.disconnect()
+  }, [props.containerId, props.sections])
+
+  const handleClick = (id: string) => {
+    const el = document.getElementById(id)
+    const container = document.getElementById(props.containerId)
+    if (!el || !container) return
+    const top = el.offsetTop - container.offsetTop - 8
+    container.scrollTo({ top, behavior: "smooth" })
+  }
+
+  return (
+    <nav className="sticky top-0 space-y-1">
+      <div className="text-ink-400 mb-3 text-[10px] font-bold uppercase tracking-[0.13em]">
+        On this page
+      </div>
+      <ul className="space-y-1">
+        {props.sections.map(sec => {
+          const isActive = sec.id === activeId
+          return (
+            <li key={sec.id}>
+              <button
+                type="button"
+                onClick={() => handleClick(sec.id)}
+                className={cn(
+                  "w-full border-l-2 py-1.5 pl-3 pr-2 text-left text-xs leading-snug transition-colors",
+                  isActive
+                    ? "border-teal-journey text-teal-journey font-semibold"
+                    : "border-ink-200 text-ink-500 hover:border-teal-journey/60 hover:text-ink-900"
+                )}
+              >
+                {sec.heading}
+              </button>
+            </li>
+          )
+        })}
+      </ul>
+    </nav>
+  )
+}
+
+function OverviewField(props: { label: string; children: React.ReactNode }) {
   return (
     <div>
       <div className="text-ink-400 text-[10px] font-bold uppercase tracking-[0.13em]">

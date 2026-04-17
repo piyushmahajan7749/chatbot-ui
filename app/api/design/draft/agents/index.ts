@@ -9,11 +9,15 @@ import {
   HypothesisBuilderOutput,
   ExperimentDesignerOutput,
   StatCheckOutput,
+  PlannerOutput,
+  ProcedureOutput,
   ReportWriterOutput,
   LiteratureScoutSchema,
   HypothesisBuilderSchema,
   ExperimentDesignerSchema,
   StatCheckSchema,
+  PlannerSchema,
+  ProcedureSchema,
   ReportWriterSchema,
   CitationItem
 } from "../types"
@@ -22,6 +26,8 @@ import {
   createHypothesisBuilderPrompt,
   createExperimentDesignerPrompt,
   createStatCheckPrompt,
+  createPlannerPrompt,
+  createProcedurePrompt,
   createReportWriterPrompt,
   getAgentUserPrompt
 } from "../prompts/agent-prompts"
@@ -81,43 +87,59 @@ export async function callLiteratureScoutAgent(
   // Log input state
   console.log("📥 [LITERATURE_SCOUT_INPUT] Agent Input:")
   console.log("  📋 Problem:", state.problem)
+  console.log("  🌐 Domain:", state.domain || "(not specified)")
+  console.log("  🧪 Phase:", state.phase || "(not specified)")
   console.log("  🎯 Objectives:", JSON.stringify(state.objectives, null, 2))
-  console.log("  🔬 Variables:", JSON.stringify(state.variables, null, 2))
   console.log(
-    "  ⚠️  Special Considerations:",
-    JSON.stringify(state.specialConsiderations, null, 2)
+    "  🔬 Known variables:",
+    JSON.stringify(state.variables?.known || [], null, 2)
+  )
+  console.log(
+    "  ❓ Unknown variables:",
+    JSON.stringify(state.variables?.unknown || [], null, 2)
   )
 
-  // Enhanced query optimization using the existing function
+  const combinedVariables = [
+    ...(state.variables?.known || []),
+    ...(state.variables?.unknown || [])
+  ]
+
   const queryData = optimizeSearchQuery(
     state.problem,
     state.objectives,
-    state.variables,
+    combinedVariables,
     "biomedical"
   )
 
   console.log("\n🔍 [LITERATURE_SCOUT_SEARCH] Search Query Optimization:")
   console.log("  🎯 Primary Query:", queryData.primaryQuery)
-  console.log(
-    "  🔄 Alternative Queries:",
-    JSON.stringify(queryData.alternativeQueries, null, 2)
-  )
-  console.log(
-    "  🏷️  Keywords:",
-    JSON.stringify(queryData.keywords.slice(0, 10), null, 2)
-  )
 
   try {
+    const constraintsParts = [
+      state.constraints?.material && `Material: ${state.constraints.material}`,
+      state.constraints?.time && `Time: ${state.constraints.time}`,
+      state.constraints?.equipment &&
+        `Equipment: ${state.constraints.equipment}`
+    ].filter(Boolean)
+
     const paperFinderQuery = [
       `Research problem: ${state.problem}`,
+      state.domain ? `Domain: ${state.domain}` : null,
+      state.phase ? `Phase: ${state.phase}` : null,
       state.objectives.length
         ? `Objectives: ${state.objectives.join("; ")}`
         : null,
-      state.variables.length
-        ? `Variables: ${state.variables.join("; ")}`
+      state.variables?.known?.length
+        ? `Known variables: ${state.variables.known.join("; ")}`
+        : null,
+      state.variables?.unknown?.length
+        ? `Unknown variables: ${state.variables.unknown.join("; ")}`
+        : null,
+      constraintsParts.length
+        ? `Constraints: ${constraintsParts.join(" | ")}`
         : null,
       state.specialConsiderations.length
-        ? `Special considerations: ${state.specialConsiderations.join("; ")}`
+        ? `Additional considerations: ${state.specialConsiderations.join("; ")}`
         : null,
       queryData.primaryQuery
         ? `Optimized query: ${queryData.primaryQuery}`
@@ -129,8 +151,7 @@ export async function callLiteratureScoutAgent(
       .filter(Boolean)
       .join("\n")
 
-    // PaperFinder is best-effort: it depends on an external service that can fail.
-    // We still want the pipeline to run (with fewer citations) instead of failing the plan.
+    // PaperFinder is best-effort: if it fails, we still run the pipeline with no citations.
     let curated = buildCuratedAggregatedResults([])
     let paperFinderResponse: any = null
     try {
@@ -154,7 +175,7 @@ export async function callLiteratureScoutAgent(
 
       if (normalizedResults.length === 0) {
         console.warn(
-          "⚠️  [LITERATURE_SCOUT_SEARCH] PaperFinder returned zero papers; continuing without citations."
+          "⚠️  [LITERATURE_SCOUT_SEARCH] PaperFinder returned zero papers."
         )
       } else {
         curated = buildCuratedAggregatedResults(normalizedResults)
@@ -184,24 +205,9 @@ export async function callLiteratureScoutAgent(
       ]
     }
 
-    console.log("📊 [LITERATURE_SCOUT_SEARCH] Search Results Summary:")
-    console.log("  📚 Total Curated:", curated.totalResults)
-    console.log("  🏥 PubMed:", curated.sources.pubmed.length)
-    console.log("  📄 ArXiv:", curated.sources.arxiv.length)
-    console.log("  🎓 Scholar:", curated.sources.scholar.length)
-    console.log(
-      "  🔬 Semantic Scholar:",
-      curated.sources.semanticScholar.length
-    )
-    console.log("  🌍 Tavily:", curated.sources.tavily.length)
-
-    // Store search results in state for next agents
     state.searchResults = curated
-    console.log(
-      `🧾 [LITERATURE_SCOUT_SEARCH] Curated total: ${curated.totalResults} (PubMed:${curated.sources.pubmed.length}, ArXiv:${curated.sources.arxiv.length}, SemSch:${curated.sources.semanticScholar.length}, Scholar:${curated.sources.scholar.length}, Tavily:${curated.sources.tavily.length})`
-    )
 
-    console.log("\n🤖 [LITERATURE_SCOUT_AI] Calling OpenAI for analysis...")
+    console.log("\n🤖 [LITERATURE_SCOUT_AI] Calling OpenAI for synthesis...")
     const systemPrompt = createLiteratureScoutPrompt(state, curated, overrides)
     const userPrompt = getAgentUserPrompt("literatureScout", overrides)
 
@@ -215,7 +221,6 @@ export async function callLiteratureScoutAgent(
         { role: "system", content: systemPrompt },
         { role: "user", content: userPrompt }
       ],
-      // gpt-4.1 supports variable temperature for better output quality.
       temperature: 0.7,
       response_format: zodResponseFormat(
         LiteratureScoutSchema,
@@ -223,13 +228,8 @@ export async function callLiteratureScoutAgent(
       )
     })
 
-    const executionTime = Date.now() - startTime
-    console.log(
-      `⏱️  [LITERATURE_SCOUT_AI] OpenAI call completed in ${executionTime}ms`
-    )
-
     const parsed = completion.choices[0].message.parsed!
-    const result: LiteratureScoutOutput = {
+    const output: LiteratureScoutOutput = {
       whatOthersHaveDone:
         parsed.whatOthersHaveDone || "No information available",
       goodMethodsAndTools:
@@ -242,26 +242,26 @@ export async function callLiteratureScoutAgent(
     const totalTime = Date.now() - startTime
     console.log("\n📤 [LITERATURE_SCOUT_OUTPUT] Agent Output:")
     console.log(
-      "  📚 What Others Have Done:",
-      result.whatOthersHaveDone.length,
-      "characters"
+      "  📖 whatOthersHaveDone:",
+      output.whatOthersHaveDone.length,
+      "chars"
     )
     console.log(
-      "  🛠️  Good Methods/Tools:",
-      result.goodMethodsAndTools.length,
-      "characters"
+      "  🛠️ goodMethodsAndTools:",
+      output.goodMethodsAndTools.length,
+      "chars"
     )
     console.log(
-      "  ⚠️  Potential Pitfalls:",
-      result.potentialPitfalls.length,
-      "characters"
+      "  ⚠️ potentialPitfalls:",
+      output.potentialPitfalls.length,
+      "chars"
     )
-    console.log("  📖 Citations:", result.citations.length, "items")
+    console.log("  📎 citations:", output.citations.length, "items")
     console.log("  ⏱️  Total Execution Time:", totalTime, "ms")
     console.log("=".repeat(80))
 
     return {
-      output: result,
+      output,
       prompt: {
         agentId: "literatureScout",
         systemPrompt,
@@ -287,27 +287,15 @@ export async function callHypothesisBuilderAgent(
   console.log("💡 [HYPOTHESIS_BUILDER_AGENT] Starting Agent Execution")
   console.log("=".repeat(80))
 
-  // Log input state
   console.log("📥 [HYPOTHESIS_BUILDER_INPUT] Agent Input:")
   console.log("  📋 Problem:", state.problem)
+  console.log("  🌐 Domain:", state.domain || "(not specified)")
+  console.log("  🧪 Phase:", state.phase || "(not specified)")
   console.log("  🎯 Objectives:", JSON.stringify(state.objectives, null, 2))
-  console.log("  🔬 Variables:", JSON.stringify(state.variables, null, 2))
   console.log(
-    "  ⚠️  Special Considerations:",
-    JSON.stringify(state.specialConsiderations, null, 2)
+    "  📚 Literature Scout Available:",
+    state.literatureScoutOutput ? "✅" : "❌"
   )
-
-  // Log literature scout output if available
-  if (state.literatureScoutOutput) {
-    console.log("  📚 Literature Scout Available: ✅")
-    console.log(
-      "    📖 Citations:",
-      state.literatureScoutOutput.citations.length,
-      "items"
-    )
-  } else {
-    console.log("  📚 Literature Scout Available: ❌")
-  }
 
   console.log(
     "\n🤖 [HYPOTHESIS_BUILDER_AI] Calling OpenAI for hypothesis generation..."
@@ -326,18 +314,12 @@ export async function callHypothesisBuilderAgent(
         { role: "system", content: systemPrompt },
         { role: "user", content: userPrompt }
       ],
-      // gpt-4.1 supports variable temperature for better hypothesis diversity.
       temperature: 0.7,
       response_format: zodResponseFormat(
         HypothesisBuilderSchema,
         "hypothesisBuilder"
       )
     })
-
-    const executionTime = Date.now() - startTime
-    console.log(
-      `⏱️  [HYPOTHESIS_BUILDER_AI] OpenAI call completed in ${executionTime}ms`
-    )
 
     const parsed = completion.choices[0].message.parsed!
     const result = {
@@ -373,37 +355,19 @@ export async function callExperimentDesignerAgent(
   console.log("🧪 [EXPERIMENT_DESIGNER_AGENT] Starting Agent Execution")
   console.log("=".repeat(80))
 
-  // Log input state
   console.log("📥 [EXPERIMENT_DESIGNER_INPUT] Agent Input:")
   console.log("  📋 Problem:", state.problem)
-  console.log("  🎯 Objectives:", JSON.stringify(state.objectives, null, 2))
-  console.log("  🔬 Variables:", JSON.stringify(state.variables, null, 2))
+  console.log("  🌐 Domain:", state.domain || "(not specified)")
+  console.log("  🧪 Phase:", state.phase || "(not specified)")
   console.log(
-    "  ⚠️  Special Considerations:",
-    JSON.stringify(state.specialConsiderations, null, 2)
+    "  💡 Hypothesis Builder Available:",
+    state.hypothesisBuilderOutput ? "✅" : "❌"
+  )
+  console.log(
+    "  📚 Literature Scout Available:",
+    state.literatureScoutOutput ? "✅" : "❌"
   )
 
-  // Log previous agent outputs if available
-  if (state.literatureScoutOutput) {
-    console.log("  📚 Literature Scout Available: ✅")
-  } else {
-    console.log("  📚 Literature Scout Available: ❌")
-  }
-
-  if (state.hypothesisBuilderOutput) {
-    console.log("  💡 Hypothesis Builder Available: ✅")
-    console.log(
-      "    🧪 Hypothesis Length:",
-      state.hypothesisBuilderOutput.hypothesis.length,
-      "characters"
-    )
-  } else {
-    console.log("  💡 Hypothesis Builder Available: ❌")
-  }
-
-  console.log(
-    "\n🤖 [EXPERIMENT_DESIGNER_AI] Calling OpenAI for experiment design..."
-  )
   const systemPrompt = createExperimentDesignerPrompt(state, overrides)
   const userPrompt = getAgentUserPrompt("experimentDesigner", overrides)
 
@@ -418,7 +382,6 @@ export async function callExperimentDesignerAgent(
         { role: "system", content: systemPrompt },
         { role: "user", content: userPrompt }
       ],
-      // gpt-4.1 supports variable temperature for better output quality.
       temperature: 0.7,
       response_format: zodResponseFormat(
         ExperimentDesignerSchema,
@@ -426,13 +389,9 @@ export async function callExperimentDesignerAgent(
       )
     })
 
-    const executionTime = Date.now() - startTime
-    console.log(
-      `⏱️  [EXPERIMENT_DESIGNER_AI] OpenAI call completed in ${executionTime}ms`
-    )
-
     const parsed = completion.choices[0].message.parsed!
-    const result = {
+    const result: ExperimentDesignerOutput = {
+      designSummary: parsed.designSummary || "No summary provided",
       experimentDesign: {
         whatWillBeTested:
           parsed.experimentDesign?.whatWillBeTested || "Not specified",
@@ -449,96 +408,33 @@ export async function callExperimentDesignerAgent(
         specificRequirements:
           parsed.experimentDesign?.specificRequirements || "Not specified"
       },
-      executionPlan: {
-        materialsList: parsed.executionPlan?.materialsList || "Not specified",
-        materialPreparation:
-          parsed.executionPlan?.materialPreparation || "Not specified",
-        stepByStepProcedure:
-          parsed.executionPlan?.stepByStepProcedure || "Not specified",
-        timeline: parsed.executionPlan?.timeline || "Not specified",
-        setupInstructions:
-          parsed.executionPlan?.setupInstructions || "Not specified",
-        dataCollectionPlan:
-          parsed.executionPlan?.dataCollectionPlan || "Not specified",
-        conditionsTable:
-          parsed.executionPlan?.conditionsTable || "Not specified",
-        storageDisposal:
-          parsed.executionPlan?.storageDisposal || "Not specified",
-        safetyNotes: parsed.executionPlan?.safetyNotes || "Not specified"
-      },
+      conditionsTable: parsed.conditionsTable || "Not specified",
+      experimentalGroupsOverview:
+        parsed.experimentalGroupsOverview || "Not specified",
+      statisticalRationale: parsed.statisticalRationale || "Not specified",
+      criticalTechnicalRequirements:
+        parsed.criticalTechnicalRequirements || "Not specified",
+      handoffNoteForPlanner: parsed.handoffNoteForPlanner || "Not specified",
       rationale: parsed.rationale || "No rationale provided"
     }
 
     const totalTime = Date.now() - startTime
     console.log("\n📤 [EXPERIMENT_DESIGNER_OUTPUT] Agent Output:")
-    console.log("  🧪 Experiment Design Components:")
     console.log(
-      "    🔬 What Will Be Tested:",
-      result.experimentDesign.whatWillBeTested.length,
+      "  📝 Design Summary:",
+      result.designSummary.length,
       "characters"
     )
     console.log(
-      "    📊 What Will Be Measured:",
-      result.experimentDesign.whatWillBeMeasured.length,
+      "  📋 Conditions Table:",
+      result.conditionsTable.length,
       "characters"
     )
     console.log(
-      "    🎯 Control Groups:",
-      result.experimentDesign.controlGroups.length,
+      "  🤝 Handoff Note:",
+      result.handoffNoteForPlanner.length,
       "characters"
     )
-    console.log(
-      "    🧬 Experimental Groups:",
-      result.experimentDesign.experimentalGroups.length,
-      "characters"
-    )
-    console.log(
-      "    🧪 Sample Types:",
-      result.experimentDesign.sampleTypes.length,
-      "characters"
-    )
-    console.log(
-      "    🛠️  Tools Needed:",
-      result.experimentDesign.toolsNeeded.length,
-      "characters"
-    )
-    console.log("  📋 Execution Plan Components:")
-    console.log(
-      "    📦 Materials List:",
-      result.executionPlan.materialsList.length,
-      "characters"
-    )
-    console.log(
-      "    🔧 Material Preparation:",
-      result.executionPlan.materialPreparation.length,
-      "characters"
-    )
-    console.log(
-      "    📝 Step-by-Step Procedure:",
-      result.executionPlan.stepByStepProcedure.length,
-      "characters"
-    )
-    console.log(
-      "    ⏰ Timeline:",
-      result.executionPlan.timeline.length,
-      "characters"
-    )
-    console.log(
-      "    ⚙️  Setup Instructions:",
-      result.executionPlan.setupInstructions.length,
-      "characters"
-    )
-    console.log(
-      "    📊 Data Collection Plan:",
-      result.executionPlan.dataCollectionPlan.length,
-      "characters"
-    )
-    console.log(
-      "    🛡️  Safety Notes:",
-      result.executionPlan.safetyNotes.length,
-      "characters"
-    )
-    console.log("  📖 Rationale:", result.rationale.length, "characters")
     console.log("  ⏱️  Total Execution Time:", totalTime, "ms")
     console.log("=".repeat(80))
 
@@ -570,31 +466,15 @@ export async function callStatCheckAgent(
   console.log("📊 [STAT_CHECK_AGENT] Starting Agent Execution")
   console.log("=".repeat(80))
 
-  // Log input state and previous agent outputs
   console.log("📥 [STAT_CHECK_INPUT] Agent Input:")
   console.log("  📋 Problem:", state.problem)
-  console.log("  🎯 Objectives:", JSON.stringify(state.objectives, null, 2))
-  console.log("  🔬 Variables:", JSON.stringify(state.variables, null, 2))
-  console.log(
-    "  ⚠️  Special Considerations:",
-    JSON.stringify(state.specialConsiderations, null, 2)
-  )
-
-  // Log previous agent outputs availability
-  console.log(
-    "  📚 Literature Scout Available:",
-    state.literatureScoutOutput ? "✅" : "❌"
-  )
-  console.log(
-    "  💡 Hypothesis Builder Available:",
-    state.hypothesisBuilderOutput ? "✅" : "❌"
-  )
+  console.log("  🌐 Domain:", state.domain || "(not specified)")
+  console.log("  🧪 Phase:", state.phase || "(not specified)")
   console.log(
     "  🧪 Experiment Designer Available:",
     state.experimentDesignerOutput ? "✅" : "❌"
   )
 
-  console.log("\n🤖 [STAT_CHECK_AI] Calling OpenAI for statistical review...")
   const systemPrompt = createStatCheckPrompt(state, overrides)
   const userPrompt = getAgentUserPrompt("statCheck", overrides)
 
@@ -609,23 +489,21 @@ export async function callStatCheckAgent(
         { role: "system", content: systemPrompt },
         { role: "user", content: userPrompt }
       ],
-      // gpt-4.1 supports variable temperature for better output quality.
       temperature: 0.7,
       response_format: zodResponseFormat(StatCheckSchema, "statCheck")
     })
 
-    const executionTime = Date.now() - startTime
-    console.log(
-      `⏱️  [STAT_CHECK_AI] OpenAI call completed in ${executionTime}ms`
-    )
-
     const parsed = completion.choices[0].message.parsed!
-    const result = {
+    const result: StatCheckOutput = {
       whatLooksGood: parsed.whatLooksGood || "No assessment available",
       problemsOrRisks: parsed.problemsOrRisks || [],
       suggestedImprovements: parsed.suggestedImprovements || [],
+      correctedDesign: parsed.correctedDesign || "",
+      changeLog: parsed.changeLog || [],
+      improvementRationale: parsed.improvementRationale || "",
       overallAssessment:
-        parsed.overallAssessment || "No overall assessment available"
+        parsed.overallAssessment || "No overall assessment available",
+      finalAssessment: parsed.finalAssessment || ""
     }
 
     const totalTime = Date.now() - startTime
@@ -642,10 +520,11 @@ export async function callStatCheckAgent(
       "items"
     )
     console.log(
-      "  📊 Overall Assessment:",
-      result.overallAssessment.length,
+      "  🔁 Corrected Design:",
+      result.correctedDesign.length,
       "characters"
     )
+    console.log("  🪵 Change Log:", result.changeLog.length, "items")
     console.log("  ⏱️  Total Execution Time:", totalTime, "ms")
     console.log("=".repeat(80))
 
@@ -668,6 +547,229 @@ export async function callStatCheckAgent(
   }
 }
 
+export async function callPlannerAgent(
+  state: ExperimentDesignState,
+  overrides?: AgentPromptOverrides["planner"]
+): Promise<AgentCallResult<PlannerOutput>> {
+  const startTime = Date.now()
+  console.log("\n" + "=".repeat(80))
+  console.log("🗂️ [PLANNER_AGENT] Starting Agent Execution")
+  console.log("=".repeat(80))
+
+  console.log("📥 [PLANNER_INPUT] Agent Input:")
+  console.log("  📋 Problem:", state.problem)
+  console.log("  🌐 Domain:", state.domain || "(not specified)")
+  console.log("  🧪 Phase:", state.phase || "(not specified)")
+  console.log(
+    "  🧪 Experiment Designer Available:",
+    state.experimentDesignerOutput ? "✅" : "❌"
+  )
+  console.log("  📊 Stat Check Available:", state.statCheckOutput ? "✅" : "❌")
+
+  const systemPrompt = createPlannerPrompt(state, overrides)
+  const userPrompt = getAgentUserPrompt("planner", overrides)
+
+  console.log("📝 [PLANNER_AI] Prompt lengths:")
+  console.log("  📏 System prompt:", systemPrompt.length, "characters")
+  console.log("  📏 User prompt:", userPrompt.length, "characters")
+
+  try {
+    const completion = await openai().beta.chat.completions.parse({
+      model: MODEL_NAME(),
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: userPrompt }
+      ],
+      temperature: 0.5,
+      response_format: zodResponseFormat(PlannerSchema, "planner")
+    })
+
+    const parsed = completion.choices[0].message.parsed!
+    const result: PlannerOutput = {
+      feasibilityCheck: parsed.feasibilityCheck || "Not specified",
+      summaryOfTotals: parsed.summaryOfTotals || "Not specified",
+      materialsChecklist: parsed.materialsChecklist || "Not specified",
+      reagentAndBufferPreparation:
+        parsed.reagentAndBufferPreparation || "Not specified",
+      stockSolutionPreparation:
+        parsed.stockSolutionPreparation || "Not specified",
+      masterMixStrategy: parsed.masterMixStrategy || "Not specified",
+      workingSolutionTables: parsed.workingSolutionTables || "Not specified",
+      tubeAndLabelPlanning: parsed.tubeAndLabelPlanning || "Not specified",
+      consumablePrepAndQC: parsed.consumablePrepAndQC || "Not specified",
+      studyLayout: parsed.studyLayout || "Not specified",
+      prepSchedule: parsed.prepSchedule || "Not specified",
+      kitPackList: parsed.kitPackList || "Not specified",
+      criticalErrorPoints: parsed.criticalErrorPoints || "Not specified",
+      materialOptimizationSummary:
+        parsed.materialOptimizationSummary || "Not specified",
+      assumptionsAndConfirmations:
+        parsed.assumptionsAndConfirmations || "Not specified"
+    }
+
+    const totalTime = Date.now() - startTime
+    console.log("\n📤 [PLANNER_OUTPUT] Agent Output:")
+    console.log(
+      "  📦 Materials Checklist:",
+      result.materialsChecklist.length,
+      "chars"
+    )
+    console.log(
+      "  🧪 Reagent/Buffer Prep:",
+      result.reagentAndBufferPreparation.length,
+      "chars"
+    )
+    console.log("  🗺️ Study Layout:", result.studyLayout.length, "chars")
+    console.log("  ⏱️ Total Execution Time:", totalTime, "ms")
+    console.log("=".repeat(80))
+
+    return {
+      output: result,
+      prompt: {
+        agentId: "planner",
+        systemPrompt,
+        userPrompt
+      }
+    }
+  } catch (error) {
+    const totalTime = Date.now() - startTime
+    console.error(
+      `❌ [PLANNER_ERROR] Agent failed after ${totalTime}ms:`,
+      error
+    )
+    console.log("=".repeat(80))
+    throw error
+  }
+}
+
+export async function callProcedureAgent(
+  state: ExperimentDesignState,
+  overrides?: AgentPromptOverrides["procedure"]
+): Promise<AgentCallResult<ProcedureOutput>> {
+  const startTime = Date.now()
+  console.log("\n" + "=".repeat(80))
+  console.log("🧾 [PROCEDURE_AGENT] Starting Agent Execution")
+  console.log("=".repeat(80))
+
+  console.log("📥 [PROCEDURE_INPUT] Agent Input:")
+  console.log("  📋 Problem:", state.problem)
+  console.log("  🌐 Domain:", state.domain || "(not specified)")
+  console.log("  🧪 Phase:", state.phase || "(not specified)")
+  console.log("  🗂️ Planner Available:", state.plannerOutput ? "✅" : "❌")
+
+  const systemPrompt = createProcedurePrompt(state, overrides)
+  const userPrompt = getAgentUserPrompt("procedure", overrides)
+
+  console.log("📝 [PROCEDURE_AI] Prompt lengths:")
+  console.log("  📏 System prompt:", systemPrompt.length, "characters")
+  console.log("  📏 User prompt:", userPrompt.length, "characters")
+
+  try {
+    const completion = await openai().beta.chat.completions.parse({
+      model: MODEL_NAME(),
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: userPrompt }
+      ],
+      temperature: 0.5,
+      response_format: zodResponseFormat(ProcedureSchema, "procedure")
+    })
+
+    const parsed = completion.choices[0].message.parsed!
+    const result: ProcedureOutput = {
+      preRunChecklist: parsed.preRunChecklist || "Not specified",
+      benchSetupAndSafety: parsed.benchSetupAndSafety || "Not specified",
+      sampleLabelingIdScheme: parsed.sampleLabelingIdScheme || "Not specified",
+      instrumentSetupCalibration:
+        parsed.instrumentSetupCalibration || "Not specified",
+      criticalHandlingRules: parsed.criticalHandlingRules || "Not specified",
+      samplePreparation: parsed.samplePreparation || "Not specified",
+      measurementSteps: parsed.measurementSteps || "Not specified",
+      experimentalConditionExecution:
+        parsed.experimentalConditionExecution || "Not specified",
+      dataRecordingProcessing:
+        parsed.dataRecordingProcessing || "Not specified",
+      acceptanceCriteria: parsed.acceptanceCriteria || "Not specified",
+      troubleshootingGuide: parsed.troubleshootingGuide || "Not specified",
+      runLogTemplate: parsed.runLogTemplate || "Not specified",
+      cleanupDisposal: parsed.cleanupDisposal || "Not specified",
+      dataHandoff: parsed.dataHandoff || "Not specified"
+    }
+
+    const totalTime = Date.now() - startTime
+    console.log("\n📤 [PROCEDURE_OUTPUT] Agent Output:")
+    console.log(
+      "  🧪 Sample Preparation:",
+      result.samplePreparation.length,
+      "chars"
+    )
+    console.log(
+      "  📊 Measurement Steps:",
+      result.measurementSteps.length,
+      "chars"
+    )
+    console.log(
+      "  🛠️ Troubleshooting:",
+      result.troubleshootingGuide.length,
+      "chars"
+    )
+    console.log("  ⏱️ Total Execution Time:", totalTime, "ms")
+    console.log("=".repeat(80))
+
+    return {
+      output: result,
+      prompt: {
+        agentId: "procedure",
+        systemPrompt,
+        userPrompt
+      }
+    }
+  } catch (error) {
+    const totalTime = Date.now() - startTime
+    console.error(
+      `❌ [PROCEDURE_ERROR] Agent failed after ${totalTime}ms:`,
+      error
+    )
+    console.log("=".repeat(80))
+    throw error
+  }
+}
+
+const EMPTY_PLANNER: PlannerOutput = {
+  feasibilityCheck: "Not specified",
+  summaryOfTotals: "Not specified",
+  materialsChecklist: "Not specified",
+  reagentAndBufferPreparation: "Not specified",
+  stockSolutionPreparation: "Not specified",
+  masterMixStrategy: "Not specified",
+  workingSolutionTables: "Not specified",
+  tubeAndLabelPlanning: "Not specified",
+  consumablePrepAndQC: "Not specified",
+  studyLayout: "Not specified",
+  prepSchedule: "Not specified",
+  kitPackList: "Not specified",
+  criticalErrorPoints: "Not specified",
+  materialOptimizationSummary: "Not specified",
+  assumptionsAndConfirmations: "Not specified"
+}
+
+const EMPTY_PROCEDURE: ProcedureOutput = {
+  preRunChecklist: "Not specified",
+  benchSetupAndSafety: "Not specified",
+  sampleLabelingIdScheme: "Not specified",
+  instrumentSetupCalibration: "Not specified",
+  criticalHandlingRules: "Not specified",
+  samplePreparation: "Not specified",
+  measurementSteps: "Not specified",
+  experimentalConditionExecution: "Not specified",
+  dataRecordingProcessing: "Not specified",
+  acceptanceCriteria: "Not specified",
+  troubleshootingGuide: "Not specified",
+  runLogTemplate: "Not specified",
+  cleanupDisposal: "Not specified",
+  dataHandoff: "Not specified"
+}
+
 export async function callReportWriterAgent(
   state: ExperimentDesignState,
   overrides?: AgentPromptOverrides["reportWriter"]
@@ -677,38 +779,16 @@ export async function callReportWriterAgent(
   console.log("📝 [REPORT_WRITER_AGENT] Starting Agent Execution")
   console.log("=".repeat(80))
 
-  // Log input state and all previous agent outputs
   console.log("📥 [REPORT_WRITER_INPUT] Agent Input:")
   console.log("  📋 Problem:", state.problem)
-  console.log("  🎯 Objectives:", JSON.stringify(state.objectives, null, 2))
-  console.log("  🔬 Variables:", JSON.stringify(state.variables, null, 2))
-  console.log(
-    "  ⚠️  Special Considerations:",
-    JSON.stringify(state.specialConsiderations, null, 2)
-  )
-
-  // Log all previous agent outputs availability
-  console.log(
-    "  📚 Literature Scout Available:",
-    state.literatureScoutOutput ? "✅" : "❌"
-  )
-  console.log(
-    "  💡 Hypothesis Builder Available:",
-    state.hypothesisBuilderOutput ? "✅" : "❌"
-  )
   console.log(
     "  🧪 Experiment Designer Available:",
     state.experimentDesignerOutput ? "✅" : "❌"
   )
   console.log("  📊 Stat Check Available:", state.statCheckOutput ? "✅" : "❌")
-  console.log(
-    "  🌐 Search Results Available:",
-    state.searchResults ? "✅" : "❌"
-  )
+  console.log("  🗂️ Planner Available:", state.plannerOutput ? "✅" : "❌")
+  console.log("  🧾 Procedure Available:", state.procedureOutput ? "✅" : "❌")
 
-  console.log(
-    "\n🤖 [REPORT_WRITER_AI] Calling OpenAI for final report synthesis..."
-  )
   const systemPrompt = createReportWriterPrompt(state, overrides)
   const userPrompt = getAgentUserPrompt("reportWriter", overrides)
 
@@ -723,104 +803,159 @@ export async function callReportWriterAgent(
         { role: "system", content: systemPrompt },
         { role: "user", content: userPrompt }
       ],
-      // gpt-4.1 supports variable temperature for better output quality.
       temperature: 0.7,
       response_format: zodResponseFormat(ReportWriterSchema, "reportWriter")
     })
 
-    const executionTime = Date.now() - startTime
-    console.log(
-      `⏱️  [REPORT_WRITER_AI] OpenAI call completed in ${executionTime}ms`
-    )
-
     const parsed = completion.choices[0].message.parsed!
-    const result = {
+
+    const literatureSummary: LiteratureScoutOutput = {
+      whatOthersHaveDone:
+        parsed.literatureSummary?.whatOthersHaveDone ||
+        "No information available",
+      goodMethodsAndTools:
+        parsed.literatureSummary?.goodMethodsAndTools ||
+        "No information available",
+      potentialPitfalls:
+        parsed.literatureSummary?.potentialPitfalls ||
+        "No information available",
+      citations: parsed.literatureSummary?.citations || []
+    }
+
+    const hypothesis: HypothesisBuilderOutput = {
+      hypothesis: parsed.hypothesis?.hypothesis || "No hypothesis available",
+      explanation: parsed.hypothesis?.explanation || "No explanation available"
+    }
+
+    const experimentDesign: ExperimentDesignerOutput = {
+      designSummary:
+        parsed.experimentDesign?.designSummary || "No summary provided",
+      experimentDesign: {
+        whatWillBeTested:
+          parsed.experimentDesign?.experimentDesign?.whatWillBeTested ||
+          "Not specified",
+        whatWillBeMeasured:
+          parsed.experimentDesign?.experimentDesign?.whatWillBeMeasured ||
+          "Not specified",
+        controlGroups:
+          parsed.experimentDesign?.experimentDesign?.controlGroups ||
+          "Not specified",
+        experimentalGroups:
+          parsed.experimentDesign?.experimentDesign?.experimentalGroups ||
+          "Not specified",
+        sampleTypes:
+          parsed.experimentDesign?.experimentDesign?.sampleTypes ||
+          "Not specified",
+        toolsNeeded:
+          parsed.experimentDesign?.experimentDesign?.toolsNeeded ||
+          "Not specified",
+        replicatesAndConditions:
+          parsed.experimentDesign?.experimentDesign?.replicatesAndConditions ||
+          "Not specified",
+        specificRequirements:
+          parsed.experimentDesign?.experimentDesign?.specificRequirements ||
+          "Not specified"
+      },
+      conditionsTable:
+        parsed.experimentDesign?.conditionsTable || "Not specified",
+      experimentalGroupsOverview:
+        parsed.experimentDesign?.experimentalGroupsOverview || "Not specified",
+      statisticalRationale:
+        parsed.experimentDesign?.statisticalRationale || "Not specified",
+      criticalTechnicalRequirements:
+        parsed.experimentDesign?.criticalTechnicalRequirements ||
+        "Not specified",
+      handoffNoteForPlanner:
+        parsed.experimentDesign?.handoffNoteForPlanner || "Not specified",
+      rationale: parsed.experimentDesign?.rationale || "No rationale provided"
+    }
+
+    const statisticalReview: StatCheckOutput = {
+      whatLooksGood:
+        parsed.statisticalReview?.whatLooksGood || "No assessment available",
+      problemsOrRisks: parsed.statisticalReview?.problemsOrRisks || [],
+      suggestedImprovements:
+        parsed.statisticalReview?.suggestedImprovements || [],
+      correctedDesign: parsed.statisticalReview?.correctedDesign || "",
+      changeLog: parsed.statisticalReview?.changeLog || [],
+      improvementRationale:
+        parsed.statisticalReview?.improvementRationale || "",
+      overallAssessment:
+        parsed.statisticalReview?.overallAssessment ||
+        "No overall assessment available",
+      finalAssessment: parsed.statisticalReview?.finalAssessment || ""
+    }
+
+    const executionPlan: PlannerOutput = parsed.executionPlan
+      ? {
+          feasibilityCheck:
+            parsed.executionPlan.feasibilityCheck || "Not specified",
+          summaryOfTotals:
+            parsed.executionPlan.summaryOfTotals || "Not specified",
+          materialsChecklist:
+            parsed.executionPlan.materialsChecklist || "Not specified",
+          reagentAndBufferPreparation:
+            parsed.executionPlan.reagentAndBufferPreparation || "Not specified",
+          stockSolutionPreparation:
+            parsed.executionPlan.stockSolutionPreparation || "Not specified",
+          masterMixStrategy:
+            parsed.executionPlan.masterMixStrategy || "Not specified",
+          workingSolutionTables:
+            parsed.executionPlan.workingSolutionTables || "Not specified",
+          tubeAndLabelPlanning:
+            parsed.executionPlan.tubeAndLabelPlanning || "Not specified",
+          consumablePrepAndQC:
+            parsed.executionPlan.consumablePrepAndQC || "Not specified",
+          studyLayout: parsed.executionPlan.studyLayout || "Not specified",
+          prepSchedule: parsed.executionPlan.prepSchedule || "Not specified",
+          kitPackList: parsed.executionPlan.kitPackList || "Not specified",
+          criticalErrorPoints:
+            parsed.executionPlan.criticalErrorPoints || "Not specified",
+          materialOptimizationSummary:
+            parsed.executionPlan.materialOptimizationSummary || "Not specified",
+          assumptionsAndConfirmations:
+            parsed.executionPlan.assumptionsAndConfirmations || "Not specified"
+        }
+      : EMPTY_PLANNER
+
+    const procedure: ProcedureOutput = parsed.procedure
+      ? {
+          preRunChecklist: parsed.procedure.preRunChecklist || "Not specified",
+          benchSetupAndSafety:
+            parsed.procedure.benchSetupAndSafety || "Not specified",
+          sampleLabelingIdScheme:
+            parsed.procedure.sampleLabelingIdScheme || "Not specified",
+          instrumentSetupCalibration:
+            parsed.procedure.instrumentSetupCalibration || "Not specified",
+          criticalHandlingRules:
+            parsed.procedure.criticalHandlingRules || "Not specified",
+          samplePreparation:
+            parsed.procedure.samplePreparation || "Not specified",
+          measurementSteps:
+            parsed.procedure.measurementSteps || "Not specified",
+          experimentalConditionExecution:
+            parsed.procedure.experimentalConditionExecution || "Not specified",
+          dataRecordingProcessing:
+            parsed.procedure.dataRecordingProcessing || "Not specified",
+          acceptanceCriteria:
+            parsed.procedure.acceptanceCriteria || "Not specified",
+          troubleshootingGuide:
+            parsed.procedure.troubleshootingGuide || "Not specified",
+          runLogTemplate: parsed.procedure.runLogTemplate || "Not specified",
+          cleanupDisposal: parsed.procedure.cleanupDisposal || "Not specified",
+          dataHandoff: parsed.procedure.dataHandoff || "Not specified"
+        }
+      : EMPTY_PROCEDURE
+
+    const result: ReportWriterOutput = {
       researchObjective:
         parsed.researchObjective || "No research objective available",
-      literatureSummary: {
-        whatOthersHaveDone:
-          parsed.literatureSummary?.whatOthersHaveDone ||
-          "No information available",
-        goodMethodsAndTools:
-          parsed.literatureSummary?.goodMethodsAndTools ||
-          "No information available",
-        potentialPitfalls:
-          parsed.literatureSummary?.potentialPitfalls ||
-          "No information available",
-        citations: parsed.literatureSummary?.citations || []
-      },
-      hypothesis: {
-        hypothesis: parsed.hypothesis?.hypothesis || "No hypothesis available",
-        explanation:
-          parsed.hypothesis?.explanation || "No explanation available"
-      },
-      experimentDesign: {
-        experimentDesign: {
-          whatWillBeTested:
-            parsed.experimentDesign?.experimentDesign?.whatWillBeTested ||
-            "Not specified",
-          whatWillBeMeasured:
-            parsed.experimentDesign?.experimentDesign?.whatWillBeMeasured ||
-            "Not specified",
-          controlGroups:
-            parsed.experimentDesign?.experimentDesign?.controlGroups ||
-            "Not specified",
-          experimentalGroups:
-            parsed.experimentDesign?.experimentDesign?.experimentalGroups ||
-            "Not specified",
-          sampleTypes:
-            parsed.experimentDesign?.experimentDesign?.sampleTypes ||
-            "Not specified",
-          toolsNeeded:
-            parsed.experimentDesign?.experimentDesign?.toolsNeeded ||
-            "Not specified",
-          replicatesAndConditions:
-            parsed.experimentDesign?.experimentDesign
-              ?.replicatesAndConditions || "Not specified",
-          specificRequirements:
-            parsed.experimentDesign?.experimentDesign?.specificRequirements ||
-            "Not specified"
-        },
-        executionPlan: {
-          materialsList:
-            parsed.experimentDesign?.executionPlan?.materialsList ||
-            "Not specified",
-          materialPreparation:
-            parsed.experimentDesign?.executionPlan?.materialPreparation ||
-            "Not specified",
-          stepByStepProcedure:
-            parsed.experimentDesign?.executionPlan?.stepByStepProcedure ||
-            "Not specified",
-          timeline:
-            parsed.experimentDesign?.executionPlan?.timeline || "Not specified",
-          setupInstructions:
-            parsed.experimentDesign?.executionPlan?.setupInstructions ||
-            "Not specified",
-          dataCollectionPlan:
-            parsed.experimentDesign?.executionPlan?.dataCollectionPlan ||
-            "Not specified",
-          conditionsTable:
-            parsed.experimentDesign?.executionPlan?.conditionsTable ||
-            "Not specified",
-          storageDisposal:
-            parsed.experimentDesign?.executionPlan?.storageDisposal ||
-            "Not specified",
-          safetyNotes:
-            parsed.experimentDesign?.executionPlan?.safetyNotes ||
-            "Not specified"
-        },
-        rationale: parsed.experimentDesign?.rationale || "No rationale provided"
-      },
-      statisticalReview: {
-        whatLooksGood:
-          parsed.statisticalReview?.whatLooksGood || "No assessment available",
-        problemsOrRisks: parsed.statisticalReview?.problemsOrRisks || [],
-        suggestedImprovements:
-          parsed.statisticalReview?.suggestedImprovements || [],
-        overallAssessment:
-          parsed.statisticalReview?.overallAssessment ||
-          "No overall assessment available"
-      },
+      literatureSummary,
+      hypothesis,
+      experimentDesign,
+      statisticalReview,
+      executionPlan,
+      procedure,
       finalNotes: parsed.finalNotes || "No final notes available"
     }
 
@@ -829,67 +964,6 @@ export async function callReportWriterAgent(
     console.log(
       "  📋 Research Objective:",
       result.researchObjective.length,
-      "characters"
-    )
-    console.log("  📚 Literature Summary:")
-    console.log(
-      "    📖 What Others Have Done:",
-      result.literatureSummary.whatOthersHaveDone.length,
-      "characters"
-    )
-    console.log(
-      "    🛠️  Good Methods/Tools:",
-      result.literatureSummary.goodMethodsAndTools.length,
-      "characters"
-    )
-    console.log(
-      "    ⚠️  Potential Pitfalls:",
-      result.literatureSummary.potentialPitfalls.length,
-      "characters"
-    )
-    console.log(
-      "    📖 Citations:",
-      result.literatureSummary.citations.length,
-      "items"
-    )
-    console.log("  💡 Hypothesis:")
-    console.log(
-      "    🧪 Hypothesis:",
-      result.hypothesis.hypothesis.length,
-      "characters"
-    )
-    console.log(
-      "    📝 Explanation:",
-      result.hypothesis.explanation.length,
-      "characters"
-    )
-    console.log("  🧪 Experiment Design:")
-    console.log("    🔬 Design Components: 8 fields")
-    console.log("    📋 Execution Plan: 9 fields")
-    console.log(
-      "    📖 Rationale:",
-      result.experimentDesign.rationale.length,
-      "characters"
-    )
-    console.log("  📊 Statistical Review:")
-    console.log(
-      "    ✅ What Looks Good:",
-      result.statisticalReview.whatLooksGood.length,
-      "characters"
-    )
-    console.log(
-      "    ⚠️  Problems/Risks:",
-      result.statisticalReview.problemsOrRisks.length,
-      "items"
-    )
-    console.log(
-      "    💡 Improvements:",
-      result.statisticalReview.suggestedImprovements.length,
-      "items"
-    )
-    console.log(
-      "    📊 Assessment:",
-      result.statisticalReview.overallAssessment.length,
       "characters"
     )
     console.log("  📝 Final Notes:", result.finalNotes.length, "characters")

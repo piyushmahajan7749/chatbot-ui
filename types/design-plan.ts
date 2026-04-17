@@ -67,6 +67,36 @@ export interface DesignPlanStatus {
   }
 }
 
+export type DesignPlanDomain =
+  | "formulation_development"
+  | "discovery_biology"
+  | "molecular_biology"
+  | "protein_expression"
+  | "cell_culture"
+  | "fermentation"
+  | "analytics_qc"
+
+export type DesignPlanPhase =
+  | "screening"
+  | "optimization"
+  | "robustness"
+  | "scale_up"
+  | "validation"
+
+export interface DesignPlanConstraints {
+  domain?: DesignPlanDomain
+  phase?: DesignPlanPhase
+  objectives?: string[]
+  knownVariables?: string[]
+  unknownVariables?: string[]
+  material?: string
+  time?: string
+  equipment?: string
+  /** Legacy fields — kept so older persisted plans still type-check. */
+  variables?: string[]
+  specialConsiderations?: string[]
+}
+
 export interface DesignPlanMetadata {
   planId: string
   statusUrl: string
@@ -74,11 +104,7 @@ export interface DesignPlanMetadata {
   request?: {
     title: string
     description: string
-    constraints?: {
-      objectives?: string[]
-      variables?: string[]
-      specialConsiderations?: string[]
-    }
+    constraints?: DesignPlanConstraints
     preferences?: Record<string, any>
   }
 }
