@@ -1,7 +1,6 @@
 import { AgentTask, AgentResult } from "../types/interfaces"
 import type { LiteratureScoutOutput } from "../types"
 import { getGenerationPrompt } from "./prompts/generation"
-import { v4 as uuidv4 } from "uuid"
 import {
   getAzureOpenAIForDesign,
   getDesignDeployment
@@ -9,12 +8,16 @@ import {
 import { zodResponseFormat } from "openai/helpers/zod"
 import { z } from "zod"
 
-const GenerationSchema = z.object({
+const SingleHypothesisSchema = z.object({
   hypothesis: z.string(),
   explanation: z.string(),
   provenance: z.array(z.string()).optional(),
   feasibility_score: z.number().min(0).max(1).optional(),
   novelty_score: z.number().min(0).max(1).optional()
+})
+
+const GenerationSchema = z.object({
+  hypotheses: z.array(SingleHypothesisSchema)
 })
 
 const openai = () => getAzureOpenAIForDesign()
@@ -68,32 +71,24 @@ export async function generationAdapter(task: AgentTask): Promise<AgentResult> {
       )
 
       output = completion.choices[0]?.message?.parsed
-      if (!output) {
+      if (!output || !output.hypotheses || output.hypotheses.length === 0) {
         throw new Error("Empty parsed response from model")
       }
     } finally {
       clearTimeout(timeoutId)
     }
 
-    // Generate hypothesis ID
-    const hypothesisId = uuidv4()
-
-    const provenance = output.provenance || []
-
     console.debug(
-      `[GENERATION] Completed task ${task.taskId} in ${Date.now() - startTime}ms`
+      `[GENERATION] Completed task ${task.taskId} in ${Date.now() - startTime}ms — ${output.hypotheses.length} hypotheses`
     )
 
     return {
       taskId: task.taskId,
       status: "success",
-      hypothesisId,
-      output,
-      provenance,
+      output: output.hypotheses,
       metrics: {
         executionTimeMs: Date.now() - startTime,
-        feasibility_score: output.feasibility_score || 0,
-        novelty_score: output.novelty_score || 0
+        hypothesesCount: output.hypotheses.length
       }
     }
   } catch (error: any) {

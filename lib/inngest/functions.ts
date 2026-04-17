@@ -21,6 +21,8 @@ import { ExperimentDesignState } from "@/app/api/design/draft/types"
 
 const DEFAULT_CONCURRENCY = 4
 const INITIAL_ELO = 1500
+const DEFAULT_AGENT_COUNT = 5
+const HYPOTHESES_PER_AGENT = 4
 
 function updateElo(
   eloA: number,
@@ -140,15 +142,15 @@ export const processDesignDraft = inngest.createFunction(
 
     // Step 2: Generate seed hypotheses
     const hypotheses = await step.run("generate-seed-hypotheses", async () => {
-      const seedCount = plan.preferences?.max_hypotheses || 5
+      const agentCount = DEFAULT_AGENT_COUNT
       const generationTasks: AgentTask[] = []
 
-      for (let i = 0; i < seedCount; i++) {
+      for (let i = 0; i < agentCount; i++) {
         generationTasks.push({
           taskId: uuidv4(),
           planId: plan.planId,
           agentType: "GENERATION",
-          n_candidates: 1,
+          n_candidates: HYPOTHESES_PER_AGENT,
           priority: 1,
           metadata: {
             plan: {
@@ -164,9 +166,13 @@ export const processDesignDraft = inngest.createFunction(
       await saveLog({
         timestamp: new Date().toISOString(),
         actor: "supervisor",
-        message: `Created ${seedCount} generation tasks`,
+        message: `Created ${agentCount} generation tasks (${HYPOTHESES_PER_AGENT} hypotheses each, ${agentCount * HYPOTHESES_PER_AGENT} total)`,
         level: "info",
-        context: { planId: plan.planId, taskCount: seedCount }
+        context: {
+          planId: plan.planId,
+          taskCount: agentCount,
+          hypothesesPerAgent: HYPOTHESES_PER_AGENT
+        }
       })
 
       const generationResults = await runTasksWithConcurrency(
@@ -174,6 +180,7 @@ export const processDesignDraft = inngest.createFunction(
         DEFAULT_CONCURRENCY
       )
 
+      // Each result now contains an array of hypotheses
       const hypos: Hypothesis[] = []
       const failureSummaries: Array<{
         taskId: string
@@ -181,43 +188,42 @@ export const processDesignDraft = inngest.createFunction(
         raw?: string
       }> = []
       for (const result of generationResults) {
-        if (
-          result.status === "success" &&
-          result.hypothesisId &&
-          result.output
-        ) {
-          const hypothesis: Hypothesis = {
-            hypothesisId: result.hypothesisId,
-            planId: plan.planId,
-            content: result.output.hypothesis || "",
-            explanation: result.output.explanation,
-            elo: INITIAL_ELO,
-            createdAt: new Date().toISOString(),
-            provenance: result.provenance || [],
-            metadata: {
-              feasibility_score: result.output.feasibility_score,
-              novelty_score: result.output.novelty_score
-            }
-          }
-
-          // Safety check
-          const hypoSafety = checkHypothesis(hypothesis)
-          if (hypoSafety.decision === "block") {
-            await saveLog({
-              timestamp: new Date().toISOString(),
-              actor: "supervisor",
-              message: `Hypothesis ${result.hypothesisId} blocked`,
-              level: "warn",
-              context: {
-                planId: plan.planId,
-                hypothesisId: result.hypothesisId
+        if (result.status === "success" && Array.isArray(result.output)) {
+          for (const item of result.output) {
+            const hypothesisId = uuidv4()
+            const hypothesis: Hypothesis = {
+              hypothesisId,
+              planId: plan.planId,
+              content: item.hypothesis || "",
+              explanation: item.explanation,
+              elo: INITIAL_ELO,
+              createdAt: new Date().toISOString(),
+              provenance: item.provenance || [],
+              metadata: {
+                feasibility_score: item.feasibility_score,
+                novelty_score: item.novelty_score
               }
-            })
-            continue
-          }
+            }
 
-          await saveHypothesis(hypothesis)
-          hypos.push(hypothesis)
+            // Safety check
+            const hypoSafety = checkHypothesis(hypothesis)
+            if (hypoSafety.decision === "block") {
+              await saveLog({
+                timestamp: new Date().toISOString(),
+                actor: "supervisor",
+                message: `Hypothesis ${hypothesisId} blocked`,
+                level: "warn",
+                context: {
+                  planId: plan.planId,
+                  hypothesisId
+                }
+              })
+              continue
+            }
+
+            await saveHypothesis(hypothesis)
+            hypos.push(hypothesis)
+          }
         } else {
           // Capture failure details so the status endpoint can explain why
           // "No hypotheses generated" occurred (timeouts, Azure 400, parsing, etc.)
@@ -265,7 +271,7 @@ export const processDesignDraft = inngest.createFunction(
 
     // Step 3: Run tournament (pairwise ranking)
     await step.run("run-tournament", async () => {
-      const topN = Math.min(10, hypotheses.length)
+      const topN = Math.min(5, hypotheses.length)
       const topHypotheses = hypotheses.slice(0, topN)
 
       await saveLog({

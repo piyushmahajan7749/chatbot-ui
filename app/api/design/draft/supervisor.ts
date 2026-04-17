@@ -18,7 +18,8 @@ import { v4 as uuidv4 } from "uuid"
 import { callLiteratureScoutAgent } from "./agents"
 import { ExperimentDesignState } from "./types"
 
-const DEFAULT_SEED_COUNT = 10
+const DEFAULT_AGENT_COUNT = 5
+const HYPOTHESES_PER_AGENT = 4
 const DEFAULT_CONCURRENCY = 4
 const INITIAL_ELO = 1500
 
@@ -149,15 +150,15 @@ export async function supervisorEnqueue(plan: ResearchPlan): Promise<{
     plan.currentPhaseMessage = "Generating research hypotheses..."
     await saveResearchPlan(plan)
 
-    const seedCount = plan.preferences?.max_hypotheses || DEFAULT_SEED_COUNT
+    const agentCount = DEFAULT_AGENT_COUNT
     const generationTasks: AgentTask[] = []
 
-    for (let i = 0; i < seedCount; i++) {
+    for (let i = 0; i < agentCount; i++) {
       generationTasks.push({
         taskId: uuidv4(),
         planId: plan.planId,
         agentType: "GENERATION",
-        n_candidates: 1,
+        n_candidates: HYPOTHESES_PER_AGENT,
         priority: 1,
         metadata: {
           plan: {
@@ -173,9 +174,13 @@ export async function supervisorEnqueue(plan: ResearchPlan): Promise<{
     await saveLog({
       timestamp: new Date().toISOString(),
       actor: "supervisor",
-      message: `Created ${seedCount} generation tasks`,
+      message: `Created ${agentCount} generation tasks (${HYPOTHESES_PER_AGENT} hypotheses each, ${agentCount * HYPOTHESES_PER_AGENT} total)`,
       level: "info",
-      context: { planId: plan.planId, taskCount: seedCount }
+      context: {
+        planId: plan.planId,
+        taskCount: agentCount,
+        hypothesesPerAgent: HYPOTHESES_PER_AGENT
+      }
     })
 
     // Run generation tasks with concurrency limit
@@ -184,7 +189,7 @@ export async function supervisorEnqueue(plan: ResearchPlan): Promise<{
       DEFAULT_CONCURRENCY
     )
 
-    // Process generation results and save hypotheses
+    // Process generation results — each result now contains an array of hypotheses
     const hypotheses: Hypothesis[] = []
     const failureSummaries: Array<{
       taskId: string
@@ -192,47 +197,50 @@ export async function supervisorEnqueue(plan: ResearchPlan): Promise<{
       raw?: string
     }> = []
     for (const result of generationResults) {
-      if (result.status === "success" && result.hypothesisId && result.output) {
-        const hypothesis: Hypothesis = {
-          hypothesisId: result.hypothesisId,
-          planId: plan.planId,
-          content: result.output.hypothesis || "",
-          explanation: result.output.explanation,
-          elo: INITIAL_ELO,
-          createdAt: new Date().toISOString(),
-          provenance: result.provenance || [],
-          metadata: {
-            feasibility_score: result.output.feasibility_score,
-            novelty_score: result.output.novelty_score
+      if (result.status === "success" && Array.isArray(result.output)) {
+        for (const item of result.output) {
+          const hypothesisId = uuidv4()
+          const hypothesis: Hypothesis = {
+            hypothesisId,
+            planId: plan.planId,
+            content: item.hypothesis || "",
+            explanation: item.explanation,
+            elo: INITIAL_ELO,
+            createdAt: new Date().toISOString(),
+            provenance: item.provenance || [],
+            metadata: {
+              feasibility_score: item.feasibility_score,
+              novelty_score: item.novelty_score
+            }
           }
-        }
 
-        // Safety check on hypothesis
-        const hypoSafety = checkHypothesis(hypothesis)
-        if (hypoSafety.decision === "block") {
-          await saveLog({
-            timestamp: new Date().toISOString(),
-            actor: "supervisor",
-            message: `Hypothesis ${result.hypothesisId} blocked by safety gate`,
-            level: "warn",
-            context: { planId: plan.planId, hypothesisId: result.hypothesisId }
-          })
-          continue // Skip blocked hypotheses
-        }
+          // Safety check on hypothesis
+          const hypoSafety = checkHypothesis(hypothesis)
+          if (hypoSafety.decision === "block") {
+            await saveLog({
+              timestamp: new Date().toISOString(),
+              actor: "supervisor",
+              message: `Hypothesis ${hypothesisId} blocked by safety gate`,
+              level: "warn",
+              context: { planId: plan.planId, hypothesisId }
+            })
+            continue // Skip blocked hypotheses
+          }
 
-        if (hypoSafety.decision === "flag") {
-          hypothesis.needs_review = true
-          await saveLog({
-            timestamp: new Date().toISOString(),
-            actor: "supervisor",
-            message: `Hypothesis ${result.hypothesisId} flagged for review`,
-            level: "warn",
-            context: { planId: plan.planId, hypothesisId: result.hypothesisId }
-          })
-        }
+          if (hypoSafety.decision === "flag") {
+            hypothesis.needs_review = true
+            await saveLog({
+              timestamp: new Date().toISOString(),
+              actor: "supervisor",
+              message: `Hypothesis ${hypothesisId} flagged for review`,
+              level: "warn",
+              context: { planId: plan.planId, hypothesisId }
+            })
+          }
 
-        await saveHypothesis(hypothesis)
-        hypotheses.push(hypothesis)
+          await saveHypothesis(hypothesis)
+          hypotheses.push(hypothesis)
+        }
       } else {
         const raw =
           typeof (result as any)?.output?.raw === "string"
@@ -278,7 +286,7 @@ export async function supervisorEnqueue(plan: ResearchPlan): Promise<{
     plan.currentPhaseMessage = "Ranking hypotheses via pairwise comparison..."
     await saveResearchPlan(plan)
 
-    const topN = Math.min(10, hypotheses.length)
+    const topN = Math.min(5, hypotheses.length)
     const topHypotheses = hypotheses.slice(0, topN)
 
     await saveLog({
@@ -353,7 +361,7 @@ export async function supervisorEnqueue(plan: ResearchPlan): Promise<{
     plan.currentPhase = "reflection"
     plan.currentPhaseMessage = "Reflecting on top hypotheses..."
     await saveResearchPlan(plan)
-    const topM = Math.min(10, updatedHypotheses.length)
+    const topM = Math.min(5, updatedHypotheses.length)
     const reflectionTasks: AgentTask[] = topHypotheses
       .slice(0, topM)
       .map(hypo => ({

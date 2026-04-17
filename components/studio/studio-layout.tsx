@@ -23,12 +23,10 @@ export function StudioLayout({
   workspaceId,
   onBack: _onBack
 }: StudioLayoutProps) {
-  // `onBack` is accepted for call-site compatibility with the project detail
-  // page but no longer used — the browser Back + sidebar handle the up-nav now
-  // that the rail is always visible.
   void _onBack
 
   const [projectName, setProjectName] = useState<string | undefined>()
+  const [showRail, setShowRail] = useState(false)
 
   useEffect(() => {
     if (!projectId) return
@@ -54,8 +52,15 @@ export function StudioLayout({
           scopeName={projectName}
         />
       }
+      showRail={showRail}
+      onToggleRail={() => setShowRail(p => !p)}
     >
-      <StudioCanvas projectId={projectId} workspaceId={workspaceId}>
+      <StudioCanvas
+        projectId={projectId}
+        workspaceId={workspaceId}
+        showRail={showRail}
+        onToggleRail={() => setShowRail(p => !p)}
+      >
         {children}
       </StudioCanvas>
     </SplitRailLayout>

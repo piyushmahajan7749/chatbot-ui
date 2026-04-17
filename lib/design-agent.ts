@@ -178,11 +178,40 @@ export function runSimulation(
 }
 
 // ─────────────────────────────────────────────────────────────────────────
+// Phase tracking — controls the step-by-step gated flow
+// ─────────────────────────────────────────────────────────────────────────
+
+export type PhaseKey =
+  | "problem"
+  | "literature"
+  | "hypotheses"
+  | "design"
+  | "simulation"
+
+export const PHASE_ORDER: PhaseKey[] = [
+  "problem",
+  "literature",
+  "hypotheses",
+  "design",
+  "simulation"
+]
+
+// ─────────────────────────────────────────────────────────────────────────
 // Persisted content shape — what we store in designs.content
 // ─────────────────────────────────────────────────────────────────────────
 
+/** Literature context stored from the real Literature Scout agent for use by downstream phases. */
+export interface StoredLiteratureContext {
+  whatOthersHaveDone: string
+  goodMethodsAndTools: string
+  potentialPitfalls: string
+  citations: string[]
+}
+
 export interface DesignContentV2 {
   schemaVersion: 2
+  approvedPhases?: PhaseKey[]
+  literatureContext?: StoredLiteratureContext
   problem?: ProblemContext
   papers?: Paper[]
   hypotheses?: Hypothesis[]

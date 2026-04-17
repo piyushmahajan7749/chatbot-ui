@@ -24,7 +24,8 @@ import {
   IconMessagePlus,
   IconPlus,
   IconReport,
-  IconSearch
+  IconSearch,
+  IconStarFilled
 } from "@tabler/icons-react"
 import { useToast } from "@/app/hooks/use-toast"
 import { ChatbotUIContext } from "@/context/context"
@@ -35,6 +36,8 @@ interface StudioCanvasProps {
   projectId?: string
   workspaceId?: string
   onOpenChat?: () => void
+  showRail?: boolean
+  onToggleRail?: () => void
 }
 
 type DesignRow = Tables<"designs"> & {
@@ -50,7 +53,9 @@ type TabKey = "designs" | "reports" | "chats"
 export function StudioCanvas({
   children,
   projectId,
-  workspaceId
+  workspaceId,
+  showRail,
+  onToggleRail
 }: StudioCanvasProps) {
   const params = useParams()
   const router = useRouter()
@@ -409,6 +414,22 @@ export function StudioCanvas({
                 </div>
               )}
             </div>
+
+            {/* Agent toggle */}
+            {onToggleRail && (
+              <Button
+                size="sm"
+                onClick={onToggleRail}
+                className={
+                  showRail
+                    ? "bg-ink-700 hover:bg-ink-800 gap-1.5 text-white"
+                    : "bg-brick hover:bg-brick-hover gap-1.5 text-white"
+                }
+              >
+                <IconStarFilled size={14} />
+                Agent
+              </Button>
+            )}
           </div>
         </div>
 

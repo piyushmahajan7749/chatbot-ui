@@ -6,6 +6,8 @@ import { ReactNode, useCallback, useEffect, useState } from "react"
 interface SplitRailLayoutProps {
   children: ReactNode
   rail: ReactNode
+  showRail: boolean
+  onToggleRail: () => void
   railDefaultWidth?: number
   railMinWidth?: number
   railMaxWidth?: number
@@ -14,15 +16,17 @@ interface SplitRailLayoutProps {
 
 /**
  * Two-region shell used by Project and Design detail pages: full-height canvas
- * column on the left, resizable right rail. Under 1024px the rail hides and a
- * bottom-right "Chat" FAB opens it as a full-screen overlay.
+ * column on the left, resizable right rail. The rail visibility is controlled
+ * by the parent via showRail / onToggleRail so the toggle can live in the
+ * page's own toolbar.
  *
- * Purely presentational — callers pass in whatever they want for the rail
- * (typically a ScopedChatRail).
+ * On mobile the rail opens as a full-screen overlay with a back button.
  */
 export function SplitRailLayout({
   children,
   rail,
+  showRail,
+  onToggleRail,
   railDefaultWidth = 400,
   railMinWidth = 320,
   railMaxWidth = 640,
@@ -31,14 +35,9 @@ export function SplitRailLayout({
   const [chatWidth, setChatWidth] = useState(railDefaultWidth)
   const [isDragging, setIsDragging] = useState(false)
   const [isMobile, setIsMobile] = useState(false)
-  const [showRailMobile, setShowRailMobile] = useState(false)
 
   useEffect(() => {
-    const check = () => {
-      const mobile = window.innerWidth < 1024
-      setIsMobile(mobile)
-      if (mobile) setShowRailMobile(false)
-    }
+    const check = () => setIsMobile(window.innerWidth < 1024)
     check()
     window.addEventListener("resize", check)
     return () => window.removeEventListener("resize", check)
@@ -68,6 +67,7 @@ export function SplitRailLayout({
     [chatWidth, railMinWidth, railMaxWidth]
   )
 
+  /* ── Mobile layout ──────────────────────────────────────────────────── */
   if (isMobile) {
     return (
       <div
@@ -78,10 +78,10 @@ export function SplitRailLayout({
       >
         <div className="flex-1 overflow-hidden">{children}</div>
 
-        {showRailMobile && (
+        {showRail && (
           <div className="fixed inset-0 z-40 flex flex-col bg-white">
             <button
-              onClick={() => setShowRailMobile(false)}
+              onClick={onToggleRail}
               className="border-ink-200 text-ink-500 shrink-0 border-b px-4 py-3 text-left text-xs font-bold uppercase tracking-widest"
             >
               ← Back to canvas
@@ -89,19 +89,11 @@ export function SplitRailLayout({
             <div className="min-h-0 flex-1">{rail}</div>
           </div>
         )}
-
-        {!showRailMobile && (
-          <button
-            onClick={() => setShowRailMobile(true)}
-            className="bg-brick hover:bg-brick-hover fixed bottom-6 right-6 z-30 rounded-full px-5 py-3 text-xs font-bold uppercase tracking-widest text-white shadow-lg"
-          >
-            Chat
-          </button>
-        )}
       </div>
     )
   }
 
+  /* ── Desktop layout ─────────────────────────────────────────────────── */
   return (
     <div
       className={cn(
@@ -115,29 +107,33 @@ export function SplitRailLayout({
         </div>
       </main>
 
-      <div
-        onMouseDown={handleMouseDown}
-        className={cn(
-          "group z-50 flex w-1.5 shrink-0 cursor-col-resize justify-center",
-          isDragging ? "bg-teal-journey/30" : "hover:bg-teal-journey/20"
-        )}
-      >
-        <div
-          className={cn(
-            "h-full w-px transition-colors",
-            isDragging
-              ? "bg-teal-journey"
-              : "bg-ink-200 group-hover:bg-teal-journey"
-          )}
-        />
-      </div>
+      {showRail && (
+        <>
+          <div
+            onMouseDown={handleMouseDown}
+            className={cn(
+              "group z-50 flex w-1.5 shrink-0 cursor-col-resize justify-center",
+              isDragging ? "bg-teal-journey/30" : "hover:bg-teal-journey/20"
+            )}
+          >
+            <div
+              className={cn(
+                "h-full w-px transition-colors",
+                isDragging
+                  ? "bg-teal-journey"
+                  : "bg-ink-200 group-hover:bg-teal-journey"
+              )}
+            />
+          </div>
 
-      <aside
-        className="border-ink-200 shrink-0 border-l bg-white"
-        style={{ width: chatWidth }}
-      >
-        {rail}
-      </aside>
+          <aside
+            className="border-ink-200 shrink-0 border-l bg-white"
+            style={{ width: chatWidth }}
+          >
+            {rail}
+          </aside>
+        </>
+      )}
     </div>
   )
 }

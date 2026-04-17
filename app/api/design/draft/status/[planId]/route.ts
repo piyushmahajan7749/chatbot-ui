@@ -37,14 +37,14 @@ export async function GET(
     approvedHypotheses.sort((a, b) => (b.elo || 0) - (a.elo || 0))
 
     // Get top N hypotheses
-    const topN = 10
+    const topN = 5
     const topHypotheses = approvedHypotheses.slice(0, topN)
 
     // Get logs
     const logs = await getLogsByPlanId(planId, 20)
 
     // Calculate progress
-    const seedCount = plan.preferences?.max_hypotheses || 10
+    const seedCount = (plan.preferences?.max_hypotheses || 5) * 4
     const progress = {
       generated: allHypotheses.length,
       seedCount,

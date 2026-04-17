@@ -11,6 +11,8 @@ interface CanvasShellProps {
   onTabChange: (key: string) => void
   children: ReactNode
   rail?: ReactNode
+  showRail?: boolean
+  onToggleRail?: () => void
   railDefaultWidth?: number
   railMinWidth?: number
   railMaxWidth?: number
@@ -19,7 +21,10 @@ interface CanvasShellProps {
 
 /**
  * Two-region shell: center canvas + right chat rail (resizable).
- * Used at Project level and Design/Report detail level.
+ * Rail visibility is controlled by the parent via showRail / onToggleRail
+ * so the toggle button can live in the page's own toolbar.
+ *
+ * On mobile the rail opens as a full-screen overlay with a back button.
  */
 export function CanvasShell({
   header,
@@ -28,6 +33,8 @@ export function CanvasShell({
   onTabChange,
   children,
   rail,
+  showRail = false,
+  onToggleRail,
   railDefaultWidth = 340,
   railMinWidth = 280,
   railMaxWidth = 560,
@@ -35,7 +42,6 @@ export function CanvasShell({
 }: CanvasShellProps) {
   const [railWidth, setRailWidth] = useState(railDefaultWidth)
   const [isDragging, setIsDragging] = useState(false)
-  const [showRailMobile, setShowRailMobile] = useState(false)
   const [isMobile, setIsMobile] = useState(false)
 
   useEffect(() => {
@@ -94,57 +100,46 @@ export function CanvasShell({
         <div className="min-h-0 flex-1 overflow-auto">{children}</div>
       </div>
 
-      {/* Drag handle */}
-      {rail && !isMobile && (
-        <div
-          onMouseDown={handleMouseDown}
-          className={cn(
-            "group z-10 flex w-1.5 shrink-0 cursor-col-resize justify-center",
-            isDragging ? "bg-teal-journey/30" : "hover:bg-teal-journey/20"
-          )}
-        >
+      {/* Drag handle + right rail (desktop, when open) */}
+      {rail && !isMobile && showRail && (
+        <>
           <div
+            onMouseDown={handleMouseDown}
             className={cn(
-              "h-full w-px transition-colors",
-              isDragging
-                ? "bg-teal-journey"
-                : "bg-ink-200 group-hover:bg-teal-journey"
+              "group z-10 flex w-1.5 shrink-0 cursor-col-resize justify-center",
+              isDragging ? "bg-teal-journey/30" : "hover:bg-teal-journey/20"
             )}
-          />
-        </div>
-      )}
+          >
+            <div
+              className={cn(
+                "h-full w-px transition-colors",
+                isDragging
+                  ? "bg-teal-journey"
+                  : "bg-ink-200 group-hover:bg-teal-journey"
+              )}
+            />
+          </div>
 
-      {/* Right rail */}
-      {rail && !isMobile && (
-        <aside
-          className="border-ink-200 shrink-0 border-l bg-white"
-          style={{ width: railWidth }}
-        >
-          <div className="h-full">{rail}</div>
-        </aside>
+          <aside
+            className="border-ink-200 shrink-0 border-l bg-white"
+            style={{ width: railWidth }}
+          >
+            <div className="h-full">{rail}</div>
+          </aside>
+        </>
       )}
 
       {/* Mobile rail overlay */}
-      {rail && isMobile && showRailMobile && (
+      {rail && isMobile && showRail && (
         <div className="fixed inset-0 z-40 flex flex-col bg-white">
           <button
-            onClick={() => setShowRailMobile(false)}
+            onClick={onToggleRail}
             className="border-ink-200 text-ink-500 shrink-0 border-b px-4 py-3 text-left text-xs font-bold uppercase tracking-widest"
           >
             ← Back to canvas
           </button>
           <div className="min-h-0 flex-1">{rail}</div>
         </div>
-      )}
-
-      {/* Mobile rail toggle FAB */}
-      {rail && isMobile && !showRailMobile && (
-        <button
-          onClick={() => setShowRailMobile(true)}
-          className="bg-brick hover:bg-brick-hover fixed bottom-6 right-6 z-30 rounded-full px-5 py-3 text-xs font-bold uppercase tracking-widest text-white shadow-lg"
-        >
-          Chat
-        </button>
       )}
     </div>
   )

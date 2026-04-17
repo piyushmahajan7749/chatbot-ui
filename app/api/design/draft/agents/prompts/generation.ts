@@ -29,14 +29,20 @@ ${
     : ""
 }
 
-Output format: Return a JSON object with:
+Output format: Return a JSON object with a "hypotheses" array containing exactly 4 distinct hypotheses:
 {
-  "hypothesis": "string - the testable hypothesis statement",
-  "explanation": "string - brief explanation of why this hypothesis is scientifically sound",
-  "provenance": ["For EACH source, you MUST include the citation index [N] and the paper title from the Literature Insights. Format each entry as: '[N] Paper Title - brief explanation of how this paper informed the hypothesis'. If no literature was provided, describe your scientific reasoning instead."],
-  "feasibility_score": number (0-1),
-  "novelty_score": number (0-1)
-}`
+  "hypotheses": [
+    {
+      "hypothesis": "string - the testable hypothesis statement",
+      "explanation": "string - brief explanation of why this hypothesis is scientifically sound",
+      "provenance": ["For EACH source, you MUST include the citation index [N] and the paper title from the Literature Insights. Format each entry as: '[N] Paper Title - brief explanation of how this paper informed the hypothesis'. If no literature was provided, describe your scientific reasoning instead."],
+      "feasibility_score": number (0-1),
+      "novelty_score": number (0-1)
+    }
+  ]
+}
+
+IMPORTANT: Each hypothesis must explore a DIFFERENT angle, variable, or mechanism. Do not produce minor variations of the same idea.`
 
   let user = `Research Plan:
 Title: ${plan.title}
@@ -50,7 +56,7 @@ Good Methods & Tools: ${literatureContext.goodMethodsAndTools}
 Potential Pitfalls: ${literatureContext.potentialPitfalls}`
   }
 
-  user += `\n\nGenerate a testable hypothesis for this research plan.`
+  user += `\n\nGenerate 4 distinct testable hypotheses for this research plan. Each should explore a different angle.`
 
   if (literatureContext) {
     user += `\n\nIMPORTANT: In the "provenance" array, reference specific papers from the Literature Insights using the format "[N] Paper Title - explanation". Use the citation indices [1], [2], etc. matching the order papers appear in the literature context.`

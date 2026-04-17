@@ -2,6 +2,7 @@
 
 import { cn } from "@/lib/utils"
 import { ReactNode } from "react"
+import { IconCheck, IconLock } from "@tabler/icons-react"
 
 export type AccentKey =
   | "teal-journey"
@@ -10,11 +11,15 @@ export type AccentKey =
   | "sage-brand"
   | "neutral"
 
+export type TabStatus = "locked" | "active" | "review" | "approved"
+
 export interface AccentTabDef {
   key: string
   label: string
   accent: AccentKey
   icon?: ReactNode
+  disabled?: boolean
+  status?: TabStatus
 }
 
 interface AccentTabsProps {
@@ -74,21 +79,45 @@ export function AccentTabs({
     >
       {tabs.map(tab => {
         const isActive = tab.key === activeKey
+        const isDisabled = tab.disabled === true
         const c = ACCENT_CLASSES[tab.accent]
+        const status = tab.status
+
         return (
           <button
             key={tab.key}
             role="tab"
             aria-selected={isActive}
-            onClick={() => onChange(tab.key)}
+            aria-disabled={isDisabled}
+            disabled={isDisabled}
+            onClick={() => {
+              if (!isDisabled) onChange(tab.key)
+            }}
             className={cn(
               "flex min-w-[120px] flex-1 items-center justify-center gap-2 rounded-t-xl border-t-2 px-4 py-2.5 text-xs font-bold uppercase tracking-widest transition-all",
-              isActive
-                ? c.active
-                : cn(c.inactive, "border-transparent hover:brightness-95")
+              isDisabled
+                ? "bg-ink-100 text-ink-300 cursor-not-allowed border-transparent opacity-60"
+                : isActive
+                  ? c.active
+                  : cn(c.inactive, "border-transparent hover:brightness-95")
             )}
           >
-            {tab.icon && <span className="shrink-0">{tab.icon}</span>}
+            {/* Status indicator */}
+            {isDisabled && <IconLock size={12} className="shrink-0" />}
+            {!isDisabled && status === "approved" && (
+              <span className="flex size-4 shrink-0 items-center justify-center rounded-full bg-emerald-500">
+                <IconCheck size={10} className="text-white" />
+              </span>
+            )}
+            {!isDisabled && status === "review" && (
+              <span className="size-2 shrink-0 animate-pulse rounded-full bg-amber-400" />
+            )}
+            {!isDisabled && !status && tab.icon && (
+              <span className="shrink-0">{tab.icon}</span>
+            )}
+            {!isDisabled && status === "active" && tab.icon && (
+              <span className="shrink-0">{tab.icon}</span>
+            )}
             <span className="truncate">{tab.label}</span>
           </button>
         )
