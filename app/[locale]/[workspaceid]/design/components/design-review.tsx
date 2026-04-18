@@ -25,7 +25,16 @@ import {
   ShieldCheck,
   Target
 } from "lucide-react"
-import ReactMarkdown from "react-markdown"
+import ReactMarkdown, { type Components } from "react-markdown"
+import remarkGfm from "remark-gfm"
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow
+} from "@/components/ui/table"
 import {
   Tooltip,
   TooltipContent,
@@ -155,6 +164,41 @@ const normalizeListFormatting = (text: string) =>
     .replace(/\n{2,}/g, "\n")
     .trim()
 
+const structuredMarkdownComponents: Components = {
+  table: ({ node, ...props }) => (
+    <div className="border-border/70 bg-background/60 my-3 overflow-hidden rounded-lg border">
+      <Table {...props} />
+    </div>
+  ),
+  thead: ({ node, ...props }) => (
+    <TableHeader className="bg-muted/50" {...props} />
+  ),
+  tbody: ({ node, ...props }) => <TableBody {...props} />,
+  tr: ({ node, ...props }) => <TableRow {...props} />,
+  th: ({ node, ...props }) => (
+    <TableHead
+      className="text-foreground h-10 px-3 text-xs font-semibold uppercase tracking-wide"
+      {...props}
+    />
+  ),
+  td: ({ node, ...props }) => (
+    <TableCell className="px-3 py-2 text-sm" {...props} />
+  ),
+  ul: ({ node, ...props }) => (
+    <ul
+      className="text-muted-foreground marker:text-muted-foreground my-2 list-disc space-y-1 pl-5 text-sm"
+      {...props}
+    />
+  ),
+  ol: ({ node, ...props }) => (
+    <ol
+      className="text-muted-foreground marker:text-muted-foreground my-2 list-decimal space-y-1 pl-5 text-sm"
+      {...props}
+    />
+  ),
+  li: ({ node, ...props }) => <li className="leading-relaxed" {...props} />
+}
+
 const SectionCard = ({
   title,
   description,
@@ -244,7 +288,11 @@ const StepCard = ({
       <p className="text-muted-foreground text-xs font-semibold uppercase tracking-wide">
         {title}
       </p>
-      <ReactMarkdown className={`${markdownClasses} mt-2`}>
+      <ReactMarkdown
+        className={`${markdownClasses} mt-2`}
+        remarkPlugins={[remarkGfm]}
+        components={structuredMarkdownComponents}
+      >
         {formatted}
       </ReactMarkdown>
     </div>
@@ -390,7 +438,11 @@ function renderLegacyReport(report: any) {
             <h3 className="text-foreground text-base font-semibold">
               Literature Summary
             </h3>
-            <ReactMarkdown className={markdownClasses}>
+            <ReactMarkdown
+              className={markdownClasses}
+              remarkPlugins={[remarkGfm]}
+              components={structuredMarkdownComponents}
+            >
               {report.literatureSummary.whatOthersHaveDone}
             </ReactMarkdown>
           </div>
@@ -751,7 +803,11 @@ export function DesignReview({
               description="Key learnings from recent papers."
               badge={`${generatedLiteratureSummary?.citations?.length || 0} refs`}
             >
-              <ReactMarkdown className={markdownClasses}>
+              <ReactMarkdown
+                className={markdownClasses}
+                remarkPlugins={[remarkGfm]}
+                components={structuredMarkdownComponents}
+              >
                 {[
                   generatedDesign.literatureSummary.whatOthersHaveDone,
                   generatedDesign.literatureSummary.goodMethodsAndTools,
@@ -1145,7 +1201,11 @@ export function DesignReview({
                   <p className="text-xs font-semibold uppercase tracking-wide text-emerald-400">
                     What Looks Good
                   </p>
-                  <ReactMarkdown className={markdownClasses}>
+                  <ReactMarkdown
+                    className={markdownClasses}
+                    remarkPlugins={[remarkGfm]}
+                    components={structuredMarkdownComponents}
+                  >
                     {generatedDesign.statisticalReview.whatLooksGood ||
                       "No notes provided."}
                   </ReactMarkdown>
@@ -1154,7 +1214,11 @@ export function DesignReview({
                   <p className="text-xs font-semibold uppercase tracking-wide text-rose-400">
                     Problems / Risks
                   </p>
-                  <ReactMarkdown className={markdownClasses}>
+                  <ReactMarkdown
+                    className={markdownClasses}
+                    remarkPlugins={[remarkGfm]}
+                    components={structuredMarkdownComponents}
+                  >
                     {generatedDesign.statisticalReview.problemsOrRisks
                       ?.map((item: string) => `- ${item}`)
                       .join("\n") || "None reported."}
@@ -1164,7 +1228,11 @@ export function DesignReview({
                   <p className="text-xs font-semibold uppercase tracking-wide text-amber-400">
                     Suggested Improvements
                   </p>
-                  <ReactMarkdown className={markdownClasses}>
+                  <ReactMarkdown
+                    className={markdownClasses}
+                    remarkPlugins={[remarkGfm]}
+                    components={structuredMarkdownComponents}
+                  >
                     {generatedDesign.statisticalReview.suggestedImprovements
                       ?.map((item: string) => `- ${item}`)
                       .join("\n") || "No improvements suggested."}
@@ -1174,7 +1242,11 @@ export function DesignReview({
                   <p className="text-xs font-semibold uppercase tracking-wide text-blue-400">
                     Overall Assessment
                   </p>
-                  <ReactMarkdown className={markdownClasses}>
+                  <ReactMarkdown
+                    className={markdownClasses}
+                    remarkPlugins={[remarkGfm]}
+                    components={structuredMarkdownComponents}
+                  >
                     {generatedDesign.statisticalReview.overallAssessment ||
                       "No assessment provided."}
                   </ReactMarkdown>
@@ -1185,7 +1257,11 @@ export function DesignReview({
                   <p className="text-xs font-semibold uppercase tracking-wide text-violet-400">
                     Final Assessment
                   </p>
-                  <ReactMarkdown className={markdownClasses}>
+                  <ReactMarkdown
+                    className={markdownClasses}
+                    remarkPlugins={[remarkGfm]}
+                    components={structuredMarkdownComponents}
+                  >
                     {generatedDesign.statisticalReview.finalAssessment}
                   </ReactMarkdown>
                 </div>
@@ -1354,19 +1430,31 @@ export function DesignReview({
           </CardHeader>
           <CardContent className="space-y-4">
             <SectionCard title="What Others Have Done">
-              <ReactMarkdown className={markdownClasses}>
+              <ReactMarkdown
+                className={markdownClasses}
+                remarkPlugins={[remarkGfm]}
+                components={structuredMarkdownComponents}
+              >
                 {planStatus.literatureContext.whatOthersHaveDone}
               </ReactMarkdown>
             </SectionCard>
 
             <SectionCard title="Good Methods & Tools">
-              <ReactMarkdown className={markdownClasses}>
+              <ReactMarkdown
+                className={markdownClasses}
+                remarkPlugins={[remarkGfm]}
+                components={structuredMarkdownComponents}
+              >
                 {planStatus.literatureContext.goodMethodsAndTools}
               </ReactMarkdown>
             </SectionCard>
 
             <SectionCard title="Potential Pitfalls">
-              <ReactMarkdown className={markdownClasses}>
+              <ReactMarkdown
+                className={markdownClasses}
+                remarkPlugins={[remarkGfm]}
+                components={structuredMarkdownComponents}
+              >
                 {planStatus.literatureContext.potentialPitfalls}
               </ReactMarkdown>
             </SectionCard>
@@ -1781,7 +1869,11 @@ export function DesignReview({
                             ) : typeof source === "string" ? (
                               <p>{source}</p>
                             ) : (
-                              <ReactMarkdown className={markdownClasses}>
+                              <ReactMarkdown
+                                className={markdownClasses}
+                                remarkPlugins={[remarkGfm]}
+                                components={structuredMarkdownComponents}
+                              >
                                 {JSON.stringify(source, null, 2)}
                               </ReactMarkdown>
                             )}
