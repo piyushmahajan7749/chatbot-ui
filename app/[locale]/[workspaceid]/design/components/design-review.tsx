@@ -54,6 +54,12 @@ import {
 import { designAgentPromptSchemas } from "@/lib/design/prompt-schemas"
 import { AgentPromptUsage } from "@/types/design-prompts"
 import { Document, HeadingLevel, Packer, Paragraph, TextRun } from "docx"
+import type {
+  MasterMixPlan,
+  ProcedureStep,
+  ReagentPreparation,
+  WorkingSolutionRow
+} from "@/app/api/design/draft/types"
 
 interface CitationDetailItem {
   index: number
@@ -407,6 +413,239 @@ function formatList(label: string, values?: string[]) {
         ))}
       </ul>
     </div>
+  )
+}
+
+const StatPill = ({ label, value }: { label: string; value?: string }) => {
+  if (!value) return null
+  return (
+    <div className="border-border/60 bg-background/80 flex flex-col rounded-md border px-2.5 py-1.5 text-[11px]">
+      <span className="text-muted-foreground uppercase tracking-wide">
+        {label}
+      </span>
+      <span className="text-foreground font-semibold">{value}</span>
+    </div>
+  )
+}
+
+function ReagentsView({ reagents }: { reagents: ReagentPreparation[] }) {
+  if (!reagents?.length) {
+    return (
+      <p className="text-muted-foreground text-xs italic">
+        No reagents specified.
+      </p>
+    )
+  }
+  return (
+    <div className="grid gap-3 md:grid-cols-2">
+      {reagents.map((r, idx) => (
+        <div
+          key={`reagent-${idx}-${r.name}`}
+          className="border-border/70 bg-background/70 rounded-lg border p-3 shadow-sm"
+        >
+          <div className="flex items-baseline justify-between gap-2">
+            <h4 className="text-foreground text-sm font-semibold">{r.name}</h4>
+            <span className="text-muted-foreground text-[10px] uppercase tracking-wide">
+              {r.role}
+            </span>
+          </div>
+          <div className="mt-2 grid grid-cols-2 gap-2">
+            {r.molecularWeightGPerMol !== undefined && (
+              <StatPill
+                label="MW"
+                value={`${r.molecularWeightGPerMol} g/mol`}
+              />
+            )}
+            <StatPill label="Target conc." value={r.targetConcentration} />
+            <StatPill label="Target volume" value={r.targetVolume} />
+            {r.massToWeigh && <StatPill label="Mass" value={r.massToWeigh} />}
+            {r.volumeToPipette && (
+              <StatPill label="Pipette" value={r.volumeToPipette} />
+            )}
+            {r.dilutionFromStock && (
+              <StatPill label="Dilution" value={r.dilutionFromStock} />
+            )}
+          </div>
+          <div className="text-muted-foreground mt-2 space-y-0.5 text-xs">
+            <div>
+              <span className="font-semibold">Diluent:</span> {r.diluent}
+            </div>
+            {r.pHAdjustment && (
+              <div>
+                <span className="font-semibold">pH:</span> {r.pHAdjustment}
+              </div>
+            )}
+            <div>
+              <span className="font-semibold">Storage:</span> {r.storage}
+            </div>
+            {r.notes && (
+              <div className="italic">
+                <span className="font-semibold not-italic">Note:</span>{" "}
+                {r.notes}
+              </div>
+            )}
+          </div>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+function MasterMixView({ plan }: { plan?: MasterMixPlan }) {
+  if (!plan || !plan.components?.length) {
+    return (
+      <p className="text-muted-foreground text-xs italic">
+        No master mix plan specified.
+      </p>
+    )
+  }
+  return (
+    <div className="space-y-3">
+      <div className="border-border/70 overflow-x-auto rounded-lg border">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Component</TableHead>
+              <TableHead className="text-right">Per-reaction (µL)</TableHead>
+              <TableHead className="text-right">N reactions</TableHead>
+              <TableHead className="text-right">Total (µL)</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {plan.components.map((c, idx) => (
+              <TableRow key={`mm-${idx}-${c.name}`}>
+                <TableCell className="font-medium">{c.name}</TableCell>
+                <TableCell className="text-right tabular-nums">
+                  {c.perReactionVolumeUl}
+                </TableCell>
+                <TableCell className="text-right tabular-nums">
+                  {c.nReactions}
+                </TableCell>
+                <TableCell className="text-right tabular-nums">
+                  {c.totalVolumeUl}
+                </TableCell>
+              </TableRow>
+            ))}
+            <TableRow className="bg-muted/30 font-semibold">
+              <TableCell>Totals</TableCell>
+              <TableCell className="text-right tabular-nums">
+                {plan.totalPerReactionUl} /rxn
+              </TableCell>
+              <TableCell />
+              <TableCell className="text-right tabular-nums">
+                {plan.totalBatchUl} batch
+              </TableCell>
+            </TableRow>
+          </TableBody>
+        </Table>
+      </div>
+      {plan.mixingOrder?.length > 0 && (
+        <div>
+          <h4 className="text-muted-foreground text-xs font-semibold uppercase tracking-wide">
+            Mixing order
+          </h4>
+          <ol className="text-foreground mt-1 list-decimal space-y-0.5 pl-5 text-sm">
+            {plan.mixingOrder.map((step, i) => (
+              <li key={`mm-order-${i}`}>{step}</li>
+            ))}
+          </ol>
+        </div>
+      )}
+      {plan.notes && plan.notes !== "Not specified" && (
+        <p className="text-muted-foreground text-xs italic">{plan.notes}</p>
+      )}
+    </div>
+  )
+}
+
+function WorkingSolutionsView({ rows }: { rows: WorkingSolutionRow[] }) {
+  if (!rows?.length) {
+    return (
+      <p className="text-muted-foreground text-xs italic">
+        No working solutions specified.
+      </p>
+    )
+  }
+  return (
+    <div className="border-border/70 overflow-x-auto rounded-lg border">
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>Condition ID</TableHead>
+            <TableHead>Target conc.</TableHead>
+            <TableHead>Stock</TableHead>
+            <TableHead className="text-right">V_stock (µL)</TableHead>
+            <TableHead className="text-right">V_diluent (µL)</TableHead>
+            <TableHead className="text-right">V_final (µL)</TableHead>
+            <TableHead>Notes</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {rows.map((r, idx) => (
+            <TableRow key={`ws-${idx}-${r.conditionId}`}>
+              <TableCell className="font-medium">{r.conditionId}</TableCell>
+              <TableCell>{r.targetConcentration}</TableCell>
+              <TableCell>{r.stockUsed}</TableCell>
+              <TableCell className="text-right tabular-nums">
+                {r.stockVolumeUl}
+              </TableCell>
+              <TableCell className="text-right tabular-nums">
+                {r.diluentVolumeUl}
+              </TableCell>
+              <TableCell className="text-right font-semibold tabular-nums">
+                {r.finalVolumeUl}
+              </TableCell>
+              <TableCell className="text-muted-foreground text-xs">
+                {r.notes ?? ""}
+              </TableCell>
+            </TableRow>
+          ))}
+        </TableBody>
+      </Table>
+    </div>
+  )
+}
+
+function ProcedureStepsView({ steps }: { steps: ProcedureStep[] }) {
+  if (!steps?.length) {
+    return (
+      <p className="text-muted-foreground text-xs italic">
+        No steps specified.
+      </p>
+    )
+  }
+  return (
+    <ol className="space-y-2">
+      {steps.map(step => (
+        <li
+          key={`step-${step.stepNumber}`}
+          className="border-border/70 bg-background/70 rounded-md border p-2.5 shadow-sm"
+        >
+          <div className="flex items-baseline gap-2">
+            <span className="text-primary bg-primary/10 flex size-5 shrink-0 items-center justify-center rounded-full text-[11px] font-semibold">
+              {step.stepNumber}
+            </span>
+            <p className="text-foreground text-sm">{step.action}</p>
+          </div>
+          <div className="mt-1.5 flex flex-wrap gap-1.5 pl-7">
+            {step.volume && <StatPill label="Vol" value={step.volume} />}
+            {step.temperature && (
+              <StatPill label="Temp" value={step.temperature} />
+            )}
+            {step.duration && <StatPill label="Time" value={step.duration} />}
+            {step.mixing && <StatPill label="Mix" value={step.mixing} />}
+            {step.instrument && (
+              <StatPill label="Instrument" value={step.instrument} />
+            )}
+          </div>
+          {step.notes && (
+            <p className="text-muted-foreground mt-1.5 pl-7 text-xs italic">
+              {step.notes}
+            </p>
+          )}
+        </li>
+      ))}
+    </ol>
   )
 }
 
@@ -1090,7 +1329,7 @@ export function DesignReview({
             >
               {(() => {
                 const planner = generatedDesign.executionPlan || {}
-                const plannerSteps = (
+                const stringSteps = (
                   [
                     {
                       label: "Feasibility Check",
@@ -1108,24 +1347,9 @@ export function DesignReview({
                       accent: "emerald"
                     },
                     {
-                      label: "Reagent & Buffer Preparation",
-                      value: planner.reagentAndBufferPreparation,
-                      accent: "blue"
-                    },
-                    {
                       label: "Stock Solution Preparation",
                       value: planner.stockSolutionPreparation,
                       accent: "violet"
-                    },
-                    {
-                      label: "Master Mix Strategy",
-                      value: planner.masterMixStrategy,
-                      accent: "amber"
-                    },
-                    {
-                      label: "Working Solution Tables",
-                      value: planner.workingSolutionTables,
-                      accent: "rose"
                     },
                     {
                       label: "Tube & Label Planning",
@@ -1170,21 +1394,66 @@ export function DesignReview({
                   ] satisfies ExecutionStep[]
                 ).filter(step => step.value && step.value !== "Not specified")
 
-                return plannerSteps.length > 0 ? (
-                  <div className="grid gap-3">
-                    {plannerSteps.map(step => (
-                      <StepCard
-                        key={step.label}
-                        title={step.label}
-                        body={step.value}
-                        accent={step.accent}
-                      />
-                    ))}
+                const hasStructured =
+                  (planner.reagents?.length ?? 0) > 0 ||
+                  (planner.masterMix?.components?.length ?? 0) > 0 ||
+                  (planner.workingSolutions?.length ?? 0) > 0
+
+                if (stringSteps.length === 0 && !hasStructured) {
+                  return (
+                    <p className="text-muted-foreground">
+                      Planner output pending.
+                    </p>
+                  )
+                }
+
+                return (
+                  <div className="space-y-5">
+                    {(planner.reagents?.length ?? 0) > 0 && (
+                      <div>
+                        <h4 className="text-muted-foreground text-xs font-semibold uppercase tracking-wide">
+                          Reagents & Buffers
+                        </h4>
+                        <div className="mt-2">
+                          <ReagentsView reagents={planner.reagents || []} />
+                        </div>
+                      </div>
+                    )}
+                    {(planner.masterMix?.components?.length ?? 0) > 0 && (
+                      <div>
+                        <h4 className="text-muted-foreground text-xs font-semibold uppercase tracking-wide">
+                          Master Mix
+                        </h4>
+                        <div className="mt-2">
+                          <MasterMixView plan={planner.masterMix} />
+                        </div>
+                      </div>
+                    )}
+                    {(planner.workingSolutions?.length ?? 0) > 0 && (
+                      <div>
+                        <h4 className="text-muted-foreground text-xs font-semibold uppercase tracking-wide">
+                          Working Solutions
+                        </h4>
+                        <div className="mt-2">
+                          <WorkingSolutionsView
+                            rows={planner.workingSolutions || []}
+                          />
+                        </div>
+                      </div>
+                    )}
+                    {stringSteps.length > 0 && (
+                      <div className="grid gap-3">
+                        {stringSteps.map(step => (
+                          <StepCard
+                            key={step.label}
+                            title={step.label}
+                            body={step.value}
+                            accent={step.accent}
+                          />
+                        ))}
+                      </div>
+                    )}
                   </div>
-                ) : (
-                  <p className="text-muted-foreground">
-                    Planner output pending.
-                  </p>
                 )
               })()}
             </SectionCard>
@@ -1225,21 +1494,6 @@ export function DesignReview({
                       accent: "rose"
                     },
                     {
-                      label: "Sample Preparation",
-                      value: procedure.samplePreparation,
-                      accent: "emerald"
-                    },
-                    {
-                      label: "Measurement Steps",
-                      value: procedure.measurementSteps,
-                      accent: "blue"
-                    },
-                    {
-                      label: "Experimental Condition Execution",
-                      value: procedure.experimentalConditionExecution,
-                      accent: "violet"
-                    },
-                    {
                       label: "Data Recording & Processing",
                       value: procedure.dataRecordingProcessing,
                       accent: "amber"
@@ -1272,21 +1526,57 @@ export function DesignReview({
                   ] satisfies ExecutionStep[]
                 ).filter(step => step.value && step.value !== "Not specified")
 
-                return procedureSteps.length > 0 ? (
-                  <div className="grid gap-3">
-                    {procedureSteps.map(step => (
-                      <StepCard
-                        key={step.label}
-                        title={step.label}
-                        body={step.value}
-                        accent={step.accent}
-                      />
+                const stepGroups: Array<{
+                  label: string
+                  steps: ProcedureStep[]
+                }> = [
+                  {
+                    label: "Sample Preparation",
+                    steps: procedure.samplePreparation ?? []
+                  },
+                  {
+                    label: "Measurement Steps",
+                    steps: procedure.measurementSteps ?? []
+                  },
+                  {
+                    label: "Experimental Condition Execution",
+                    steps: procedure.experimentalConditionExecution ?? []
+                  }
+                ].filter(g => g.steps.length > 0)
+
+                if (procedureSteps.length === 0 && stepGroups.length === 0) {
+                  return (
+                    <p className="text-muted-foreground">
+                      Procedure output pending.
+                    </p>
+                  )
+                }
+
+                return (
+                  <div className="space-y-5">
+                    {stepGroups.map(group => (
+                      <div key={group.label}>
+                        <h4 className="text-muted-foreground text-xs font-semibold uppercase tracking-wide">
+                          {group.label}
+                        </h4>
+                        <div className="mt-2">
+                          <ProcedureStepsView steps={group.steps} />
+                        </div>
+                      </div>
                     ))}
+                    {procedureSteps.length > 0 && (
+                      <div className="grid gap-3">
+                        {procedureSteps.map(step => (
+                          <StepCard
+                            key={step.label}
+                            title={step.label}
+                            body={step.value}
+                            accent={step.accent}
+                          />
+                        ))}
+                      </div>
+                    )}
                   </div>
-                ) : (
-                  <p className="text-muted-foreground">
-                    Procedure output pending.
-                  </p>
                 )
               })()}
             </SectionCard>

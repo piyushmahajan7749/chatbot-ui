@@ -724,12 +724,17 @@ export async function callPlannerAgent(
       feasibilityCheck: parsed.feasibilityCheck || "Not specified",
       summaryOfTotals: parsed.summaryOfTotals || "Not specified",
       materialsChecklist: parsed.materialsChecklist || "Not specified",
-      reagentAndBufferPreparation:
-        parsed.reagentAndBufferPreparation || "Not specified",
+      reagents: parsed.reagents ?? [],
       stockSolutionPreparation:
         parsed.stockSolutionPreparation || "Not specified",
-      masterMixStrategy: parsed.masterMixStrategy || "Not specified",
-      workingSolutionTables: parsed.workingSolutionTables || "Not specified",
+      masterMix: parsed.masterMix ?? {
+        components: [],
+        totalPerReactionUl: 0,
+        totalBatchUl: 0,
+        mixingOrder: [],
+        notes: "Not specified"
+      },
+      workingSolutions: parsed.workingSolutions ?? [],
       tubeAndLabelPlanning: parsed.tubeAndLabelPlanning || "Not specified",
       consumablePrepAndQC: parsed.consumablePrepAndQC || "Not specified",
       studyLayout: parsed.studyLayout || "Not specified",
@@ -749,10 +754,13 @@ export async function callPlannerAgent(
       result.materialsChecklist.length,
       "chars"
     )
+    console.log("  🧪 Reagents:", result.reagents.length, "entries")
     console.log(
-      "  🧪 Reagent/Buffer Prep:",
-      result.reagentAndBufferPreparation.length,
-      "chars"
+      "  🧯 Master Mix Components:",
+      result.masterMix.components.length,
+      "| Working Solutions:",
+      result.workingSolutions.length,
+      "rows"
     )
     console.log("  🗺️ Study Layout:", result.studyLayout.length, "chars")
     console.log("  ⏱️ Total Execution Time:", totalTime, "ms")
@@ -818,10 +826,10 @@ export async function callProcedureAgent(
       instrumentSetupCalibration:
         parsed.instrumentSetupCalibration || "Not specified",
       criticalHandlingRules: parsed.criticalHandlingRules || "Not specified",
-      samplePreparation: parsed.samplePreparation || "Not specified",
-      measurementSteps: parsed.measurementSteps || "Not specified",
+      samplePreparation: parsed.samplePreparation ?? [],
+      measurementSteps: parsed.measurementSteps ?? [],
       experimentalConditionExecution:
-        parsed.experimentalConditionExecution || "Not specified",
+        parsed.experimentalConditionExecution ?? [],
       dataRecordingProcessing:
         parsed.dataRecordingProcessing || "Not specified",
       acceptanceCriteria: parsed.acceptanceCriteria || "Not specified",
@@ -836,12 +844,17 @@ export async function callProcedureAgent(
     console.log(
       "  🧪 Sample Preparation:",
       result.samplePreparation.length,
-      "chars"
+      "steps"
     )
     console.log(
       "  📊 Measurement Steps:",
       result.measurementSteps.length,
-      "chars"
+      "steps"
+    )
+    console.log(
+      "  ⚗️ Condition Execution:",
+      result.experimentalConditionExecution.length,
+      "steps"
     )
     console.log(
       "  🛠️ Troubleshooting:",
@@ -874,10 +887,16 @@ const EMPTY_PLANNER: PlannerOutput = {
   feasibilityCheck: "Not specified",
   summaryOfTotals: "Not specified",
   materialsChecklist: "Not specified",
-  reagentAndBufferPreparation: "Not specified",
+  reagents: [],
   stockSolutionPreparation: "Not specified",
-  masterMixStrategy: "Not specified",
-  workingSolutionTables: "Not specified",
+  masterMix: {
+    components: [],
+    totalPerReactionUl: 0,
+    totalBatchUl: 0,
+    mixingOrder: [],
+    notes: "Not specified"
+  },
+  workingSolutions: [],
   tubeAndLabelPlanning: "Not specified",
   consumablePrepAndQC: "Not specified",
   studyLayout: "Not specified",
@@ -894,9 +913,9 @@ const EMPTY_PROCEDURE: ProcedureOutput = {
   sampleLabelingIdScheme: "Not specified",
   instrumentSetupCalibration: "Not specified",
   criticalHandlingRules: "Not specified",
-  samplePreparation: "Not specified",
-  measurementSteps: "Not specified",
-  experimentalConditionExecution: "Not specified",
+  samplePreparation: [],
+  measurementSteps: [],
+  experimentalConditionExecution: [],
   dataRecordingProcessing: "Not specified",
   acceptanceCriteria: "Not specified",
   troubleshootingGuide: "Not specified",

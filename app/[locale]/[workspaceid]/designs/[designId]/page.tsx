@@ -240,6 +240,16 @@ export default function DesignDetailPage() {
   // Autosave debounce for Problem tab
   const problemSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
+  // Always-fresh snapshot of the server-side design content. `design` state is
+  // only populated on fetchDesign and does NOT reflect updates from streamed
+  // phase runs or prior persistContent calls. Using the stale state as the
+  // merge base caused PATCH writes to overwrite fields the server had just
+  // saved (e.g. paper selections disappearing after reload, literatureContext
+  // being wiped by a problem-autosave). This ref is kept current on every
+  // fetch, every runPhaseStreaming result, and every persistContent write so
+  // that persistContent always merges with the true latest content.
+  const latestContentRef = useRef<DesignContentV2>({ schemaVersion: 2 })
+
   // ── Phase helpers ─────────────────────────────────────────────────────
 
   const isPhaseApproved = (phase: PhaseKey) => approvedPhases.includes(phase)
@@ -304,6 +314,7 @@ export default function DesignDetailPage() {
       setDesign(data)
 
       const content = parseContent(data.content)
+      latestContentRef.current = content ?? { schemaVersion: 2 }
       const problem = content?.problem ?? {}
       setTitle(problem.title ?? data.name ?? "")
       setProblemStatement(problem.problemStatement ?? data.description ?? "")
@@ -348,16 +359,21 @@ export default function DesignDetailPage() {
     patch: Partial<DesignContentV2>,
     extra?: { name?: string }
   ) => {
+    // Merge against the freshest content we know about (updated on every
+    // fetch and every phase run) — NOT the React `design` state, which can
+    // be stale after an SSE phase run or a prior PATCH.
+    const merged: DesignContentV2 = {
+      ...latestContentRef.current,
+      ...patch,
+      schemaVersion: 2
+    }
+    latestContentRef.current = merged
     await fetch(`/api/design/${designId}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         ...(extra?.name !== undefined ? { name: extra.name } : {}),
-        content: JSON.stringify({
-          schemaVersion: 2 as const,
-          ...(parseContent(design?.content) ?? {}),
-          ...patch
-        })
+        content: JSON.stringify(merged)
       })
     })
   }
@@ -437,6 +453,7 @@ export default function DesignDetailPage() {
         },
         ev => setLiteratureProgress(prev => [...prev, ev])
       )
+      latestContentRef.current = content
       if (content.papers) setPapers(content.papers)
     } catch (error: any) {
       toast({
@@ -474,6 +491,8 @@ export default function DesignDetailPage() {
         },
         ev => setHypothesesProgress(prev => [...prev, ev])
       )
+      latestContentRef.current = content
+      if (content.papers) setPapers(content.papers)
       if (content.hypotheses) setHypotheses(content.hypotheses)
     } catch (error: any) {
       toast({
@@ -511,6 +530,7 @@ export default function DesignDetailPage() {
         },
         ev => setDesignProgress(prev => [...prev, ev])
       )
+      latestContentRef.current = content
       const designs = content.designs ?? []
       setGeneratedDesigns(designs)
       setActiveDesignId(designs[0]?.id ?? null)
@@ -554,6 +574,7 @@ export default function DesignDetailPage() {
         },
         ev => setLiteratureProgress(prev => [...prev, ev])
       )
+      latestContentRef.current = content
       if (content.papers) setPapers(content.papers)
     } catch (error: any) {
       toast({
@@ -581,6 +602,8 @@ export default function DesignDetailPage() {
         },
         ev => setHypothesesProgress(prev => [...prev, ev])
       )
+      latestContentRef.current = content
+      if (content.papers) setPapers(content.papers)
       if (content.hypotheses) setHypotheses(content.hypotheses)
     } catch (error: any) {
       toast({
@@ -608,6 +631,7 @@ export default function DesignDetailPage() {
         },
         ev => setDesignProgress(prev => [...prev, ev])
       )
+      latestContentRef.current = content
       const designs = content.designs ?? []
       setGeneratedDesigns(designs)
       setActiveDesignId(designs[0]?.id ?? null)
@@ -2614,19 +2638,11 @@ function OverviewTab(props: {
             </CardHeader>
             <CardContent>
               {activeDesign ? (
-                <div className="space-y-5">
-                  <div>
-                    <div className="text-ink-400 text-[10px] font-bold uppercase tracking-[0.13em]">
-                      Title
-                    </div>
-                    <div className="text-ink-900 mt-1 text-sm font-semibold">
-                      {activeDesign.title}
-                    </div>
-                  </div>
-                  {activeDesign.sections.map(sec => (
-                    <DesignSectionContent key={sec.heading} section={sec} />
-                  ))}
-                </div>
+                <DesignCompactCard
+                  design={activeDesign}
+                  designCount={designs.length}
+                  onOpen={() => onGoToTab("design")}
+                />
               ) : (
                 <div className="text-ink-400 text-xs">
                   No design generated yet.
@@ -2635,6 +2651,107 @@ function OverviewTab(props: {
             </CardContent>
           </Card>
         </section>
+      </div>
+    </div>
+  )
+}
+
+function DesignCompactCard(props: {
+  design: GeneratedDesign
+  designCount: number
+  onOpen: () => void
+}) {
+  const { design, designCount, onOpen } = props
+  const sectionCount = design.sections.length
+  const summarySection =
+    design.sections.find(s => /summary|overview/i.test(s.heading)) ??
+    design.sections[0]
+  const preview = summarySection
+    ? summarySection.body.trim().replace(/\s+/g, " ").slice(0, 280)
+    : ""
+  const truncated = summarySection
+    ? summarySection.body.trim().length > 280
+    : false
+
+  return (
+    <div className="space-y-3">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0 flex-1">
+          <div className="text-ink-400 text-[10px] font-bold uppercase tracking-[0.13em]">
+            Active design {designCount > 1 ? `(1 of ${designCount})` : ""}
+          </div>
+          <div className="text-ink-900 mt-1 text-sm font-semibold">
+            {design.title}
+          </div>
+        </div>
+        {design.saved && (
+          <span className="bg-sage-brand-tint text-sage-brand rounded px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide">
+            Saved
+          </span>
+        )}
+      </div>
+
+      {preview && (
+        <p className="text-ink-600 text-xs leading-relaxed">
+          {preview}
+          {truncated ? "…" : ""}
+        </p>
+      )}
+
+      <div className="grid grid-cols-3 gap-2">
+        <div className="border-ink-200 rounded-md border bg-white px-2.5 py-1.5">
+          <div className="text-ink-400 text-[10px] font-bold uppercase tracking-wide">
+            Sections
+          </div>
+          <div className="text-ink-900 mt-0.5 text-sm font-semibold">
+            {sectionCount}
+          </div>
+        </div>
+        <div className="border-ink-200 rounded-md border bg-white px-2.5 py-1.5">
+          <div className="text-ink-400 text-[10px] font-bold uppercase tracking-wide">
+            Hypothesis ref
+          </div>
+          <div className="text-ink-900 mt-0.5 truncate text-sm font-semibold">
+            {design.hypothesisId.slice(0, 10)}…
+          </div>
+        </div>
+        <div className="border-ink-200 rounded-md border bg-white px-2.5 py-1.5">
+          <div className="text-ink-400 text-[10px] font-bold uppercase tracking-wide">
+            Simulation
+          </div>
+          <div className="text-ink-900 mt-0.5 text-sm font-semibold">
+            {design.simulation ? "Ready" : "—"}
+          </div>
+        </div>
+      </div>
+
+      {design.sections.length > 0 && (
+        <div>
+          <div className="text-ink-400 mb-1.5 text-[10px] font-bold uppercase tracking-wide">
+            Sections included
+          </div>
+          <div className="flex flex-wrap gap-1.5">
+            {design.sections.map(sec => (
+              <span
+                key={sec.heading}
+                className="border-ink-200 bg-ink-50 text-ink-600 rounded-full border px-2.5 py-0.5 text-[11px] font-medium"
+              >
+                {sec.heading}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+
+      <div className="pt-1">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={onOpen}
+          className="text-ink-700 h-8 text-xs"
+        >
+          Open full design
+        </Button>
       </div>
     </div>
   )

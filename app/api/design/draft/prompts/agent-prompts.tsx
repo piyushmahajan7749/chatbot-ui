@@ -18,6 +18,12 @@ import {
 
 import { designAgentPromptSchemas } from "@/lib/design/prompt-schemas"
 import {
+  masterMixToMarkdown,
+  procedureStepsToMarkdown,
+  reagentsToMarkdown,
+  workingSolutionsToMarkdown
+} from "@/lib/design/render-structured"
+import {
   AgentPromptOverrides,
   DesignAgentPromptId,
   PromptSectionOverrides,
@@ -305,12 +311,7 @@ const renderPlannerData = (state: ExperimentDesignState) => {
         <li>Feasibility Check: {planner.feasibilityCheck}</li>
         <li>Summary of Totals: {planner.summaryOfTotals}</li>
         <li>Materials Checklist: {planner.materialsChecklist}</li>
-        <li>
-          Reagent & Buffer Preparation: {planner.reagentAndBufferPreparation}
-        </li>
         <li>Stock Solution Preparation: {planner.stockSolutionPreparation}</li>
-        <li>Master Mix Strategy: {planner.masterMixStrategy}</li>
-        <li>Working Solution Tables: {planner.workingSolutionTables}</li>
         <li>Tube & Label Planning: {planner.tubeAndLabelPlanning}</li>
         <li>Consumable Prep & QC: {planner.consumablePrepAndQC}</li>
         <li>Study Layout: {planner.studyLayout}</li>
@@ -324,6 +325,12 @@ const renderPlannerData = (state: ExperimentDesignState) => {
           Assumptions & Confirmations: {planner.assumptionsAndConfirmations}
         </li>
       </ul>
+      <p>Reagents & Buffers (structured):</p>
+      <pre>{reagentsToMarkdown(planner.reagents)}</pre>
+      <p>Master Mix (structured):</p>
+      <pre>{masterMixToMarkdown(planner.masterMix)}</pre>
+      <p>Working Solutions (structured):</p>
+      <pre>{workingSolutionsToMarkdown(planner.workingSolutions)}</pre>
     </Result>
   )
 }
@@ -343,12 +350,6 @@ const renderProcedureData = (state: ExperimentDesignState) => {
           Instrument Setup & Calibration: {procedure.instrumentSetupCalibration}
         </li>
         <li>Critical Handling Rules: {procedure.criticalHandlingRules}</li>
-        <li>Sample Preparation: {procedure.samplePreparation}</li>
-        <li>Measurement Steps: {procedure.measurementSteps}</li>
-        <li>
-          Experimental Condition Execution:{" "}
-          {procedure.experimentalConditionExecution}
-        </li>
         <li>
           Data Recording & Processing: {procedure.dataRecordingProcessing}
         </li>
@@ -358,6 +359,14 @@ const renderProcedureData = (state: ExperimentDesignState) => {
         <li>Cleanup & Disposal: {procedure.cleanupDisposal}</li>
         <li>Data Handoff: {procedure.dataHandoff}</li>
       </ul>
+      <p>Sample Preparation Steps:</p>
+      <pre>{procedureStepsToMarkdown(procedure.samplePreparation)}</pre>
+      <p>Measurement Steps:</p>
+      <pre>{procedureStepsToMarkdown(procedure.measurementSteps)}</pre>
+      <p>Experimental Condition Execution Steps:</p>
+      <pre>
+        {procedureStepsToMarkdown(procedure.experimentalConditionExecution)}
+      </pre>
     </Result>
   )
 }

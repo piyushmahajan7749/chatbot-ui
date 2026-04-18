@@ -118,14 +118,57 @@ export interface ExperimentDesignerOutput {
   rationale: string
 }
 
+// Structured subfields for calculation-heavy Planner outputs. These replace
+// free-form string fields so the model is forced to substitute actual
+// numbers instead of writing prose like "calculate as needed".
+export interface ReagentPreparation {
+  name: string
+  role: string
+  molecularWeightGPerMol?: number
+  targetConcentration: string
+  targetVolume: string
+  massToWeigh?: string
+  volumeToPipette?: string
+  dilutionFromStock?: string
+  diluent: string
+  pHAdjustment?: string
+  storage: string
+  notes?: string
+}
+
+export interface MasterMixComponent {
+  name: string
+  perReactionVolumeUl: number
+  nReactions: number
+  totalVolumeUl: number
+}
+
+export interface MasterMixPlan {
+  components: MasterMixComponent[]
+  totalPerReactionUl: number
+  totalBatchUl: number
+  mixingOrder: string[]
+  notes: string
+}
+
+export interface WorkingSolutionRow {
+  conditionId: string
+  targetConcentration: string
+  stockUsed: string
+  stockVolumeUl: number
+  diluentVolumeUl: number
+  finalVolumeUl: number
+  notes?: string
+}
+
 export interface PlannerOutput {
   feasibilityCheck: string
   summaryOfTotals: string
   materialsChecklist: string
-  reagentAndBufferPreparation: string
+  reagents: ReagentPreparation[]
   stockSolutionPreparation: string
-  masterMixStrategy: string
-  workingSolutionTables: string
+  masterMix: MasterMixPlan
+  workingSolutions: WorkingSolutionRow[]
   tubeAndLabelPlanning: string
   consumablePrepAndQC: string
   studyLayout: string
@@ -136,15 +179,30 @@ export interface PlannerOutput {
   assumptionsAndConfirmations: string
 }
 
+// A single bench-ready procedure step. All quantitative fields are strings
+// (not numbers) because they carry units (e.g. "50 µL", "25 °C", "30 min").
+// The schema requires at least an `action` plus one quantitative field so
+// each step is unambiguous to the executing scientist.
+export interface ProcedureStep {
+  stepNumber: number
+  action: string
+  volume?: string
+  temperature?: string
+  duration?: string
+  mixing?: string
+  instrument?: string
+  notes?: string
+}
+
 export interface ProcedureOutput {
   preRunChecklist: string
   benchSetupAndSafety: string
   sampleLabelingIdScheme: string
   instrumentSetupCalibration: string
   criticalHandlingRules: string
-  samplePreparation: string
-  measurementSteps: string
-  experimentalConditionExecution: string
+  samplePreparation: ProcedureStep[]
+  measurementSteps: ProcedureStep[]
+  experimentalConditionExecution: ProcedureStep[]
   dataRecordingProcessing: string
   acceptanceCriteria: string
   troubleshootingGuide: string
@@ -241,14 +299,54 @@ export const ExperimentDesignerSchema = z.object({
   rationale: z.string()
 })
 
+export const ReagentPreparationSchema = z.object({
+  name: z.string().min(2),
+  role: z.string().min(2),
+  molecularWeightGPerMol: z.number().positive().optional(),
+  targetConcentration: z.string().min(1),
+  targetVolume: z.string().min(1),
+  massToWeigh: z.string().optional(),
+  volumeToPipette: z.string().optional(),
+  dilutionFromStock: z.string().optional(),
+  diluent: z.string().min(1),
+  pHAdjustment: z.string().optional(),
+  storage: z.string().min(2),
+  notes: z.string().optional()
+})
+
+export const MasterMixComponentSchema = z.object({
+  name: z.string().min(1),
+  perReactionVolumeUl: z.number().nonnegative(),
+  nReactions: z.number().int().positive(),
+  totalVolumeUl: z.number().nonnegative()
+})
+
+export const MasterMixPlanSchema = z.object({
+  components: z.array(MasterMixComponentSchema).min(1),
+  totalPerReactionUl: z.number().nonnegative(),
+  totalBatchUl: z.number().nonnegative(),
+  mixingOrder: z.array(z.string().min(1)).min(1),
+  notes: z.string()
+})
+
+export const WorkingSolutionRowSchema = z.object({
+  conditionId: z.string().min(1),
+  targetConcentration: z.string().min(1),
+  stockUsed: z.string().min(1),
+  stockVolumeUl: z.number().nonnegative(),
+  diluentVolumeUl: z.number().nonnegative(),
+  finalVolumeUl: z.number().positive(),
+  notes: z.string().optional()
+})
+
 export const PlannerSchema = z.object({
   feasibilityCheck: z.string().min(80),
   summaryOfTotals: z.string().min(60),
   materialsChecklist: z.string().min(150),
-  reagentAndBufferPreparation: z.string().min(200),
+  reagents: z.array(ReagentPreparationSchema).min(1),
   stockSolutionPreparation: z.string().min(100),
-  masterMixStrategy: z.string().min(80),
-  workingSolutionTables: z.string().min(80),
+  masterMix: MasterMixPlanSchema,
+  workingSolutions: z.array(WorkingSolutionRowSchema).min(1),
   tubeAndLabelPlanning: z.string().min(60),
   consumablePrepAndQC: z.string().min(60),
   studyLayout: z.string().min(80),
@@ -259,15 +357,26 @@ export const PlannerSchema = z.object({
   assumptionsAndConfirmations: z.string().min(40)
 })
 
+export const ProcedureStepSchema = z.object({
+  stepNumber: z.number().int().positive(),
+  action: z.string().min(4),
+  volume: z.string().optional(),
+  temperature: z.string().optional(),
+  duration: z.string().optional(),
+  mixing: z.string().optional(),
+  instrument: z.string().optional(),
+  notes: z.string().optional()
+})
+
 export const ProcedureSchema = z.object({
   preRunChecklist: z.string().min(60),
   benchSetupAndSafety: z.string().min(60),
   sampleLabelingIdScheme: z.string().min(40),
   instrumentSetupCalibration: z.string().min(60),
   criticalHandlingRules: z.string().min(40),
-  samplePreparation: z.string().min(150),
-  measurementSteps: z.string().min(120),
-  experimentalConditionExecution: z.string().min(150),
+  samplePreparation: z.array(ProcedureStepSchema).min(3),
+  measurementSteps: z.array(ProcedureStepSchema).min(2),
+  experimentalConditionExecution: z.array(ProcedureStepSchema).min(3),
   dataRecordingProcessing: z.string().min(80),
   acceptanceCriteria: z.string().min(40),
   troubleshootingGuide: z.string().min(80),

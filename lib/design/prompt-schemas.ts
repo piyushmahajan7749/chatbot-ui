@@ -209,22 +209,29 @@ const plannerDomainPhase = [
 ].join("\n")
 
 const plannerOutputStructure = [
-  "Fill the JSON fields below (no extra top-level keys). Every section is MANDATORY and must be calculation-complete where calculations apply.",
-  "- `feasibilityCheck`: confirm pipetting feasibility, component compatibility, realistic execution; flag any blockers.",
-  "- `summaryOfTotals`: total samples, total volumes (with +10% excess), total material requirements summarized. Show the arithmetic (e.g., 'Total buffer needed: 24 samples × 200 µL × 1.10 = 5,280 µL ≈ 5.3 mL').",
-  "- `materialsChecklist`: complete markdown-style categorized list — Reagents & Chemicals, Buffers & Solutions, Consumables, Equipment. Include vendor/catalog numbers, concentrations, volumes when known.",
-  "- `reagentAndBufferPreparation`: full SOP-style preparation with EVERY calculation shown (dilutions, molarity, pH adjustments, storage). Use a sub-heading per buffer/reagent and show MW, target concentration, target volume, mass/volume to weigh or pipette, and the dilution equation (C1V1 = C2V2) with numbers plugged in.",
-  "- `stockSolutionPreparation`: concentrations, volumes to prepare, preparation protocol, storage. For every stock, show: target concentration, target volume, mass of solute (= MW × molarity × volume), diluent used, final adjustments.",
-  "- `masterMixStrategy`: which components go into a master mix, per-reaction volume, total volume with excess, mixing order. Provide a markdown table with columns: Component | Per-reaction (µL) | N reactions (with +10% excess) | Total (µL). Include a final 'Total per tube' row.",
-  "- `workingSolutionTables`: markdown table(s) of every working solution aligned to Condition IDs from the design. Columns must include: Condition ID | Target concentration | Stock used | Volume of stock | Volume of diluent | Final volume.",
-  "- `tubeAndLabelPlanning`: tube counts, label scheme (Condition ID ↔ tube ID), ordering on the bench.",
-  "- `consumablePrepAndQC`: pre-run QC for consumables/instruments (e.g., tip checks, balance calibration).",
-  "- `studyLayout`: plate/rack/bench layout, pipetting order, minimizing cross-contamination.",
-  "- `prepSchedule`: time-ordered prep plan — day-before prep, day-of prep, with durations.",
-  "- `kitPackList`: final bench kit list — what to walk in with.",
-  "- `criticalErrorPoints`: specific failure modes for THIS design and how to avoid each.",
-  "- `materialOptimizationSummary`: how material usage was minimized (master-mix sharing, batch prep, etc.).",
-  "- `assumptionsAndConfirmations`: assumptions made (stock concentrations, storage life) and what to confirm before starting."
+  "Fill the JSON fields below (no extra top-level keys). Every section is MANDATORY. Calculation-heavy fields are STRUCTURED arrays/objects — do NOT return markdown strings for them.",
+  "- `feasibilityCheck` (string): confirm pipetting feasibility, component compatibility, realistic execution; flag any blockers.",
+  "- `summaryOfTotals` (string): total samples, total volumes (with +10% excess), total material requirements summarized. Show the arithmetic (e.g., 'Total buffer needed: 24 samples × 200 µL × 1.10 = 5,280 µL ≈ 5.3 mL').",
+  "- `materialsChecklist` (string, markdown): complete categorized list — Reagents & Chemicals, Buffers & Solutions, Consumables, Equipment. Include vendor/catalog numbers, concentrations, volumes when known.",
+  "- `reagents` (array of objects — REQUIRED): one entry per reagent/buffer. Each entry:",
+  "    { name, role, molecularWeightGPerMol?, targetConcentration, targetVolume, massToWeigh?, volumeToPipette?, dilutionFromStock?, diluent, pHAdjustment?, storage, notes? }.",
+  "    Use exact units in string fields (e.g. '158 mg', '50 mL', '5.0 mL of 10× stock + 45.0 mL Milli-Q'). molecularWeightGPerMol is a pure number in g/mol.",
+  "    At least ONE of massToWeigh / volumeToPipette / dilutionFromStock MUST be present so the scientist knows exactly what to do.",
+  "- `stockSolutionPreparation` (string): prose SOP for any stock solutions that need to be made from solid. For every stock show target concentration, target volume, mass of solute (= MW × molarity × volume), diluent, adjustments.",
+  "- `masterMix` (object — REQUIRED):",
+  "    { components: [{ name, perReactionVolumeUl, nReactions, totalVolumeUl }, ...], totalPerReactionUl, totalBatchUl, mixingOrder: [string, ...], notes }.",
+  "    nReactions MUST already include the +10% excess. totalVolumeUl MUST equal perReactionVolumeUl × nReactions. totalBatchUl MUST equal the sum of component totalVolumeUl.",
+  "- `workingSolutions` (array of objects — REQUIRED): one row per condition in the design. Each entry:",
+  "    { conditionId, targetConcentration, stockUsed, stockVolumeUl, diluentVolumeUl, finalVolumeUl, notes? }.",
+  "    finalVolumeUl MUST equal stockVolumeUl + diluentVolumeUl. conditionId MUST match the IDs from the corrected design.",
+  "- `tubeAndLabelPlanning` (string): tube counts, label scheme (Condition ID ↔ tube ID), ordering on the bench.",
+  "- `consumablePrepAndQC` (string): pre-run QC for consumables/instruments (e.g., tip checks, balance calibration).",
+  "- `studyLayout` (string): plate/rack/bench layout, pipetting order, minimizing cross-contamination.",
+  "- `prepSchedule` (string): time-ordered prep plan — day-before prep, day-of prep, with durations.",
+  "- `kitPackList` (string): final bench kit list — what to walk in with.",
+  "- `criticalErrorPoints` (string): specific failure modes for THIS design and how to avoid each.",
+  "- `materialOptimizationSummary` (string): how material usage was minimized (master-mix sharing, batch prep, etc.).",
+  "- `assumptionsAndConfirmations` (string): assumptions made (stock concentrations, storage life) and what to confirm before starting."
 ].join("\n")
 
 const plannerCalculationExample = [
@@ -284,21 +291,24 @@ const procedureExecutionFlow = [
 ].join("\n")
 
 const procedureOutputStructure = [
-  "Fill the JSON fields below (no extra top-level keys). Each field must be fully explicit — no 'repeat for all conditions', no ambiguity.",
-  "- `preRunChecklist`: everything that must be true before starting.",
-  "- `benchSetupAndSafety`: workstation layout and safety considerations.",
-  "- `sampleLabelingIdScheme`: the exact label scheme; must match Condition IDs from the design.",
-  "- `instrumentSetupCalibration`: instrument(s), settings, calibration/standard-curve protocol.",
-  "- `criticalHandlingRules`: handling rules tied to the domain (e.g., avoid foaming; keep on ice).",
-  "- `samplePreparation`: numbered steps — every step includes volume (e.g., 'Add 50 µL'), temperature, timing, mixing method, and instrument settings where applicable.",
-  "- `measurementSteps`: numbered steps for the measurement phase.",
-  "- `experimentalConditionExecution`: numbered steps applying the experimental conditions.",
-  "- `dataRecordingProcessing`: how to capture raw data, file naming tied to Condition IDs, and initial processing.",
-  "- `acceptanceCriteria`: what 'good data' looks like; what counts as a repeat.",
-  "- `troubleshootingGuide`: IF-THEN table for common failures (use markdown table).",
-  "- `runLogTemplate`: ready-to-fill run log (markdown table with columns for Condition ID, timestamp, operator initials, deviations).",
-  "- `cleanupDisposal`: cleanup, waste handling, storage of remaining samples.",
-  "- `dataHandoff`: what to hand off, where, and in what format."
+  "Fill the JSON fields below (no extra top-level keys). Step-heavy fields are STRUCTURED arrays — do NOT return prose paragraphs for them.",
+  "- `preRunChecklist` (string): everything that must be true before starting.",
+  "- `benchSetupAndSafety` (string): workstation layout and safety considerations.",
+  "- `sampleLabelingIdScheme` (string): the exact label scheme; must match Condition IDs from the design.",
+  "- `instrumentSetupCalibration` (string): instrument(s), settings, calibration/standard-curve protocol.",
+  "- `criticalHandlingRules` (string): handling rules tied to the domain (e.g., avoid foaming; keep on ice).",
+  "- `samplePreparation` (array of ProcedureStep objects — REQUIRED, at least 3 steps).",
+  "- `measurementSteps` (array of ProcedureStep objects — REQUIRED, at least 2 steps).",
+  "- `experimentalConditionExecution` (array of ProcedureStep objects — REQUIRED, at least 3 steps; cover every condition explicitly).",
+  "    ProcedureStep = { stepNumber: integer, action: string, volume?, temperature?, duration?, mixing?, instrument?, notes? }.",
+  "    Every quantitative field (volume, temperature, duration) is a string with units ('50 µL', '25 °C', '30 min'). At minimum each step MUST include `action` plus one quantitative field.",
+  "    Number steps sequentially starting at 1 within each array. NEVER write 'repeat for other conditions' — enumerate every step for every condition.",
+  "- `dataRecordingProcessing` (string): how to capture raw data, file naming tied to Condition IDs, and initial processing.",
+  "- `acceptanceCriteria` (string): what 'good data' looks like; what counts as a repeat.",
+  "- `troubleshootingGuide` (string, markdown): IF-THEN table for common failures.",
+  "- `runLogTemplate` (string, markdown): ready-to-fill run log with columns for Condition ID, timestamp, operator initials, deviations.",
+  "- `cleanupDisposal` (string): cleanup, waste handling, storage of remaining samples.",
+  "- `dataHandoff` (string): what to hand off, where, and in what format."
 ].join("\n")
 
 const procedureStepExample = [
