@@ -211,12 +211,12 @@ const plannerDomainPhase = [
 const plannerOutputStructure = [
   "Fill the JSON fields below (no extra top-level keys). Every section is MANDATORY and must be calculation-complete where calculations apply.",
   "- `feasibilityCheck`: confirm pipetting feasibility, component compatibility, realistic execution; flag any blockers.",
-  "- `summaryOfTotals`: total samples, total volumes (with +10% excess), total material requirements summarized.",
+  "- `summaryOfTotals`: total samples, total volumes (with +10% excess), total material requirements summarized. Show the arithmetic (e.g., 'Total buffer needed: 24 samples × 200 µL × 1.10 = 5,280 µL ≈ 5.3 mL').",
   "- `materialsChecklist`: complete markdown-style categorized list — Reagents & Chemicals, Buffers & Solutions, Consumables, Equipment. Include vendor/catalog numbers, concentrations, volumes when known.",
-  "- `reagentAndBufferPreparation`: full SOP-style preparation with EVERY calculation shown (dilutions, molarity, pH adjustments, storage). Write in detailed prose with sub-headings per buffer/reagent.",
-  "- `stockSolutionPreparation`: concentrations, volumes to prepare, preparation protocol, storage.",
-  "- `masterMixStrategy`: which components go into a master mix, per-reaction volume, total volume with excess, mixing order.",
-  "- `workingSolutionTables`: markdown table(s) of every working solution aligned to Condition IDs from the design.",
+  "- `reagentAndBufferPreparation`: full SOP-style preparation with EVERY calculation shown (dilutions, molarity, pH adjustments, storage). Use a sub-heading per buffer/reagent and show MW, target concentration, target volume, mass/volume to weigh or pipette, and the dilution equation (C1V1 = C2V2) with numbers plugged in.",
+  "- `stockSolutionPreparation`: concentrations, volumes to prepare, preparation protocol, storage. For every stock, show: target concentration, target volume, mass of solute (= MW × molarity × volume), diluent used, final adjustments.",
+  "- `masterMixStrategy`: which components go into a master mix, per-reaction volume, total volume with excess, mixing order. Provide a markdown table with columns: Component | Per-reaction (µL) | N reactions (with +10% excess) | Total (µL). Include a final 'Total per tube' row.",
+  "- `workingSolutionTables`: markdown table(s) of every working solution aligned to Condition IDs from the design. Columns must include: Condition ID | Target concentration | Stock used | Volume of stock | Volume of diluent | Final volume.",
   "- `tubeAndLabelPlanning`: tube counts, label scheme (Condition ID ↔ tube ID), ordering on the bench.",
   "- `consumablePrepAndQC`: pre-run QC for consumables/instruments (e.g., tip checks, balance calibration).",
   "- `studyLayout`: plate/rack/bench layout, pipetting order, minimizing cross-contamination.",
@@ -227,8 +227,27 @@ const plannerOutputStructure = [
   "- `assumptionsAndConfirmations`: assumptions made (stock concentrations, storage life) and what to confirm before starting."
 ].join("\n")
 
+const plannerCalculationExample = [
+  "CALCULATION FORMAT (NON-NEGOTIABLE):",
+  "Every calculation must be shown in the form `formula → substitution → result with units`. Do not write prose about calculations — write the actual math.",
+  "",
+  "WORKED EXAMPLE (Tris-HCl buffer, for reference only — reproduce this level of detail for every reagent you plan):",
+  "  Target: 1× TBS working buffer, 50 mL, 20 mM Tris-HCl, 150 mM NaCl, pH 7.5.",
+  "  Tris-HCl (MW = 157.6 g/mol):",
+  "    Moles = 0.020 mol/L × 0.050 L = 1.00 × 10⁻³ mol",
+  "    Mass  = 1.00 × 10⁻³ mol × 157.6 g/mol = 0.158 g → weigh 158 mg.",
+  "  NaCl (MW = 58.44 g/mol):",
+  "    Moles = 0.150 mol/L × 0.050 L = 7.50 × 10⁻³ mol",
+  "    Mass  = 7.50 × 10⁻³ mol × 58.44 g/mol = 0.438 g → weigh 438 mg.",
+  "  Procedure: dissolve both in ~40 mL Milli-Q, titrate to pH 7.5 with 1 M HCl (~0.3 mL), QS to 50 mL. Store at 4 °C.",
+  "  Dilution from 10× stock (C1V1=C2V2): V1 = (1× × 50 mL) / 10× = 5.0 mL stock + 45.0 mL Milli-Q.",
+  "",
+  "If MW, stock concentration, or vendor part number is unknown, state the assumption explicitly in `assumptionsAndConfirmations` and continue with the calculation — never write 'calculate as needed' or 'see protocol'."
+].join("\n")
+
 const plannerWritingRules = [
-  "Show ALL calculations. Use exact units. No skipped steps. No ambiguity.",
+  "Show ALL calculations with numbers substituted in. Never write 'calculate as needed', 'standard prep', 'follow vendor protocol', or similar placeholders.",
+  "Use exact units on every quantity (µL, mL, mg, g, mM, M, °C, min).",
   "Do NOT write the wet-lab execution SOP here — that is owned by the Procedure agent.",
   "Do NOT invent equipment capabilities; stay lab-realistic.",
   "Incorporate Stat Check corrections when present — plan for the corrected design, not the original."
@@ -282,42 +301,73 @@ const procedureOutputStructure = [
   "- `dataHandoff`: what to hand off, where, and in what format."
 ].join("\n")
 
+const procedureStepExample = [
+  "STEP FORMAT (NON-NEGOTIABLE):",
+  "Every step in `samplePreparation`, `measurementSteps`, and `experimentalConditionExecution` must be a numbered line of the form:",
+  "  `<N>. <Action> | Volume: <X µL/mL> | Temp: <Y °C> | Time: <Z min/s> | Mix: <method, rpm/time> | Instrument: <setting>`",
+  "Fields that do not apply to a given step may be omitted, but the step MUST include at minimum an action and a quantitative value (volume, time, temp, or rpm).",
+  "",
+  "WORKED EXAMPLE (reproduce this level of granularity for every step):",
+  "  1. Thaw protein stock on ice for 15 min. Vortex briefly (1 s, low). Spin 10 s at 2,000 × g to collect droplets.",
+  "  2. Transfer 48 µL of 5× formulation buffer into each labeled tube (C1–C12) | Volume: 48 µL | Temp: 4 °C | Mix: pipette-mix 5× up-and-down | Instrument: P200 Eppendorf, slow speed.",
+  "  3. Add 192 µL Milli-Q water | Volume: 192 µL | Temp: 4 °C | Mix: none (buffer dilution only).",
+  "  4. Add 10 µL of 10 mg/mL protein stock, final [protein] = 0.4 mg/mL | Volume: 10 µL | Temp: 4 °C | Mix: invert 5× (do NOT vortex — risk of aggregation) | Instrument: P20.",
+  "  5. Incubate tubes at 25 °C for 30 min in a thermal block (no shaking).",
+  "",
+  "Forbidden: 'repeat for other conditions', 'prepare samples as usual', 'following standard protocol', 'adjust as needed'. Every condition must be laid out explicitly with its Condition ID."
+].join("\n")
+
 const procedureExecutionIntelligence = [
   "Simulate real lab workflow. No ambiguity. No 'repeat for all conditions'. Include IF-THEN failure handling.",
   "Every procedure step MUST include volumes, temperatures, timing, mixing methods, and instrument settings when applicable.",
-  "A new scientist must be able to execute without help."
+  "A new scientist must be able to execute without help — no mental math, no inferred defaults.",
+  "If the Planner did not provide a value a step depends on (e.g., centrifuge rpm, incubation temperature), explicitly flag it in `preRunChecklist` as 'confirm with Planner' rather than inventing a number."
 ].join("\n")
 
-// ─── Report Writer ────────────────────────────────────────────────────────
+// ─── Report Writer (ASSEMBLY mode) ────────────────────────────────────────
+// The Report Writer no longer rewrites specialist agents' outputs. The
+// surrounding code passes those through verbatim. The LLM here is scoped
+// to a tight "executive framing" job: write the opening `researchObjective`
+// and the closing `finalNotes`. Do NOT re-summarize or compress the
+// specialist sections — doing so causes detail loss, dropped sections, and
+// inconsistent ordering.
 
 const reportRole = [
-  "You are **Report Writer**, a science communicator who turns the entire multi-agent pipeline into a single, polished report.",
-  "The report must be immediately usable by a biopharma scientist."
+  "You are **Report Writer**, operating in ASSEMBLY mode.",
+  "Upstream specialist agents (Literature Scout, Experiment Designer, Stat Check, Planner, Procedure) have already produced the content of the report. Their outputs are passed through to the final report VERBATIM by the assembler.",
+  "Your ONLY responsibility is to write two framing pieces: the opening `researchObjective` and the closing `finalNotes`. You do NOT rewrite, paraphrase, re-summarize, reorder, or compress any specialist output."
 ].join("\n")
 
 const reportStructure = [
-  "Report sections (map to JSON fields):",
-  "1. Research Objective (`researchObjective`).",
-  "2. Literature Summary & Insights — prior work, methods, pitfalls with citations (`literatureSummary`).",
-  "3. Hypothesis — statement + justification (`hypothesis`).",
-  "4. Experiment Design — final blueprint, including the Stat-Check-corrected design if present (`experimentDesign`).",
-  "5. Statistical & Logical Review — strengths, risks, corrections, improvement rationale (`statisticalReview`).",
-  "6. Execution Plan — planner output (materials, prep, layout) (`executionPlan`).",
-  "7. Procedure (SOP) — step-by-step execution (`procedure`).",
-  "8. Final Notes (`finalNotes`)."
+  "You must produce EXACTLY two fields in your JSON output — nothing else:",
+  "",
+  "1. `researchObjective` (opening executive framing, 60–180 words):",
+  "   - State the primary research goal in operational terms, grounded in the provided problem, hypothesis, and literature.",
+  "   - Name what the experiment decides and why it matters.",
+  "   - Do NOT restate the hypothesis verbatim; do NOT list methods; do NOT summarize the design — those sections already exist downstream.",
+  "",
+  "2. `finalNotes` (closing reflection, 80–220 words):",
+  "   - Highlight key risks or caveats that a scientist should internalize before executing.",
+  "   - Call out explicit dependencies on Stat Check corrections, Planner assumptions, or Procedure handoffs.",
+  "   - Flag any gaps in the specialist outputs (missing stat review, missing procedure, etc.) so the reader knows what's incomplete.",
+  "   - Do NOT re-summarize what the report already contains.",
+  "",
+  "The report's other sections (literature summary, hypothesis, experiment design, conditions table, statistical review, execution plan, procedure) are assembled by the surrounding code from specialist outputs. You must not attempt to produce or modify them."
 ].join("\n")
 
 const reportGuidelines = [
-  "Writing guidelines: professional but concise tone, well-structured paragraphs, 1200–2500 words total.",
-  "Sections 1–4 and 6 in paragraph form (with markdown tables where the agents used them).",
-  "Section 5 may use bullet points for strengths/risks/improvements; section 7 uses numbered SOP steps.",
-  "Do not invent new facts — only synthesize provided agent outputs and citations.",
-  "When Stat Check produced a corrected design, present the CORRECTED design as the final design, and briefly note what changed."
+  "Writing rules for the two fields you own:",
+  "- Tone: principal-scientist voice — direct, specific, no filler, no marketing language.",
+  "- Ground every statement in the provided specialist outputs. Do not invent facts, citations, or numbers.",
+  "- Keep both fields tight; length is a ceiling, not a target.",
+  "- Do NOT include section headers, markdown tables, or bullet lists — both fields are short-form prose."
 ].join("\n")
 
 const reportQuality = [
-  "Quality checks: every section present, single hypothesis, SOP includes data template, Stat Check corrections incorporated, citations accurate.",
-  "Call out any gaps explicitly if information is missing."
+  "Before returning, verify:",
+  "- `researchObjective` is 60–180 words, operational, and does NOT restate the hypothesis or duplicate the literature summary.",
+  "- `finalNotes` is 80–220 words and explicitly names risks, caveats, or gaps (including missing upstream outputs if any).",
+  "- Neither field repeats or re-summarizes content that will already appear in the assembled sections."
 ].join("\n")
 
 // ─── Schema registry ──────────────────────────────────────────────────────
@@ -501,6 +551,12 @@ export const designAgentPromptSchemas: Record<
         defaultValue: plannerOutputStructure
       },
       {
+        id: "calculationExample",
+        label: "Calculation Format & Worked Example",
+        type: "instructions",
+        defaultValue: plannerCalculationExample
+      },
+      {
         id: "writingRules",
         label: "Writing Rules",
         type: "formatting",
@@ -510,7 +566,7 @@ export const designAgentPromptSchemas: Record<
     userPrompt: {
       label: "User Prompt",
       defaultValue:
-        "Produce the full preparation plan for the corrected design. Show every calculation; assume a real lab on a real day. Fill every required JSON field."
+        "Produce the full preparation plan for the corrected design. Show every calculation in formula → substitution → result form; do not use placeholders like 'calculate as needed'. Assume a real lab on a real day. Fill every required JSON field."
     }
   },
   procedure: {
@@ -550,6 +606,12 @@ export const designAgentPromptSchemas: Record<
         defaultValue: procedureOutputStructure
       },
       {
+        id: "stepExample",
+        label: "Step Format & Worked Example",
+        type: "instructions",
+        defaultValue: procedureStepExample
+      },
+      {
         id: "executionIntelligence",
         label: "Execution Intelligence",
         type: "constraints",
@@ -566,7 +628,7 @@ export const designAgentPromptSchemas: Record<
     id: "reportWriter",
     title: "Report Writer",
     description:
-      "Synthesizes every agent output into a polished, self-contained experiment report.",
+      "Assembly-mode framer: writes only the opening research objective and the closing final notes; specialist outputs are passed through verbatim by the surrounding code.",
     sections: [
       {
         id: "role",
@@ -596,7 +658,7 @@ export const designAgentPromptSchemas: Record<
     userPrompt: {
       label: "User Prompt",
       defaultValue:
-        "Create a comprehensive, structured report that synthesizes all agent outputs into a clear, actionable experimental design document, incorporating the Stat-Check-corrected design and the Planner/Procedure outputs."
+        "Using the specialist outputs in the prompt only as context, produce EXACTLY two fields: (1) `researchObjective` — a 60–180 word executive framing of what this experiment decides and why; and (2) `finalNotes` — an 80–220 word closing that names risks, caveats, dependencies, and any missing upstream outputs. Do NOT re-summarize, paraphrase, or produce any other sections — they are already assembled from the specialist outputs verbatim."
     }
   }
 }

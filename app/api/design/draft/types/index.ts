@@ -297,3 +297,15 @@ export const ReportWriterSchema = z.object({
   procedure: ProcedureSchema,
   finalNotes: z.string()
 })
+
+// Report Writer now runs in ASSEMBLY mode: the LLM only produces the
+// executive framing (research objective + final notes). Every specialist
+// agent's output (literature, hypothesis, design, stat review, planner,
+// procedure) is passed through verbatim by the assembler. This prevents
+// detail compression, section drops, and ordering drift that the prior
+// synthesis mode was prone to.
+export const ReportAssemblyNotesSchema = z.object({
+  researchObjective: z.string().min(60),
+  finalNotes: z.string().min(80)
+})
+export type ReportAssemblyNotes = z.infer<typeof ReportAssemblyNotesSchema>

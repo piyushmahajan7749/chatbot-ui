@@ -52,6 +52,9 @@ interface Body {
   hypotheses?: Hypothesis[]
   designId?: string
   approvedPhases?: PhaseKey[]
+  /** For `literature` phase: "append" adds new unique papers to the existing
+   *  list instead of replacing it (used by the "Generate more" button). */
+  mode?: "append" | "replace"
 }
 
 /**
@@ -160,19 +163,34 @@ export async function POST(
       switch (body.phase) {
         // ── Literature: real Literature Scout agent ─────────────────────
         case "literature": {
-          console.log("[GENERATE] Running real Literature Scout agent...")
+          const appendMode = body.mode === "append"
+          const existingPapers = existing.papers ?? []
+          console.log(
+            `[GENERATE] Running Literature Scout agent (mode=${appendMode ? "append" : "replace"}, existing=${existingPapers.length})...`
+          )
           const agentState = toAgentState()
           const result = await callLiteratureScoutAgent(
             agentState,
             undefined,
-            (ev: LiteratureScoutProgressEvent) => sendProgress(ev)
+            (ev: LiteratureScoutProgressEvent) => sendProgress(ev),
+            appendMode
+              ? {
+                  bypassCache: true,
+                  shuffleQueries: true,
+                  excludeUrls: existingPapers
+                    .map(p => p.sourceUrl || "")
+                    .filter(Boolean),
+                  excludeTitles: existingPapers.map(p => p.title)
+                }
+              : {}
           )
           const litOutput = result.output
 
           // Convert detailed citations to Paper[] for the frontend
-          const papers: Paper[] = (litOutput.citationsDetailed ?? []).map(
+          const timestamp = Date.now()
+          const newPapers: Paper[] = (litOutput.citationsDetailed ?? []).map(
             (c, i) => ({
-              id: `lit-${i}-${Date.now()}`,
+              id: `lit-${i}-${timestamp}`,
               title: c.title || `Paper ${i + 1}`,
               summary: [
                 c.source ? `Source: ${c.source}` : null,
@@ -189,16 +207,48 @@ export async function POST(
           )
 
           // If no detailed citations, create papers from the string citations
-          if (papers.length === 0 && litOutput.citations.length > 0) {
+          if (newPapers.length === 0 && litOutput.citations.length > 0) {
             litOutput.citations.forEach((cite, i) => {
-              papers.push({
-                id: `lit-${i}-${Date.now()}`,
+              newPapers.push({
+                id: `lit-${i}-${timestamp}`,
                 title: cite,
                 summary: "Citation from literature search",
                 userAdded: false,
                 selected: false
               })
             })
+          }
+
+          let papers: Paper[]
+          if (appendMode) {
+            // Dedupe new papers against existing by url/title so the merged
+            // list contains unique entries only.
+            const seenUrls = new Set(
+              existingPapers
+                .map(p => (p.sourceUrl || "").toLowerCase())
+                .filter(Boolean)
+            )
+            const seenTitles = new Set(
+              existingPapers.map(p => p.title.toLowerCase())
+            )
+            const appended = newPapers.filter(p => {
+              const url = (p.sourceUrl || "").toLowerCase()
+              const title = p.title.toLowerCase()
+              if (url && seenUrls.has(url)) return false
+              if (seenTitles.has(title)) return false
+              seenUrls.add(url)
+              seenTitles.add(title)
+              return true
+            })
+            papers = [...existingPapers, ...appended]
+            console.log(
+              `[GENERATE] Literature Scout append — ${appended.length} new papers added (total ${papers.length})`
+            )
+          } else {
+            papers = newPapers
+            console.log(
+              `[GENERATE] Literature Scout done — ${papers.length} papers found`
+            )
           }
 
           const literatureContext: StoredLiteratureContext = {
@@ -208,16 +258,17 @@ export async function POST(
             citations: litOutput.citations
           }
 
-          const downstreamClear = clearDownstream("literature")
+          // In append mode, don't wipe downstream work — we're only adding
+          // more sources to an existing list.
+          const downstreamClear = appendMode
+            ? {}
+            : clearDownstream("literature")
           patch = {
             problem: ctx,
             papers,
             literatureContext,
             ...downstreamClear
           }
-          console.log(
-            `[GENERATE] Literature Scout done — ${papers.length} papers found`
-          )
           break
         }
 

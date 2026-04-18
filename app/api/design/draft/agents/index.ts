@@ -18,7 +18,7 @@ import {
   StatCheckSchema,
   PlannerSchema,
   ProcedureSchema,
-  ReportWriterSchema,
+  ReportAssemblyNotesSchema,
   CitationItem
 } from "../types"
 import {
@@ -32,11 +32,15 @@ import {
   getAgentUserPrompt
 } from "../prompts/agent-prompts"
 import { optimizeSearchQuery } from "../utils/search-utils"
-import { buildCuratedAggregatedResults } from "../utils/deepscholar-ops"
+import {
+  buildCuratedAggregatedResults,
+  dedupeNormalize
+} from "../utils/deepscholar-ops"
 import {
   normalizePaperFinderResults,
   runPaperFinder
 } from "../utils/paper-finder"
+import { SearchResult } from "../types"
 import { AgentPromptOverrides, AgentPromptUsage } from "@/types/design-prompts"
 
 function buildCitationsDetailed(searchResults?: any): CitationItem[] {
@@ -92,10 +96,24 @@ export type LiteratureScoutProgressCallback = (
   event: LiteratureScoutProgressEvent
 ) => void
 
+export interface LiteratureScoutSearchOptions {
+  /** Target minimum unique papers before early-exit. Default 10. */
+  minPapers?: number
+  /** If true, bypass PaperFinder cache so repeat calls produce fresh results. */
+  bypassCache?: boolean
+  /** If true, shuffle the alternative queries before fanning out. */
+  shuffleQueries?: boolean
+  /** Exclude papers whose url (lowercased) appears in this list. */
+  excludeUrls?: string[]
+  /** Exclude papers whose title (lowercased) appears in this list. */
+  excludeTitles?: string[]
+}
+
 export async function callLiteratureScoutAgent(
   state: ExperimentDesignState,
   overrides?: AgentPromptOverrides["literatureScout"],
-  onProgress?: LiteratureScoutProgressCallback
+  onProgress?: LiteratureScoutProgressCallback,
+  searchOptions: LiteratureScoutSearchOptions = {}
 ): Promise<AgentCallResult<LiteratureScoutOutput>> {
   const startTime = Date.now()
   console.log("\n" + "=".repeat(80))
@@ -181,81 +199,134 @@ export async function callLiteratureScoutAgent(
       .join("\n")
 
     // PaperFinder is best-effort: if it fails, we still run the pipeline with no citations.
-    let curated = buildCuratedAggregatedResults([])
-    let paperFinderResponse: any = null
-    try {
-      console.log(
-        "\n🌐 [LITERATURE_SCOUT_SEARCH] Requesting papers from PaperFinder..."
-      )
-      onProgress?.({
-        step: "searching_sources",
-        message:
-          "Searching PubMed, arXiv, Semantic Scholar, Google Scholar, and the web..."
-      })
-      const pfStart = Date.now()
-      paperFinderResponse = await runPaperFinder(paperFinderQuery, {
-        operationMode: "infer",
-        readResultsFromCache: true
-      })
-      console.log(
-        `⏱️  [LITERATURE_SCOUT_SEARCH] PaperFinder responded in ${
-          Date.now() - pfStart
-        }ms`
-      )
+    const minPapers = searchOptions.minPapers ?? 10
+    const excludeUrls = new Set(
+      (searchOptions.excludeUrls ?? [])
+        .filter(Boolean)
+        .map(u => u.toLowerCase())
+    )
+    const excludeTitles = new Set(
+      (searchOptions.excludeTitles ?? [])
+        .filter(Boolean)
+        .map(t => t.toLowerCase())
+    )
 
-      const normalizedResults = normalizePaperFinderResults(
-        paperFinderResponse
-      ).slice(0, 40)
+    // Build the query list: primary + alternatives, each augmented with the
+    // full context so PaperFinder has the same signal in every round.
+    const contextSuffix = paperFinderQuery
+      .split("\n")
+      .filter(line => !line.startsWith("Optimized query:"))
+      .join("\n")
+    const buildRoundQuery = (q: string) =>
+      `Optimized query: ${q}\n${contextSuffix}`
 
-      if (normalizedResults.length === 0) {
-        console.warn(
-          "⚠️  [LITERATURE_SCOUT_SEARCH] PaperFinder returned zero papers."
-        )
-        onProgress?.({
-          step: "papers_found",
-          message: "No papers found — continuing with AI synthesis only.",
-          totalPapers: 0,
-          sourceCounts: {}
-        })
-      } else {
-        curated = buildCuratedAggregatedResults(normalizedResults)
-        curated.searchMetrics.relevanceScores = normalizedResults
-          .map(paper => paper.relevanceScore ?? 0)
-          .filter(score => typeof score === "number" && score > 0)
-        const sourceCounts: Record<string, number> = {
-          pubmed: paperFinderResponse?.sources?.pubmed?.length ?? 0,
-          arxiv: paperFinderResponse?.sources?.arxiv?.length ?? 0,
-          semanticScholar:
-            paperFinderResponse?.sources?.semanticScholar?.length ?? 0,
-          scholar: paperFinderResponse?.sources?.scholar?.length ?? 0,
-          tavily: paperFinderResponse?.sources?.tavily?.length ?? 0
-        }
-        onProgress?.({
-          step: "papers_found",
-          message: `Found ${normalizedResults.length} papers`,
-          totalPapers: normalizedResults.length,
-          sourceCounts
-        })
+    const alternatives = [...queryData.alternativeQueries]
+    if (searchOptions.shuffleQueries) {
+      for (let i = alternatives.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1))
+        ;[alternatives[i], alternatives[j]] = [alternatives[j], alternatives[i]]
       }
-    } catch (paperFinderError: any) {
-      console.warn(
-        "⚠️  [LITERATURE_SCOUT_SEARCH] PaperFinder failed; continuing without citations:",
-        paperFinderError?.message || paperFinderError
-      )
-      curated.synthesizedFindings.novelInsights.push(
-        `PaperFinder unavailable: ${paperFinderError?.message || "unknown error"}`
-      )
+    }
+    const roundQueries = [queryData.primaryQuery, ...alternatives].filter(
+      Boolean
+    )
+
+    let curated = buildCuratedAggregatedResults([])
+    const responseTexts: string[] = []
+    const allResults: SearchResult[] = []
+
+    onProgress?.({
+      step: "searching_sources",
+      message:
+        "Searching PubMed, arXiv, Semantic Scholar, Google Scholar, and the web..."
+    })
+
+    for (let i = 0; i < roundQueries.length; i++) {
+      const q = roundQueries[i]
+      try {
+        console.log(
+          `\n🌐 [LITERATURE_SCOUT_SEARCH] Round ${i + 1}/${roundQueries.length}: "${q.slice(0, 80)}"`
+        )
+        const pfStart = Date.now()
+        const response = await runPaperFinder(buildRoundQuery(q), {
+          operationMode: "infer",
+          readResultsFromCache: !searchOptions.bypassCache
+        })
+        console.log(
+          `⏱️  [LITERATURE_SCOUT_SEARCH] Round ${i + 1} responded in ${
+            Date.now() - pfStart
+          }ms`
+        )
+
+        const normalized = normalizePaperFinderResults(response)
+        allResults.push(...normalized)
+        if (response?.response_text) responseTexts.push(response.response_text)
+
+        // Early-exit once we've gathered enough unique, non-excluded papers.
+        const uniqueSoFar = dedupeNormalize(allResults).filter(p => {
+          const url = (p.url || "").toLowerCase()
+          const title = (p.title || "").toLowerCase()
+          return !excludeUrls.has(url) && !excludeTitles.has(title)
+        })
+        if (uniqueSoFar.length >= minPapers) {
+          console.log(
+            `✅ [LITERATURE_SCOUT_SEARCH] Reached ${uniqueSoFar.length} unique papers after ${i + 1} round(s); stopping fan-out.`
+          )
+          break
+        }
+      } catch (paperFinderError: any) {
+        console.warn(
+          `⚠️  [LITERATURE_SCOUT_SEARCH] Round ${i + 1} failed; continuing:`,
+          paperFinderError?.message || paperFinderError
+        )
+      }
     }
 
-    curated.searchMetrics.queryOptimization = [
-      queryData.primaryQuery,
-      ...queryData.alternativeQueries
-    ].filter(Boolean)
+    const mergedResults = dedupeNormalize(allResults)
+      .filter(p => {
+        const url = (p.url || "").toLowerCase()
+        const title = (p.title || "").toLowerCase()
+        return !excludeUrls.has(url) && !excludeTitles.has(title)
+      })
+      .sort((a, b) => (b.relevanceScore ?? 0) - (a.relevanceScore ?? 0))
+      .slice(0, 40)
 
-    if (paperFinderResponse?.response_text) {
+    if (mergedResults.length === 0) {
+      console.warn(
+        "⚠️  [LITERATURE_SCOUT_SEARCH] All rounds returned zero unique papers."
+      )
+      onProgress?.({
+        step: "papers_found",
+        message: "No papers found — continuing with AI synthesis only.",
+        totalPapers: 0,
+        sourceCounts: {}
+      })
+    } else {
+      curated = buildCuratedAggregatedResults(mergedResults)
+      curated.searchMetrics.relevanceScores = mergedResults
+        .map(paper => paper.relevanceScore ?? 0)
+        .filter(score => typeof score === "number" && score > 0)
+      const sourceCounts: Record<string, number> = {
+        pubmed: curated.sources.pubmed.length,
+        arxiv: curated.sources.arxiv.length,
+        semanticScholar: curated.sources.semanticScholar.length,
+        scholar: curated.sources.scholar.length,
+        tavily: curated.sources.tavily.length
+      }
+      onProgress?.({
+        step: "papers_found",
+        message: `Found ${mergedResults.length} papers`,
+        totalPapers: mergedResults.length,
+        sourceCounts
+      })
+    }
+
+    curated.searchMetrics.queryOptimization = roundQueries
+
+    if (responseTexts.length > 0) {
       curated.synthesizedFindings.novelInsights = [
         ...curated.synthesizedFindings.novelInsights,
-        paperFinderResponse.response_text
+        ...responseTexts
       ]
     }
 
@@ -834,31 +905,84 @@ const EMPTY_PROCEDURE: ProcedureOutput = {
   dataHandoff: "Not specified"
 }
 
+const EMPTY_LITERATURE: LiteratureScoutOutput = {
+  whatOthersHaveDone: "No literature summary available",
+  goodMethodsAndTools: "No literature summary available",
+  potentialPitfalls: "No literature summary available",
+  citations: []
+}
+
+const EMPTY_HYPOTHESIS: HypothesisBuilderOutput = {
+  hypothesis: "No hypothesis available",
+  explanation: "No explanation available"
+}
+
+const EMPTY_EXPERIMENT_DESIGN: ExperimentDesignerOutput = {
+  designSummary: "No design summary available",
+  experimentDesign: {
+    whatWillBeTested: "Not specified",
+    whatWillBeMeasured: "Not specified",
+    controlGroups: "Not specified",
+    experimentalGroups: "Not specified",
+    sampleTypes: "Not specified",
+    toolsNeeded: "Not specified",
+    replicatesAndConditions: "Not specified",
+    specificRequirements: "Not specified"
+  },
+  conditionsTable: "Not specified",
+  experimentalGroupsOverview: "Not specified",
+  statisticalRationale: "Not specified",
+  criticalTechnicalRequirements: "Not specified",
+  handoffNoteForPlanner: "Not specified",
+  rationale: "No rationale provided"
+}
+
+const EMPTY_STAT_CHECK: StatCheckOutput = {
+  whatLooksGood: "No assessment available",
+  problemsOrRisks: [],
+  suggestedImprovements: [],
+  correctedDesign: "",
+  changeLog: [],
+  improvementRationale: "",
+  overallAssessment: "No overall assessment available",
+  finalAssessment: ""
+}
+
+/**
+ * Report Writer runs in ASSEMBLY mode.
+ *
+ * It does NOT regenerate specialist agents' outputs. It makes a small LLM
+ * call that ONLY produces the `researchObjective` (executive summary) and
+ * `finalNotes` (closing reflection). Everything else — literature summary,
+ * hypothesis, experiment design, statistical review, execution plan,
+ * procedure — is passed through verbatim from `state`.
+ *
+ * This guarantees specialist detail is preserved, the statistical review
+ * cannot be silently dropped, and ordering is controlled by the assembler
+ * (not the LLM).
+ */
 export async function callReportWriterAgent(
   state: ExperimentDesignState,
   overrides?: AgentPromptOverrides["reportWriter"]
 ): Promise<AgentCallResult<ReportWriterOutput>> {
   const startTime = Date.now()
   console.log("\n" + "=".repeat(80))
-  console.log("📝 [REPORT_WRITER_AGENT] Starting Agent Execution")
+  console.log("📝 [REPORT_WRITER_AGENT] Starting Assembly")
   console.log("=".repeat(80))
 
-  console.log("📥 [REPORT_WRITER_INPUT] Agent Input:")
-  console.log("  📋 Problem:", state.problem)
+  console.log("📥 [REPORT_WRITER_INPUT] Specialist outputs available:")
+  console.log("  📚 Literature:", state.literatureScoutOutput ? "✅" : "❌")
+  console.log("  💡 Hypothesis:", state.hypothesisBuilderOutput ? "✅" : "❌")
   console.log(
-    "  🧪 Experiment Designer Available:",
+    "  🧪 Experiment Design:",
     state.experimentDesignerOutput ? "✅" : "❌"
   )
-  console.log("  📊 Stat Check Available:", state.statCheckOutput ? "✅" : "❌")
-  console.log("  🗂️ Planner Available:", state.plannerOutput ? "✅" : "❌")
-  console.log("  🧾 Procedure Available:", state.procedureOutput ? "✅" : "❌")
+  console.log("  📊 Stat Check:", state.statCheckOutput ? "✅" : "❌")
+  console.log("  🗂️ Planner:", state.plannerOutput ? "✅" : "❌")
+  console.log("  🧾 Procedure:", state.procedureOutput ? "✅" : "❌")
 
   const systemPrompt = createReportWriterPrompt(state, overrides)
   const userPrompt = getAgentUserPrompt("reportWriter", overrides)
-
-  console.log("📝 [REPORT_WRITER_AI] Prompt lengths:")
-  console.log("  📏 System prompt:", systemPrompt.length, "characters")
-  console.log("  📏 User prompt:", userPrompt.length, "characters")
 
   try {
     const completion = await openai().beta.chat.completions.parse({
@@ -867,170 +991,41 @@ export async function callReportWriterAgent(
         { role: "system", content: systemPrompt },
         { role: "user", content: userPrompt }
       ],
-      temperature: 0.7,
-      response_format: zodResponseFormat(ReportWriterSchema, "reportWriter")
+      temperature: 0.5,
+      response_format: zodResponseFormat(
+        ReportAssemblyNotesSchema,
+        "reportAssemblyNotes"
+      )
     })
 
     const parsed = completion.choices[0].message.parsed!
 
-    const literatureSummary: LiteratureScoutOutput = {
-      whatOthersHaveDone:
-        parsed.literatureSummary?.whatOthersHaveDone ||
-        "No information available",
-      goodMethodsAndTools:
-        parsed.literatureSummary?.goodMethodsAndTools ||
-        "No information available",
-      potentialPitfalls:
-        parsed.literatureSummary?.potentialPitfalls ||
-        "No information available",
-      citations: parsed.literatureSummary?.citations || []
-    }
-
-    const hypothesis: HypothesisBuilderOutput = {
-      hypothesis: parsed.hypothesis?.hypothesis || "No hypothesis available",
-      explanation: parsed.hypothesis?.explanation || "No explanation available"
-    }
-
-    const experimentDesign: ExperimentDesignerOutput = {
-      designSummary:
-        parsed.experimentDesign?.designSummary || "No summary provided",
-      experimentDesign: {
-        whatWillBeTested:
-          parsed.experimentDesign?.experimentDesign?.whatWillBeTested ||
-          "Not specified",
-        whatWillBeMeasured:
-          parsed.experimentDesign?.experimentDesign?.whatWillBeMeasured ||
-          "Not specified",
-        controlGroups:
-          parsed.experimentDesign?.experimentDesign?.controlGroups ||
-          "Not specified",
-        experimentalGroups:
-          parsed.experimentDesign?.experimentDesign?.experimentalGroups ||
-          "Not specified",
-        sampleTypes:
-          parsed.experimentDesign?.experimentDesign?.sampleTypes ||
-          "Not specified",
-        toolsNeeded:
-          parsed.experimentDesign?.experimentDesign?.toolsNeeded ||
-          "Not specified",
-        replicatesAndConditions:
-          parsed.experimentDesign?.experimentDesign?.replicatesAndConditions ||
-          "Not specified",
-        specificRequirements:
-          parsed.experimentDesign?.experimentDesign?.specificRequirements ||
-          "Not specified"
-      },
-      conditionsTable:
-        parsed.experimentDesign?.conditionsTable || "Not specified",
-      experimentalGroupsOverview:
-        parsed.experimentDesign?.experimentalGroupsOverview || "Not specified",
-      statisticalRationale:
-        parsed.experimentDesign?.statisticalRationale || "Not specified",
-      criticalTechnicalRequirements:
-        parsed.experimentDesign?.criticalTechnicalRequirements ||
-        "Not specified",
-      handoffNoteForPlanner:
-        parsed.experimentDesign?.handoffNoteForPlanner || "Not specified",
-      rationale: parsed.experimentDesign?.rationale || "No rationale provided"
-    }
-
-    const statisticalReview: StatCheckOutput = {
-      whatLooksGood:
-        parsed.statisticalReview?.whatLooksGood || "No assessment available",
-      problemsOrRisks: parsed.statisticalReview?.problemsOrRisks || [],
-      suggestedImprovements:
-        parsed.statisticalReview?.suggestedImprovements || [],
-      correctedDesign: parsed.statisticalReview?.correctedDesign || "",
-      changeLog: parsed.statisticalReview?.changeLog || [],
-      improvementRationale:
-        parsed.statisticalReview?.improvementRationale || "",
-      overallAssessment:
-        parsed.statisticalReview?.overallAssessment ||
-        "No overall assessment available",
-      finalAssessment: parsed.statisticalReview?.finalAssessment || ""
-    }
-
-    const executionPlan: PlannerOutput = parsed.executionPlan
-      ? {
-          feasibilityCheck:
-            parsed.executionPlan.feasibilityCheck || "Not specified",
-          summaryOfTotals:
-            parsed.executionPlan.summaryOfTotals || "Not specified",
-          materialsChecklist:
-            parsed.executionPlan.materialsChecklist || "Not specified",
-          reagentAndBufferPreparation:
-            parsed.executionPlan.reagentAndBufferPreparation || "Not specified",
-          stockSolutionPreparation:
-            parsed.executionPlan.stockSolutionPreparation || "Not specified",
-          masterMixStrategy:
-            parsed.executionPlan.masterMixStrategy || "Not specified",
-          workingSolutionTables:
-            parsed.executionPlan.workingSolutionTables || "Not specified",
-          tubeAndLabelPlanning:
-            parsed.executionPlan.tubeAndLabelPlanning || "Not specified",
-          consumablePrepAndQC:
-            parsed.executionPlan.consumablePrepAndQC || "Not specified",
-          studyLayout: parsed.executionPlan.studyLayout || "Not specified",
-          prepSchedule: parsed.executionPlan.prepSchedule || "Not specified",
-          kitPackList: parsed.executionPlan.kitPackList || "Not specified",
-          criticalErrorPoints:
-            parsed.executionPlan.criticalErrorPoints || "Not specified",
-          materialOptimizationSummary:
-            parsed.executionPlan.materialOptimizationSummary || "Not specified",
-          assumptionsAndConfirmations:
-            parsed.executionPlan.assumptionsAndConfirmations || "Not specified"
-        }
-      : EMPTY_PLANNER
-
-    const procedure: ProcedureOutput = parsed.procedure
-      ? {
-          preRunChecklist: parsed.procedure.preRunChecklist || "Not specified",
-          benchSetupAndSafety:
-            parsed.procedure.benchSetupAndSafety || "Not specified",
-          sampleLabelingIdScheme:
-            parsed.procedure.sampleLabelingIdScheme || "Not specified",
-          instrumentSetupCalibration:
-            parsed.procedure.instrumentSetupCalibration || "Not specified",
-          criticalHandlingRules:
-            parsed.procedure.criticalHandlingRules || "Not specified",
-          samplePreparation:
-            parsed.procedure.samplePreparation || "Not specified",
-          measurementSteps:
-            parsed.procedure.measurementSteps || "Not specified",
-          experimentalConditionExecution:
-            parsed.procedure.experimentalConditionExecution || "Not specified",
-          dataRecordingProcessing:
-            parsed.procedure.dataRecordingProcessing || "Not specified",
-          acceptanceCriteria:
-            parsed.procedure.acceptanceCriteria || "Not specified",
-          troubleshootingGuide:
-            parsed.procedure.troubleshootingGuide || "Not specified",
-          runLogTemplate: parsed.procedure.runLogTemplate || "Not specified",
-          cleanupDisposal: parsed.procedure.cleanupDisposal || "Not specified",
-          dataHandoff: parsed.procedure.dataHandoff || "Not specified"
-        }
-      : EMPTY_PROCEDURE
-
     const result: ReportWriterOutput = {
       researchObjective:
-        parsed.researchObjective || "No research objective available",
-      literatureSummary,
-      hypothesis,
-      experimentDesign,
-      statisticalReview,
-      executionPlan,
-      procedure,
-      finalNotes: parsed.finalNotes || "No final notes available"
+        parsed.researchObjective?.trim() || "No research objective available",
+      literatureSummary: state.literatureScoutOutput ?? EMPTY_LITERATURE,
+      hypothesis: state.hypothesisBuilderOutput ?? EMPTY_HYPOTHESIS,
+      experimentDesign:
+        state.experimentDesignerOutput ?? EMPTY_EXPERIMENT_DESIGN,
+      statisticalReview: state.statCheckOutput ?? EMPTY_STAT_CHECK,
+      executionPlan: state.plannerOutput ?? EMPTY_PLANNER,
+      procedure: state.procedureOutput ?? EMPTY_PROCEDURE,
+      finalNotes: parsed.finalNotes?.trim() || "No final notes available"
     }
 
     const totalTime = Date.now() - startTime
-    console.log("\n📤 [REPORT_WRITER_OUTPUT] Agent Output:")
+    console.log("\n📤 [REPORT_WRITER_OUTPUT] Assembly complete:")
     console.log(
       "  📋 Research Objective:",
       result.researchObjective.length,
-      "characters"
+      "chars (LLM-generated)"
     )
-    console.log("  📝 Final Notes:", result.finalNotes.length, "characters")
+    console.log(
+      "  📝 Final Notes:",
+      result.finalNotes.length,
+      "chars (LLM-generated)"
+    )
+    console.log("  🔗 Specialist outputs: passed through verbatim")
     console.log("  ⏱️  Total Execution Time:", totalTime, "ms")
     console.log("=".repeat(80))
 
@@ -1045,7 +1040,7 @@ export async function callReportWriterAgent(
   } catch (error) {
     const totalTime = Date.now() - startTime
     console.error(
-      `❌ [REPORT_WRITER_ERROR] Agent failed after ${totalTime}ms:`,
+      `❌ [REPORT_WRITER_ERROR] Assembly failed after ${totalTime}ms:`,
       error
     )
     console.log("=".repeat(80))

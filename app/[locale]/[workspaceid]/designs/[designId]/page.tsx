@@ -540,8 +540,7 @@ export default function DesignDetailPage() {
 
   // ── Regenerate handlers ───────────────────────────────────────────────
 
-  const handleRegenerateLiterature = async () => {
-    const keep = clearDownstreamState("literature")
+  const handleGenerateMoreLiterature = async () => {
     setBusy("literature")
     setLiteratureProgress([])
     try {
@@ -549,8 +548,9 @@ export default function DesignDetailPage() {
         designId,
         {
           phase: "literature",
+          mode: "append",
           problem: currentProblem(),
-          approvedPhases: keep
+          approvedPhases
         },
         ev => setLiteratureProgress(prev => [...prev, ev])
       )
@@ -1135,7 +1135,7 @@ export default function DesignDetailPage() {
                 onDeletePaper={handleDeletePaper}
                 onUploadPdfs={handleUploadPdfs}
                 onApproveAndGenerate={handleApproveAndGenerateHypotheses}
-                onRegenerate={handleRegenerateLiterature}
+                onRegenerate={handleGenerateMoreLiterature}
                 canGenerate={selectedPapers.length > 0}
                 isApproved={isPhaseApproved("literature")}
                 isBusy={busy === "hypotheses" || busy === "literature"}
@@ -1241,6 +1241,7 @@ function PhaseActionBar(props: {
   approveDisabled: boolean
   onRegenerate?: () => void
   regenerateLabel?: string
+  regenerateIcon?: React.ReactNode
   isBusy: boolean
   isApproved: boolean
 }) {
@@ -1256,7 +1257,7 @@ function PhaseActionBar(props: {
             disabled={props.isBusy}
             className="gap-1.5"
           >
-            <IconRefresh size={14} />
+            {props.regenerateIcon ?? <IconRefresh size={14} />}
             {props.regenerateLabel ?? "Regenerate"}
           </Button>
         )}
@@ -1751,7 +1752,8 @@ function LiteratureTab(props: {
         approveLabel="Approve & Generate Hypotheses"
         approveDisabled={!canGenerate}
         onRegenerate={papers.length > 0 ? onRegenerate : undefined}
-        regenerateLabel="Regenerate Literature"
+        regenerateLabel="Generate more"
+        regenerateIcon={<IconPlus size={14} />}
         isBusy={isBusy}
         isApproved={isApproved}
       />

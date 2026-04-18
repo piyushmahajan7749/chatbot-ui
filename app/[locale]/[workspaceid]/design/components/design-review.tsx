@@ -27,6 +27,9 @@ import {
 } from "lucide-react"
 import ReactMarkdown, { type Components } from "react-markdown"
 import remarkGfm from "remark-gfm"
+import remarkMath from "remark-math"
+import rehypeKatex from "rehype-katex"
+import "katex/dist/katex.min.css"
 import {
   Table,
   TableBody,
@@ -157,33 +160,64 @@ interface DesignReviewProps {
 const markdownClasses =
   "prose prose-sm max-w-none text-foreground dark:prose-invert prose-headings:text-foreground prose-strong:text-foreground prose-li:marker:text-muted-foreground"
 
-const normalizeListFormatting = (text: string) =>
-  text
-    .replace(/\s*-\s+/g, "\n- ")
-    .replace(/\s+(\d+\.)\s+/g, "\n$1 ")
-    .replace(/\n{2,}/g, "\n")
+const normalizeInlineBullets = (text: string) => {
+  // Inline bullets like "foo. - bar. - baz." → newline-separated. Safe for non-table text only.
+  const withNewlines = text
+    .replace(/(?<=\S)\s+-\s+/g, "\n- ")
+    .replace(/(?<=\S)\s+(\d+\.)\s+/g, "\n$1 ")
+  return withNewlines.replace(/\n{3,}/g, "\n\n").trim()
+}
+
+const PIPE_TABLE_RE =
+  /(^|\n)((?:[ \t]*\|.*\|[ \t]*\n)[ \t]*\|[ \t]*:?-{2,}:?(?:[ \t]*\|[ \t]*:?-{2,}:?)+[ \t]*\|[ \t]*(?:\n[ \t]*\|.*\|[ \t]*)+)/g
+
+type Block =
+  | { kind: "text"; content: string }
+  | { kind: "table"; headers: string[]; rows: string[][] }
+
+const parseRow = (line: string): string[] => {
+  const trimmed = line.trim().replace(/^\||\|$/g, "")
+  return trimmed.split("|").map(cell => cell.trim())
+}
+
+const parsePipeTable = (raw: string): Block | null => {
+  const lines = raw
     .trim()
+    .split("\n")
+    .filter(l => l.trim().length > 0)
+  if (lines.length < 2) return null
+  const headers = parseRow(lines[0])
+  const bodyLines = lines.slice(2)
+  const rows = bodyLines.map(parseRow)
+  if (headers.length === 0) return null
+  return { kind: "table", headers, rows }
+}
+
+const splitIntoBlocks = (text: string): Block[] => {
+  const blocks: Block[] = []
+  let cursor = 0
+  const source = text
+  PIPE_TABLE_RE.lastIndex = 0
+  let match: RegExpExecArray | null
+  while ((match = PIPE_TABLE_RE.exec(source)) !== null) {
+    const tableStart = match.index + (match[1]?.length ?? 0)
+    if (tableStart > cursor) {
+      blocks.push({
+        kind: "text",
+        content: source.slice(cursor, tableStart)
+      })
+    }
+    const table = parsePipeTable(match[2])
+    if (table) blocks.push(table)
+    cursor = match.index + match[0].length
+  }
+  if (cursor < source.length) {
+    blocks.push({ kind: "text", content: source.slice(cursor) })
+  }
+  return blocks.length > 0 ? blocks : [{ kind: "text", content: source }]
+}
 
 const structuredMarkdownComponents: Components = {
-  table: ({ node, ...props }) => (
-    <div className="border-border/70 bg-background/60 my-3 overflow-hidden rounded-lg border">
-      <Table {...props} />
-    </div>
-  ),
-  thead: ({ node, ...props }) => (
-    <TableHeader className="bg-muted/50" {...props} />
-  ),
-  tbody: ({ node, ...props }) => <TableBody {...props} />,
-  tr: ({ node, ...props }) => <TableRow {...props} />,
-  th: ({ node, ...props }) => (
-    <TableHead
-      className="text-foreground h-10 px-3 text-xs font-semibold uppercase tracking-wide"
-      {...props}
-    />
-  ),
-  td: ({ node, ...props }) => (
-    <TableCell className="px-3 py-2 text-sm" {...props} />
-  ),
   ul: ({ node, ...props }) => (
     <ul
       className="text-muted-foreground marker:text-muted-foreground my-2 list-disc space-y-1 pl-5 text-sm"
@@ -197,6 +231,77 @@ const structuredMarkdownComponents: Components = {
     />
   ),
   li: ({ node, ...props }) => <li className="leading-relaxed" {...props} />
+}
+
+const markdownPlugins = {
+  remark: [remarkGfm, remarkMath],
+  rehype: [rehypeKatex]
+}
+
+const StructuredMarkdown = ({
+  content,
+  className
+}: {
+  content: string
+  className?: string
+}) => {
+  const blocks = splitIntoBlocks(content)
+  return (
+    <div className={className}>
+      {blocks.map((block, idx) => {
+        if (block.kind === "table") {
+          return (
+            <div
+              key={`table-${idx}`}
+              className="border-border/70 bg-background/60 my-3 overflow-hidden rounded-lg border"
+            >
+              <Table>
+                <TableHeader className="bg-muted/50">
+                  <TableRow>
+                    {block.headers.map((header, hIdx) => (
+                      <TableHead
+                        key={`h-${idx}-${hIdx}`}
+                        className="text-foreground h-10 px-3 text-xs font-semibold uppercase tracking-wide"
+                      >
+                        {header}
+                      </TableHead>
+                    ))}
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {block.rows.map((row, rIdx) => (
+                    <TableRow key={`r-${idx}-${rIdx}`}>
+                      {row.map((cell, cIdx) => (
+                        <TableCell
+                          key={`c-${idx}-${rIdx}-${cIdx}`}
+                          className="px-3 py-2 text-sm"
+                        >
+                          {cell}
+                        </TableCell>
+                      ))}
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
+          )
+        }
+        const text = normalizeInlineBullets(block.content)
+        if (!text) return null
+        return (
+          <div key={`text-${idx}`} className={markdownClasses}>
+            <ReactMarkdown
+              remarkPlugins={markdownPlugins.remark}
+              rehypePlugins={markdownPlugins.rehype}
+              components={structuredMarkdownComponents}
+            >
+              {text}
+            </ReactMarkdown>
+          </div>
+        )
+      })}
+    </div>
+  )
 }
 
 const SectionCard = ({
@@ -279,8 +384,6 @@ const StepCard = ({
 
   const baseClass = accentMap[accent] || accentMap.emerald
 
-  const formatted = normalizeListFormatting(body)
-
   return (
     <div
       className={`rounded-lg border ${baseClass} p-3 shadow-sm backdrop-blur`}
@@ -288,13 +391,7 @@ const StepCard = ({
       <p className="text-muted-foreground text-xs font-semibold uppercase tracking-wide">
         {title}
       </p>
-      <ReactMarkdown
-        className={`${markdownClasses} mt-2`}
-        remarkPlugins={[remarkGfm]}
-        components={structuredMarkdownComponents}
-      >
-        {formatted}
-      </ReactMarkdown>
+      <StructuredMarkdown content={body} className="mt-2" />
     </div>
   )
 }
@@ -440,7 +537,8 @@ function renderLegacyReport(report: any) {
             </h3>
             <ReactMarkdown
               className={markdownClasses}
-              remarkPlugins={[remarkGfm]}
+              remarkPlugins={[remarkGfm, remarkMath]}
+              rehypePlugins={[rehypeKatex]}
               components={structuredMarkdownComponents}
             >
               {report.literatureSummary.whatOthersHaveDone}
@@ -805,7 +903,8 @@ export function DesignReview({
             >
               <ReactMarkdown
                 className={markdownClasses}
-                remarkPlugins={[remarkGfm]}
+                remarkPlugins={[remarkGfm, remarkMath]}
+                rehypePlugins={[rehypeKatex]}
                 components={structuredMarkdownComponents}
               >
                 {[
@@ -885,11 +984,6 @@ export function DesignReview({
                       accent: "emerald"
                     },
                     {
-                      label: "Conditions Table",
-                      value: designer.conditionsTable,
-                      accent: "rose"
-                    },
-                    {
                       label: "Experimental Groups Overview",
                       value: designer.experimentalGroupsOverview,
                       accent: "blue"
@@ -914,6 +1008,13 @@ export function DesignReview({
 
                 return (
                   <div className="space-y-5">
+                    {designer.conditionsTable && (
+                      <StepCard
+                        title="Conditions Table"
+                        body={designer.conditionsTable}
+                        accent="rose"
+                      />
+                    )}
                     {blueprintHighlights.length > 0 && (
                       <div className="grid gap-3 md:grid-cols-2">
                         {blueprintHighlights.map(tile => (
@@ -1203,7 +1304,8 @@ export function DesignReview({
                   </p>
                   <ReactMarkdown
                     className={markdownClasses}
-                    remarkPlugins={[remarkGfm]}
+                    remarkPlugins={[remarkGfm, remarkMath]}
+                    rehypePlugins={[rehypeKatex]}
                     components={structuredMarkdownComponents}
                   >
                     {generatedDesign.statisticalReview.whatLooksGood ||
@@ -1216,7 +1318,8 @@ export function DesignReview({
                   </p>
                   <ReactMarkdown
                     className={markdownClasses}
-                    remarkPlugins={[remarkGfm]}
+                    remarkPlugins={[remarkGfm, remarkMath]}
+                    rehypePlugins={[rehypeKatex]}
                     components={structuredMarkdownComponents}
                   >
                     {generatedDesign.statisticalReview.problemsOrRisks
@@ -1230,7 +1333,8 @@ export function DesignReview({
                   </p>
                   <ReactMarkdown
                     className={markdownClasses}
-                    remarkPlugins={[remarkGfm]}
+                    remarkPlugins={[remarkGfm, remarkMath]}
+                    rehypePlugins={[rehypeKatex]}
                     components={structuredMarkdownComponents}
                   >
                     {generatedDesign.statisticalReview.suggestedImprovements
@@ -1244,7 +1348,8 @@ export function DesignReview({
                   </p>
                   <ReactMarkdown
                     className={markdownClasses}
-                    remarkPlugins={[remarkGfm]}
+                    remarkPlugins={[remarkGfm, remarkMath]}
+                    rehypePlugins={[rehypeKatex]}
                     components={structuredMarkdownComponents}
                   >
                     {generatedDesign.statisticalReview.overallAssessment ||
@@ -1259,7 +1364,8 @@ export function DesignReview({
                   </p>
                   <ReactMarkdown
                     className={markdownClasses}
-                    remarkPlugins={[remarkGfm]}
+                    remarkPlugins={[remarkGfm, remarkMath]}
+                    rehypePlugins={[rehypeKatex]}
                     components={structuredMarkdownComponents}
                   >
                     {generatedDesign.statisticalReview.finalAssessment}
@@ -1432,7 +1538,8 @@ export function DesignReview({
             <SectionCard title="What Others Have Done">
               <ReactMarkdown
                 className={markdownClasses}
-                remarkPlugins={[remarkGfm]}
+                remarkPlugins={[remarkGfm, remarkMath]}
+                rehypePlugins={[rehypeKatex]}
                 components={structuredMarkdownComponents}
               >
                 {planStatus.literatureContext.whatOthersHaveDone}
@@ -1442,7 +1549,8 @@ export function DesignReview({
             <SectionCard title="Good Methods & Tools">
               <ReactMarkdown
                 className={markdownClasses}
-                remarkPlugins={[remarkGfm]}
+                remarkPlugins={[remarkGfm, remarkMath]}
+                rehypePlugins={[rehypeKatex]}
                 components={structuredMarkdownComponents}
               >
                 {planStatus.literatureContext.goodMethodsAndTools}
@@ -1452,7 +1560,8 @@ export function DesignReview({
             <SectionCard title="Potential Pitfalls">
               <ReactMarkdown
                 className={markdownClasses}
-                remarkPlugins={[remarkGfm]}
+                remarkPlugins={[remarkGfm, remarkMath]}
+                rehypePlugins={[rehypeKatex]}
                 components={structuredMarkdownComponents}
               >
                 {planStatus.literatureContext.potentialPitfalls}
@@ -1871,7 +1980,8 @@ export function DesignReview({
                             ) : (
                               <ReactMarkdown
                                 className={markdownClasses}
-                                remarkPlugins={[remarkGfm]}
+                                remarkPlugins={[remarkGfm, remarkMath]}
+                                rehypePlugins={[rehypeKatex]}
                                 components={structuredMarkdownComponents}
                               >
                                 {JSON.stringify(source, null, 2)}
