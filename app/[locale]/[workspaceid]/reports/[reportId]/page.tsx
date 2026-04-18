@@ -15,22 +15,19 @@ import { Tables } from "@/supabase/types"
 import { toast as sonnerToast } from "sonner"
 import {
   IconArrowLeft,
-  IconBulb,
-  IconChartBar,
   IconClock,
-  IconFlask,
+  IconFileText,
   IconLayoutGrid,
   IconUpload
 } from "@tabler/icons-react"
-import { FlaskConical, Download, Copy } from "lucide-react"
+import { FlaskConical, Download, Copy, Maximize2 } from "lucide-react"
 import {
   OverviewTab,
   type ReportTab
 } from "@/components/reports/tabs/overview-tab"
 import { InputsTab } from "@/components/reports/tabs/inputs-tab"
-import { TheoryTab } from "@/components/reports/tabs/theory-tab"
-import { MethodTab } from "@/components/reports/tabs/method-tab"
-import { AnalysisTab } from "@/components/reports/tabs/analysis-tab"
+import { ReportTab as ReportTabView } from "@/components/reports/tabs/report-tab"
+import { ReportPreviewModal } from "@/components/reports/report-preview-modal"
 
 type Draft = Record<string, any>
 
@@ -80,6 +77,9 @@ export default function ReportDetailPage() {
 
   const [isGenerating, setIsGenerating] = useState(false)
   const [regeneratingKey, setRegeneratingKey] = useState<string | null>(null)
+  const [regeneratingChart, setRegeneratingChart] = useState(false)
+  const [showPreview, setShowPreview] = useState(false)
+  const sectionSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const [elnConnections, setElnConnections] = useState<ELNConnection[]>([])
   const [showELNExportModal, setShowELNExportModal] = useState(false)
@@ -260,7 +260,7 @@ export default function ReportDetailPage() {
         id: toastId,
         duration: 5000
       })
-      setActiveTab("theory")
+      setActiveTab("report")
     } catch (error: any) {
       console.error("Report generation failed:", error)
       const message = error?.message || "Unknown error"
@@ -313,6 +313,55 @@ export default function ReportDetailPage() {
       )
     } finally {
       setRegeneratingKey(null)
+    }
+  }
+
+  const handleSectionContentChange = (sectionKey: string, value: string) => {
+    const baseDraft = draft ?? {}
+    const nextDraft = { ...baseDraft, [sectionKey]: value }
+    setReport((prev: any) => ({ ...prev, report_draft: nextDraft }))
+    if (sectionSaveTimer.current) clearTimeout(sectionSaveTimer.current)
+    sectionSaveTimer.current = setTimeout(() => {
+      updateReport(reportId, { report_draft: nextDraft }).catch(err => {
+        console.warn("Failed to save section edit:", err)
+      })
+    }, 600)
+  }
+
+  const handleChartRegenerate = async (feedback: string) => {
+    const trimmed = feedback.trim()
+    if (!trimmed) return
+    setRegeneratingChart(true)
+    try {
+      const response = await fetch("/api/report/regenerate-chart", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          currentChartData: report?.chart_data ?? null,
+          userFeedback: trimmed
+        })
+      })
+      if (!response.ok) {
+        throw new Error(`Chart regeneration failed (${response.status})`)
+      }
+      const data = await response.json()
+      await updateReport(reportId, {
+        chart_image: data.chartImage || null,
+        chart_data: data.chartData || null
+      })
+      setReport((prev: any) => ({
+        ...prev,
+        chart_image: data.chartImage || null,
+        chart_data: data.chartData || null
+      }))
+      sonnerToast.success("Chart regenerated.")
+    } catch (error: any) {
+      console.error("Chart regenerate failed:", error)
+      sonnerToast.error(
+        `Chart regeneration failed: ${error?.message || "Unknown error"}`
+      )
+    } finally {
+      setRegeneratingChart(false)
     }
   }
 
@@ -393,48 +442,34 @@ export default function ReportDetailPage() {
           : "active") as TabStatus
       },
       {
-        key: "theory",
-        label: "Theory",
-        sublabel: sublabelForContent(["aim", "introduction", "principle"]),
-        accent: "purple-persona" as const,
-        icon: <IconBulb size={18} />,
-        disabled: false,
-        status: (draft && (draft.aim || draft.introduction || draft.principle)
-          ? "review"
-          : "active") as TabStatus
-      },
-      {
-        key: "method",
-        label: "Method",
+        key: "report",
+        label: "Report",
         sublabel: sublabelForContent([
+          "aim",
+          "introduction",
+          "principle",
           "material",
           "preparation",
           "procedure",
-          "setup"
-        ]),
-        accent: "orange-product" as const,
-        icon: <IconFlask size={18} />,
-        disabled: false,
-        status: (draft &&
-        (draft.material || draft.preparation || draft.procedure || draft.setup)
-          ? "review"
-          : "active") as TabStatus
-      },
-      {
-        key: "analysis",
-        label: "Analysis",
-        sublabel: sublabelForContent([
+          "setup",
           "dataAnalysis",
           "results",
           "discussion",
           "conclusion",
           "nextSteps"
         ]),
-        accent: "sage-brand" as const,
-        icon: <IconChartBar size={18} />,
+        accent: "teal-journey" as const,
+        icon: <IconFileText size={18} />,
         disabled: false,
         status: (draft &&
-        (draft.dataAnalysis ||
+        (draft.aim ||
+          draft.introduction ||
+          draft.principle ||
+          draft.material ||
+          draft.preparation ||
+          draft.procedure ||
+          draft.setup ||
+          draft.dataAnalysis ||
           draft.results ||
           draft.discussion ||
           draft.conclusion ||
@@ -581,30 +616,29 @@ export default function ReportDetailPage() {
               }
             />
           )}
-          {activeTab === "theory" && (
-            <TheoryTab
-              draft={draft}
-              regenerating={regeneratingKey}
-              onRegenerate={handleRegenerateSection}
-            />
-          )}
-          {activeTab === "method" && (
-            <MethodTab
-              draft={draft}
-              regenerating={regeneratingKey}
-              onRegenerate={handleRegenerateSection}
-            />
-          )}
-          {activeTab === "analysis" && (
-            <AnalysisTab
+          {activeTab === "report" && (
+            <ReportTabView
               draft={draft}
               chartImage={report?.chart_image ?? null}
               regenerating={regeneratingKey}
               onRegenerate={handleRegenerateSection}
+              onEditContent={handleSectionContentChange}
+              onRegenerateChart={handleChartRegenerate}
+              regeneratingChart={regeneratingChart}
+              onOpenPreview={() => setShowPreview(true)}
             />
           )}
         </div>
       </div>
+
+      <ReportPreviewModal
+        isOpen={showPreview}
+        onOpenChange={setShowPreview}
+        title={report?.name || "Untitled Report"}
+        draft={draft}
+        chartImage={report?.chart_image ?? null}
+        onEditContent={handleSectionContentChange}
+      />
 
       <ELNExportModal
         isOpen={showELNExportModal}

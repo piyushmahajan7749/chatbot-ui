@@ -75,9 +75,27 @@ type AgentCallResult<T> = {
   prompt: AgentPromptUsage
 }
 
+export type LiteratureScoutProgressEvent =
+  | { step: "analyzing"; message: string }
+  | { step: "optimizing_query"; message: string; primaryQuery?: string }
+  | { step: "searching_sources"; message: string }
+  | {
+      step: "papers_found"
+      message: string
+      totalPapers: number
+      sourceCounts: Record<string, number>
+    }
+  | { step: "synthesizing"; message: string }
+  | { step: "done"; message: string; papersCount: number }
+
+export type LiteratureScoutProgressCallback = (
+  event: LiteratureScoutProgressEvent
+) => void
+
 export async function callLiteratureScoutAgent(
   state: ExperimentDesignState,
-  overrides?: AgentPromptOverrides["literatureScout"]
+  overrides?: AgentPromptOverrides["literatureScout"],
+  onProgress?: LiteratureScoutProgressCallback
 ): Promise<AgentCallResult<LiteratureScoutOutput>> {
   const startTime = Date.now()
   console.log("\n" + "=".repeat(80))
@@ -99,6 +117,11 @@ export async function callLiteratureScoutAgent(
     JSON.stringify(state.variables?.unknown || [], null, 2)
   )
 
+  onProgress?.({
+    step: "analyzing",
+    message: "Analyzing research problem..."
+  })
+
   const combinedVariables = [
     ...(state.variables?.known || []),
     ...(state.variables?.unknown || [])
@@ -113,6 +136,12 @@ export async function callLiteratureScoutAgent(
 
   console.log("\n🔍 [LITERATURE_SCOUT_SEARCH] Search Query Optimization:")
   console.log("  🎯 Primary Query:", queryData.primaryQuery)
+
+  onProgress?.({
+    step: "optimizing_query",
+    message: "Optimized search query",
+    primaryQuery: queryData.primaryQuery
+  })
 
   try {
     const constraintsParts = [
@@ -158,6 +187,11 @@ export async function callLiteratureScoutAgent(
       console.log(
         "\n🌐 [LITERATURE_SCOUT_SEARCH] Requesting papers from PaperFinder..."
       )
+      onProgress?.({
+        step: "searching_sources",
+        message:
+          "Searching PubMed, arXiv, Semantic Scholar, Google Scholar, and the web..."
+      })
       const pfStart = Date.now()
       paperFinderResponse = await runPaperFinder(paperFinderQuery, {
         operationMode: "infer",
@@ -177,11 +211,31 @@ export async function callLiteratureScoutAgent(
         console.warn(
           "⚠️  [LITERATURE_SCOUT_SEARCH] PaperFinder returned zero papers."
         )
+        onProgress?.({
+          step: "papers_found",
+          message: "No papers found — continuing with AI synthesis only.",
+          totalPapers: 0,
+          sourceCounts: {}
+        })
       } else {
         curated = buildCuratedAggregatedResults(normalizedResults)
         curated.searchMetrics.relevanceScores = normalizedResults
           .map(paper => paper.relevanceScore ?? 0)
           .filter(score => typeof score === "number" && score > 0)
+        const sourceCounts: Record<string, number> = {
+          pubmed: paperFinderResponse?.sources?.pubmed?.length ?? 0,
+          arxiv: paperFinderResponse?.sources?.arxiv?.length ?? 0,
+          semanticScholar:
+            paperFinderResponse?.sources?.semanticScholar?.length ?? 0,
+          scholar: paperFinderResponse?.sources?.scholar?.length ?? 0,
+          tavily: paperFinderResponse?.sources?.tavily?.length ?? 0
+        }
+        onProgress?.({
+          step: "papers_found",
+          message: `Found ${normalizedResults.length} papers`,
+          totalPapers: normalizedResults.length,
+          sourceCounts
+        })
       }
     } catch (paperFinderError: any) {
       console.warn(
@@ -208,6 +262,10 @@ export async function callLiteratureScoutAgent(
     state.searchResults = curated
 
     console.log("\n🤖 [LITERATURE_SCOUT_AI] Calling OpenAI for synthesis...")
+    onProgress?.({
+      step: "synthesizing",
+      message: "Synthesizing findings with AI..."
+    })
     const systemPrompt = createLiteratureScoutPrompt(state, curated, overrides)
     const userPrompt = getAgentUserPrompt("literatureScout", overrides)
 
@@ -259,6 +317,12 @@ export async function callLiteratureScoutAgent(
     console.log("  📎 citations:", output.citations.length, "items")
     console.log("  ⏱️  Total Execution Time:", totalTime, "ms")
     console.log("=".repeat(80))
+
+    onProgress?.({
+      step: "done",
+      message: `Literature search complete — ${output.citationsDetailed?.length ?? 0} papers`,
+      papersCount: output.citationsDetailed?.length ?? 0
+    })
 
     return {
       output,

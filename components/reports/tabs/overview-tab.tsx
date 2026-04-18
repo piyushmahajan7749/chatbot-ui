@@ -4,15 +4,13 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import {
   IconArrowRight,
-  IconBulb,
-  IconChartBar,
-  IconFlask,
+  IconFileText,
   IconInfoCircle,
   IconUpload
 } from "@tabler/icons-react"
 import { FC } from "react"
 
-export type ReportTab = "overview" | "inputs" | "theory" | "method" | "analysis"
+export type ReportTab = "overview" | "inputs" | "report"
 
 interface OverviewTabProps {
   report: any
@@ -72,34 +70,11 @@ export const OverviewTab: FC<OverviewTabProps> = ({
       accent: "text-ink-900"
     },
     {
-      key: "theory",
-      title: "Theory",
-      summary:
-        hasDraft && (draft.aim || draft.introduction || draft.principle)
-          ? "Aim, introduction, and principle"
-          : "Pending",
-      icon: <IconBulb size={20} />,
-      accent: "text-purple-persona"
-    },
-    {
-      key: "method",
-      title: "Method",
-      summary:
-        hasDraft && (draft.material || draft.procedure || draft.setup)
-          ? "Material, preparation, procedure, setup"
-          : "Pending",
-      icon: <IconFlask size={20} />,
-      accent: "text-orange-product"
-    },
-    {
-      key: "analysis",
-      title: "Analysis",
-      summary:
-        hasDraft && (draft.results || draft.discussion || draft.conclusion)
-          ? "Results, discussion, conclusion, next steps"
-          : "Pending",
-      icon: <IconChartBar size={20} />,
-      accent: "text-sage-brand"
+      key: "report",
+      title: "Report",
+      summary: hasDraft ? "Theory, method, and analysis sections" : "Pending",
+      icon: <IconFileText size={20} />,
+      accent: "text-teal-journey"
     }
   ]
 

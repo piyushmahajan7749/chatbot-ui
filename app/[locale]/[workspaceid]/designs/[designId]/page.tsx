@@ -60,7 +60,6 @@ import {
   IconSend,
   IconShare,
   IconSparkles,
-  IconStarFilled,
   IconTargetArrow,
   IconTrash,
   IconUpload,
@@ -87,6 +86,81 @@ async function runAgentPhase(
   }
   const json = await res.json()
   return json.content as DesignContentV2
+}
+
+export type PhaseProgress = {
+  step: string
+  message: string
+  [k: string]: unknown
+}
+
+export type LiteratureProgress = PhaseProgress & {
+  primaryQuery?: string
+  totalPapers?: number
+  sourceCounts?: Record<string, number>
+  papersCount?: number
+}
+
+async function runPhaseStreaming(
+  designId: string,
+  body: Record<string, unknown>,
+  onProgress: (ev: PhaseProgress) => void
+): Promise<DesignContentV2> {
+  const res = await fetch(`/api/design/${designId}/generate`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Accept: "text/event-stream"
+    },
+    body: JSON.stringify(body)
+  })
+  if (!res.ok || !res.body) {
+    const msg = await res.text().catch(() => "")
+    throw new Error(msg || `Generation failed (${res.status})`)
+  }
+
+  const reader = res.body.getReader()
+  const decoder = new TextDecoder()
+  let buffer = ""
+  let finalContent: DesignContentV2 | null = null
+  let streamError: string | null = null
+
+  while (true) {
+    const { done, value } = await reader.read()
+    if (done) break
+    buffer += decoder.decode(value, { stream: true })
+
+    let idx: number
+    while ((idx = buffer.indexOf("\n\n")) !== -1) {
+      const rawEvent = buffer.slice(0, idx)
+      buffer = buffer.slice(idx + 2)
+
+      let eventName = "message"
+      let dataLine = ""
+      for (const line of rawEvent.split("\n")) {
+        if (line.startsWith("event:")) eventName = line.slice(6).trim()
+        else if (line.startsWith("data:")) dataLine += line.slice(5).trim()
+      }
+      if (!dataLine) continue
+
+      try {
+        const parsed = JSON.parse(dataLine)
+        if (eventName === "progress") {
+          onProgress(parsed as PhaseProgress)
+        } else if (eventName === "result") {
+          finalContent = parsed.content as DesignContentV2
+        } else if (eventName === "error") {
+          streamError = parsed.message || "Stream error"
+        }
+      } catch {
+        // ignore malformed event
+      }
+    }
+  }
+
+  if (streamError) throw new Error(streamError)
+  if (!finalContent) throw new Error("Stream ended without a result")
+  return finalContent
 }
 
 function parseContent(raw: unknown): DesignContentV2 | null {
@@ -139,18 +213,25 @@ export default function DesignDetailPage() {
 
   // Literature tab state
   const [papers, setPapers] = useState<Paper[]>([])
+  const [literatureProgress, setLiteratureProgress] = useState<
+    LiteratureProgress[]
+  >([])
 
   // Hypotheses tab state
   const [hypotheses, setHypotheses] = useState<Hypothesis[]>([])
+  const [hypothesesProgress, setHypothesesProgress] = useState<PhaseProgress[]>(
+    []
+  )
 
   // Designs state
   const [generatedDesigns, setGeneratedDesigns] = useState<GeneratedDesign[]>(
     []
   )
   const [activeDesignId, setActiveDesignId] = useState<string | null>(null)
+  const [designProgress, setDesignProgress] = useState<PhaseProgress[]>([])
 
   // Rail toggle
-  const [showRail, setShowRail] = useState(true)
+  const [showRail, setShowRail] = useState(false)
 
   // Agent popover
   const [agentPopoverOpen, setAgentPopoverOpen] = useState(false)
@@ -345,12 +426,17 @@ export default function DesignDetailPage() {
     setApprovedPhases(nextApproved)
     setActiveTab("literature")
     setBusy("literature")
+    setLiteratureProgress([])
     try {
-      const content = await runAgentPhase(designId, {
-        phase: "literature",
-        problem: currentProblem(),
-        approvedPhases: nextApproved
-      })
+      const content = await runPhaseStreaming(
+        designId,
+        {
+          phase: "literature",
+          problem: currentProblem(),
+          approvedPhases: nextApproved
+        },
+        ev => setLiteratureProgress(prev => [...prev, ev])
+      )
       if (content.papers) setPapers(content.papers)
     } catch (error: any) {
       toast({
@@ -376,13 +462,18 @@ export default function DesignDetailPage() {
     setApprovedPhases(nextApproved)
     setActiveTab("hypotheses")
     setBusy("hypotheses")
+    setHypothesesProgress([])
     try {
-      const content = await runAgentPhase(designId, {
-        phase: "hypotheses",
-        problem: currentProblem(),
-        papers,
-        approvedPhases: nextApproved
-      })
+      const content = await runPhaseStreaming(
+        designId,
+        {
+          phase: "hypotheses",
+          problem: currentProblem(),
+          papers,
+          approvedPhases: nextApproved
+        },
+        ev => setHypothesesProgress(prev => [...prev, ev])
+      )
       if (content.hypotheses) setHypotheses(content.hypotheses)
     } catch (error: any) {
       toast({
@@ -408,13 +499,18 @@ export default function DesignDetailPage() {
     setApprovedPhases(nextApproved)
     setActiveTab("design")
     setBusy("design")
+    setDesignProgress([])
     try {
-      const content = await runAgentPhase(designId, {
-        phase: "design",
-        problem: currentProblem(),
-        hypotheses,
-        approvedPhases: nextApproved
-      })
+      const content = await runPhaseStreaming(
+        designId,
+        {
+          phase: "design",
+          problem: currentProblem(),
+          hypotheses,
+          approvedPhases: nextApproved
+        },
+        ev => setDesignProgress(prev => [...prev, ev])
+      )
       const designs = content.designs ?? []
       setGeneratedDesigns(designs)
       setActiveDesignId(designs[0]?.id ?? null)
@@ -447,12 +543,17 @@ export default function DesignDetailPage() {
   const handleRegenerateLiterature = async () => {
     const keep = clearDownstreamState("literature")
     setBusy("literature")
+    setLiteratureProgress([])
     try {
-      const content = await runAgentPhase(designId, {
-        phase: "literature",
-        problem: currentProblem(),
-        approvedPhases: keep
-      })
+      const content = await runPhaseStreaming(
+        designId,
+        {
+          phase: "literature",
+          problem: currentProblem(),
+          approvedPhases: keep
+        },
+        ev => setLiteratureProgress(prev => [...prev, ev])
+      )
       if (content.papers) setPapers(content.papers)
     } catch (error: any) {
       toast({
@@ -468,13 +569,18 @@ export default function DesignDetailPage() {
   const handleRegenerateHypotheses = async () => {
     const keep = clearDownstreamState("hypotheses")
     setBusy("hypotheses")
+    setHypothesesProgress([])
     try {
-      const content = await runAgentPhase(designId, {
-        phase: "hypotheses",
-        problem: currentProblem(),
-        papers,
-        approvedPhases: keep
-      })
+      const content = await runPhaseStreaming(
+        designId,
+        {
+          phase: "hypotheses",
+          problem: currentProblem(),
+          papers,
+          approvedPhases: keep
+        },
+        ev => setHypothesesProgress(prev => [...prev, ev])
+      )
       if (content.hypotheses) setHypotheses(content.hypotheses)
     } catch (error: any) {
       toast({
@@ -490,13 +596,18 @@ export default function DesignDetailPage() {
   const handleRegenerateDesign = async () => {
     const keep = clearDownstreamState("design")
     setBusy("design")
+    setDesignProgress([])
     try {
-      const content = await runAgentPhase(designId, {
-        phase: "design",
-        problem: currentProblem(),
-        hypotheses,
-        approvedPhases: keep
-      })
+      const content = await runPhaseStreaming(
+        designId,
+        {
+          phase: "design",
+          problem: currentProblem(),
+          hypotheses,
+          approvedPhases: keep
+        },
+        ev => setDesignProgress(prev => [...prev, ev])
+      )
       const designs = content.designs ?? []
       setGeneratedDesigns(designs)
       setActiveDesignId(designs[0]?.id ?? null)
@@ -954,94 +1065,19 @@ export default function DesignDetailPage() {
 
             {/* ── Toolbar actions (right side) ───────────────── */}
             <div className="flex items-center gap-3">
-              {/* Agent: split button — star/label toggles rail, chevron opens popover */}
-              <Popover
-                open={agentPopoverOpen}
-                onOpenChange={setAgentPopoverOpen}
+              {/* Agent: toggles chat rail */}
+              <button
+                onClick={() => setShowRail(v => !v)}
+                className={
+                  "ml-2 flex h-9 items-center gap-2 rounded-full px-4 text-xs font-semibold uppercase tracking-wide text-white shadow-sm ring-1 ring-inset transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md active:translate-y-0 " +
+                  (showRail
+                    ? "bg-ink-700 hover:bg-ink-800 ring-white/10"
+                    : "from-brick to-brick-hover bg-gradient-to-r ring-white/20")
+                }
               >
-                <div
-                  className={
-                    "flex h-9 items-stretch overflow-hidden rounded-md " +
-                    (showRail ? "bg-ink-700" : "bg-brick")
-                  }
-                >
-                  <button
-                    onClick={() => setShowRail(v => !v)}
-                    className={
-                      "flex items-center gap-1.5 px-3 text-xs font-medium text-white transition-colors " +
-                      (showRail ? "hover:bg-ink-800" : "hover:bg-brick-hover")
-                    }
-                  >
-                    <IconStarFilled size={14} />
-                    Agent
-                  </button>
-                  <div className="w-px bg-white/25" />
-                  <PopoverTrigger asChild>
-                    <button
-                      className={
-                        "flex items-center px-2 text-white transition-colors " +
-                        (showRail ? "hover:bg-ink-800" : "hover:bg-brick-hover")
-                      }
-                      aria-label="Open agent actions"
-                    >
-                      <IconChevronDown size={14} />
-                    </button>
-                  </PopoverTrigger>
-                </div>
-                <PopoverContent
-                  align="end"
-                  className="w-[400px] p-0"
-                  sideOffset={8}
-                >
-                  {/* Input area */}
-                  <div className="border-ink-200 border-b p-4">
-                    <div className="text-ink-500 mb-2 text-[11px] font-semibold uppercase tracking-wide">
-                      Ask the agent
-                    </div>
-                    <div className="border-ink-200 focus-within:border-brick flex items-start gap-2 rounded-lg border p-3 transition-colors">
-                      <Textarea
-                        value={agentPrompt}
-                        onChange={e => setAgentPrompt(e.target.value)}
-                        placeholder="Ask me to refine, analyze, or improve anything…"
-                        rows={2}
-                        className="min-h-[48px] flex-1 resize-none border-none p-0 text-sm shadow-none focus-visible:ring-0"
-                        onKeyDown={e => {
-                          if (e.key === "Enter" && !e.shiftKey) {
-                            e.preventDefault()
-                            sendAgentPrompt(agentPrompt)
-                          }
-                        }}
-                      />
-                      <button
-                        onClick={() => sendAgentPrompt(agentPrompt)}
-                        disabled={!agentPrompt.trim()}
-                        className="text-ink-400 hover:text-brick disabled:text-ink-200 mt-1 shrink-0 transition-colors"
-                      >
-                        <IconSend size={18} />
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Quick actions */}
-                  <div className="p-4">
-                    <div className="text-ink-400 mb-2 text-[10px] font-bold uppercase tracking-widest">
-                      {currentActions.heading}
-                    </div>
-                    <div className="flex flex-wrap gap-2">
-                      {currentActions.actions.map(action => (
-                        <button
-                          key={action.label}
-                          onClick={() => sendAgentPrompt(action.prompt)}
-                          className="border-ink-200 text-ink-700 hover:border-brick hover:text-brick hover:bg-brick/5 flex items-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-medium transition-colors"
-                        >
-                          {action.icon}
-                          {action.label}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                </PopoverContent>
-              </Popover>
+                <IconSparkles size={14} className="shrink-0" />
+                Agent
+              </button>
             </div>
           </div>
         </div>
@@ -1103,6 +1139,8 @@ export default function DesignDetailPage() {
                 canGenerate={selectedPapers.length > 0}
                 isApproved={isPhaseApproved("literature")}
                 isBusy={busy === "hypotheses" || busy === "literature"}
+                isSearching={busy === "literature"}
+                progress={literatureProgress}
                 onRevise={() => handleRevisePhase("literature")}
               />
             )}
@@ -1117,6 +1155,8 @@ export default function DesignDetailPage() {
                 canGenerate={selectedHypotheses.length > 0}
                 isApproved={isPhaseApproved("hypotheses")}
                 isBusy={busy === "design" || busy === "hypotheses"}
+                isGenerating={busy === "hypotheses"}
+                progress={hypothesesProgress}
                 onRevise={() => handleRevisePhase("hypotheses")}
               />
             )}
@@ -1133,6 +1173,8 @@ export default function DesignDetailPage() {
                 onRegenerate={handleRegenerateDesign}
                 isApproved={isPhaseApproved("design")}
                 isBusy={busy === "design"}
+                isGenerating={busy === "design"}
+                progress={designProgress}
                 onRevise={() => handleRevisePhase("design")}
               />
             )}
@@ -1470,6 +1512,105 @@ function ProblemTab(props: {
   )
 }
 
+// ─── Shared progress view for long-running phase operations ──────────────
+function PhaseProgressView(props: {
+  accentClass?: string
+  title: string
+  subtitle?: string
+  events: Array<{ step: string; message: string; detail?: string }>
+  isDone?: boolean
+}) {
+  const { accentClass, title, subtitle, events, isDone } = props
+  const activeIdx = events.length - 1
+  return (
+    <div
+      className={cn(
+        "rounded-xl border p-6",
+        accentClass ?? "border-orange-product/30 bg-orange-product-tint"
+      )}
+    >
+      <div className="mb-4">
+        <p className="text-ink-900 text-sm font-semibold">{title}</p>
+        {subtitle && <p className="text-ink-500 mt-0.5 text-xs">{subtitle}</p>}
+      </div>
+      {events.length === 0 ? (
+        <div className="text-ink-500 flex items-center gap-2 text-xs">
+          <span className="border-ink-300 border-t-ink-700 size-3 animate-spin rounded-full border-2" />
+          Starting…
+        </div>
+      ) : (
+        <ol className="space-y-2">
+          {events.map((ev, i) => {
+            const status = isDone
+              ? "done"
+              : i < activeIdx
+                ? "done"
+                : i === activeIdx
+                  ? "active"
+                  : "pending"
+            return (
+              <li key={i} className="flex items-start gap-2 text-xs">
+                <span className="mt-0.5 flex size-4 shrink-0 items-center justify-center">
+                  {status === "done" ? (
+                    <span className="bg-ink-800 flex size-4 items-center justify-center rounded-full">
+                      <IconCheck size={10} className="text-white" />
+                    </span>
+                  ) : status === "active" ? (
+                    <span className="border-ink-300 border-t-ink-700 size-3 animate-spin rounded-full border-2" />
+                  ) : (
+                    <span className="border-ink-300 size-3 rounded-full border-2" />
+                  )}
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span
+                    className={cn(
+                      status === "pending" ? "text-ink-400" : "text-ink-900",
+                      status === "active" && "font-semibold"
+                    )}
+                  >
+                    {ev.message}
+                  </span>
+                  {ev.detail && (
+                    <span className="text-ink-500 mt-0.5 block font-mono text-[11px]">
+                      {ev.detail}
+                    </span>
+                  )}
+                </span>
+              </li>
+            )
+          })}
+        </ol>
+      )}
+    </div>
+  )
+}
+
+function progressToEvents(
+  events: LiteratureProgress[]
+): Array<{ step: string; message: string; detail?: string }> {
+  return events.map(ev => {
+    if (ev.step === "optimizing_query") {
+      return {
+        step: ev.step,
+        message: ev.message,
+        detail: ev.primaryQuery
+      }
+    }
+    if (ev.step === "papers_found") {
+      const counts = Object.entries(ev.sourceCounts ?? {})
+        .filter(([, n]) => n > 0)
+        .map(([k, n]) => `${k}: ${n}`)
+        .join("  ·  ")
+      return {
+        step: ev.step,
+        message: ev.message,
+        detail: counts || undefined
+      }
+    }
+    return { step: ev.step, message: ev.message }
+  })
+}
+
 function LiteratureTab(props: {
   papers: Paper[]
   onTogglePaper: (id: string) => void
@@ -1480,6 +1621,8 @@ function LiteratureTab(props: {
   canGenerate: boolean
   isApproved: boolean
   isBusy: boolean
+  isSearching?: boolean
+  progress?: LiteratureProgress[]
   onRevise: () => void
 }) {
   const {
@@ -1492,6 +1635,8 @@ function LiteratureTab(props: {
     canGenerate,
     isApproved,
     isBusy,
+    isSearching,
+    progress,
     onRevise
   } = props
 
@@ -1535,11 +1680,19 @@ function LiteratureTab(props: {
       </div>
 
       {papers.length === 0 ? (
-        <div className="border-orange-product/30 bg-orange-product-tint text-ink-500 rounded-xl border border-dashed p-8 text-center text-xs">
-          {isBusy
-            ? "Searching literature..."
-            : "No literature yet. Approve the Problem tab to kick off the search."}
-        </div>
+        isSearching ? (
+          <PhaseProgressView
+            title="Searching literature"
+            subtitle="Querying PubMed, arXiv, Semantic Scholar, Scholar, and the web."
+            events={progressToEvents(progress ?? [])}
+          />
+        ) : (
+          <div className="border-orange-product/30 bg-orange-product-tint text-ink-500 rounded-xl border border-dashed p-8 text-center text-xs">
+            {isBusy
+              ? "Searching literature..."
+              : "No literature yet. Approve the Problem tab to kick off the search."}
+          </div>
+        )
       ) : (
         <div className="space-y-3">
           {papers.map(paper => (
@@ -1615,6 +1768,8 @@ function HypothesesTab(props: {
   canGenerate: boolean
   isApproved: boolean
   isBusy: boolean
+  isGenerating?: boolean
+  progress?: PhaseProgress[]
   onRevise: () => void
 }) {
   const {
@@ -1626,6 +1781,8 @@ function HypothesesTab(props: {
     canGenerate,
     isApproved,
     isBusy,
+    isGenerating,
+    progress,
     onRevise
   } = props
 
@@ -1655,11 +1812,20 @@ function HypothesesTab(props: {
       </div>
 
       {hypotheses.length === 0 ? (
-        <div className="border-purple-persona/30 bg-purple-persona-tint text-ink-500 rounded-xl border border-dashed p-8 text-center text-xs">
-          {isBusy
-            ? "Generating hypotheses..."
-            : "No hypotheses yet. Approve Literature to generate hypotheses."}
-        </div>
+        isGenerating ? (
+          <PhaseProgressView
+            accentClass="border-purple-persona/30 bg-purple-persona-tint"
+            title="Generating hypotheses"
+            subtitle="Five generation agents, then rank, reflect, evolve, and meta-review."
+            events={progress ?? []}
+          />
+        ) : (
+          <div className="border-purple-persona/30 bg-purple-persona-tint text-ink-500 rounded-xl border border-dashed p-8 text-center text-xs">
+            {isBusy
+              ? "Generating hypotheses..."
+              : "No hypotheses yet. Approve Literature to generate hypotheses."}
+          </div>
+        )
       ) : (
         <div className="space-y-3">
           {hypotheses.map(h => (
@@ -1858,6 +2024,8 @@ function DesignTab(props: {
   onRegenerate: () => void
   isApproved: boolean
   isBusy: boolean
+  isGenerating?: boolean
+  progress?: PhaseProgress[]
   onRevise: () => void
 }) {
   const {
@@ -1871,6 +2039,8 @@ function DesignTab(props: {
     onRegenerate,
     isApproved,
     isBusy,
+    isGenerating,
+    progress,
     onRevise
   } = props
 
@@ -1885,11 +2055,20 @@ function DesignTab(props: {
       />
 
       {designs.length === 0 ? (
-        <div className="border-sage-brand/30 bg-sage-brand-tint text-ink-500 rounded-xl border border-dashed p-8 text-center text-xs">
-          {isBusy
-            ? "Generating experiment designs..."
-            : "No designs yet. Approve Hypotheses to generate designs."}
-        </div>
+        isGenerating ? (
+          <PhaseProgressView
+            accentClass="border-sage-brand/30 bg-sage-brand-tint"
+            title="Generating experiment designs"
+            subtitle="Four phases per hypothesis: setup, materials, protocol, analysis."
+            events={progress ?? []}
+          />
+        ) : (
+          <div className="border-sage-brand/30 bg-sage-brand-tint text-ink-500 rounded-xl border border-dashed p-8 text-center text-xs">
+            {isBusy
+              ? "Generating experiment designs..."
+              : "No designs yet. Approve Hypotheses to generate designs."}
+          </div>
+        )
       ) : (
         <>
           <div className="flex flex-wrap gap-2">

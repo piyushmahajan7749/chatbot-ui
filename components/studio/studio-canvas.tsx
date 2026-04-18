@@ -4,13 +4,7 @@ import { useContext, useEffect, useMemo, useState } from "react"
 import { useParams, useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger
-} from "@/components/ui/popover"
 import { EntityCard } from "@/components/cards/entity-card"
 import { Skeleton } from "@/components/ui/skeleton"
 import { ErrorBoundary } from "@/components/ui/error-boundary"
@@ -23,8 +17,6 @@ import type { Tables } from "@/supabase/types"
 import { Project } from "@/types/project"
 import { ProjectSettingsModal } from "./project-settings-modal"
 import {
-  IconBulb,
-  IconChevronDown,
   IconClipboardText,
   IconEdit,
   IconFlask,
@@ -33,9 +25,7 @@ import {
   IconPlus,
   IconReport,
   IconSearch,
-  IconSend,
-  IconSparkles,
-  IconStarFilled
+  IconSparkles
 } from "@tabler/icons-react"
 import { useToast } from "@/app/hooks/use-toast"
 import { ChatbotUIContext } from "@/context/context"
@@ -70,7 +60,7 @@ export function StudioCanvas({
   const params = useParams()
   const router = useRouter()
   const { toast } = useToast()
-  const { profile, selectedWorkspace, chatSettings, setUserInput } =
+  const { profile, selectedWorkspace, chatSettings } =
     useContext(ChatbotUIContext)
 
   const [project, setProject] = useState<Project | null>(null)
@@ -82,18 +72,6 @@ export function StudioCanvas({
   const [search, setSearch] = useState("")
   const [activeTab, setActiveTab] = useState<TabKey>("designs")
   const [creatingChat, setCreatingChat] = useState(false)
-
-  // Agent popover
-  const [agentPopoverOpen, setAgentPopoverOpen] = useState(false)
-  const [agentPrompt, setAgentPrompt] = useState("")
-
-  const sendAgentPrompt = (prompt: string) => {
-    if (!prompt.trim()) return
-    setUserInput(prompt.trim())
-    if (!showRail) onToggleRail?.()
-    setAgentPopoverOpen(false)
-    setAgentPrompt("")
-  }
 
   const actualProjectId = projectId || (params.projectId as string)
   const actualWorkspaceId = workspaceId || (params.workspaceid as string)
@@ -437,120 +415,20 @@ export function StudioCanvas({
               )}
             </div>
 
-            {/* Agent: split button — star/label toggles rail, chevron opens popover */}
+            {/* Agent: toggles chat rail */}
             {onToggleRail && (
-              <Popover
-                open={agentPopoverOpen}
-                onOpenChange={setAgentPopoverOpen}
+              <button
+                onClick={onToggleRail}
+                className={
+                  "ml-2 flex h-9 items-center gap-2 rounded-full px-4 text-xs font-semibold uppercase tracking-wide text-white shadow-sm ring-1 ring-inset transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md active:translate-y-0 " +
+                  (showRail
+                    ? "bg-ink-700 hover:bg-ink-800 ring-white/10"
+                    : "from-brick to-brick-hover bg-gradient-to-r ring-white/20")
+                }
               >
-                <div
-                  className={
-                    "flex h-9 items-stretch overflow-hidden rounded-md " +
-                    (showRail ? "bg-ink-700" : "bg-brick")
-                  }
-                >
-                  <button
-                    onClick={onToggleRail}
-                    className={
-                      "flex items-center gap-1.5 px-3 text-xs font-medium text-white transition-colors " +
-                      (showRail ? "hover:bg-ink-800" : "hover:bg-brick-hover")
-                    }
-                  >
-                    <IconStarFilled size={14} />
-                    Agent
-                  </button>
-                  <div className="w-px bg-white/25" />
-                  <PopoverTrigger asChild>
-                    <button
-                      className={
-                        "flex items-center px-2 text-white transition-colors " +
-                        (showRail ? "hover:bg-ink-800" : "hover:bg-brick-hover")
-                      }
-                      aria-label="Open agent actions"
-                    >
-                      <IconChevronDown size={14} />
-                    </button>
-                  </PopoverTrigger>
-                </div>
-                <PopoverContent
-                  align="end"
-                  className="w-[400px] p-0"
-                  sideOffset={8}
-                >
-                  {/* Input area */}
-                  <div className="border-ink-200 border-b p-4">
-                    <div className="text-ink-500 mb-2 text-[11px] font-semibold uppercase tracking-wide">
-                      Ask the agent
-                    </div>
-                    <div className="border-ink-200 focus-within:border-brick flex items-start gap-2 rounded-lg border p-3 transition-colors">
-                      <Textarea
-                        value={agentPrompt}
-                        onChange={e => setAgentPrompt(e.target.value)}
-                        placeholder="Ask me to help with your project…"
-                        rows={2}
-                        className="min-h-[48px] flex-1 resize-none border-none p-0 text-sm shadow-none focus-visible:ring-0"
-                        onKeyDown={e => {
-                          if (e.key === "Enter" && !e.shiftKey) {
-                            e.preventDefault()
-                            sendAgentPrompt(agentPrompt)
-                          }
-                        }}
-                      />
-                      <button
-                        onClick={() => sendAgentPrompt(agentPrompt)}
-                        disabled={!agentPrompt.trim()}
-                        className="text-ink-400 hover:text-brick disabled:text-ink-200 mt-1 shrink-0 transition-colors"
-                      >
-                        <IconSend size={18} />
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Quick actions */}
-                  <div className="p-4">
-                    <div className="text-ink-400 mb-2 text-[10px] font-bold uppercase tracking-widest">
-                      Project
-                    </div>
-                    <div className="flex flex-wrap gap-2">
-                      {[
-                        {
-                          label: "Summarize progress",
-                          prompt:
-                            "Summarize the current progress across all designs in this project.",
-                          icon: <IconClipboardText size={14} />
-                        },
-                        {
-                          label: "Suggest next steps",
-                          prompt:
-                            "Based on the current state of this project, what should I focus on next?",
-                          icon: <IconBulb size={14} />
-                        },
-                        {
-                          label: "Compare designs",
-                          prompt:
-                            "Compare the designs in this project and highlight their key differences.",
-                          icon: <IconFlask size={14} />
-                        },
-                        {
-                          label: "Generate insights",
-                          prompt:
-                            "Analyze this project and generate key insights or patterns across the research.",
-                          icon: <IconSparkles size={14} />
-                        }
-                      ].map(action => (
-                        <button
-                          key={action.label}
-                          onClick={() => sendAgentPrompt(action.prompt)}
-                          className="border-ink-200 text-ink-700 hover:border-brick hover:text-brick hover:bg-brick/5 flex items-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-medium transition-colors"
-                        >
-                          {action.icon}
-                          {action.label}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                </PopoverContent>
-              </Popover>
+                <IconSparkles size={14} className="shrink-0" />
+                Agent
+              </button>
             )}
           </div>
         </div>

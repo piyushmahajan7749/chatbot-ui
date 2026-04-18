@@ -75,7 +75,7 @@ export function AccentTabs({
     <div
       role="tablist"
       className={cn(
-        "border-ink-200 flex w-full items-stretch gap-3 border-b bg-white px-4 pb-3 pt-4",
+        "border-ink-200 flex w-full items-stretch gap-3 border-b bg-white px-6 pb-3 pt-4",
         className
       )}
     >
@@ -98,7 +98,7 @@ export function AccentTabs({
                   c.active,
                   isPrimary
                     ? "-translate-y-0.5 scale-[1.04] shadow-lg"
-                    : "z-[2] -translate-y-0.5 scale-[1.08]"
+                    : "z-[2] -translate-y-0.5"
                 )
               : cn(
                   c.inactive,
@@ -130,13 +130,13 @@ export function AccentTabs({
 
             <span
               className={cn(
-                "flex min-w-0 flex-col items-start leading-tight",
+                "flex min-w-0 flex-1 flex-col items-start overflow-hidden leading-tight",
                 !isPrimary && "items-start"
               )}
             >
               <span
                 className={cn(
-                  "text-[10px] font-bold uppercase tracking-[0.07em] opacity-80",
+                  "max-w-full truncate text-[10px] font-bold uppercase tracking-[0.07em] opacity-80",
                   isActive && "opacity-100"
                 )}
               >
@@ -145,7 +145,7 @@ export function AccentTabs({
               {tab.sublabel && (
                 <span
                   className={cn(
-                    "truncate text-[13px]",
+                    "max-w-full truncate text-[13px]",
                     isPrimary
                       ? isActive
                         ? "text-ink-900 font-extrabold"
