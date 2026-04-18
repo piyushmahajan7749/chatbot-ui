@@ -543,7 +543,7 @@ export async function callExperimentDesignerAgent(
         specificRequirements:
           parsed.experimentDesign?.specificRequirements || "Not specified"
       },
-      conditionsTable: parsed.conditionsTable || "Not specified",
+      conditionsTable: parsed.conditionsTable || { headers: [], rows: [] },
       experimentalGroupsOverview:
         parsed.experimentalGroupsOverview || "Not specified",
       statisticalRationale: parsed.statisticalRationale || "Not specified",
@@ -562,8 +562,7 @@ export async function callExperimentDesignerAgent(
     )
     console.log(
       "  📋 Conditions Table:",
-      result.conditionsTable.length,
-      "characters"
+      `${result.conditionsTable.rows.length} rows × ${result.conditionsTable.headers.length} cols`
     )
     console.log(
       "  🤝 Handoff Note:",
@@ -948,7 +947,7 @@ const EMPTY_EXPERIMENT_DESIGN: ExperimentDesignerOutput = {
     replicatesAndConditions: "Not specified",
     specificRequirements: "Not specified"
   },
-  conditionsTable: "Not specified",
+  conditionsTable: { headers: [], rows: [] },
   experimentalGroupsOverview: "Not specified",
   statisticalRationale: "Not specified",
   criticalTechnicalRequirements: "Not specified",

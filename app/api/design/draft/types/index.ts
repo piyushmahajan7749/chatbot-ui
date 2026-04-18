@@ -98,6 +98,11 @@ export interface HypothesisBuilderOutput {
   explanation: string
 }
 
+export interface ConditionsTable {
+  headers: string[]
+  rows: string[][]
+}
+
 export interface ExperimentDesignerOutput {
   designSummary: string
   experimentDesign: {
@@ -110,7 +115,7 @@ export interface ExperimentDesignerOutput {
     replicatesAndConditions: string
     specificRequirements: string
   }
-  conditionsTable: string
+  conditionsTable: ConditionsTable
   experimentalGroupsOverview: string
   statisticalRationale: string
   criticalTechnicalRequirements: string
@@ -291,7 +296,10 @@ export const ExperimentDesignerSchema = z.object({
     replicatesAndConditions: z.string(),
     specificRequirements: z.string()
   }),
-  conditionsTable: z.string().min(100),
+  conditionsTable: z.object({
+    headers: z.array(z.string().min(1)).min(2),
+    rows: z.array(z.array(z.string())).min(1)
+  }),
   experimentalGroupsOverview: z.string().min(80),
   statisticalRationale: z.string().min(60),
   criticalTechnicalRequirements: z.string().min(40),

@@ -93,7 +93,7 @@ const experimentTask = [
   "- `experimentDesign.toolsNeeded`: instruments/assays/analytical methods (name them; don’t write protocols here).",
   "- `experimentDesign.replicatesAndConditions`: replicates (biological/technical) and timepoints.",
   "- `experimentDesign.specificRequirements`: fixed background conditions and constraints (buffer, pH range, temperature, baseline formulation, etc.).",
-  "- `conditionsTable`: a fully explicit markdown table listing EVERY condition. Each row must independently list all independent variables, exact levels with units, and full formulation composition where applicable. Do NOT use ditto marks, ellipses, or summarized/grouped rows.",
+  "- `conditionsTable`: STRUCTURED object with `headers` (array of column names as strings) and `rows` (array of rows; each row is an array of strings in the same order as `headers`). Include EVERY condition as its own row. Each row must independently list all independent variables, exact levels WITH units, and full formulation composition where applicable. Every row MUST have exactly `headers.length` cells. Do NOT output markdown, pipes, ditto marks, ellipses, or summarized/grouped rows.",
   "- `experimentalGroupsOverview`: structured prose naming each group (Control; Main-effect groups; Interaction group(s); Center-point group if used; Excipient-comparison group if applicable). Each group must have a scientific purpose.",
   "- `statisticalRationale`: short, sharp explanation of why this design works, what effects it can detect, why replicates are sufficient, why it is efficient. No fluff.",
   "- `criticalTechnicalRequirements`: model system, analytical methods, handling constraints, stability conditions.",
@@ -119,7 +119,9 @@ const experimentWriting = [
   "Writing rules:",
   "- Think like a principal scientist reviewing a study. Be direct, clear, insightful.",
   "- Avoid generic explanations, textbook filler, or marketing language.",
-  "- Use numbered/markdown tables where appropriate (conditions table must be a markdown table).",
+  "- `conditionsTable` must be the structured JSON object described above, NEVER a markdown string.",
+  "- For any other field containing bullet points, each bullet MUST be on its own line separated by a real newline (\\n), prefixed with `- `. Never write inline bullets like `foo. - bar. - baz.` on a single line. Numbered lists follow the same rule with `1. `, `2. `, etc., each on its own line.",
+  "- Use Unicode symbols directly (°, μ, ±, Å, ×, ≤, ≥) rather than LaTeX, HTML entities, or ASCII substitutes like `deg` or `u`. If the symbol only makes sense in a math context, wrap it with KaTeX: `$\\mu g / mL$`.",
   "- Every number must have units.",
   "- Labels / Condition IDs must be unambiguous and consistent across fields."
 ].join("\n")

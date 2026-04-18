@@ -369,6 +369,97 @@ type ExecutionStep = {
   accent: StepAccent
 }
 
+type StructuredConditionsTable = {
+  headers: string[]
+  rows: string[][]
+}
+
+const coerceConditionsTable = (
+  input: unknown
+): StructuredConditionsTable | null => {
+  if (!input) return null
+  if (
+    typeof input === "object" &&
+    Array.isArray((input as any).headers) &&
+    Array.isArray((input as any).rows)
+  ) {
+    const t = input as StructuredConditionsTable
+    if (t.headers.length === 0 || t.rows.length === 0) return null
+    return t
+  }
+  if (typeof input === "string") {
+    const parsed = splitIntoBlocks(input).find(
+      (b): b is Extract<Block, { kind: "table" }> => b.kind === "table"
+    )
+    return parsed ? { headers: parsed.headers, rows: parsed.rows } : null
+  }
+  return null
+}
+
+const ConditionsTableCard = ({
+  title = "Conditions Table",
+  table,
+  accent = "rose"
+}: {
+  title?: string
+  table: unknown
+  accent?: StepAccent
+}) => {
+  const accentMap: Record<StepAccent, string> = {
+    emerald: "border-emerald-500/40 bg-emerald-500/5",
+    blue: "border-sky-500/40 bg-sky-500/5",
+    violet: "border-violet-500/40 bg-violet-500/5",
+    amber: "border-amber-500/40 bg-amber-500/5",
+    rose: "border-rose-500/40 bg-rose-500/5"
+  }
+  const structured = coerceConditionsTable(table)
+  if (!structured) {
+    if (typeof table === "string" && table.trim().length > 0) {
+      return <StepCard title={title} body={table} accent={accent} />
+    }
+    return null
+  }
+  return (
+    <div
+      className={`rounded-lg border ${accentMap[accent]} p-3 shadow-sm backdrop-blur`}
+    >
+      <p className="text-muted-foreground text-xs font-semibold uppercase tracking-wide">
+        {title}
+      </p>
+      <div className="border-border/70 bg-background/60 mt-2 overflow-hidden rounded-lg border">
+        <Table>
+          <TableHeader className="bg-muted/50">
+            <TableRow>
+              {structured.headers.map((header, hIdx) => (
+                <TableHead
+                  key={`ct-h-${hIdx}`}
+                  className="text-foreground h-10 px-3 text-xs font-semibold uppercase tracking-wide"
+                >
+                  {header}
+                </TableHead>
+              ))}
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {structured.rows.map((row, rIdx) => (
+              <TableRow key={`ct-r-${rIdx}`}>
+                {structured.headers.map((_, cIdx) => (
+                  <TableCell
+                    key={`ct-c-${rIdx}-${cIdx}`}
+                    className="px-3 py-2 text-sm"
+                  >
+                    {row[cIdx] ?? ""}
+                  </TableCell>
+                ))}
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </div>
+    </div>
+  )
+}
+
 const StepCard = ({
   title,
   body,
@@ -1248,9 +1339,8 @@ export function DesignReview({
                 return (
                   <div className="space-y-5">
                     {designer.conditionsTable && (
-                      <StepCard
-                        title="Conditions Table"
-                        body={designer.conditionsTable}
+                      <ConditionsTableCard
+                        table={designer.conditionsTable}
                         accent="rose"
                       />
                     )}

@@ -1,4 +1,5 @@
 import type {
+  ConditionsTable,
   MasterMixPlan,
   PlannerOutput,
   ProcedureOutput,
@@ -37,6 +38,19 @@ export const reagentToMarkdown = (reagent: ReagentPreparation): string => {
 export const reagentsToMarkdown = (reagents: ReagentPreparation[]): string => {
   if (!reagents?.length) return "_No reagents specified._"
   return reagents.map(reagentToMarkdown).join("\n\n")
+}
+
+export const conditionsTableToMarkdown = (table: ConditionsTable): string => {
+  if (!table?.headers?.length || !table?.rows?.length) {
+    return "_No conditions specified._"
+  }
+  const header = `| ${table.headers.map(asCell).join(" | ")} |`
+  const sep = `| ${table.headers.map(() => "---").join(" | ")} |`
+  const body = table.rows.map(row => {
+    const cells = table.headers.map((_, i) => asCell(row[i]))
+    return `| ${cells.join(" | ")} |`
+  })
+  return [header, sep, ...body].join("\n")
 }
 
 export const masterMixToMarkdown = (plan: MasterMixPlan): string => {

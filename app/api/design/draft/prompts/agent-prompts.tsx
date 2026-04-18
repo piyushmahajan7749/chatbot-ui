@@ -18,6 +18,7 @@ import {
 
 import { designAgentPromptSchemas } from "@/lib/design/prompt-schemas"
 import {
+  conditionsTableToMarkdown,
   masterMixToMarkdown,
   procedureStepsToMarkdown,
   reagentsToMarkdown,
@@ -220,7 +221,7 @@ const renderExperimentDesignData = (state: ExperimentDesignState) => {
         <li>Specific Requirements: {design.specificRequirements}</li>
       </ul>
       <p>Conditions Table (markdown):</p>
-      <p>{designerOutput.conditionsTable}</p>
+      <p>{conditionsTableToMarkdown(designerOutput.conditionsTable)}</p>
       <p>Experimental Groups Overview:</p>
       <p>{designerOutput.experimentalGroupsOverview}</p>
       <p>Statistical Rationale:</p>
