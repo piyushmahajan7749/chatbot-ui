@@ -26,6 +26,8 @@ import { SplitRailLayout } from "@/components/canvas/split-rail-layout"
 import { ChatbotUIContext } from "@/context/context"
 import { useToast } from "@/app/hooks/use-toast"
 import { cn } from "@/lib/utils"
+import ReactMarkdown from "react-markdown"
+import remarkGfm from "remark-gfm"
 import {
   DESIGN_DOMAIN_OPTIONS,
   DESIGN_PHASE_OPTIONS,
@@ -34,6 +36,7 @@ import {
   type DesignDomain,
   type DesignPhase,
   type DesignSection,
+  type DesignVersionSnapshot,
   type GeneratedDesign,
   type Hypothesis,
   type Paper,
@@ -174,6 +177,52 @@ function parseContent(raw: unknown): DesignContentV2 | null {
   return null
 }
 
+function buildDesignChatContext(input: {
+  title: string
+  problemStatement: string
+  objective: string
+  domain: string
+  phase: string
+  selectedHypotheses: Hypothesis[]
+  activeDesign: GeneratedDesign | undefined
+}): string {
+  const lines: string[] = []
+  lines.push(
+    "You are Shadow AI, the scientific design assistant for this experiment. Answer questions in reference to the experiment described below WITHOUT asking the user to re-supply which design they mean. If a calculation is requested, use the numeric values from the design's procedure and materials when available."
+  )
+
+  const problemLines: string[] = []
+  if (input.title) problemLines.push(`Title: ${input.title}`)
+  if (input.problemStatement)
+    problemLines.push(`Problem: ${input.problemStatement}`)
+  if (input.objective) problemLines.push(`Objective: ${input.objective}`)
+  if (input.domain) problemLines.push(`Domain: ${input.domain}`)
+  if (input.phase) problemLines.push(`Phase: ${input.phase}`)
+  if (problemLines.length) {
+    lines.push("", "## Problem", ...problemLines)
+  }
+
+  if (input.selectedHypotheses.length) {
+    lines.push("", "## Selected hypotheses")
+    input.selectedHypotheses.forEach((h, i) => {
+      lines.push(`${i + 1}. ${h.text}`)
+      if (h.reasoning) lines.push(`   Reasoning: ${h.reasoning}`)
+    })
+  }
+
+  if (input.activeDesign) {
+    lines.push("", `## Active design: ${input.activeDesign.title}`)
+    input.activeDesign.sections.forEach(sec => {
+      lines.push("", `### ${sec.heading}`)
+      const body = sec.body.trim()
+      // Cap each section at ~1500 chars to keep the system prompt bounded.
+      lines.push(body.length > 1500 ? body.slice(0, 1500) + "…" : body)
+    })
+  }
+
+  return lines.join("\n")
+}
+
 // ─────────────────────────────────────────────────────────────────────────
 // Page
 // ─────────────────────────────────────────────────────────────────────────
@@ -229,6 +278,9 @@ export default function DesignDetailPage() {
   )
   const [activeDesignId, setActiveDesignId] = useState<string | null>(null)
   const [designProgress, setDesignProgress] = useState<PhaseProgress[]>([])
+  const [designVersions, setDesignVersions] = useState<DesignVersionSnapshot[]>(
+    []
+  )
 
   // Rail toggle
   const [showRail, setShowRail] = useState(false)
@@ -316,8 +368,14 @@ export default function DesignDetailPage() {
       const content = parseContent(data.content)
       latestContentRef.current = content ?? { schemaVersion: 2 }
       const problem = content?.problem ?? {}
-      setTitle(problem.title ?? data.name ?? "")
-      setProblemStatement(problem.problemStatement ?? data.description ?? "")
+      const loadedTitle = problem.title ?? data.name ?? ""
+      setTitle(loadedTitle)
+      const rawStatement = problem.problemStatement ?? data.description ?? ""
+      setProblemStatement(
+        rawStatement.trim().toLowerCase() === loadedTitle.trim().toLowerCase()
+          ? ""
+          : rawStatement
+      )
       setDomain((problem.domain as DesignDomain | undefined) ?? "")
       setPhase((problem.phase as DesignPhase | undefined) ?? "")
       setObjective(problem.objective ?? problem.goal ?? "")
@@ -340,6 +398,7 @@ export default function DesignDetailPage() {
         setGeneratedDesigns(content.designs)
         setActiveDesignId(content.designs[0]?.id ?? null)
       }
+      if (content?.designVersions) setDesignVersions(content.designVersions)
       if (content?.approvedPhases) setApprovedPhases(content.approvedPhases)
     } catch (error) {
       console.error("Error fetching design:", error)
@@ -617,6 +676,25 @@ export default function DesignDetailPage() {
   }
 
   const handleRegenerateDesign = async () => {
+    // Snapshot the current design set into history before regenerating so
+    // the user can restore it later via the version switcher.
+    let snapshotVersions = designVersions
+    if (generatedDesigns.length > 0) {
+      const nextVersionNumber = (designVersions[0]?.versionNumber ?? 0) + 1 || 1
+      const snapshot: DesignVersionSnapshot = {
+        id:
+          typeof crypto !== "undefined" && "randomUUID" in crypto
+            ? crypto.randomUUID()
+            : `v-${Date.now()}`,
+        versionNumber: nextVersionNumber,
+        designs: generatedDesigns,
+        createdAt: new Date().toISOString()
+      }
+      snapshotVersions = [snapshot, ...designVersions]
+      setDesignVersions(snapshotVersions)
+      await persistContent({ designVersions: snapshotVersions })
+    }
+
     const keep = clearDownstreamState("design")
     setBusy("design")
     setDesignProgress([])
@@ -631,10 +709,16 @@ export default function DesignDetailPage() {
         },
         ev => setDesignProgress(prev => [...prev, ev])
       )
-      latestContentRef.current = content
+      latestContentRef.current = {
+        ...content,
+        designVersions: snapshotVersions
+      }
       const designs = content.designs ?? []
       setGeneratedDesigns(designs)
       setActiveDesignId(designs[0]?.id ?? null)
+      // Persist designVersions alongside the regenerated designs so they
+      // survive a reload.
+      await persistContent({ designVersions: snapshotVersions })
     } catch (error: any) {
       toast({
         title: "Design generation failed",
@@ -644,6 +728,43 @@ export default function DesignDetailPage() {
     } finally {
       setBusy(null)
     }
+  }
+
+  const handleRestoreDesignVersion = async (versionId: string) => {
+    const version = designVersions.find(v => v.id === versionId)
+    if (!version) return
+
+    // Snapshot current designs as a new version, then restore the selected one
+    // as the current designs. Drop the restored version from history to avoid
+    // duplicates, keeping it as "current".
+    let nextVersions = designVersions
+    if (generatedDesigns.length > 0) {
+      const nextNumber = (designVersions[0]?.versionNumber ?? 0) + 1 || 1
+      const snapshot: DesignVersionSnapshot = {
+        id:
+          typeof crypto !== "undefined" && "randomUUID" in crypto
+            ? crypto.randomUUID()
+            : `v-${Date.now()}`,
+        versionNumber: nextNumber,
+        designs: generatedDesigns,
+        createdAt: new Date().toISOString()
+      }
+      nextVersions = [snapshot, ...designVersions]
+    }
+    nextVersions = nextVersions.filter(v => v.id !== versionId)
+
+    setGeneratedDesigns(version.designs)
+    setActiveDesignId(version.designs[0]?.id ?? null)
+    setDesignVersions(nextVersions)
+    await persistContent({
+      designs: version.designs,
+      designVersions: nextVersions
+    })
+    toast({
+      title: `Restored v${version.versionNumber}`,
+      description:
+        "Previous design restored. Prior current set saved to history."
+    })
   }
 
   // ── Revise handler ────────────────────────────────────────────────────
@@ -997,12 +1118,25 @@ export default function DesignDetailPage() {
 
   // ── Render ────────────────────────────────────────────────────────────
 
+  const activeDesign =
+    generatedDesigns.find(d => d.id === activeDesignId) ?? generatedDesigns[0]
+  const chatContextPrompt = buildDesignChatContext({
+    title,
+    problemStatement,
+    objective,
+    domain,
+    phase,
+    selectedHypotheses: hypotheses.filter(h => h.selected),
+    activeDesign
+  })
+
   const rail = (
     <ScopedChatRail
       scope="design"
       scopeId={designId}
       scopeName={design?.name ?? title}
       autoStart
+      contextPrompt={chatContextPrompt}
     />
   )
 
@@ -1033,9 +1167,6 @@ export default function DesignDetailPage() {
       </SplitRailLayout>
     )
   }
-
-  const activeDesign =
-    generatedDesigns.find(d => d.id === activeDesignId) ?? generatedDesigns[0]
 
   const handleTabChange = (key: string) => {
     if (key !== "overview") {
@@ -1200,6 +1331,8 @@ export default function DesignDetailPage() {
                 isGenerating={busy === "design"}
                 progress={designProgress}
                 onRevise={() => handleRevisePhase("design")}
+                designVersions={designVersions}
+                onRestoreVersion={handleRestoreDesignVersion}
               />
             )}
 
@@ -1733,18 +1866,39 @@ function LiteratureTab(props: {
               />
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2">
-                  <h4 className="text-ink-900 flex-1 text-sm font-semibold">
+                  <h4 className="text-ink-900 flex-1 text-sm font-semibold leading-snug">
                     {paper.title}
                   </h4>
                   {paper.userAdded && (
-                    <span className="bg-orange-product-tint text-orange-product rounded px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide">
+                    <span className="bg-orange-product-tint text-orange-product shrink-0 rounded px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide">
                       Uploaded
                     </span>
                   )}
                 </div>
-                <p className="text-ink-500 mt-1 text-xs leading-relaxed">
-                  {paper.summary}
-                </p>
+                {(() => {
+                  const authorList = paper.authors ?? []
+                  const authorStr =
+                    authorList.length === 0
+                      ? ""
+                      : authorList.length <= 3
+                        ? authorList.join(", ")
+                        : `${authorList.slice(0, 3).join(", ")} et al.`
+                  const metaParts = [
+                    authorStr,
+                    paper.year,
+                    paper.journal
+                  ].filter(Boolean)
+                  return metaParts.length ? (
+                    <p className="text-ink-400 mt-0.5 text-[11px]">
+                      {metaParts.join(" · ")}
+                    </p>
+                  ) : null
+                })()}
+                {paper.summary && (
+                  <p className="text-ink-500 mt-1 line-clamp-3 text-xs leading-relaxed">
+                    {paper.summary}
+                  </p>
+                )}
                 {paper.sourceUrl && (
                   <a
                     href={paper.sourceUrl}
@@ -1818,6 +1972,8 @@ function HypothesesTab(props: {
     return m
   }, [papers])
 
+  const selectedCount = hypotheses.filter(h => h.selected).length
+
   return (
     <div className="space-y-4">
       <PhaseBanner
@@ -1826,15 +1982,29 @@ function HypothesesTab(props: {
         onRevise={onRevise}
       />
 
-      <div>
-        <h3 className="text-purple-persona text-sm font-bold uppercase tracking-widest">
-          Candidate Hypotheses
-        </h3>
-        <p className="text-ink-500 mt-0.5 text-xs">
-          {isApproved
-            ? "Hypotheses approved. Selected hypotheses were used to generate experiment designs."
-            : "Review the hypotheses and select the ones to carry into experimental design."}
-        </p>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h3 className="text-purple-persona text-sm font-bold uppercase tracking-widest">
+            Review &amp; select hypotheses
+          </h3>
+          <p className="text-ink-500 mt-0.5 text-xs">
+            {isApproved
+              ? "Hypotheses approved. The selected hypotheses were used to generate experiment designs."
+              : "Review the hypotheses below and select one or more to carry into experimental design."}
+          </p>
+        </div>
+        {hypotheses.length > 0 && (
+          <span
+            className={cn(
+              "rounded-full border px-2.5 py-1 text-[11px] font-semibold",
+              selectedCount > 0
+                ? "border-purple-persona bg-purple-persona-tint text-purple-persona"
+                : "border-ink-200 text-ink-500"
+            )}
+          >
+            {selectedCount} of {hypotheses.length} selected
+          </span>
+        )}
       </div>
 
       {hypotheses.length === 0 ? (
@@ -1874,8 +2044,8 @@ function HypothesesTab(props: {
                       Why this hypothesis
                     </button>
                   </PopoverTrigger>
-                  <PopoverContent className="w-80 text-xs">
-                    <div className="space-y-2">
+                  <PopoverContent className="w-96 text-xs">
+                    <div className="space-y-3">
                       <div>
                         <div className="text-ink-400 text-[10px] font-bold uppercase tracking-wide">
                           Reasoning
@@ -1886,18 +2056,62 @@ function HypothesesTab(props: {
                         <div className="text-ink-400 text-[10px] font-bold uppercase tracking-wide">
                           Based on
                         </div>
-                        <ul className="text-ink-700 mt-1 list-disc space-y-0.5 pl-4">
-                          {h.basedOnPaperIds.map(pid => (
-                            <li key={pid}>
-                              {paperById.get(pid)?.title ?? pid}
-                            </li>
-                          ))}
-                          {h.basedOnPaperIds.length === 0 && (
-                            <li className="text-ink-400 list-none">
-                              No source papers attached.
-                            </li>
-                          )}
-                        </ul>
+                        {h.basedOnPaperIds.length === 0 ? (
+                          <p className="text-ink-400 mt-1">
+                            No reference paper attached.
+                          </p>
+                        ) : (
+                          <ul className="mt-1 space-y-2">
+                            {h.basedOnPaperIds.map(pid => {
+                              const paper = paperById.get(pid)
+                              if (!paper) {
+                                return (
+                                  <li key={pid} className="text-ink-400 italic">
+                                    Reference {pid} (not available)
+                                  </li>
+                                )
+                              }
+                              const authorLabel =
+                                paper.authors && paper.authors.length
+                                  ? paper.authors.length <= 3
+                                    ? paper.authors.join(", ")
+                                    : `${paper.authors.slice(0, 3).join(", ")} et al.`
+                                  : ""
+                              const meta = [
+                                authorLabel,
+                                paper.year,
+                                paper.journal
+                              ]
+                                .filter(Boolean)
+                                .join(" · ")
+                              return (
+                                <li
+                                  key={pid}
+                                  className="border-ink-100 bg-ink-50 rounded-md border p-2"
+                                >
+                                  <div className="text-ink-900 font-semibold leading-snug">
+                                    {paper.title}
+                                  </div>
+                                  {meta && (
+                                    <div className="text-ink-500 mt-0.5 text-[10px]">
+                                      {meta}
+                                    </div>
+                                  )}
+                                  {paper.sourceUrl && (
+                                    <a
+                                      href={paper.sourceUrl}
+                                      target="_blank"
+                                      rel="noreferrer"
+                                      className="text-orange-product mt-1 inline-block text-[10px] underline"
+                                    >
+                                      Open source
+                                    </a>
+                                  )}
+                                </li>
+                              )
+                            })}
+                          </ul>
+                        )}
                       </div>
                     </div>
                   </PopoverContent>
@@ -2002,10 +2216,12 @@ function DesignSectionContent(props: { section: DesignSection }) {
   const { section } = props
   const id = `section-${slugifyHeading(section.heading)}`
 
-  const lines = section.body.split(/\r?\n/).map(l => l.trim())
-  const nonEmpty = lines.filter(l => l.length > 0)
-  const allBulleted =
-    nonEmpty.length > 1 && nonEmpty.every(l => /^([-*•]|\d+\.)\s+/.test(l))
+  // Promote any paragraph-embedded bullet markers onto their own line so the
+  // markdown renderer turns them into a real list (fixes runs that squash
+  // bullets into a wall of text).
+  const normalized = section.body
+    .replace(/\s+([-*•])\s+(?=\S)/g, "\n$1 ")
+    .replace(/\s+(\d+\.)\s+(?=\S)/g, "\n$1 ")
 
   return (
     <section
@@ -2016,25 +2232,9 @@ function DesignSectionContent(props: { section: DesignSection }) {
       <h3 className="text-ink-900 mb-3 text-base font-semibold">
         {section.heading}
       </h3>
-      {allBulleted ? (
-        <ul className="text-ink-700 list-disc space-y-1.5 pl-5 text-sm leading-relaxed">
-          {nonEmpty.map((l, i) => (
-            <li key={i}>{l.replace(/^([-*•]|\d+\.)\s+/, "")}</li>
-          ))}
-        </ul>
-      ) : (
-        <div className="text-ink-700 space-y-2 text-sm leading-relaxed">
-          {section.body
-            .split(/\n{2,}/)
-            .map(p => p.trim())
-            .filter(Boolean)
-            .map((p, i) => (
-              <p key={i} className="whitespace-pre-wrap">
-                {p}
-              </p>
-            ))}
-        </div>
-      )}
+      <div className="text-ink-700 [&_table]:border-ink-200 [&_td]:border-ink-200 [&_th]:border-ink-200 [&_th]:bg-ink-50 text-sm leading-relaxed [&_li]:my-0.5 [&_ol]:list-decimal [&_ol]:space-y-1 [&_ol]:pl-5 [&_p]:my-2 [&_table]:mt-2 [&_table]:w-full [&_table]:border-collapse [&_table]:border [&_table]:text-xs [&_td]:border [&_td]:px-2 [&_td]:py-1 [&_th]:border [&_th]:px-2 [&_th]:py-1 [&_th]:text-left [&_ul]:list-disc [&_ul]:space-y-1 [&_ul]:pl-5">
+        <ReactMarkdown remarkPlugins={[remarkGfm]}>{normalized}</ReactMarkdown>
+      </div>
     </section>
   )
 }
@@ -2053,6 +2253,8 @@ function DesignTab(props: {
   isGenerating?: boolean
   progress?: PhaseProgress[]
   onRevise: () => void
+  designVersions?: DesignVersionSnapshot[]
+  onRestoreVersion?: (versionId: string) => void
 }) {
   const {
     designs,
@@ -2067,7 +2269,9 @@ function DesignTab(props: {
     isBusy,
     isGenerating,
     progress,
-    onRevise
+    onRevise,
+    designVersions = [],
+    onRestoreVersion
   } = props
 
   const scrollContainerId = "design-detail-scroll"
@@ -2104,16 +2308,20 @@ function DesignTab(props: {
                 <button
                   key={d.id}
                   onClick={() => onSelect(d.id)}
+                  title={d.title}
                   className={
-                    "rounded-lg border px-3 py-1.5 text-xs font-semibold transition-colors " +
+                    "flex max-w-full items-center gap-2 whitespace-normal break-words rounded-lg border px-3 py-1.5 text-left text-xs font-semibold transition-colors md:max-w-[360px] " +
                     (isActive
                       ? "border-sage-brand bg-sage-brand-active text-sage-brand"
                       : "border-ink-200 text-ink-500 hover:bg-ink-100")
                   }
                 >
-                  {d.title.length > 48 ? d.title.slice(0, 48) + "..." : d.title}
+                  <span className="min-w-0 flex-1">{d.title}</span>
                   {d.saved && (
-                    <span className="bg-sage-brand ml-2 inline-block size-1.5 rounded-full" />
+                    <span
+                      aria-label="Saved"
+                      className="bg-sage-brand mt-0.5 inline-block size-1.5 shrink-0 rounded-full"
+                    />
                   )}
                 </button>
               )
@@ -2130,15 +2338,59 @@ function DesignTab(props: {
               </aside>
 
               <Card className="rounded-2xl">
-                <CardHeader className="pb-3">
-                  <div>
+                <CardHeader className="flex flex-row items-start justify-between gap-3 pb-3">
+                  <div className="min-w-0 flex-1">
                     <div className="text-ink-400 text-[10px] font-bold uppercase tracking-[0.13em]">
                       Experiment Design
                     </div>
-                    <CardTitle className="text-sage-brand mt-1 text-lg">
+                    <CardTitle
+                      className="text-sage-brand mt-1 whitespace-normal break-words text-lg leading-tight"
+                      title={activeDesign.title}
+                    >
                       {activeDesign.title}
                     </CardTitle>
                   </div>
+                  {designVersions.length > 0 && onRestoreVersion && (
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="h-7 shrink-0 gap-1 text-xs"
+                        >
+                          <IconRefresh size={12} />v
+                          {(designVersions[0]?.versionNumber ?? 0) + 1} ·
+                          history
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent align="end" className="w-72 p-2">
+                        <div className="text-ink-400 mb-2 px-1 text-[10px] font-bold uppercase tracking-widest">
+                          Prior versions
+                        </div>
+                        <ul className="space-y-1">
+                          {designVersions.map(v => (
+                            <li key={v.id}>
+                              <button
+                                onClick={() => onRestoreVersion(v.id)}
+                                className="hover:bg-ink-100 flex w-full items-center justify-between rounded-md px-2 py-1.5 text-left text-xs"
+                              >
+                                <span className="font-semibold">
+                                  v{v.versionNumber}
+                                </span>
+                                <span className="text-ink-400">
+                                  {new Date(v.createdAt).toLocaleDateString()}
+                                </span>
+                              </button>
+                            </li>
+                          ))}
+                        </ul>
+                        <p className="text-ink-400 mt-2 px-1 text-[10px]">
+                          Selecting a version restores it and archives the
+                          current design.
+                        </p>
+                      </PopoverContent>
+                    </Popover>
+                  )}
                 </CardHeader>
                 <CardContent>
                   <div
@@ -2400,9 +2652,18 @@ function OverviewTab(props: {
                   {phaseLabel || "\u2014"}
                 </OverviewField>
               </div>
-              <OverviewField label="Problem Statement">
-                {problemStatement || "\u2014"}
-              </OverviewField>
+              {(() => {
+                const statement = (problemStatement || "").trim()
+                const titleForCompare = (title || "").trim()
+                const showStatement =
+                  statement !== "" &&
+                  statement.toLowerCase() !== titleForCompare.toLowerCase()
+                return showStatement ? (
+                  <OverviewField label="Problem Statement">
+                    {statement}
+                  </OverviewField>
+                ) : null
+              })()}
               <OverviewField label="Objective">
                 {objective || "\u2014"}
               </OverviewField>
@@ -2518,7 +2779,7 @@ function OverviewTab(props: {
                 onClick={() => onGoToTab("literature")}
                 className="text-ink-500 h-7 text-xs"
               >
-                Manage
+                Edit
               </Button>
             </CardHeader>
             <CardContent>
@@ -2587,7 +2848,7 @@ function OverviewTab(props: {
                 onClick={() => onGoToTab("hypotheses")}
                 className="text-ink-500 h-7 text-xs"
               >
-                Manage
+                Edit
               </Button>
             </CardHeader>
             <CardContent>
@@ -2633,7 +2894,7 @@ function OverviewTab(props: {
                 onClick={() => onGoToTab("design")}
                 className="text-ink-500 h-7 text-xs"
               >
-                Open
+                Edit
               </Button>
             </CardHeader>
             <CardContent>
@@ -2680,12 +2941,15 @@ function DesignCompactCard(props: {
           <div className="text-ink-400 text-[10px] font-bold uppercase tracking-[0.13em]">
             Active design {designCount > 1 ? `(1 of ${designCount})` : ""}
           </div>
-          <div className="text-ink-900 mt-1 text-sm font-semibold">
+          <div
+            className="text-ink-900 mt-1 whitespace-normal break-words text-sm font-semibold leading-tight"
+            title={design.title}
+          >
             {design.title}
           </div>
         </div>
         {design.saved && (
-          <span className="bg-sage-brand-tint text-sage-brand rounded px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide">
+          <span className="bg-sage-brand-tint text-sage-brand shrink-0 rounded px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide">
             Saved
           </span>
         )}
@@ -2698,7 +2962,7 @@ function DesignCompactCard(props: {
         </p>
       )}
 
-      <div className="grid grid-cols-3 gap-2">
+      <div className="grid grid-cols-2 gap-2">
         <div className="border-ink-200 rounded-md border bg-white px-2.5 py-1.5">
           <div className="text-ink-400 text-[10px] font-bold uppercase tracking-wide">
             Sections
@@ -2713,14 +2977,6 @@ function DesignCompactCard(props: {
           </div>
           <div className="text-ink-900 mt-0.5 truncate text-sm font-semibold">
             {design.hypothesisId.slice(0, 10)}…
-          </div>
-        </div>
-        <div className="border-ink-200 rounded-md border bg-white px-2.5 py-1.5">
-          <div className="text-ink-400 text-[10px] font-bold uppercase tracking-wide">
-            Simulation
-          </div>
-          <div className="text-ink-900 mt-0.5 text-sm font-semibold">
-            {design.simulation ? "Ready" : "—"}
           </div>
         </div>
       </div>

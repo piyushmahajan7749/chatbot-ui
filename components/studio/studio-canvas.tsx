@@ -1,6 +1,6 @@
 "use client"
 
-import { useContext, useEffect, useMemo, useState } from "react"
+import { useContext, useEffect, useMemo, useRef, useState } from "react"
 import { useParams, useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -18,18 +18,32 @@ import { Project } from "@/types/project"
 import { ProjectSettingsModal } from "./project-settings-modal"
 import {
   IconClipboardText,
+  IconDownload,
   IconEdit,
+  IconFile,
+  IconFileText,
   IconFlask,
   IconMessage,
   IconMessagePlus,
+  IconPhoto,
   IconPlus,
   IconReport,
   IconSearch,
-  IconSparkles
+  IconSparkles,
+  IconTable,
+  IconTrash,
+  IconUpload
 } from "@tabler/icons-react"
 import { useToast } from "@/app/hooks/use-toast"
 import { ChatbotUIContext } from "@/context/context"
 import { supabase } from "@/lib/supabase/browser-client"
+import {
+  deleteProjectFile,
+  getProjectFiles,
+  getProjectFileSignedUrl,
+  uploadProjectFile,
+  type ProjectFileMeta
+} from "@/db/project-files"
 
 interface StudioCanvasProps {
   children?: React.ReactNode
@@ -48,7 +62,7 @@ type DesignRow = Tables<"designs"> & {
 type ReportRow = Tables<"reports">
 type ChatRow = Tables<"chats">
 
-type TabKey = "designs" | "reports" | "chats"
+type TabKey = "designs" | "reports" | "chats" | "files"
 
 export function StudioCanvas({
   children,
@@ -67,11 +81,14 @@ export function StudioCanvas({
   const [designs, setDesigns] = useState<DesignRow[]>([])
   const [reports, setReports] = useState<ReportRow[]>([])
   const [chats, setChats] = useState<ChatRow[]>([])
+  const [files, setFiles] = useState<ProjectFileMeta[]>([])
   const [loading, setLoading] = useState(true)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [search, setSearch] = useState("")
   const [activeTab, setActiveTab] = useState<TabKey>("designs")
   const [creatingChat, setCreatingChat] = useState(false)
+  const [uploadingFiles, setUploadingFiles] = useState(false)
+  const fileInputRef = useRef<HTMLInputElement | null>(null)
 
   const actualProjectId = projectId || (params.projectId as string)
   const actualWorkspaceId = workspaceId || (params.workspaceid as string)
@@ -80,6 +97,24 @@ export function StudioCanvas({
   useEffect(() => {
     if (actualProjectId && actualWorkspaceId) {
       void fetchProjectData()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [actualProjectId, actualWorkspaceId])
+
+  // Re-fetch designs/reports/chats when the tab regains focus so returning
+  // from a design page shows any newly created/saved designs immediately.
+  useEffect(() => {
+    if (!actualProjectId || !actualWorkspaceId) return
+    const onFocus = () => {
+      if (document.visibilityState === "visible") {
+        void fetchProjectData()
+      }
+    }
+    document.addEventListener("visibilitychange", onFocus)
+    window.addEventListener("focus", onFocus)
+    return () => {
+      document.removeEventListener("visibilitychange", onFocus)
+      window.removeEventListener("focus", onFocus)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [actualProjectId, actualWorkspaceId])
@@ -104,7 +139,7 @@ export function StudioCanvas({
       }
       setProject(projectData)
 
-      const [projectDesigns, projectReports, workspaceChats] =
+      const [projectDesigns, projectReports, workspaceChats, projectFiles] =
         await Promise.all([
           getDesignsByProject(actualProjectId).catch(() => []),
           profile
@@ -112,7 +147,8 @@ export function StudioCanvas({
                 () => []
               )
             : Promise.resolve([] as ReportRow[]),
-          getChatsByWorkspaceId(actualWorkspaceId).catch(() => [])
+          getChatsByWorkspaceId(actualWorkspaceId).catch(() => []),
+          getProjectFiles(actualProjectId).catch(() => [])
         ])
 
       setDesigns(projectDesigns as DesignRow[])
@@ -122,6 +158,7 @@ export function StudioCanvas({
           c => c.project_id === actualProjectId
         )
       )
+      setFiles(projectFiles)
     } catch (error) {
       console.error("Error fetching project data:", error)
       toast({
@@ -303,6 +340,74 @@ export function StudioCanvas({
     return chats.filter(c => c.name.toLowerCase().includes(q))
   }, [chats, search])
 
+  const filteredFiles = useMemo(() => {
+    const q = search.trim().toLowerCase()
+    if (!q) return files
+    return files.filter(f => f.name.toLowerCase().includes(q))
+  }, [files, search])
+
+  const handleUploadFiles = async (list: FileList | null) => {
+    if (!list || list.length === 0) return
+    if (!profile || !actualWorkspaceId || !actualProjectId) return
+    setUploadingFiles(true)
+    let uploaded = 0
+    try {
+      for (const file of Array.from(list)) {
+        try {
+          const record = await uploadProjectFile({
+            file,
+            projectId: actualProjectId,
+            workspaceId: actualWorkspaceId,
+            userId: profile.user_id
+          })
+          setFiles(prev => [record, ...prev])
+          uploaded++
+        } catch (err: any) {
+          toast({
+            title: `Couldn't upload ${file.name}`,
+            description: err?.message ?? "Unsupported file or upload failed.",
+            variant: "destructive"
+          })
+        }
+      }
+      if (uploaded > 0) {
+        toast({
+          title: `Uploaded ${uploaded} file${uploaded === 1 ? "" : "s"}`,
+          description: "Files are now available in the Files tab."
+        })
+        setActiveTab("files")
+      }
+    } finally {
+      setUploadingFiles(false)
+    }
+  }
+
+  const handleDeleteFile = async (f: ProjectFileMeta) => {
+    try {
+      await deleteProjectFile(f.id, f.storage_path)
+      setFiles(prev => prev.filter(x => x.id !== f.id))
+    } catch (err: any) {
+      toast({
+        title: "Failed to delete file",
+        description: err?.message ?? "Try again in a moment.",
+        variant: "destructive"
+      })
+    }
+  }
+
+  const handleOpenFile = async (f: ProjectFileMeta) => {
+    try {
+      const url = await getProjectFileSignedUrl(f.storage_path)
+      window.open(url, "_blank", "noopener,noreferrer")
+    } catch (err: any) {
+      toast({
+        title: "Unable to open file",
+        description: err?.message ?? "Try again in a moment.",
+        variant: "destructive"
+      })
+    }
+  }
+
   // Children override: used when the page-level route wants to render its own
   // content inside the StudioLayout shell (e.g. Design editor).
   if (children) {
@@ -373,6 +478,19 @@ export function StudioCanvas({
             {creatingChat ? "Starting…" : "New Chat"}
           </Button>
         )
+      },
+      files: {
+        placeholder: "Search files…",
+        cta: (
+          <Button
+            onClick={() => fileInputRef.current?.click()}
+            disabled={uploadingFiles}
+            className="bg-brick hover:bg-brick-hover shrink-0 gap-2"
+          >
+            <IconUpload size={16} />
+            {uploadingFiles ? "Uploading…" : "Upload Files"}
+          </Button>
+        )
       }
     }
 
@@ -415,21 +533,45 @@ export function StudioCanvas({
               )}
             </div>
 
-            {/* Agent: toggles chat rail */}
-            {onToggleRail && (
+            <div className="flex shrink-0 items-center gap-2">
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".pdf,.jpg,.jpeg,.png,.csv,application/pdf,image/jpeg,image/png,text/csv"
+                multiple
+                className="hidden"
+                onChange={e => {
+                  void handleUploadFiles(e.target.files)
+                  e.currentTarget.value = ""
+                }}
+              />
               <button
-                onClick={onToggleRail}
-                className={
-                  "ml-2 flex h-9 items-center gap-2 rounded-full px-4 text-xs font-semibold uppercase tracking-wide text-white shadow-sm ring-1 ring-inset transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md active:translate-y-0 " +
-                  (showRail
-                    ? "bg-ink-700 hover:bg-ink-800 ring-white/10"
-                    : "from-brick to-brick-hover bg-gradient-to-r ring-white/20")
-                }
+                onClick={() => fileInputRef.current?.click()}
+                disabled={uploadingFiles}
+                aria-label="Upload files"
+                className="border-ink-200 text-ink-700 hover:bg-ink-100 flex h-9 items-center gap-2 rounded-full border bg-white px-4 text-xs font-semibold uppercase tracking-wide shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md disabled:opacity-60"
               >
-                <IconSparkles size={14} className="shrink-0" />
-                Agent
+                <IconUpload size={14} className="shrink-0" />
+                {uploadingFiles ? "Uploading…" : "Upload Files"}
               </button>
-            )}
+
+              {/* Chat: toggles chat rail */}
+              {onToggleRail && (
+                <button
+                  onClick={onToggleRail}
+                  aria-label="Toggle chat"
+                  className={
+                    "flex h-9 items-center gap-2 rounded-full px-4 text-xs font-semibold uppercase tracking-wide text-white shadow-sm ring-1 ring-inset transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md active:translate-y-0 " +
+                    (showRail
+                      ? "bg-ink-700 hover:bg-ink-800 ring-white/10"
+                      : "from-brick to-brick-hover bg-gradient-to-r ring-white/20")
+                  }
+                >
+                  <IconSparkles size={14} className="shrink-0" />
+                  Chat
+                </button>
+              )}
+            </div>
           </div>
         </div>
 
@@ -455,6 +597,12 @@ export function StudioCanvas({
               label: `Chats${chats.length ? ` (${chats.length})` : ""}`,
               accent: "purple-persona",
               icon: <IconMessage size={14} />
+            },
+            {
+              key: "files",
+              label: `Files${files.length ? ` (${files.length})` : ""}`,
+              accent: "sage-brand",
+              icon: <IconFile size={14} />
             }
           ]}
         />
@@ -515,6 +663,19 @@ export function StudioCanvas({
               }
               onNewChat={handleNewChat}
               creatingChat={creatingChat}
+            />
+          )}
+
+          {activeTab === "files" && (
+            <FilesGrid
+              files={filteredFiles}
+              rawCount={files.length}
+              searching={search.trim() !== ""}
+              getTimeAgo={getTimeAgo}
+              onOpenFile={handleOpenFile}
+              onDeleteFile={handleDeleteFile}
+              onUpload={() => fileInputRef.current?.click()}
+              uploading={uploadingFiles}
             />
           )}
         </div>
@@ -651,6 +812,109 @@ function ChatsGrid(props: {
           timestamp={getTimeAgo(chat.updated_at || chat.created_at)}
           onClick={() => props.onOpenChat(chat.id)}
         />
+      ))}
+    </div>
+  )
+}
+
+function FilesGrid(props: {
+  files: ProjectFileMeta[]
+  rawCount: number
+  searching: boolean
+  getTimeAgo: (d: string | null) => string
+  onOpenFile: (f: ProjectFileMeta) => void
+  onDeleteFile: (f: ProjectFileMeta) => void
+  onUpload: () => void
+  uploading: boolean
+}) {
+  const { files, rawCount, searching, getTimeAgo } = props
+
+  if (files.length === 0) {
+    if (searching && rawCount > 0) {
+      return (
+        <div className="flex h-full flex-col items-center justify-center gap-2 text-center">
+          <p className="text-ink-500 text-sm">No files match your search.</p>
+        </div>
+      )
+    }
+    return (
+      <div className="flex h-full flex-col items-center justify-center gap-3 text-center">
+        <div className="bg-sage-brand-tint rounded-full p-4">
+          <IconFile size={28} className="text-sage-brand" />
+        </div>
+        <p className="text-ink-700 text-sm font-semibold">No files yet</p>
+        <p className="text-ink-400 max-w-sm text-xs">
+          Upload supporting materials (PDF, JPEG, PNG, CSV) to share context
+          across designs and chats in this project.
+        </p>
+        <Button
+          onClick={props.onUpload}
+          disabled={props.uploading}
+          className="bg-brick hover:bg-brick-hover mt-2 gap-2"
+        >
+          <IconUpload size={16} />
+          {props.uploading ? "Uploading…" : "Upload Files"}
+        </Button>
+      </div>
+    )
+  }
+
+  const iconFor = (mime: string, name: string) => {
+    if (mime.startsWith("image/")) return <IconPhoto size={18} />
+    if (mime === "application/pdf" || name.toLowerCase().endsWith(".pdf"))
+      return <IconFileText size={18} />
+    if (mime.includes("csv") || name.toLowerCase().endsWith(".csv"))
+      return <IconTable size={18} />
+    return <IconFile size={18} />
+  }
+
+  const formatSize = (bytes: number): string => {
+    if (!bytes) return ""
+    if (bytes < 1024) return `${bytes} B`
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+  }
+
+  return (
+    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+      {files.map(file => (
+        <div
+          key={file.id}
+          className="border-ink-200 hover:border-sage-brand/50 group relative flex flex-col gap-2 rounded-2xl border bg-white p-4 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md"
+        >
+          <div className="flex items-start gap-2">
+            <div className="bg-sage-brand-tint text-sage-brand rounded-md p-2">
+              {iconFor(file.mime_type, file.name)}
+            </div>
+            <button
+              onClick={() => props.onOpenFile(file)}
+              title={file.name}
+              className="text-ink-900 line-clamp-3 min-w-0 flex-1 break-words text-left text-sm font-semibold leading-snug hover:underline"
+            >
+              {file.name}
+            </button>
+          </div>
+          <div className="text-ink-400 flex items-center justify-between text-[10px]">
+            <span>{formatSize(file.size)}</span>
+            <span>{getTimeAgo(file.created_at)}</span>
+          </div>
+          <div className="mt-auto flex items-center justify-end gap-1 pt-1 opacity-0 transition-opacity group-hover:opacity-100">
+            <button
+              onClick={() => props.onOpenFile(file)}
+              title="Open file"
+              className="text-ink-400 hover:text-ink-700 rounded p-1"
+            >
+              <IconDownload size={14} />
+            </button>
+            <button
+              onClick={() => props.onDeleteFile(file)}
+              title="Delete file"
+              className="text-ink-400 rounded p-1 hover:text-red-500"
+            >
+              <IconTrash size={14} />
+            </button>
+          </div>
+        </div>
       ))}
     </div>
   )

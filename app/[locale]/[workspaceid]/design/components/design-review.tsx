@@ -1752,6 +1752,70 @@ export function DesignReview({
                   </ReactMarkdown>
                 </div>
               )}
+              {generatedDesign.statisticalReview.analysisPlan && (
+                <div className="mt-3 rounded-lg border border-emerald-400/30 bg-emerald-500/5 p-3">
+                  <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-emerald-500">
+                    Statistical Analysis Plan
+                  </p>
+                  <ul className="space-y-1 text-sm">
+                    <li>
+                      <span className="font-semibold">Primary test:</span>{" "}
+                      {
+                        generatedDesign.statisticalReview.analysisPlan
+                          .primaryTest
+                      }
+                    </li>
+                    <li>
+                      <span className="font-semibold">n per group:</span>{" "}
+                      {generatedDesign.statisticalReview.analysisPlan.nPerGroup}
+                    </li>
+                    <li>
+                      <span className="font-semibold">Power estimate:</span>{" "}
+                      {
+                        generatedDesign.statisticalReview.analysisPlan
+                          .powerEstimate
+                      }
+                    </li>
+                    <li>
+                      <span className="font-semibold">
+                        Significance threshold:
+                      </span>{" "}
+                      {
+                        generatedDesign.statisticalReview.analysisPlan
+                          .significanceThreshold
+                      }
+                    </li>
+                    <li>
+                      <span className="font-semibold">Effect-size metric:</span>{" "}
+                      {
+                        generatedDesign.statisticalReview.analysisPlan
+                          .effectSizeMetric
+                      }
+                    </li>
+                    <li>
+                      <span className="font-semibold">
+                        Multiple-comparisons correction:
+                      </span>{" "}
+                      {
+                        generatedDesign.statisticalReview.analysisPlan
+                          .multipleComparisonsCorrection
+                      }
+                    </li>
+                    {generatedDesign.statisticalReview.analysisPlan
+                      .secondaryAnalyses && (
+                      <li>
+                        <span className="font-semibold">
+                          Secondary analyses:
+                        </span>{" "}
+                        {
+                          generatedDesign.statisticalReview.analysisPlan
+                            .secondaryAnalyses
+                        }
+                      </li>
+                    )}
+                  </ul>
+                </div>
+              )}
             </SectionCard>
           )}
           {generatedDesign.finalNotes && (

@@ -60,7 +60,10 @@ export function EntityCard({
 
       <div className="flex min-h-0 flex-1 flex-col gap-3 p-4">
         <div className="flex items-start justify-between gap-2">
-          <h3 className="text-ink-900 line-clamp-2 min-w-0 flex-1 text-sm font-bold">
+          <h3
+            title={title}
+            className="text-ink-900 line-clamp-3 min-w-0 flex-1 break-words text-sm font-bold leading-snug"
+          >
             {title}
           </h3>
           {actions && (

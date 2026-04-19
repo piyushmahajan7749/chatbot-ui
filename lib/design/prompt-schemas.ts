@@ -169,7 +169,16 @@ const statOutput = [
   "- `changeLog`: an array of concise strings naming each change and why (e.g., 'Replicates increased from 2→3: improves power for the C×T interaction'; 'Replaced redundant C8 with a targeted interaction test').",
   "- `improvementRationale`: paragraph explaining how the corrections improve hypothesis testing, reduce statistical risk, and increase interpretability. This is what separates a good vs elite review.",
   "- `overallAssessment`: 1–2 sentence initial judgment (strong / moderate / weak; key issue if any).",
-  "- `finalAssessment`: 2–3 sentence final judgment — execution-ready, or improved but still limited."
+  "- `finalAssessment`: 2–3 sentence final judgment — execution-ready, or improved but still limited.",
+  "- `analysisPlan` (REQUIRED, object): the explicit statistical analysis the scientist will apply AFTER data collection. This is not execution instructions — it is the stats recipe.",
+  "    { primaryTest, nPerGroup, powerEstimate, significanceThreshold, effectSizeMetric, multipleComparisonsCorrection, secondaryAnalyses? }",
+  "    - `primaryTest`: name the exact test (e.g. 'Two-way ANOVA on log-transformed aggregate% with factors pH × buffer', 'Mixed-effects linear model with donor as random effect').",
+  "    - `nPerGroup`: number of independent replicates per condition, matching the corrected design.",
+  "    - `powerEstimate`: expected power at the specified effect size (e.g. 'β = 0.80 to detect Δ = 15% at α = 0.05 given n=6').",
+  "    - `significanceThreshold`: α level (e.g. 'α = 0.05 two-sided').",
+  "    - `effectSizeMetric`: which effect-size metric is reported (e.g. 'Cohen d', 'η² partial', 'fold-change with 95% CI').",
+  "    - `multipleComparisonsCorrection`: method if applicable (e.g. 'Tukey HSD for pairwise comparisons', 'Benjamini–Hochberg FDR at q=0.05').",
+  "    - `secondaryAnalyses` (optional): any follow-up/exploratory analyses and their guardrails."
 ].join("\n")
 
 const statGuidelines = [

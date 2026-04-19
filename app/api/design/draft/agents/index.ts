@@ -55,7 +55,8 @@ function buildCitationsDetailed(searchResults?: any): CitationItem[] {
       year: (p.publishedDate || "").toString(),
       journal: p.journal,
       doi: p.doi,
-      apa: undefined
+      apa: undefined,
+      abstract: p.abstract
     })) as CitationItem[]
 
   const items: CitationItem[] = []
@@ -637,7 +638,8 @@ export async function callStatCheckAgent(
       improvementRationale: parsed.improvementRationale || "",
       overallAssessment:
         parsed.overallAssessment || "No overall assessment available",
-      finalAssessment: parsed.finalAssessment || ""
+      finalAssessment: parsed.finalAssessment || "",
+      analysisPlan: parsed.analysisPlan
     }
 
     const totalTime = Date.now() - startTime

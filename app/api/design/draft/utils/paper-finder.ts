@@ -218,8 +218,21 @@ function toSearchResult(doc: PaperFinderDocument): SearchResult | null {
     return null
   }
 
+  let resolvedTitle = title
+  if (!resolvedTitle && abstract) {
+    // Fallback: first sentence of the abstract (up to 160 chars).
+    const firstSentence =
+      abstract
+        .split(/(?<=[.!?])\s+/)[0]
+        ?.trim()
+        .slice(0, 160) || ""
+    if (firstSentence.length > 10) {
+      resolvedTitle = firstSentence
+    }
+  }
+
   return {
-    title: title || "Untitled Research Result",
+    title: resolvedTitle || "Untitled Research Result",
     authors: authors.length ? authors : ["Unknown"],
     abstract,
     doi,

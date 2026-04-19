@@ -189,21 +189,34 @@ export async function POST(
           // Convert detailed citations to Paper[] for the frontend
           const timestamp = Date.now()
           const newPapers: Paper[] = (litOutput.citationsDetailed ?? []).map(
-            (c, i) => ({
-              id: `lit-${i}-${timestamp}`,
-              title: c.title || `Paper ${i + 1}`,
-              summary: [
-                c.source ? `Source: ${c.source}` : null,
-                c.journal ? `Journal: ${c.journal}` : null,
-                c.year ? `Year: ${c.year}` : null,
-                c.authors?.length ? `Authors: ${c.authors.join(", ")}` : null
-              ]
-                .filter(Boolean)
-                .join(" | "),
-              sourceUrl: c.url || undefined,
-              userAdded: false,
-              selected: false
-            })
+            (c, i) => {
+              const anyC = c as any
+              const summary: string =
+                (typeof anyC.abstract === "string" && anyC.abstract.trim()) ||
+                (typeof anyC.summary === "string" && anyC.summary.trim()) ||
+                (typeof anyC.tldr === "string" && anyC.tldr.trim()) ||
+                ""
+              let title = (c.title || "").trim()
+              if (!title && summary) {
+                // Fallback: first sentence of the abstract.
+                const firstSentence = summary
+                  .split(/(?<=[.!?])\s+/)[0]
+                  ?.slice(0, 160)
+                title = firstSentence || `Paper ${i + 1}`
+              }
+              if (!title) title = `Paper ${i + 1}`
+              return {
+                id: `lit-${i}-${timestamp}`,
+                title,
+                summary,
+                sourceUrl: c.url || undefined,
+                userAdded: false,
+                selected: false,
+                authors: c.authors?.length ? c.authors : undefined,
+                year: c.year ? String(c.year) : undefined,
+                journal: c.journal || undefined
+              }
+            }
           )
 
           // If no detailed citations, create papers from the string citations

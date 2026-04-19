@@ -60,7 +60,8 @@ export const Message: FC<MessageProps> = ({
     assistantImages,
     toolInUse,
     files,
-    models
+    models,
+    selectedChat
   } = useContext(ChatbotUIContext)
 
   const { handleSendMessage } = useChatHandler()
@@ -216,12 +217,15 @@ export const Message: FC<MessageProps> = ({
   const isAssistant = message.role === "assistant"
   const isSystem = message.role === "system"
 
+  const scopedAssistantLabel =
+    selectedChat?.scope === "design" ? "Shadow AI" : null
+
   const senderName = isAssistant
     ? message.assistant_id
       ? assistants.find(a => a.id === message.assistant_id)?.name
       : selectedAssistant
         ? selectedAssistant?.name
-        : displayedModelName
+        : (scopedAssistantLabel ?? displayedModelName)
     : (profile?.display_name ?? profile?.username)
 
   return (

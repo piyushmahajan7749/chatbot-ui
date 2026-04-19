@@ -1,7 +1,7 @@
 "use client"
 
 import { ChatUI } from "@/components/chat/chat-ui"
-import { createChat, getChatByScope } from "@/db/chats"
+import { createChat, getChatByScope, updateChat } from "@/db/chats"
 import { ChatbotUIContext } from "@/context/context"
 import { cn } from "@/lib/utils"
 import { supabase } from "@/lib/supabase/browser-client"
@@ -25,11 +25,18 @@ interface ScopedChatRailProps {
   headerSlot?: ReactNode
   /** If true, a pinned thread is auto-created as soon as none is found. */
   autoStart?: boolean
+  /**
+   * Optional scope-specific context injected into the chat's system prompt.
+   * For design scope, this should be a summary of the current problem,
+   * selected hypotheses, and active design so the assistant answers in
+   * reference to the current experiment without the user re-supplying it.
+   */
+  contextPrompt?: string
 }
 
 const SCOPE_LABELS: Record<ChatScope, string> = {
   project: "Project Chat",
-  design: "Design Chat",
+  design: "Shadow AI chat",
   report: "Report Chat"
 }
 
@@ -53,7 +60,8 @@ export function ScopedChatRail({
   scopeName,
   className,
   headerSlot,
-  autoStart = false
+  autoStart = false,
+  contextPrompt
 }: ScopedChatRailProps) {
   const params = useParams()
   const router = useRouter()
@@ -102,6 +110,22 @@ export function ScopedChatRail({
     selectedWorkspace
   ])
 
+  // Keep the pinned chat's system prompt in sync with the current scope context
+  // (e.g. when the user edits the design or picks different hypotheses).
+  useEffect(() => {
+    if (!pinnedChat || !contextPrompt) return
+    const trimmed = contextPrompt.trim()
+    if (!trimmed) return
+    const current = pinnedChat.prompt ?? ""
+    if (current.includes(trimmed)) return
+    const base = chatSettings?.prompt ?? selectedWorkspace?.default_prompt ?? ""
+    const merged = `${base ? base.trim() + "\n\n" : ""}${trimmed}`
+    void updateChat(pinnedChat.id, { prompt: merged })
+      .then(updated => setPinnedChat(updated))
+      .catch(err => console.warn("Failed to refresh chat context:", err))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pinnedChat?.id, contextPrompt])
+
   const handleStartThread = async () => {
     if (!scopeId || !selectedWorkspace) return
     setCreating(true)
@@ -111,6 +135,13 @@ export function ScopedChatRail({
       } = await supabase.auth.getUser()
       if (!user) throw new Error("Not signed in")
 
+      const basePrompt =
+        chatSettings?.prompt ?? selectedWorkspace.default_prompt ?? ""
+      const prompt =
+        contextPrompt && contextPrompt.trim()
+          ? `${basePrompt ? basePrompt.trim() + "\n\n" : ""}${contextPrompt.trim()}`
+          : basePrompt
+
       const chat = await createChat({
         user_id: user.id,
         workspace_id: selectedWorkspace.id,
@@ -119,7 +150,7 @@ export function ScopedChatRail({
         scope_id: scopeId,
         project_id: scope === "project" ? scopeId : null,
         model: chatSettings?.model ?? selectedWorkspace.default_model,
-        prompt: chatSettings?.prompt ?? selectedWorkspace.default_prompt ?? "",
+        prompt,
         temperature:
           chatSettings?.temperature ?? selectedWorkspace.default_temperature,
         context_length:

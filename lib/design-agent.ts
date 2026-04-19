@@ -13,6 +13,9 @@ export interface Paper {
   sourceUrl?: string
   userAdded: boolean
   selected: boolean
+  authors?: string[]
+  year?: string
+  journal?: string
 }
 
 export interface Hypothesis {
@@ -256,6 +259,14 @@ export interface StoredLiteratureContext {
   citations: string[]
 }
 
+export interface DesignVersionSnapshot {
+  id: string
+  versionNumber: number
+  designs: GeneratedDesign[]
+  createdAt: string
+  note?: string
+}
+
 export interface DesignContentV2 {
   schemaVersion: 2
   approvedPhases?: PhaseKey[]
@@ -264,6 +275,12 @@ export interface DesignContentV2 {
   papers?: Paper[]
   hypotheses?: Hypothesis[]
   designs?: GeneratedDesign[]
+  /**
+   * History of previously generated design sets, newest first. When the user
+   * clicks "Revise" or "Regenerate", the current `designs` are snapshotted
+   * here before the new version overwrites `designs`.
+   */
+  designVersions?: DesignVersionSnapshot[]
 }
 
 export function emptyDesignContent(): DesignContentV2 {

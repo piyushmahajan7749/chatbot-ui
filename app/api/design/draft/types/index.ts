@@ -48,6 +48,7 @@ export interface CitationItem {
   journal?: string
   doi?: string
   apa?: string
+  abstract?: string
 }
 
 // Scientific domains supported by the pipeline (must stay in sync with
@@ -225,6 +226,21 @@ export interface StatCheckOutput {
   improvementRationale: string
   overallAssessment: string
   finalAssessment: string
+  /**
+   * Explicit statistical analysis plan — which tests to run on the collected
+   * data, with power, threshold, effect-size metric, and multiple-comparisons
+   * correction. This is what the scientist actually applies after data
+   * collection, not "what to do during execution".
+   */
+  analysisPlan?: {
+    primaryTest: string
+    nPerGroup: string
+    powerEstimate: string
+    significanceThreshold: string
+    effectSizeMetric: string
+    multipleComparisonsCorrection: string
+    secondaryAnalyses?: string
+  }
 }
 
 export interface ReportWriterOutput {
@@ -401,7 +417,18 @@ export const StatCheckSchema = z.object({
   changeLog: z.array(z.string()),
   improvementRationale: z.string(),
   overallAssessment: z.string(),
-  finalAssessment: z.string()
+  finalAssessment: z.string(),
+  analysisPlan: z
+    .object({
+      primaryTest: z.string(),
+      nPerGroup: z.string(),
+      powerEstimate: z.string(),
+      significanceThreshold: z.string(),
+      effectSizeMetric: z.string(),
+      multipleComparisonsCorrection: z.string(),
+      secondaryAnalyses: z.string().optional()
+    })
+    .optional()
 })
 
 export const ReportWriterSchema = z.object({

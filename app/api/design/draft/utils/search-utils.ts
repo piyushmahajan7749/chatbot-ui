@@ -352,7 +352,7 @@ export async function searchSemanticScholar(
       {
         params: {
           query,
-          limit: Math.min(maxResults, 5),
+          limit: Math.min(maxResults, 15),
           fields: "title,authors,abstract,year,url,citationCount,journal,doi"
         },
         headers: {
@@ -452,7 +452,7 @@ export async function searchGoogleScholar(
 // Multi-source search aggregator with enhanced capabilities
 export async function performMultiSourceSearch(
   query: string,
-  maxResultsPerSource: number = 10
+  maxResultsPerSource: number = 15
 ): Promise<AggregatedSearchResults> {
   console.log(`🚀 [MULTI_SEARCH] Starting comprehensive search for: ${query}`)
 
@@ -518,6 +518,30 @@ export async function performMultiSourceSearch(
       }
     }
   }
+
+  // Dedupe cross-source results by DOI/URL/normalized title so the same paper
+  // returned by PubMed and Semantic Scholar doesn't show up twice.
+  const seenKeys = new Set<string>()
+  const dedupe = (list: SearchResult[]): SearchResult[] =>
+    list.filter(p => {
+      const key = (
+        p.doi ||
+        p.url ||
+        (p.title || "").toLowerCase().replace(/\s+/g, " ").trim()
+      ).toLowerCase()
+      if (!key) return true
+      if (seenKeys.has(key)) return false
+      seenKeys.add(key)
+      return true
+    })
+
+  aggregatedResults.sources.pubmed = dedupe(aggregatedResults.sources.pubmed)
+  aggregatedResults.sources.arxiv = dedupe(aggregatedResults.sources.arxiv)
+  aggregatedResults.sources.semanticScholar = dedupe(
+    aggregatedResults.sources.semanticScholar
+  )
+  aggregatedResults.sources.scholar = dedupe(aggregatedResults.sources.scholar)
+  aggregatedResults.sources.tavily = dedupe(aggregatedResults.sources.tavily)
 
   aggregatedResults.totalResults =
     aggregatedResults.sources.pubmed.length +

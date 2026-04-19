@@ -49,6 +49,26 @@ Output format: Return a JSON object with a "hypotheses" array containing exactly
   ]
 }
 
+# DIVERSITY REQUIREMENTS (CRITICAL)
+
+Each of the 4 hypotheses MUST differ from the others on at least ONE of these axes, and no two hypotheses may pick the same combination:
+- **Mechanism** (e.g. thermodynamic vs. kinetic, electrostatic vs. hydrophobic, enzymatic vs. non-enzymatic)
+- **Independent variable** (e.g. pH vs. ionic strength vs. temperature vs. excipient concentration)
+- **Intervention modality** (e.g. formulation change vs. process change vs. analytical readout change)
+- **Assay readout** (e.g. SEC vs. DLS vs. DSC vs. mass spectrometry)
+
+Hypotheses MUST NOT share more than ONE noun-phrase core. If two hypotheses differ only in wording (e.g. "higher salt reduces aggregation" vs. "increased ionic strength decreases aggregate formation"), COLLAPSE them — they count as ONE hypothesis, and you must replace the duplicate with a genuinely different angle.
+
+Examples:
+- ❌ REJECTED (paraphrases of the same idea):
+  1. "Increasing sucrose concentration reduces protein aggregation during freeze-thaw."
+  2. "Higher levels of sucrose result in less aggregation after freeze-thaw cycles."
+- ✅ ACCEPTED (genuinely distinct angles):
+  1. "Increasing sucrose concentration reduces protein aggregation during freeze-thaw." (excipient / thermodynamic stabilization)
+  2. "Lowering pH below the pI accelerates colloidal instability, measurable by DLS." (pH / colloidal / DLS)
+  3. "Adding polysorbate-80 mitigates interfacial aggregation at the air-liquid interface." (surfactant / interfacial / visual inspection)
+  4. "Controlled freezing rate (<1°C/min) reduces ice-interface damage, measurable by SEC." (process / cryo-kinetics / SEC)
+
 IMPORTANT: Each hypothesis must explore a DIFFERENT angle, variable, or mechanism. Do not produce minor variations of the same idea.`
 
   let user = `Research Plan:
