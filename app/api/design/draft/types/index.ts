@@ -49,6 +49,11 @@ export interface CitationItem {
   doi?: string
   apa?: string
   abstract?: string
+  /**
+   * Raw relevance score as reported by the upstream search service.
+   * Route handler normalizes to [0, 1] before converting to Paper.
+   */
+  relevanceScore?: number
 }
 
 // Scientific domains supported by the pipeline (must stay in sync with

@@ -2,12 +2,16 @@
 
 import { useParams, useRouter, useSearchParams } from "next/navigation"
 import { useState } from "react"
+
 import { CreateDesign } from "@/components/designs/create-design"
 
 /**
  * /designs/new is a lightweight shell that opens the Create Design modal.
- * On cancel we route back to the owning project (or /projects). On create,
- * the modal itself routes to /designs/[id], so we just close here.
+ * Cancel routes back to:
+ *   • the owning project if `?projectId=…` is present (user came from a
+ *     project detail page),
+ *   • otherwise the workspace dashboard.
+ * Create routes to /designs/[id] from inside the modal itself.
  */
 export default function NewDesignPage() {
   const searchParams = useSearchParams()
@@ -24,13 +28,13 @@ export default function NewDesignPage() {
       router.replace(
         projectId
           ? `/${locale}/${wsId}/projects/${projectId}`
-          : `/${locale}/${wsId}/projects`
+          : `/${locale}/${wsId}`
       )
     }
   }
 
   return (
-    <div className="bg-ink-50 h-full">
+    <div className="bg-paper h-full">
       <CreateDesign
         isOpen={isOpen}
         onOpenChange={handleOpenChange}

@@ -6,6 +6,14 @@
  * dropped in behind the same interface.
  */
 
+export type PaperSource =
+  | "pubmed"
+  | "arxiv"
+  | "semantic_scholar"
+  | "scholar"
+  | "tavily"
+  | "user"
+
 export interface Paper {
   id: string
   title: string
@@ -16,6 +24,13 @@ export interface Paper {
   authors?: string[]
   year?: string
   journal?: string
+  /** Which upstream search source surfaced the paper (pubmed, arxiv, …). */
+  source?: PaperSource
+  /**
+   * Relevance score vs the user's research problem. Higher = more relevant.
+   * Normalized to [0, 1] in the API layer so UI can compare across sources.
+   */
+  relevanceScore?: number
 }
 
 export interface Hypothesis {

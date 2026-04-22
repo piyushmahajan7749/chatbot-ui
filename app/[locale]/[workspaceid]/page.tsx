@@ -74,18 +74,29 @@ export default function WorkspacePage() {
 
   const sortedDesigns = useMemo(
     () =>
-      [...designs]
-        .sort(
-          (a, b) =>
-            new Date(b.updated_at || b.created_at).getTime() -
-            new Date(a.updated_at || a.created_at).getTime()
-        )
-        .slice(0, 8),
+      [...designs].sort(
+        (a, b) =>
+          new Date(b.updated_at || b.created_at).getTime() -
+          new Date(a.updated_at || a.created_at).getTime()
+      ),
     [designs]
   )
 
+  // In-progress heuristic: touched in the last 14 days (in lieu of loading
+  // approvedPhases from Firestore for every design). Completed = total − active.
+  const FOURTEEN_DAYS_MS = 14 * 24 * 60 * 60 * 1000
+  const inProgressCount = useMemo(
+    () =>
+      designs.filter(d => {
+        const ts = d.updated_at || d.created_at
+        return ts && Date.now() - new Date(ts).getTime() < FOURTEEN_DAYS_MS
+      }).length,
+    [designs]
+  )
+  const completedCount = designs.length - inProgressCount
+
   const filter: "all" | "active" | "done" = "all"
-  const filteredDesigns = sortedDesigns
+  const filteredDesigns = sortedDesigns.slice(0, 8)
 
   const startDesign = (seed?: string) => {
     if (!wsId) return
@@ -155,11 +166,15 @@ export default function WorkspacePage() {
         </Card>
 
         {/* Stats */}
-        <div className="mb-7 grid grid-cols-4 gap-3.5">
+        <div className="mb-7 grid grid-cols-3 gap-3.5">
           <Stat
-            label="Active designs"
+            label="Total designs"
             value={designs.length}
-            sub={designs.length === 0 ? "none yet" : "in progress"}
+            sub={
+              designs.length === 0
+                ? "none yet"
+                : `${inProgressCount} in progress · ${completedCount} completed`
+            }
           />
           <Stat
             label="Reports"
@@ -170,11 +185,6 @@ export default function WorkspacePage() {
             label="Chats"
             value={chats.length}
             sub={chats.length === 0 ? "none yet" : "threads"}
-          />
-          <Stat
-            label="Workspace"
-            value={firstName}
-            sub={selectedWorkspace?.name || "current"}
           />
         </div>
 

@@ -56,7 +56,10 @@ function buildCitationsDetailed(searchResults?: any): CitationItem[] {
       journal: p.journal,
       doi: p.doi,
       apa: undefined,
-      abstract: p.abstract
+      abstract: p.abstract,
+      // Carry raw relevance score through to the frontend layer. The route
+      // handler normalizes to [0, 1] when converting to Paper[].
+      relevanceScore: p.relevanceScore ?? undefined
     })) as CitationItem[]
 
   const items: CitationItem[] = []
@@ -67,6 +70,11 @@ function buildCitationsDetailed(searchResults?: any): CitationItem[] {
   )
   items.push(...collect(searchResults.sources.scholar || [], "scholar"))
   items.push(...collect(searchResults.sources.tavily || [], "tavily"))
+
+  // Sort by relevanceScore (desc) so the UI gets a pre-ranked list.
+  items.sort(
+    (a: any, b: any) => (b.relevanceScore ?? 0) - (a.relevanceScore ?? 0)
+  )
 
   // Re-number sequentially for consistent [X] references
   return items.map((it, idx) => ({ ...it, index: idx + 1 }))
@@ -200,7 +208,10 @@ export async function callLiteratureScoutAgent(
       .join("\n")
 
     // PaperFinder is best-effort: if it fails, we still run the pipeline with no citations.
-    const minPapers = searchOptions.minPapers ?? 10
+    // We want a richer library surfaced in the UI (CEO feedback: 8–10 papers
+    // was too few). Default target is now 15 unique papers; early-exit still
+    // kicks in once we hit that threshold.
+    const minPapers = searchOptions.minPapers ?? 15
     const excludeUrls = new Set(
       (searchOptions.excludeUrls ?? [])
         .filter(Boolean)
