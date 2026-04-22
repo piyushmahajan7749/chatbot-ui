@@ -19,6 +19,7 @@ import {
   AlertDialogTrigger
 } from "@/components/ui/alert-dialog"
 import { useToast } from "@/app/hooks/use-toast"
+import { DisplayHeading, Eyebrow } from "@/components/ui/typography"
 
 interface Report {
   id: string
@@ -87,20 +88,24 @@ export default function ReportsPage() {
   }
 
   return (
-    <div className="h-full space-y-6 overflow-auto bg-zinc-50 p-6">
+    <div className="bg-paper h-full space-y-6 overflow-auto p-8">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-slate-800">Reports</h1>
-          <p className="mt-1 text-sm text-slate-500">
+          <Eyebrow>Workspace</Eyebrow>
+          <DisplayHeading as="h1" className="mt-1 text-[34px]">
+            Reports
+          </DisplayHeading>
+          <p className="text-ink-3 mt-1 text-[13px]">
             Generate and manage research reports
           </p>
         </div>
         <Button
+          variant="primary"
+          size="lg"
           onClick={() => router.push(`/${locale}/${workspaceId}/reports/new`)}
-          className="gap-2 bg-blue-600 hover:bg-blue-700"
         >
-          <IconPlus size={16} />
+          <IconPlus size={14} stroke={2.4} />
           New Report
         </Button>
       </div>
@@ -108,64 +113,66 @@ export default function ReportsPage() {
       {/* Reports List */}
       {loading ? (
         <div className="flex h-64 items-center justify-center">
-          <div className="size-8 animate-spin rounded-full border-2 border-zinc-300 border-t-blue-500" />
+          <div className="border-line border-t-rust size-8 animate-spin rounded-full border-2" />
         </div>
       ) : reports.length === 0 ? (
         <div className="flex h-64 flex-col items-center justify-center text-center">
-          <div className="mb-4 rounded-full bg-purple-50 p-4">
-            <IconReport size={32} className="text-purple-400" />
+          <div className="bg-rust-soft mb-4 rounded-full p-4">
+            <IconReport size={32} className="text-rust" />
           </div>
-          <p className="mb-2 font-medium text-slate-600">No reports yet</p>
-          <p className="mb-6 max-w-sm text-sm text-slate-400">
+          <p className="text-ink mb-2 text-[14px] font-semibold">
+            No reports yet
+          </p>
+          <p className="text-ink-3 mb-6 max-w-sm text-[13px] leading-relaxed">
             Create detailed reports from your conversations and data to track
             your research progress.
           </p>
           <Button
-            variant="outline"
-            className="gap-2"
+            variant="primary"
+            size="sm"
             onClick={() => router.push(`/${locale}/${workspaceId}/reports/new`)}
           >
-            <IconPlus size={16} />
+            <IconPlus size={12} />
             Create your first report
           </Button>
         </div>
       ) : (
-        <div className="grid gap-4">
+        <div className="grid gap-3">
           {reports.map(report => (
             <Card
               key={report.id}
-              className="group cursor-pointer rounded-2xl bg-white transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md"
+              className="hover:border-line-strong hover:bg-paper group cursor-pointer transition-colors"
               onClick={() =>
                 router.push(`/${locale}/${workspaceId}/reports/${report.id}`)
               }
             >
-              <CardContent className="p-6">
-                <div className="flex items-start justify-between">
+              <CardContent className="p-5">
+                <div className="flex items-start justify-between gap-4">
                   <div className="flex items-start gap-4">
-                    <div className="flex size-10 items-center justify-center rounded-xl bg-purple-100">
-                      <IconReport size={20} className="text-purple-600" />
+                    <div className="bg-rust-soft flex size-10 items-center justify-center rounded-md">
+                      <IconReport size={20} className="text-rust" />
                     </div>
                     <div className="min-w-0 flex-1">
-                      <h3 className="mb-1 font-semibold text-slate-800">
+                      <h3 className="text-ink mb-1 text-[14px] font-semibold">
                         {report.name}
                       </h3>
                       {report.description && (
-                        <p className="mb-2 line-clamp-2 text-sm text-slate-500">
+                        <p className="text-ink-3 mb-2 line-clamp-2 text-[12.5px]">
                           {report.description}
                         </p>
                       )}
-                      <div className="flex items-center gap-3 text-xs text-slate-400">
-                        <span className="flex items-center gap-1">
+                      <div className="text-ink-3 flex items-center gap-3 text-[11.5px]">
+                        <span className="flex items-center gap-1 font-mono">
                           <IconClock size={12} />
                           {getTimeAgo(report.updated_at || report.created_at)}
                         </span>
                         {report.report_draft && (
-                          <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-emerald-600">
+                          <span className="rounded-full bg-[#DDE9DF] px-2 py-0.5 text-[#1F4A2C]">
                             Completed
                           </span>
                         )}
                         {!report.report_draft && report.report_outline && (
-                          <span className="rounded-full bg-amber-50 px-2 py-0.5 text-amber-600">
+                          <span className="bg-rust-soft text-rust-ink rounded-full px-2 py-0.5">
                             Draft
                           </span>
                         )}
@@ -177,9 +184,9 @@ export default function ReportsPage() {
                       <AlertDialogTrigger asChild>
                         <button
                           onClick={e => e.stopPropagation()}
-                          className="rounded p-1.5 hover:bg-red-50"
+                          className="hover:bg-paper-2 rounded p-1.5"
                         >
-                          <IconTrash size={14} className="text-red-500" />
+                          <IconTrash size={14} className="text-destructive" />
                         </button>
                       </AlertDialogTrigger>
                       <AlertDialogContent>
@@ -194,7 +201,7 @@ export default function ReportsPage() {
                           <AlertDialogCancel>Cancel</AlertDialogCancel>
                           <AlertDialogAction
                             onClick={() => handleDeleteReport(report.id)}
-                            className="bg-red-600 hover:bg-red-700"
+                            className="bg-destructive hover:bg-destructive/90"
                           >
                             Delete
                           </AlertDialogAction>

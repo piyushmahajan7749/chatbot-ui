@@ -21,6 +21,10 @@ import {
   SelectValue
 } from "@/components/ui/select"
 import { AccentTabs, type TabStatus } from "@/components/canvas/accent-tabs"
+import {
+  Stepper,
+  type StageId as DesignStageId
+} from "@/components/design-flow/stepper"
 import { ScopedChatRail } from "@/components/canvas/scoped-chat-rail"
 import { SplitRailLayout } from "@/components/canvas/split-rail-layout"
 import { ChatbotUIContext } from "@/context/context"
@@ -1237,12 +1241,58 @@ export default function DesignDetailPage() {
           </div>
         </div>
 
-        {/* Tab bar */}
-        <AccentTabs
-          activeKey={activeTab}
-          onChange={handleTabChange}
-          tabs={tabDefs}
-        />
+        {/* Stage stepper — 5-stage editorial rail */}
+        {(() => {
+          const tabToStage: Record<string, DesignStageId> = {
+            overview: "overview",
+            problem: "problem",
+            literature: "lit",
+            hypotheses: "hyp",
+            design: "design"
+          }
+          const stageToTab: Record<DesignStageId, string> = {
+            overview: "overview",
+            problem: "problem",
+            lit: "literature",
+            hyp: "hypotheses",
+            design: "design"
+          }
+          const completedStages: DesignStageId[] = approvedPhases
+            .filter(p => p !== "simulation")
+            .map(p => {
+              if (p === "literature") return "lit"
+              if (p === "hypotheses") return "hyp"
+              return p as DesignStageId
+            })
+          const meta: Partial<Record<DesignStageId, string>> = {
+            overview:
+              title || design?.name
+                ? ((title || design?.name) as string)
+                : "untitled",
+            problem: title ? "defined" : "not defined",
+            lit:
+              papers.length > 0
+                ? `${papers.length} paper${papers.length === 1 ? "" : "s"}`
+                : "no papers",
+            hyp:
+              hypotheses.length > 0
+                ? `${hypotheses.length} hypothesis${hypotheses.length === 1 ? "" : "es"}`
+                : "no hypotheses",
+            design:
+              generatedDesigns.length > 0
+                ? `${generatedDesigns.length} design${generatedDesigns.length === 1 ? "" : "s"}`
+                : "no designs"
+          }
+          const currentStage = tabToStage[activeTab] || "overview"
+          return (
+            <Stepper
+              current={currentStage}
+              completed={completedStages}
+              meta={meta}
+              onGoto={id => handleTabChange(stageToTab[id] as any)}
+            />
+          )
+        })()}
 
         {/* Tab content */}
         <div className="min-h-0 flex-1 overflow-auto">

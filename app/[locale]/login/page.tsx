@@ -194,76 +194,87 @@ export default async function Login({
   }
 
   return (
-    <div className="flex w-full flex-1 flex-col justify-center gap-2 px-8 sm:max-w-md">
-      <form
-        className="animate-in text-foreground flex w-full flex-1 flex-col justify-center gap-2"
-        action={signIn}
-      >
-        <Brand />
-
-        <Label className="text-md mt-4" htmlFor="email">
-          Email
-        </Label>
-        <Input
-          className="mb-3 rounded-md border bg-inherit px-4 py-2"
-          name="email"
-          placeholder="you@example.com"
-          required
-        />
-
-        <Label className="text-md" htmlFor="password">
-          Password
-        </Label>
-        <Input
-          className="mb-6 rounded-md border bg-inherit px-4 py-2"
-          type="password"
-          name="password"
-          placeholder="••••••••"
-        />
-
-        <SubmitButton className="mb-2 rounded-md bg-blue-700 px-4 py-2 text-white">
-          Login
-        </SubmitButton>
-
-        <SubmitButton
-          formAction={signUp}
-          className="border-foreground/20 mb-2 rounded-md border px-4 py-2"
-        >
-          Sign Up
-        </SubmitButton>
-
-        <div className="text-muted-foreground mt-1 flex justify-center text-sm">
-          <span className="mr-1">Forgot your password?</span>
-          <button
-            formAction={handleResetPassword}
-            className="text-primary ml-1 underline hover:opacity-80"
-          >
-            Reset
-          </button>
+    <div className="bg-paper flex min-h-dvh w-full flex-col items-center justify-center p-6">
+      <div className="border-line bg-surface w-full max-w-[400px] rounded-xl border p-8 shadow-sm">
+        <div className="mb-7 flex justify-center">
+          <Brand />
         </div>
 
-        <div className="text-muted-foreground mt-2 flex justify-center text-sm">
-          <span className="mr-1">Having login issues?</span>
-          <button
-            formAction={clearCacheAndLogout}
-            className="text-primary ml-1 underline hover:opacity-80"
+        <form className="flex w-full flex-col gap-3.5" action={signIn}>
+          <div className="flex flex-col gap-1.5">
+            <Label
+              htmlFor="email"
+              className="text-ink text-[12.5px] font-medium"
+            >
+              Email
+            </Label>
+            <Input
+              id="email"
+              name="email"
+              placeholder="you@example.com"
+              required
+            />
+          </div>
+
+          <div className="flex flex-col gap-1.5">
+            <Label
+              htmlFor="password"
+              className="text-ink text-[12.5px] font-medium"
+            >
+              Password
+            </Label>
+            <Input
+              id="password"
+              type="password"
+              name="password"
+              placeholder="••••••••"
+            />
+          </div>
+
+          <SubmitButton className="bg-rust text-paper border-rust mt-3 inline-flex h-10 items-center justify-center rounded-md border px-4 text-[14px] font-medium transition-colors hover:bg-[color:var(--rust-hover)]">
+            Login
+          </SubmitButton>
+
+          <SubmitButton
+            formAction={signUp}
+            className="bg-surface text-ink hover:bg-paper-2 border-line hover:border-line-strong inline-flex h-10 items-center justify-center rounded-md border px-4 text-[14px] font-medium transition-colors"
           >
-            Clear Cache
-          </button>
-        </div>
+            Sign up
+          </SubmitButton>
 
-        {searchParams?.message && (
-          <p className="bg-foreground/10 text-foreground mt-4 p-4 text-center">
-            {searchParams.message}
-          </p>
-        )}
+          <div className="text-ink-3 mt-2 flex justify-center text-[12.5px]">
+            <span className="mr-1">Forgot your password?</span>
+            <button
+              formAction={handleResetPassword}
+              className="text-rust ml-1 underline hover:opacity-80"
+            >
+              Reset
+            </button>
+          </div>
 
-        {supabaseConnectionError && (
-          <p className="bg-foreground/10 text-foreground mt-4 p-4 text-center">
-            {supabaseConnectionError}
-          </p>
-        )}
-      </form>
+          <div className="text-ink-3 flex justify-center text-[12.5px]">
+            <span className="mr-1">Having login issues?</span>
+            <button
+              formAction={clearCacheAndLogout}
+              className="text-rust ml-1 underline hover:opacity-80"
+            >
+              Clear cache
+            </button>
+          </div>
+
+          {searchParams?.message && (
+            <p className="bg-paper-2 text-ink-2 border-line mt-3 rounded-md border p-3 text-center text-[12.5px]">
+              {searchParams.message}
+            </p>
+          )}
+
+          {supabaseConnectionError && (
+            <p className="bg-rust-soft text-rust-ink border-rust-soft mt-3 rounded-md border p-3 text-center text-[12.5px]">
+              {supabaseConnectionError}
+            </p>
+          )}
+        </form>
+      </div>
     </div>
   )
 }
