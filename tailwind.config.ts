@@ -1,112 +1,128 @@
 /** @type {import('tailwindcss').Config} */
 module.exports = {
-  darkMode: ['class'],
+  darkMode: ["class"],
   content: [
-    './pages/**/*.{ts,tsx}',
-    './components/**/*.{ts,tsx}',
-    './app/**/*.{ts,tsx}',
-    './src/**/*.{ts,tsx}'
+    "./pages/**/*.{ts,tsx}",
+    "./components/**/*.{ts,tsx}",
+    "./app/**/*.{ts,tsx}",
+    "./src/**/*.{ts,tsx}"
   ],
   theme: {
     container: {
       center: true,
-      padding: '2rem',
+      padding: "2rem",
       screens: {
-        '2xl': '1400px'
+        "2xl": "1400px"
       }
     },
     extend: {
       colors: {
-        border: 'hsl(var(--border))',
-        input: 'hsl(var(--input))',
-        ring: 'hsl(var(--ring))',
-        background: 'hsl(var(--background))',
-        foreground: 'hsl(var(--foreground))',
+        /* shadcn HSL-backed tokens */
+        border: "hsl(var(--border))",
+        input: "hsl(var(--input))",
+        ring: "hsl(var(--ring))",
+        background: "hsl(var(--background))",
+        foreground: "hsl(var(--foreground))",
         primary: {
-          DEFAULT: 'hsl(var(--primary))',
-          foreground: 'hsl(var(--primary-foreground))'
+          DEFAULT: "hsl(var(--primary))",
+          foreground: "hsl(var(--primary-foreground))"
         },
         secondary: {
-          DEFAULT: 'hsl(var(--secondary))',
-          foreground: 'hsl(var(--secondary-foreground))'
+          DEFAULT: "hsl(var(--secondary))",
+          foreground: "hsl(var(--secondary-foreground))"
         },
         destructive: {
-          DEFAULT: 'hsl(var(--destructive))',
-          foreground: 'hsl(var(--destructive-foreground))'
+          DEFAULT: "hsl(var(--destructive))",
+          foreground: "hsl(var(--destructive-foreground))"
         },
         muted: {
-          DEFAULT: 'hsl(var(--muted))',
-          foreground: 'hsl(var(--muted-foreground))'
+          DEFAULT: "hsl(var(--muted))",
+          foreground: "hsl(var(--muted-foreground))"
         },
         accent: {
-          DEFAULT: 'hsl(var(--accent))',
-          foreground: 'hsl(var(--accent-foreground))'
+          DEFAULT: "hsl(var(--accent))",
+          foreground: "hsl(var(--accent-foreground))"
         },
         popover: {
-          DEFAULT: 'hsl(var(--popover))',
-          foreground: 'hsl(var(--popover-foreground))'
+          DEFAULT: "hsl(var(--popover))",
+          foreground: "hsl(var(--popover-foreground))"
         },
         card: {
-          DEFAULT: 'hsl(var(--card))',
-          foreground: 'hsl(var(--card-foreground))'
+          DEFAULT: "hsl(var(--card))",
+          foreground: "hsl(var(--card-foreground))"
         },
-        // JourneyMaker-derived palette for ShadowAI v2 UI
-        brick: {
-          DEFAULT: '#7A3828',
-          hover: '#9B4831',
-          disabled: '#FBEADF'
+
+        /* ---- Editorial palette (Shadow AI scientific-editorial) ----
+           All colors use `<alpha-value>` so Tailwind `color/opacity` works. */
+        paper: {
+          DEFAULT: "hsl(var(--paper-hsl) / <alpha-value>)",
+          2: "hsl(var(--paper-2-hsl) / <alpha-value>)",
+          3: "hsl(var(--paper-3-hsl) / <alpha-value>)"
         },
-        'teal-journey': {
-          DEFAULT: '#007E8C',
-          dark: '#003135',
-          active: '#E0F2F4',
-          tint: '#F1F9F9'
-        },
-        'orange-product': {
-          DEFAULT: '#C4845A',
-          active: '#F4EAE0',
-          tint: '#F8F4F1'
-        },
-        'purple-persona': {
-          DEFAULT: '#7B5B8E',
-          active: '#E9E0F4',
-          tint: '#F4F1F8'
-        },
-        'sage-brand': {
-          DEFAULT: '#7A8B5A',
-          active: '#EEF4E0',
-          tint: '#F5F8F1'
+        surface: "hsl(var(--surface-hsl) / <alpha-value>)",
+        line: {
+          DEFAULT: "hsl(var(--line-hsl) / <alpha-value>)",
+          strong: "hsl(var(--line-strong-hsl) / <alpha-value>)"
         },
         ink: {
-          900: '#111111',
-          700: '#333333',
-          500: '#445566',
-          400: '#8899AA',
-          200: '#D0D8E4',
-          100: '#F0F3F7',
-          50: '#F8F9FA'
-        }
+          DEFAULT: "hsl(var(--ink-hsl) / <alpha-value>)",
+          2: "hsl(var(--ink-2-hsl) / <alpha-value>)",
+          3: "hsl(var(--ink-3-hsl) / <alpha-value>)",
+          4: "hsl(var(--ink-4-hsl) / <alpha-value>)"
+        },
+        rust: {
+          DEFAULT: "hsl(var(--rust-hsl) / <alpha-value>)",
+          soft: "hsl(var(--rust-soft-hsl) / <alpha-value>)",
+          ink: "hsl(var(--rust-ink-hsl) / <alpha-value>)"
+        },
+
+        /* Phase tints — used sparingly for stage identity */
+        phase: {
+          overview: "var(--p-overview)",
+          problem: "var(--p-problem)",
+          lit: "var(--p-lit)",
+          hyp: "var(--p-hyp)",
+          design: "var(--p-design)"
+        },
+
+        /* Semantic */
+        success: "var(--success)",
+        warn: "var(--warn)",
+        danger: "var(--danger)",
+        info: "var(--info)"
       },
       borderRadius: {
-        lg: 'var(--radius)',
-        md: 'calc(var(--radius) - 2px)',
-        sm: 'calc(var(--radius) - 4px)'
+        sm: "var(--r-sm)",
+        md: "var(--r-md)",
+        lg: "var(--r-lg)",
+        xl: "var(--r-xl)"
+      },
+      boxShadow: {
+        sm: "var(--shadow-sm)",
+        md: "var(--shadow-md)",
+        lg: "var(--shadow-lg)",
+        drawer: "var(--shadow-drawer)"
+      },
+      fontFamily: {
+        sans: ["var(--f-ui)"],
+        display: ["var(--f-display)"],
+        mono: ["var(--f-mono)"]
       },
       keyframes: {
-        'accordion-down': {
+        "accordion-down": {
           from: { height: 0 },
-          to: { height: 'var(--radix-accordion-content-height)' }
+          to: { height: "var(--radix-accordion-content-height)" }
         },
-        'accordion-up': {
-          from: { height: 'var(--radix-accordion-content-height)' },
+        "accordion-up": {
+          from: { height: "var(--radix-accordion-content-height)" },
           to: { height: 0 }
         }
       },
       animation: {
-        'accordion-down': 'accordion-down 0.2s ease-out',
-        'accordion-up': 'accordion-up 0.2s ease-out'
+        "accordion-down": "accordion-down 0.2s ease-out",
+        "accordion-up": "accordion-up 0.2s ease-out"
       }
     }
   },
-  plugins: [require('tailwindcss-animate'), require('@tailwindcss/typography')]
+  plugins: [require("tailwindcss-animate"), require("@tailwindcss/typography")]
 }

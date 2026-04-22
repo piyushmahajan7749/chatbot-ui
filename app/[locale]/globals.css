@@ -2,95 +2,186 @@
 @tailwind components;
 @tailwind utilities;
 
-::-webkit-scrollbar-track {
-  background-color: transparent;
-}
-
-::-webkit-scrollbar-thumb {
-  background-color: #ccc;
-  border-radius: 10px;
-}
-
-::-webkit-scrollbar-thumb:hover {
-  background-color: #aaa;
-}
-
-::-webkit-scrollbar-track:hover {
-  background-color: #f2f2f2;
-}
-
-::-webkit-scrollbar-corner {
-  background-color: transparent;
-}
-
-::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
-}
+/* ============================================================
+   Shadow AI — Scientific-editorial design tokens
+   Palette: warm paper neutrals + rust accent
+   Type: Inter Tight (UI) · Instrument Serif (display) · JetBrains Mono
+   ============================================================ */
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 0 0% 3.9%;
+    /* ----- Editorial raw tokens (direct use) ----- */
+    --paper: #faf8f5;
+    --paper-2: #f3efe9;
+    --paper-3: #e9e3db;
+    --line: #e3ddd3;
+    --line-strong: #cfc6b8;
+    --ink: #1a1714;
+    --ink-2: #3d3732;
+    --ink-3: #6b635a;
+    --ink-4: #938a7e;
+    --surface: #ffffff;
 
-    --muted: 0 0% 96.1%;
-    --muted-foreground: 0 0% 45.1%;
+    --rust: #b25139;
+    --rust-hover: #9f4530;
+    --rust-soft: #f6e8e1;
+    --rust-ink: #5c2b1c;
 
-    --popover: 0 0% 100%;
-    --popover-foreground: 0 0% 3.9%;
+    /* Phase tints — used sparingly, only on stage identity */
+    --p-overview: #7a8471;
+    --p-problem: #2f6b6b;
+    --p-lit: #b25139;
+    --p-hyp: #6b5ba8;
+    --p-design: #8b6f2b;
 
-    --card: 0 0% 100%;
-    --card-foreground: 0 0% 3.9%;
+    --success: #3f7a4e;
+    --warn: #b8831f;
+    --danger: #a1422e;
+    --info: #2f6b6b;
 
-    --border: 0 0% 89.8%;
-    --input: 0 0% 89.8%;
+    /* Shadows */
+    --shadow-sm: 0 1px 2px rgba(26, 23, 20, 0.04),
+      0 1px 3px rgba(26, 23, 20, 0.03);
+    --shadow-md: 0 2px 4px rgba(26, 23, 20, 0.04),
+      0 8px 24px rgba(26, 23, 20, 0.06);
+    --shadow-lg: 0 8px 16px rgba(26, 23, 20, 0.06),
+      0 24px 56px rgba(26, 23, 20, 0.1);
+    --shadow-drawer: -24px 0 56px rgba(26, 23, 20, 0.12);
 
-    --primary: 0 0% 9%;
-    --primary-foreground: 0 0% 98%;
+    /* Radii */
+    --r-sm: 6px;
+    --r-md: 10px;
+    --r-lg: 14px;
+    --r-xl: 20px;
 
-    --secondary: 0 0% 96.1%;
-    --secondary-foreground: 0 0% 9%;
+    /* Density */
+    --density: 1;
+    --space-unit: calc(4px * var(--density));
 
-    --accent: 0 0% 96.1%;
-    --accent-foreground: 0 0% 9%;
+    /* Typography CSS vars (wired to next/font variables in layout.tsx) */
+    --f-ui: var(--font-inter-tight), ui-sans-serif, system-ui, -apple-system,
+      sans-serif;
+    --f-display: var(--font-instrument-serif), Georgia, serif;
+    --f-mono: var(--font-jetbrains-mono), ui-monospace, "SF Mono", monospace;
 
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 0 0% 98%;
+    /* ----- shadcn HSL tokens (remapped to editorial palette) ----- */
+    /* Values are "H S% L%" triplets, consumed via hsl(var(--xxx)) */
+    --background: 36 33% 97%; /* paper */
+    --foreground: 25 12% 9%; /* ink */
 
-    --ring: 0 0% 63.9%;
+    --surface-hsl: 0 0% 100%; /* surface */
+    --paper-hsl: 36 33% 97%;
+    --paper-2-hsl: 34 29% 93%;
+    --paper-3-hsl: 33 25% 89%;
+    --line-hsl: 35 27% 86%;
+    --line-strong-hsl: 37 20% 77%;
+    --ink-hsl: 25 12% 9%;
+    --ink-2-hsl: 27 9% 22%;
+    --ink-3-hsl: 30 9% 39%;
+    --ink-4-hsl: 29 10% 54%;
+    --rust-hsl: 13 53% 46%;
+    --rust-soft-hsl: 20 57% 93%;
+    --rust-ink-hsl: 15 53% 24%;
 
-    --radius: 0.5rem;
+    --muted: 34 29% 93%; /* paper-2 */
+    --muted-foreground: 30 9% 39%; /* ink-3 */
+
+    --popover: 0 0% 100%; /* surface */
+    --popover-foreground: 25 12% 9%;
+
+    --card: 0 0% 100%; /* surface */
+    --card-foreground: 25 12% 9%;
+
+    --border: 35 27% 86%; /* line */
+    --input: 35 27% 86%;
+
+    /* Primary (neutral ink on paper) — used by default shadcn buttons */
+    --primary: 25 12% 9%;
+    --primary-foreground: 36 33% 97%;
+
+    /* Secondary (muted paper bg) */
+    --secondary: 34 29% 93%;
+    --secondary-foreground: 25 12% 9%;
+
+    /* shadcn "accent" is a subtle hover surface, NOT the brand rust.
+       Use --rust / bg-rust utilities for brand accent. */
+    --accent: 34 29% 93%;
+    --accent-foreground: 25 12% 9%;
+
+    --destructive: 12 56% 40%;
+    --destructive-foreground: 36 33% 97%;
+
+    --ring: 13 53% 46%; /* rust focus ring */
+
+    --radius: 0.625rem; /* 10px — editorial r-md */
   }
 
   .dark {
-    --background: 0 0% 3.9%;
-    --foreground: 0 0% 98%;
+    /* Dark mode: warm near-black paper + warm ink-on-dark text.
+       Rust accent is kept but softened. */
+    --paper: #17140f;
+    --paper-2: #1f1b16;
+    --paper-3: #2a251f;
+    --line: #33302a;
+    --line-strong: #4a4540;
+    --ink: #f3efe9;
+    --ink-2: #cfc6b8;
+    --ink-3: #938a7e;
+    --ink-4: #6b635a;
+    --surface: #1a1714;
 
-    --muted: 0 0% 14.9%;
-    --muted-foreground: 0 0% 63.9%;
+    --rust: #c5694f;
+    --rust-hover: #d37d64;
+    --rust-soft: #3a1c13;
+    --rust-ink: #f6e8e1;
 
-    --popover: 0 0% 3.9%;
-    --popover-foreground: 0 0% 98%;
+    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4), 0 1px 3px rgba(0, 0, 0, 0.3);
+    --shadow-md: 0 2px 4px rgba(0, 0, 0, 0.4), 0 8px 24px rgba(0, 0, 0, 0.5);
+    --shadow-lg: 0 8px 16px rgba(0, 0, 0, 0.5), 0 24px 56px rgba(0, 0, 0, 0.6);
+    --shadow-drawer: -24px 0 56px rgba(0, 0, 0, 0.5);
 
-    --card: 0 0% 3.9%;
-    --card-foreground: 0 0% 98%;
+    --background: 30 21% 8%;
+    --foreground: 34 29% 93%;
 
-    --border: 0 0% 14.9%;
-    --input: 0 0% 14.9%;
+    --surface-hsl: 25 12% 9%;
+    --paper-hsl: 30 21% 8%;
+    --paper-2-hsl: 30 17% 11%;
+    --paper-3-hsl: 29 15% 15%;
+    --line-hsl: 30 9% 18%;
+    --line-strong-hsl: 28 7% 27%;
+    --ink-hsl: 34 29% 93%;
+    --ink-2-hsl: 37 20% 77%;
+    --ink-3-hsl: 29 10% 54%;
+    --ink-4-hsl: 30 9% 39%;
+    --rust-hsl: 13 50% 54%;
+    --rust-soft-hsl: 15 53% 16%;
+    --rust-ink-hsl: 20 57% 93%;
 
-    --primary: 0 0% 98%;
-    --primary-foreground: 0 0% 9%;
+    --muted: 30 17% 11%;
+    --muted-foreground: 29 10% 54%;
 
-    --secondary: 0 0% 14.9%;
-    --secondary-foreground: 0 0% 98%;
+    --popover: 25 12% 9%;
+    --popover-foreground: 34 29% 93%;
 
-    --accent: 0 0% 14.9%;
-    --accent-foreground: 0 0% 98%;
+    --card: 25 12% 9%;
+    --card-foreground: 34 29% 93%;
 
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 0 85.7% 97.3%;
+    --border: 30 9% 18%;
+    --input: 30 9% 18%;
 
-    --ring: 0 0% 14.9%;
+    --primary: 34 29% 93%;
+    --primary-foreground: 25 12% 9%;
+
+    --secondary: 30 17% 11%;
+    --secondary-foreground: 34 29% 93%;
+
+    --accent: 30 17% 11%;
+    --accent-foreground: 34 29% 93%;
+
+    --destructive: 12 56% 50%;
+    --destructive-foreground: 34 29% 93%;
+
+    --ring: 13 50% 54%;
   }
 }
 
@@ -98,36 +189,151 @@
   * {
     @apply border-border;
   }
+
+  html,
   body {
-    @apply bg-background text-foreground;
-    font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: hsl(var(--background));
+    color: hsl(var(--foreground));
+    font-family: var(--f-ui);
+    font-feature-settings:
+      "ss01",
+      "cv11";
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
   }
+
   ::selection {
-    background: hsl(217 91% 60% / 0.3);
+    background: var(--rust);
+    color: var(--paper);
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--rust);
+    outline-offset: 2px;
+    border-radius: 4px;
   }
 }
 
-/* Force light theme variables on the main content area regardless of dark mode */
+/* Scrollbars — subtle, warm */
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+*::-webkit-scrollbar-thumb {
+  background: var(--line-strong);
+  border-radius: 8px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+*::-webkit-scrollbar-thumb:hover {
+  background: var(--ink-4);
+  background-clip: padding-box;
+  border: 2px solid transparent;
+}
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+*::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+/* Density override hook */
+[data-density="compact"] {
+  --density: 0.88;
+}
+
+/* Animations used across the app */
+@keyframes spin-accent {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@keyframes pulse-soft {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.4;
+  }
+}
+@keyframes fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+@keyframes drawer-in {
+  from {
+    transform: translateX(100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+@keyframes shimmer {
+  from {
+    background-position: -200px 0;
+  }
+  to {
+    background-position: 200px 0;
+  }
+}
+
+.animate-spin-accent {
+  animation: spin-accent 1.4s linear infinite;
+}
+.animate-pulse-soft {
+  animation: pulse-soft 1.4s ease-in-out infinite;
+}
+.animate-fade-up {
+  animation: fade-up 300ms ease-out both;
+}
+.animate-drawer-in {
+  animation: drawer-in 260ms cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+/* Editorial text utilities */
+.t-display {
+  font-family: var(--f-display);
+  font-weight: 400;
+  letter-spacing: -0.015em;
+  line-height: 1.05;
+}
+.t-eyebrow {
+  font-family: var(--f-mono);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: hsl(var(--ink-3-hsl));
+}
+.t-label {
+  font-size: 12px;
+  font-weight: 500;
+  color: hsl(var(--ink-3-hsl));
+  letter-spacing: 0.01em;
+}
+.t-body {
+  font-size: 14px;
+  color: hsl(var(--ink-2-hsl));
+  line-height: 1.55;
+}
+.t-mono {
+  font-family: var(--f-mono);
+  font-size: 12px;
+  color: hsl(var(--ink-2-hsl));
+}
+.t-caption {
+  font-size: 12px;
+  color: hsl(var(--ink-3-hsl));
+}
+
+/* Legacy force-light override — retained as no-op on editorial palette */
 .app-main-content {
-  --background: 0 0% 100%;
-  --foreground: 0 0% 3.9%;
-  --muted: 0 0% 96.1%;
-  --muted-foreground: 0 0% 45.1%;
-  --popover: 0 0% 100%;
-  --popover-foreground: 0 0% 3.9%;
-  --card: 0 0% 100%;
-  --card-foreground: 0 0% 3.9%;
-  --border: 0 0% 89.8%;
-  --input: 0 0% 89.8%;
-  --primary: 0 0% 9%;
-  --primary-foreground: 0 0% 98%;
-  --secondary: 0 0% 96.1%;
-  --secondary-foreground: 0 0% 9%;
-  --accent: 0 0% 96.1%;
-  --accent-foreground: 0 0% 9%;
-  --destructive: 0 84.2% 60.2%;
-  --destructive-foreground: 0 0% 98%;
-  --ring: 0 0% 63.9%;
   color-scheme: light;
-  color: hsl(0 0% 3.9%);
 }
