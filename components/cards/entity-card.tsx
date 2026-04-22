@@ -1,9 +1,10 @@
 "use client"
 
-import { cn } from "@/lib/utils"
 import { IconClock } from "@tabler/icons-react"
 import { ReactNode } from "react"
+
 import type { AccentKey } from "@/components/canvas/accent-tabs"
+import { cn } from "@/lib/utils"
 
 export interface CompletionChip {
   label: string
@@ -24,12 +25,16 @@ interface EntityCardProps {
   className?: string
 }
 
+/**
+ * Accent chip maps onto the editorial phase tints, so legacy accent keys
+ * still render something meaningful after the palette swap.
+ */
 const CHIP_FILLED_BG: Record<AccentKey, string> = {
-  "teal-journey": "bg-teal-journey border-teal-journey",
-  "orange-product": "bg-orange-product border-orange-product",
-  "purple-persona": "bg-purple-persona border-purple-persona",
-  "sage-brand": "bg-sage-brand border-sage-brand",
-  neutral: "bg-ink-500 border-ink-500"
+  "teal-journey": "bg-[color:var(--p-problem)] border-[color:var(--p-problem)]",
+  "orange-product": "bg-[color:var(--p-lit)] border-[color:var(--p-lit)]",
+  "purple-persona": "bg-[color:var(--p-hyp)] border-[color:var(--p-hyp)]",
+  "sage-brand": "bg-[color:var(--p-overview)] border-[color:var(--p-overview)]",
+  neutral: "bg-ink-3 border-ink-3"
 }
 
 export function EntityCard({
@@ -48,12 +53,12 @@ export function EntityCard({
     <div
       onClick={onClick}
       className={cn(
-        "border-ink-200 hover:border-teal-journey/40 group relative flex cursor-pointer flex-col overflow-hidden rounded-2xl border bg-white shadow-sm transition-all duration-150 hover:-translate-y-0.5 hover:shadow-md",
+        "border-line bg-surface hover:border-line-strong hover:bg-paper group relative flex cursor-pointer flex-col overflow-hidden rounded-lg border transition-colors",
         className
       )}
     >
       {thumbnail && (
-        <div className="bg-teal-journey-tint flex h-20 items-center justify-center">
+        <div className="bg-paper-2 flex h-20 items-center justify-center">
           {thumbnail}
         </div>
       )}
@@ -62,7 +67,7 @@ export function EntityCard({
         <div className="flex items-start justify-between gap-2">
           <h3
             title={title}
-            className="text-ink-900 line-clamp-3 min-w-0 flex-1 break-words text-sm font-bold leading-snug"
+            className="text-ink line-clamp-3 min-w-0 flex-1 break-words text-[14px] font-semibold leading-snug"
           >
             {title}
           </h3>
@@ -77,7 +82,9 @@ export function EntityCard({
         </div>
 
         {description && (
-          <p className="text-ink-500 line-clamp-2 text-xs">{description}</p>
+          <p className="text-ink-3 line-clamp-2 text-[12.5px] leading-relaxed">
+            {description}
+          </p>
         )}
 
         {badges && badges.length > 0 && (
@@ -85,13 +92,13 @@ export function EntityCard({
             {badges.slice(0, 3).map(b => (
               <span
                 key={b}
-                className="bg-ink-100 text-ink-500 rounded-md px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide"
+                className="bg-paper-2 text-ink-3 rounded-full px-2 py-0.5 font-mono text-[10.5px] font-medium tracking-wide"
               >
                 {b}
               </span>
             ))}
             {badges.length > 3 && (
-              <span className="bg-ink-100 text-ink-400 rounded-md px-2 py-0.5 text-[10px] font-semibold">
+              <span className="bg-paper-2 text-ink-3 rounded-full px-2 py-0.5 font-mono text-[10.5px] font-medium">
                 +{badges.length - 3}
               </span>
             )}
@@ -109,7 +116,7 @@ export function EntityCard({
                     "size-2.5 rounded-full border",
                     chip.filled
                       ? CHIP_FILLED_BG[chip.accent]
-                      : "border-ink-200 bg-white"
+                      : "border-line bg-surface"
                   )}
                 />
               ))}
@@ -119,7 +126,7 @@ export function EntityCard({
           )}
 
           {timestamp && (
-            <div className="text-ink-400 flex items-center gap-1 text-[10px]">
+            <div className="text-ink-3 flex items-center gap-1 font-mono text-[11px]">
               <IconClock size={11} />
               <span>
                 {timestampLabel ? `${timestampLabel} ` : ""}

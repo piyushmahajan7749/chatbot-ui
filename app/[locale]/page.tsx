@@ -1,28 +1,34 @@
 "use client"
 
-import { ShadowAISVG } from "@/components/icons/chatbotui-svg"
 import { IconArrowRight } from "@tabler/icons-react"
-import { useTheme } from "next-themes"
 import Link from "next/link"
 
+import { ShadowAISVG } from "@/components/icons/chatbotui-svg"
+import { Eyebrow } from "@/components/ui/typography"
+
 export default function HomePage() {
-  const { theme } = useTheme()
-
   return (
-    <div className="flex size-full flex-col items-center justify-center">
-      <div>
-        <ShadowAISVG theme={theme === "dark" ? "dark" : "light"} scale={0.3} />
+    <div className="bg-paper flex size-full flex-col items-center justify-center">
+      <div className="flex flex-col items-center gap-6">
+        <ShadowAISVG scale={2.5} />
+        <div className="flex flex-col items-center gap-1.5">
+          <Eyebrow>Shadow AI</Eyebrow>
+          <h1 className="font-display text-ink text-center text-[52px] font-normal leading-none tracking-[-0.02em]">
+            Your AI research <span className="text-rust">co-scientist</span>
+          </h1>
+          <p className="text-ink-2 mt-2 max-w-md text-center text-[14px] leading-relaxed">
+            Tools for research scientists — scope a problem, surface literature,
+            generate hypotheses, and design experiments.
+          </p>
+        </div>
+        <Link
+          href="/login"
+          className="bg-rust text-paper mt-2 inline-flex h-10 items-center gap-2 rounded-md px-[18px] text-[14px] font-medium transition-colors hover:bg-[color:var(--rust-hover)]"
+        >
+          Get started
+          <IconArrowRight size={14} />
+        </Link>
       </div>
-
-      <div className="mt-2 text-4xl font-bold">SHADOW AI</div>
-
-      <Link
-        className="mt-4 flex w-[200px] items-center justify-center rounded-md bg-blue-500 p-2 font-semibold"
-        href="/login"
-      >
-        Start Chatting
-        <IconArrowRight className="ml-1" size={20} />
-      </Link>
     </div>
   )
 }

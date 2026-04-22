@@ -68,7 +68,15 @@ module.exports = {
           DEFAULT: "hsl(var(--ink-hsl) / <alpha-value>)",
           2: "hsl(var(--ink-2-hsl) / <alpha-value>)",
           3: "hsl(var(--ink-3-hsl) / <alpha-value>)",
-          4: "hsl(var(--ink-4-hsl) / <alpha-value>)"
+          4: "hsl(var(--ink-4-hsl) / <alpha-value>)",
+          /* Legacy numeric aliases — retained until PR 5 */
+          900: "hsl(var(--ink-hsl) / <alpha-value>)",
+          700: "hsl(var(--ink-2-hsl) / <alpha-value>)",
+          500: "hsl(var(--ink-3-hsl) / <alpha-value>)",
+          400: "hsl(var(--ink-4-hsl) / <alpha-value>)",
+          200: "hsl(var(--line-strong-hsl) / <alpha-value>)",
+          100: "hsl(var(--paper-3-hsl) / <alpha-value>)",
+          50: "hsl(var(--paper-2-hsl) / <alpha-value>)"
         },
         rust: {
           DEFAULT: "hsl(var(--rust-hsl) / <alpha-value>)",
@@ -89,7 +97,37 @@ module.exports = {
         success: "var(--success)",
         warn: "var(--warn)",
         danger: "var(--danger)",
-        info: "var(--info)"
+        info: "var(--info)",
+
+        /* ---- Legacy JourneyMaker aliases (kept so pre-redesign callsites
+           don't render blank during the phased migration). These map to the
+           nearest editorial token. Removed once PR 5 migrates every usage. */
+        brick: {
+          DEFAULT: "hsl(var(--rust-hsl) / <alpha-value>)",
+          hover: "hsl(var(--rust-hsl) / <alpha-value>)",
+          disabled: "hsl(var(--rust-soft-hsl) / <alpha-value>)"
+        },
+        "teal-journey": {
+          DEFAULT: "var(--p-problem)",
+          dark: "var(--p-problem)",
+          active: "hsl(var(--paper-2-hsl) / <alpha-value>)",
+          tint: "hsl(var(--paper-hsl) / <alpha-value>)"
+        },
+        "orange-product": {
+          DEFAULT: "var(--p-lit)",
+          active: "hsl(var(--paper-2-hsl) / <alpha-value>)",
+          tint: "hsl(var(--paper-hsl) / <alpha-value>)"
+        },
+        "purple-persona": {
+          DEFAULT: "var(--p-hyp)",
+          active: "hsl(var(--paper-2-hsl) / <alpha-value>)",
+          tint: "hsl(var(--paper-hsl) / <alpha-value>)"
+        },
+        "sage-brand": {
+          DEFAULT: "var(--p-overview)",
+          active: "hsl(var(--paper-2-hsl) / <alpha-value>)",
+          tint: "hsl(var(--paper-hsl) / <alpha-value>)"
+        }
       },
       borderRadius: {
         sm: "var(--r-sm)",

@@ -48,6 +48,7 @@ import {
 } from "@/components/ui/alert-dialog"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
+import { DisplayHeading, Eyebrow } from "@/components/ui/typography"
 
 export default function ProjectsPage() {
   const params = useParams()
@@ -250,16 +251,14 @@ export default function ProjectsPage() {
   }, [projects, designs])
 
   return (
-    <div className="bg-ink-50 h-full space-y-6 p-6">
+    <div className="bg-paper h-full space-y-6 overflow-auto p-8">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <div className="text-ink-400 text-[11px] font-bold uppercase tracking-[0.13em]">
-            Workspace
-          </div>
-          <h1 className="text-ink-900 text-2xl font-extrabold tracking-tight">
+          <Eyebrow>Workspace</Eyebrow>
+          <DisplayHeading as="h1" className="mt-1 text-[34px]">
             Projects
-          </h1>
+          </DisplayHeading>
         </div>
         <div className="flex items-center gap-2">
           <Button
@@ -334,18 +333,18 @@ export default function ProjectsPage() {
         filters={filters}
         onFiltersChange={setFilters}
         availableTags={availableTags}
-        className="rounded-lg border border-zinc-200 bg-white p-4"
+        className="border-line bg-surface rounded-lg border p-4"
       />
 
       {/* Project Grid */}
       {loading ? (
         <div className="flex h-64 items-center justify-center">
-          <div className="size-8 animate-spin rounded-full border-2 border-zinc-300 border-t-blue-500" />
+          <div className="border-line border-t-rust size-8 animate-spin rounded-full border-2" />
         </div>
       ) : projects.length === 0 ? (
         <div className="flex h-64 flex-col items-center justify-center text-center">
-          <IconFolder size={48} className="mb-4 text-zinc-300" />
-          <p className="mb-4 text-zinc-400">
+          <IconFolder size={48} className="text-ink-4 mb-4" />
+          <p className="text-ink-3 mb-4 text-[13px]">
             {filters.searchTerm || filters.tags.length > 0
               ? "No projects found"
               : "No projects yet"}

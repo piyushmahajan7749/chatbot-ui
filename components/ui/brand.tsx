@@ -1,26 +1,35 @@
 "use client"
 
 import { FC } from "react"
-import { Brain } from "lucide-react"
+
+import { ShadowAISVG } from "@/components/icons/chatbotui-svg"
+import { cn } from "@/lib/utils"
 
 interface BrandProps {
+  /** Retained for API compatibility; the editorial brand is theme-agnostic. */
   theme?: "dark" | "light"
+  size?: number
+  collapsed?: boolean
+  className?: string
 }
 
-export const Brand: FC<BrandProps> = ({ theme = "light" }) => {
+/**
+ * Editorial brand lockup: half-moon monogram + "Shadow." wordmark in
+ * Instrument Serif, with a rust period.
+ */
+export const Brand: FC<BrandProps> = ({
+  size = 22,
+  collapsed = false,
+  className
+}) => {
   return (
-    <div className="flex flex-col items-center gap-4">
-      <div className="flex size-16 items-center justify-center rounded-2xl bg-gradient-to-br from-blue-500 to-purple-600 shadow-lg">
-        <Brain className="size-8 text-white" />
-      </div>
-      <div>
-        <h1 className="text-center text-3xl font-bold tracking-tight text-slate-800">
-          Shadow AI
-        </h1>
-        <p className="mt-1 text-center text-sm text-slate-500">
-          Your AI research assistant
-        </p>
-      </div>
+    <div className={cn("flex items-center gap-2.5", className)}>
+      <ShadowAISVG scale={size / 24} />
+      {!collapsed && (
+        <span className="font-display text-ink pt-0.5 text-[22px] leading-none tracking-[-0.01em]">
+          Shadow<span className="text-rust">.</span>
+        </span>
+      )}
     </div>
   )
 }
