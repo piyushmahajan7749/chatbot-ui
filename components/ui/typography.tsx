@@ -11,7 +11,7 @@ const Eyebrow = React.forwardRef<
   <span
     ref={ref}
     className={cn(
-      "text-ink-3 font-mono text-[11px] font-medium uppercase tracking-[0.12em]",
+      "text-ink-3 font-mono text-[12px] font-medium uppercase tracking-[0.12em]",
       className
     )}
     {...props}
@@ -49,7 +49,7 @@ const MonoText = React.forwardRef<
 >(({ className, ...props }, ref) => (
   <span
     ref={ref}
-    className={cn("text-ink-2 font-mono text-xs", className)}
+    className={cn("text-ink-2 font-mono text-[13px]", className)}
     {...props}
   />
 ))

@@ -1,7 +1,7 @@
 "use client"
 
 import { useContext, useEffect, useMemo, useState } from "react"
-import { useParams, useRouter } from "next/navigation"
+import { useParams, useRouter, useSearchParams } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { EntityCard } from "@/components/cards/entity-card"
@@ -53,6 +53,7 @@ import { DisplayHeading, Eyebrow } from "@/components/ui/typography"
 export default function ProjectsPage() {
   const params = useParams()
   const router = useRouter()
+  const searchParams = useSearchParams()
   const { toast } = useToast()
   const workspaceId = params.workspaceid as string
 
@@ -77,6 +78,17 @@ export default function ProjectsPage() {
   useEffect(() => {
     fetchProjects()
   }, [workspaceId, filters])
+
+  // When the sidebar's "+" button navigates here with ?create=1, auto-open
+  // the create-project dialog and strip the param from the URL.
+  useEffect(() => {
+    if (searchParams.get("create") === "1") {
+      setIsCreateModalOpen(true)
+      const locale = (params.locale as string) || "en"
+      router.replace(`/${locale}/${workspaceId}/projects`)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams])
 
   const fetchProjects = async () => {
     try {
