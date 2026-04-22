@@ -1,11 +1,13 @@
 "use client"
 
-import { useState, useEffect } from "react"
-import { AppSidebar } from "./app-sidebar"
-import { GlobalSearch } from "@/components/search/global-search"
-import { cn } from "@/lib/utils"
-import { Button } from "@/components/ui/button"
 import { Menu, X } from "lucide-react"
+import { useEffect, useState } from "react"
+
+import { GlobalSearch } from "@/components/search/global-search"
+import { Button } from "@/components/ui/button"
+import { cn } from "@/lib/utils"
+
+import { AppSidebar } from "./app-sidebar"
 
 interface AppLayoutProps {
   children: React.ReactNode
@@ -16,7 +18,6 @@ export const AppLayout = ({ children }: AppLayoutProps) => {
   const [isMobile, setIsMobile] = useState(false)
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false)
 
-  // Load sidebar state from localStorage and check for mobile
   useEffect(() => {
     const collapsed = localStorage.getItem("sidebarCollapsed") === "true"
     setIsCollapsed(collapsed)
@@ -24,9 +25,7 @@ export const AppLayout = ({ children }: AppLayoutProps) => {
     const checkMobile = () => {
       const mobile = window.innerWidth < 768
       setIsMobile(mobile)
-      if (mobile) {
-        setMobileSidebarOpen(false)
-      }
+      if (mobile) setMobileSidebarOpen(false)
     }
 
     checkMobile()
@@ -36,37 +35,38 @@ export const AppLayout = ({ children }: AppLayoutProps) => {
 
   const handleToggleSidebar = () => {
     if (isMobile) {
-      setMobileSidebarOpen(!mobileSidebarOpen)
+      setMobileSidebarOpen(v => !v)
     } else {
-      const newCollapsed = !isCollapsed
-      setIsCollapsed(newCollapsed)
-      localStorage.setItem("sidebarCollapsed", String(newCollapsed))
+      const next = !isCollapsed
+      setIsCollapsed(next)
+      localStorage.setItem("sidebarCollapsed", String(next))
     }
   }
 
   return (
-    <div className="flex h-screen bg-zinc-50">
-      {/* Mobile Menu Button */}
+    <div className="bg-paper flex h-screen">
+      {/* Mobile menu button */}
       {isMobile && (
         <Button
-          variant="ghost"
-          size="sm"
+          variant="default"
+          size="icon"
           onClick={handleToggleSidebar}
-          className="fixed left-4 top-4 z-50 border border-zinc-200 bg-white shadow-sm md:hidden"
+          className="fixed left-4 top-4 z-50 size-9 shadow-sm md:hidden"
         >
           {mobileSidebarOpen ? <X size={16} /> : <Menu size={16} />}
         </Button>
       )}
 
-      {/* Mobile Sidebar Overlay */}
+      {/* Mobile overlay */}
       {isMobile && mobileSidebarOpen && (
         <div
-          className="fixed inset-0 z-40 bg-gray-900/60 backdrop-blur-sm"
+          className="fixed inset-0 z-40"
+          style={{ background: "rgba(26,23,20,0.32)" }}
           onClick={() => setMobileSidebarOpen(false)}
         />
       )}
 
-      {/* Dark Sidebar */}
+      {/* Sidebar */}
       <div
         className={cn(
           "z-40 transition-transform duration-300",
@@ -84,18 +84,16 @@ export const AppLayout = ({ children }: AppLayoutProps) => {
         />
       </div>
 
-      {/* Main Content Area — always light theme */}
+      {/* Main content */}
       <main
-        data-theme="light"
         className={cn(
-          "app-main-content flex-1 overflow-hidden bg-zinc-50 transition-all duration-300",
+          "app-main-content bg-paper flex-1 overflow-hidden transition-all duration-300",
           isMobile && mobileSidebarOpen && "pointer-events-none"
         )}
       >
         {children}
       </main>
 
-      {/* Global Search Modal */}
       <GlobalSearch />
     </div>
   )

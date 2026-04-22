@@ -1,301 +1,361 @@
 "use client"
 
-import { useContext, useEffect, useState } from "react"
-import { ErrorBoundary } from "@/components/ui/error-boundary"
+import {
+  IconBook,
+  IconChevronDown,
+  IconChevronsLeft,
+  IconDotsVertical,
+  IconFlask,
+  IconFolder,
+  IconLayoutGrid,
+  IconMessage,
+  IconPlus,
+  IconPoint,
+  IconSearch,
+  IconSettings
+} from "@tabler/icons-react"
 import { usePathname, useRouter } from "next/navigation"
+import { useContext, useEffect, useState } from "react"
+
+import { Brand } from "@/components/ui/brand"
+import { Button } from "@/components/ui/button"
+import { ErrorBoundary } from "@/components/ui/error-boundary"
+import { Kbd } from "@/components/ui/kbd"
 import { ChatbotUIContext } from "@/context/context"
 import { getProjectsByWorkspaceId } from "@/db/projects"
 import { cn } from "@/lib/utils"
-import {
-  Settings,
-  FolderOpen,
-  MessageSquare,
-  BarChart3,
-  ChevronLeft,
-  ChevronRight,
-  ChevronDown,
-  User,
-  FlaskConical,
-  Brain,
-  Plus
-} from "lucide-react"
-import { WorkspaceSwitcher } from "@/components/utility/workspace-switcher"
-import { WorkspaceSettings } from "@/components/workspace/workspace-settings"
-import { Button } from "@/components/ui/button"
-import { ProfileSettings } from "@/components/utility/profile-settings"
 
 interface AppSidebarProps {
   isCollapsed: boolean
   onToggle: () => void
 }
 
+interface NavItemProps {
+  icon?: React.ReactNode
+  label: string
+  active?: boolean
+  badge?: React.ReactNode
+  onClick?: () => void
+  collapsed?: boolean
+  indent?: number
+}
+
+function NavItem({
+  icon,
+  label,
+  active,
+  badge,
+  onClick,
+  collapsed,
+  indent = 0
+}: NavItemProps) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      title={collapsed ? label : undefined}
+      className={cn(
+        "relative mx-2 my-px flex w-[calc(100%-1rem)] items-center gap-2.5 rounded-md px-2.5 py-[7px] text-left text-[13px] transition-colors",
+        active
+          ? "bg-paper-3 text-ink font-medium"
+          : "text-ink-2 hover:bg-paper-3"
+      )}
+      style={indent ? { paddingLeft: 10 + indent } : undefined}
+    >
+      {active && (
+        <span className="bg-rust absolute inset-y-2 left-[-8px] w-0.5 rounded" />
+      )}
+      {icon && (
+        <span className={active ? "text-ink" : "text-ink-3"}>{icon}</span>
+      )}
+      {!collapsed && <span className="min-w-0 flex-1 truncate">{label}</span>}
+      {!collapsed && badge && (
+        <span className="bg-paper-3 text-ink-3 rounded-md px-1.5 py-px font-mono text-[10.5px]">
+          {badge}
+        </span>
+      )}
+    </button>
+  )
+}
+
+interface NavSectionProps {
+  label: string
+  action?: React.ReactNode
+  children: React.ReactNode
+  collapsed?: boolean
+}
+
+function NavSection({ label, action, children, collapsed }: NavSectionProps) {
+  return (
+    <div className="mt-5">
+      {!collapsed && (
+        <div className="flex items-center justify-between px-5 pb-2">
+          <span className="text-ink-3 font-mono text-[10.5px] font-medium uppercase tracking-[0.12em]">
+            {label}
+          </span>
+          {action}
+        </div>
+      )}
+      {children}
+    </div>
+  )
+}
+
 export const AppSidebar = ({ isCollapsed, onToggle }: AppSidebarProps) => {
-  const { selectedWorkspace, profile } = useContext(ChatbotUIContext)
-  const [projects, setProjects] = useState<any[]>([])
+  const { selectedWorkspace, profile, chats } = useContext(ChatbotUIContext)
+  const [projects, setProjects] = useState<{ id: string; name: string }[]>([])
   const pathname = usePathname()
   const router = useRouter()
-  const isKnowledgeActive =
-    pathname.includes("/chat") ||
-    pathname.includes("tab=assistants") ||
-    pathname.includes("tab=files") ||
-    pathname.includes("tab=collections")
-  const [knowledgeOpen, setKnowledgeOpen] = useState(isKnowledgeActive)
 
   useEffect(() => {
-    if (selectedWorkspace?.id) {
-      fetchProjects()
+    if (!selectedWorkspace?.id) return
+    let cancelled = false
+    getProjectsByWorkspaceId(selectedWorkspace.id)
+      .then(p => {
+        if (!cancelled) setProjects(p)
+      })
+      .catch(err => {
+        console.error("Error fetching projects:", err)
+      })
+    return () => {
+      cancelled = true
     }
   }, [selectedWorkspace?.id])
 
-  // Auto-expand Knowledge when navigating to a knowledge route
-  useEffect(() => {
-    if (isKnowledgeActive) {
-      setKnowledgeOpen(true)
-    }
-  }, [isKnowledgeActive])
+  const wsId = selectedWorkspace?.id
+  const currentProjectId = pathname.split("/projects/")[1]?.split("/")[0]
 
-  const fetchProjects = async () => {
-    if (selectedWorkspace?.id) {
-      try {
-        const projectsData = await getProjectsByWorkspaceId(
-          selectedWorkspace.id
-        )
-        setProjects(projectsData)
-      } catch (error) {
-        console.error("Error fetching projects:", error)
-      }
-    }
+  const isActive = (slug: string) => {
+    if (!wsId) return false
+    return pathname.includes(`/${wsId}${slug}`)
   }
 
-  const currentProjectId = pathname.split("/projects/")[1]?.split("/")[0]
-  const wsId = selectedWorkspace?.id
+  const triggerGlobalSearch = () => {
+    window.dispatchEvent(
+      new KeyboardEvent("keydown", {
+        key: "k",
+        metaKey: true,
+        ctrlKey: true
+      })
+    )
+  }
 
-  // Modules section (Designs / Reports / Data Collection) is intentionally
-  // removed in v2 — those artifacts now live inside a Project. Keeping the
-  // array empty (rather than rendering the section) keeps the file diff small
-  // while the section block below short-circuits on empty.
-  const mainNavItems: {
-    title: string
-    icon: typeof FlaskConical
-    href: string
-    active: boolean
-  }[] = []
+  const initials = (() => {
+    const n = profile?.display_name || profile?.username || ""
+    const parts = n.trim().split(/\s+/)
+    if (!parts[0]) return "U"
+    if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase()
+    return (parts[0][0] + parts[1][0]).toUpperCase()
+  })()
 
-  const knowledgeItems = [
-    {
-      title: "All Chats",
-      icon: MessageSquare,
-      href: `/${wsId}/chat-history`,
-      active: pathname.includes("/chat-history")
-    }
-  ]
+  const recentChats = chats.slice(0, 3)
 
   return (
     <ErrorBoundary>
       <aside
         className={cn(
-          "flex h-full flex-col border-r border-zinc-800 bg-zinc-900 text-white transition-all duration-300",
-          isCollapsed ? "w-16" : "w-64"
+          "border-line bg-paper-2 flex h-full flex-col border-r transition-all duration-300",
+          isCollapsed ? "w-16" : "w-[252px]"
         )}
       >
-        {/* Logo/Brand Header */}
-        <div className="flex items-center justify-between border-b border-zinc-800 p-4">
-          {!isCollapsed && (
-            <div className="flex items-center gap-2">
-              <div className="flex size-8 items-center justify-center rounded-lg bg-gradient-to-br from-blue-500 to-purple-600">
-                <span className="text-sm font-bold text-white">S</span>
-              </div>
-              <span className="text-lg font-bold text-white">Shadow AI</span>
-            </div>
-          )}
+        {/* Brand row */}
+        <div className="flex items-center justify-between px-4 pb-3.5 pt-4">
+          {isCollapsed ? <Brand collapsed size={22} /> : <Brand size={22} />}
           <Button
             variant="ghost"
-            size="sm"
+            size="icon"
             onClick={onToggle}
-            className="ml-auto text-zinc-400 hover:bg-zinc-800 hover:text-white"
+            className="text-ink-3 size-7"
+            title={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
           >
-            {isCollapsed ? (
-              <ChevronRight className="size-4" />
-            ) : (
-              <ChevronLeft className="size-4" />
-            )}
+            <IconChevronsLeft
+              size={14}
+              className={cn(
+                "transition-transform",
+                isCollapsed && "rotate-180"
+              )}
+            />
           </Button>
         </div>
 
-        {/* Workspace Switcher */}
+        {/* Workspace picker */}
         {!isCollapsed && (
-          <div className="border-b border-zinc-800 p-4">
-            <div className="flex items-center justify-between">
-              <WorkspaceSwitcher />
-              <WorkspaceSettings />
-            </div>
+          <div className="px-3">
+            <button
+              type="button"
+              onClick={() => router.push(wsId ? `/${wsId}` : "/")}
+              className="border-line bg-surface text-ink flex h-10 w-full items-center gap-2.5 rounded-md border px-2.5 text-left transition-colors"
+            >
+              <div
+                className="flex size-[22px] items-center justify-center rounded-[6px] text-[11px] font-semibold text-white"
+                style={{
+                  background:
+                    "linear-gradient(135deg, var(--p-problem) 0%, #1A4A4A 100%)"
+                }}
+              >
+                {selectedWorkspace?.name?.slice(0, 2).toUpperCase() || "WS"}
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="truncate text-[12.5px] font-medium">
+                  {selectedWorkspace?.name || "Workspace"}
+                </div>
+              </div>
+              <IconChevronDown size={14} stroke={1.8} />
+            </button>
           </div>
         )}
 
-        {/* Navigation */}
-        <nav className="flex-1 space-y-4 overflow-y-auto p-3">
-          {/* Main Modules — removed in v2; Designs/Reports/Data Collection
-              now live inside a Project. Block kept for fast reinstatement. */}
-          {mainNavItems.length > 0 && (
-            <div>
-              {!isCollapsed && (
-                <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-zinc-500">
-                  Modules
-                </h3>
-              )}
-              <div className="space-y-0.5">
-                {mainNavItems.map(item => {
-                  const Icon = item.icon
-                  return (
-                    <button
-                      key={item.title}
-                      onClick={() => router.push(item.href)}
-                      className={cn(
-                        "flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-sm transition-colors",
-                        item.active
-                          ? "bg-zinc-800 font-medium text-white"
-                          : "text-zinc-400 hover:bg-zinc-800/50 hover:text-zinc-300"
-                      )}
-                      title={isCollapsed ? item.title : undefined}
-                    >
-                      <Icon className="size-4 shrink-0" />
-                      {!isCollapsed && <span>{item.title}</span>}
-                    </button>
-                  )
-                })}
-              </div>
-            </div>
-          )}
+        {/* Search */}
+        {!isCollapsed && (
+          <div className="px-3 pb-1 pt-3.5">
+            <button
+              type="button"
+              onClick={triggerGlobalSearch}
+              className="border-line bg-surface text-ink-3 flex h-8 w-full items-center gap-2 rounded-md border px-2.5 text-[12.5px]"
+            >
+              <IconSearch size={14} />
+              <span className="flex-1 text-left">Search</span>
+              <Kbd>⌘K</Kbd>
+            </button>
+          </div>
+        )}
 
-          {/* Projects Section */}
-          <div>
-            {!isCollapsed && (
-              <div className="mb-2 flex items-center justify-between">
-                <h3 className="text-xs font-semibold uppercase tracking-wide text-zinc-500">
-                  Projects
-                </h3>
-                <button
-                  onClick={() => router.push(`/${wsId}/projects`)}
-                  className="rounded p-0.5 text-zinc-500 hover:bg-zinc-800 hover:text-zinc-300"
+        {/* Nav sections */}
+        <div className="flex-1 overflow-y-auto pb-3">
+          <NavSection label="Workspace" collapsed={isCollapsed}>
+            <NavItem
+              icon={<IconLayoutGrid size={15} />}
+              label="Dashboard"
+              active={
+                wsId
+                  ? pathname === `/${wsId}` || pathname.endsWith(`/${wsId}`)
+                  : false
+              }
+              onClick={() => wsId && router.push(`/${wsId}`)}
+              collapsed={isCollapsed}
+            />
+            <NavItem
+              icon={<IconFlask size={15} />}
+              label="All Designs"
+              active={isActive("/designs")}
+              onClick={() => wsId && router.push(`/${wsId}/designs`)}
+              collapsed={isCollapsed}
+            />
+            <NavItem
+              icon={<IconBook size={15} />}
+              label="Reports"
+              active={isActive("/reports")}
+              onClick={() => wsId && router.push(`/${wsId}/reports`)}
+              collapsed={isCollapsed}
+            />
+            <NavItem
+              icon={<IconMessage size={15} />}
+              label="Chat history"
+              active={isActive("/chat-history")}
+              onClick={() => wsId && router.push(`/${wsId}/chat-history`)}
+              collapsed={isCollapsed}
+            />
+          </NavSection>
+
+          <NavSection
+            label="Projects"
+            collapsed={isCollapsed}
+            action={
+              !isCollapsed && (
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="text-ink-3 size-5"
+                  onClick={() => wsId && router.push(`/${wsId}/projects`)}
                   title="View all projects"
                 >
-                  <Plus className="size-3.5" />
-                </button>
-              </div>
-            )}
-            <div className="space-y-0.5">
-              <button
-                onClick={() => router.push(`/${wsId}/projects`)}
-                className={cn(
-                  "flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-sm transition-colors",
-                  pathname.includes("/projects") && !currentProjectId
-                    ? "bg-zinc-800 font-medium text-white"
-                    : "text-zinc-400 hover:bg-zinc-800/50 hover:text-zinc-300"
-                )}
-                title={isCollapsed ? "All Projects" : undefined}
-              >
-                <FolderOpen className="size-4 shrink-0" />
-                {!isCollapsed && <span>All Projects</span>}
-              </button>
-              {!isCollapsed &&
-                projects.slice(0, 5).map(project => (
-                  <button
-                    key={project.id}
+                  <IconPlus size={12} />
+                </Button>
+              )
+            }
+          >
+            <NavItem
+              icon={<IconFolder size={15} />}
+              label="All Projects"
+              active={isActive("/projects") && !currentProjectId}
+              onClick={() => wsId && router.push(`/${wsId}/projects`)}
+              collapsed={isCollapsed}
+            />
+            {!isCollapsed &&
+              projects
+                .slice(0, 5)
+                .map(p => (
+                  <NavItem
+                    key={p.id}
+                    icon={<IconFolder size={15} />}
+                    label={p.name}
+                    active={currentProjectId === p.id}
                     onClick={() =>
-                      router.push(`/${wsId}/projects/${project.id}`)
+                      wsId && router.push(`/${wsId}/projects/${p.id}`)
                     }
-                    className={cn(
-                      "flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-sm transition-colors",
-                      currentProjectId === project.id
-                        ? "bg-zinc-800 font-medium text-white"
-                        : "text-zinc-400 hover:bg-zinc-800/50 hover:text-zinc-300"
-                    )}
-                  >
-                    <FolderOpen className="ml-1 size-3.5 shrink-0" />
-                    <span className="truncate">{project.name}</span>
-                  </button>
+                  />
                 ))}
-              {!isCollapsed && projects.length > 5 && (
-                <button
-                  onClick={() => router.push(`/${wsId}/projects`)}
-                  className="flex w-full items-center gap-2.5 rounded-xl px-3 py-1.5 text-xs text-zinc-500 transition-colors hover:text-zinc-300"
-                >
-                  <span className="ml-5">+{projects.length - 5} more</span>
-                </button>
-              )}
-            </div>
-          </div>
-
-          {/* Knowledge Section (collapsible) */}
-          <div>
-            {!isCollapsed ? (
+            {!isCollapsed && projects.length > 5 && (
               <button
-                onClick={() => setKnowledgeOpen(!knowledgeOpen)}
-                className="mb-2 flex w-full items-center justify-between text-xs font-semibold uppercase tracking-wide text-zinc-500 hover:text-zinc-400"
+                type="button"
+                onClick={() => wsId && router.push(`/${wsId}/projects`)}
+                className="text-ink-3 hover:text-ink-2 mx-2 my-px flex w-[calc(100%-1rem)] items-center px-[30px] py-1 text-[12px]"
               >
-                <span>Chat History</span>
-                <ChevronDown
-                  className={cn(
-                    "size-3 transition-transform",
-                    knowledgeOpen ? "" : "-rotate-90"
-                  )}
-                />
+                +{projects.length - 5} more
               </button>
-            ) : (
-              <div className="mb-2 flex justify-center">
-                <Brain className="size-4 text-zinc-500" />
-              </div>
             )}
-            {(knowledgeOpen || isCollapsed) && (
-              <div className="space-y-0.5">
-                {knowledgeItems.map(item => {
-                  const Icon = item.icon
-                  return (
-                    <button
-                      key={item.title}
-                      onClick={() => router.push(item.href)}
-                      className={cn(
-                        "flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-sm transition-colors",
-                        item.active
-                          ? "bg-zinc-800 font-medium text-white"
-                          : "text-zinc-400 hover:bg-zinc-800/50 hover:text-zinc-300"
-                      )}
-                      title={isCollapsed ? item.title : undefined}
-                    >
-                      <Icon className="size-4 shrink-0" />
-                      {!isCollapsed && <span>{item.title}</span>}
-                    </button>
-                  )
-                })}
-              </div>
-            )}
-          </div>
-        </nav>
+          </NavSection>
+
+          {recentChats.length > 0 && !isCollapsed && (
+            <NavSection label="Recent" collapsed={isCollapsed}>
+              {recentChats.map(c => (
+                <NavItem
+                  key={c.id}
+                  icon={<IconPoint size={10} />}
+                  label={c.name || "Untitled chat"}
+                  onClick={() => wsId && router.push(`/${wsId}/chat/${c.id}`)}
+                />
+              ))}
+            </NavSection>
+          )}
+        </div>
 
         {/* Footer */}
-        <div className="space-y-2 border-t border-zinc-800 p-3">
+        <div className="border-line flex flex-col gap-1.5 border-t p-3">
           <button
-            onClick={() => router.push(`/${wsId}/settings`)}
-            className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-sm text-zinc-400 transition-colors hover:bg-zinc-800/50 hover:text-zinc-300"
+            type="button"
+            onClick={() => wsId && router.push(`/${wsId}`)}
+            className={cn(
+              "text-ink-2 hover:bg-paper-3 flex h-8 w-full items-center gap-2.5 rounded-md px-2.5 text-[13px]",
+              isCollapsed && "justify-center"
+            )}
             title={isCollapsed ? "Settings" : undefined}
           >
-            <Settings className="size-4" />
+            <IconSettings size={15} />
             {!isCollapsed && <span>Settings</span>}
           </button>
 
           {!isCollapsed && (
-            <div className="flex items-center gap-3 px-3 py-1">
-              <div className="flex size-8 items-center justify-center rounded-full bg-gradient-to-br from-blue-500 to-purple-600">
-                <User className="size-4 text-white" />
+            <div className="flex items-center gap-2.5 rounded-md px-2.5 py-2">
+              <div className="bg-rust text-paper flex size-7 items-center justify-center rounded-full text-[12px] font-semibold">
+                {initials}
               </div>
               <div className="min-w-0 flex-1">
-                <p className="truncate text-xs text-white">
+                <div className="text-ink truncate text-[12.5px] font-medium">
                   {profile?.display_name || profile?.username || "User"}
-                </p>
-                <p className="truncate text-xs text-zinc-500">
+                </div>
+                <div className="text-ink-3 truncate text-[11px]">
                   {selectedWorkspace?.name}
-                </p>
+                </div>
               </div>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="text-ink-3 size-6"
+                title="More"
+              >
+                <IconDotsVertical size={14} />
+              </Button>
             </div>
           )}
         </div>
