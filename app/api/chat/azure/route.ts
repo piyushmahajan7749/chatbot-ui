@@ -1,7 +1,6 @@
-import { checkApiKey, getServerProfile } from "@/lib/server/server-chat-helpers"
+import { getAzureOpenAI, getAzureOpenAIModel } from "@/lib/azure-openai"
 import { ChatAPIPayload } from "@/types"
 import { OpenAIStream, StreamingTextResponse } from "ai"
-import OpenAI from "openai"
 import { ChatCompletionCreateParamsBase } from "openai/resources/chat/completions.mjs"
 
 export const runtime = "edge"
@@ -11,55 +10,46 @@ export async function POST(request: Request) {
   const { chatSettings, messages } = json as ChatAPIPayload
 
   try {
-    const profile = await getServerProfile()
-
-    checkApiKey(profile.azure_openai_api_key, "Azure OpenAI")
-
-    const ENDPOINT = profile.azure_openai_endpoint
-    const KEY = profile.azure_openai_api_key
-
-    let DEPLOYMENT_ID = ""
-    switch (chatSettings.model) {
-      case "gpt-3.5-turbo":
-        DEPLOYMENT_ID = profile.azure_openai_35_turbo_id || ""
-        break
-      case "gpt-4-turbo-preview":
-        DEPLOYMENT_ID = profile.azure_openai_45_turbo_id || ""
-        break
-      case "gpt-4-vision-preview":
-        DEPLOYMENT_ID = profile.azure_openai_45_vision_id || ""
-        break
-      default:
-        return new Response(JSON.stringify({ message: "Model not found" }), {
-          status: 400
-        })
-    }
-
-    if (!ENDPOINT || !KEY || !DEPLOYMENT_ID) {
-      return new Response(
-        JSON.stringify({ message: "Azure resources not found" }),
-        {
-          status: 400
-        }
+    const shouldRetryWithoutTemperature = (error: any) => {
+      const msg = (error?.error?.message || error?.message || "") as string
+      return (
+        /temperature/i.test(msg) &&
+        /Only the default \(1\) value is supported/i.test(msg)
       )
     }
 
-    const azureOpenai = new OpenAI({
-      apiKey: KEY,
-      baseURL: `${ENDPOINT}/openai/deployments/${DEPLOYMENT_ID}`,
-      defaultQuery: { "api-version": "2023-12-01-preview" },
-      defaultHeaders: { "api-key": KEY }
-    })
+    // Azure OpenAI (env-backed). We intentionally ignore chatSettings.model and
+    // always use the deployment configured in AZURE_OPENAI_DEPLOYMENT.
+    const azureOpenai = getAzureOpenAI()
+    const deployment = getAzureOpenAIModel()
 
-    const response = await azureOpenai.chat.completions.create({
-      model: DEPLOYMENT_ID as ChatCompletionCreateParamsBase["model"],
+    const params: any = {
+      model: deployment as ChatCompletionCreateParamsBase["model"],
       messages: messages as ChatCompletionCreateParamsBase["messages"],
       temperature: chatSettings.temperature,
-      max_tokens: chatSettings.model === "gpt-4-vision-preview" ? 4096 : null, // TODO: Fix
+      // Do not send `null` (provider validation error). Omit the field when unset.
+      max_tokens:
+        chatSettings.model === "gpt-4-vision-preview" ? 4096 : undefined,
       stream: true
-    })
+    }
 
-    const stream = OpenAIStream(response)
+    // Defensive: never send nullish max_tokens (some providers error hard)
+    if (params.max_tokens == null) delete params.max_tokens
+
+    let response: any
+    try {
+      response = await azureOpenai.chat.completions.create(params)
+    } catch (error: any) {
+      if (shouldRetryWithoutTemperature(error)) {
+        const { temperature: _temperature, ...withoutTemperature } =
+          params as any
+        response = await azureOpenai.chat.completions.create(withoutTemperature)
+      } else {
+        throw error
+      }
+    }
+
+    const stream = OpenAIStream(response as any)
 
     return new StreamingTextResponse(stream)
   } catch (error: any) {

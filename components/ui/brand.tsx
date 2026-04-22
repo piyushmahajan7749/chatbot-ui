@@ -1,26 +1,26 @@
 "use client"
 
-import Link from "next/link"
 import { FC } from "react"
-import { ShadowAISVG } from "../icons/chatbotui-svg"
+import { Brain } from "lucide-react"
 
 interface BrandProps {
   theme?: "dark" | "light"
 }
 
-export const Brand: FC<BrandProps> = ({ theme = "dark" }) => {
+export const Brand: FC<BrandProps> = ({ theme = "light" }) => {
   return (
-    <Link
-      className="flex cursor-pointer flex-col items-center hover:opacity-50"
-      href=""
-      target="_blank"
-      rel="noopener noreferrer"
-    >
-      <div className="mb-2">
-        <ShadowAISVG theme={theme === "dark" ? "dark" : "light"} scale={0.3} />
+    <div className="flex flex-col items-center gap-4">
+      <div className="flex size-16 items-center justify-center rounded-2xl bg-gradient-to-br from-blue-500 to-purple-600 shadow-lg">
+        <Brain className="size-8 text-white" />
       </div>
-
-      <div className="text-4xl font-bold tracking-wide">Shadow AI</div>
-    </Link>
+      <div>
+        <h1 className="text-center text-3xl font-bold tracking-tight text-slate-800">
+          Shadow AI
+        </h1>
+        <p className="mt-1 text-center text-sm text-slate-500">
+          Your AI research assistant
+        </p>
+      </div>
+    </div>
   )
 }

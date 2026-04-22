@@ -1,4 +1,5 @@
 import Loading from "@/app/[locale]/loading"
+import { cn } from "@/lib/utils"
 import { useChatHandler } from "@/components/chat/chat-hooks/use-chat-handler"
 import { ChatbotUIContext } from "@/context/context"
 import { getAssistantToolsByAssistantId } from "@/db/assistant-tools"
@@ -19,12 +20,21 @@ import { ChatMessages } from "./chat-messages"
 import { ChatScrollButtons } from "./chat-scroll-buttons"
 import { ChatSecondaryButtons } from "./chat-secondary-buttons"
 
-interface ChatUIProps {}
+interface ChatUIProps {
+  variant?: "full" | "panel"
+  /**
+   * Optional override for the active chat id. When set, ChatUI loads this chat
+   * directly (used by ScopedChatRail to render a pinned thread inline without
+   * routing). Falls back to the :chatid route param otherwise.
+   */
+  chatId?: string
+}
 
-export const ChatUI: FC<ChatUIProps> = ({}) => {
+export const ChatUI: FC<ChatUIProps> = ({ variant = "full", chatId }) => {
   useHotkey("o", () => handleNewChat())
 
   const params = useParams()
+  const effectiveChatId = chatId ?? (params.chatid as string | undefined)
 
   const {
     setChatMessages,
@@ -66,7 +76,8 @@ export const ChatUI: FC<ChatUIProps> = ({}) => {
       setIsAtBottom(true)
     }
 
-    if (params.chatid) {
+    if (effectiveChatId) {
+      setLoading(true)
       fetchData().then(() => {
         handleFocusChatInput()
         setLoading(false)
@@ -74,10 +85,12 @@ export const ChatUI: FC<ChatUIProps> = ({}) => {
     } else {
       setLoading(false)
     }
-  }, [])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [effectiveChatId])
 
   const fetchMessages = async () => {
-    const fetchedMessages = await getMessagesByChatId(params.chatid as string)
+    if (!effectiveChatId) return
+    const fetchedMessages = await getMessagesByChatId(effectiveChatId)
 
     const imagePromises: Promise<MessageImage>[] = fetchedMessages.flatMap(
       message =>
@@ -122,7 +135,7 @@ export const ChatUI: FC<ChatUIProps> = ({}) => {
     const uniqueFileItems = messageFileItems.flatMap(item => item.file_items)
     setChatFileItems(uniqueFileItems)
 
-    const chatFiles = await getChatFilesByChatId(params.chatid as string)
+    const chatFiles = await getChatFilesByChatId(effectiveChatId)
 
     setChatFiles(
       chatFiles.files.map(file => ({
@@ -151,7 +164,8 @@ export const ChatUI: FC<ChatUIProps> = ({}) => {
   }
 
   const fetchChat = async () => {
-    const chat = await getChatById(params.chatid as string)
+    if (!effectiveChatId) return
+    const chat = await getChatById(effectiveChatId)
     if (!chat) return
 
     if (chat.assistant_id) {
@@ -185,9 +199,16 @@ export const ChatUI: FC<ChatUIProps> = ({}) => {
     return <Loading />
   }
 
+  const isPanel = variant === "panel"
+
   return (
     <div className="relative flex h-full flex-col items-center">
-      <div className="absolute left-4 top-2.5 flex justify-center">
+      <div
+        className={cn(
+          "absolute flex justify-center",
+          isPanel ? "left-2 top-2" : "left-4 top-2.5"
+        )}
+      >
         <ChatScrollButtons
           isAtTop={isAtTop}
           isAtBottom={isAtBottom}
@@ -197,15 +218,23 @@ export const ChatUI: FC<ChatUIProps> = ({}) => {
         />
       </div>
 
-      <div className="absolute right-4 top-1 flex h-[40px] items-center space-x-2">
+      <div
+        className={cn(
+          "absolute flex h-[40px] items-center space-x-2",
+          isPanel ? "right-2 top-1" : "right-4 top-1"
+        )}
+      >
         <ChatSecondaryButtons />
       </div>
 
-      <div className="bg-secondary flex max-h-[50px] min-h-[50px] w-full items-center justify-center border-b-2 font-bold">
-        <div className="max-w-[200px] truncate sm:max-w-[400px] md:max-w-[500px] lg:max-w-[600px] xl:max-w-[700px]">
-          {selectedChat?.name || "Chat"}
+      {/* Chat header - hidden in panel mode (studio has its own header) */}
+      {!isPanel && (
+        <div className="bg-secondary flex max-h-[50px] min-h-[50px] w-full items-center justify-center border-b-2 font-bold">
+          <div className="max-w-[200px] truncate sm:max-w-[400px] md:max-w-[500px] lg:max-w-[600px] xl:max-w-[700px]">
+            {selectedChat?.name || "Chat"}
+          </div>
         </div>
-      </div>
+      )}
 
       <div
         className="flex size-full flex-col overflow-auto border-b"
@@ -218,13 +247,23 @@ export const ChatUI: FC<ChatUIProps> = ({}) => {
         <div ref={messagesEndRef} />
       </div>
 
-      <div className="relative w-full min-w-[300px] items-end px-2 pb-3 pt-0 sm:w-[600px] sm:pb-8 sm:pt-5 md:w-[700px] lg:w-[700px] xl:w-[800px]">
+      <div
+        className={cn(
+          "relative items-end",
+          isPanel
+            ? "w-full px-3 pb-3 pt-2"
+            : "w-full min-w-[300px] px-2 pb-3 pt-0 sm:w-[600px] sm:pb-8 sm:pt-5 md:w-[700px] lg:w-[700px] xl:w-[800px]"
+        )}
+      >
         <ChatInput />
       </div>
 
-      <div className="absolute bottom-2 right-2 hidden md:block lg:bottom-4 lg:right-4">
-        <ChatHelp />
-      </div>
+      {/* Chat help - hidden in panel mode */}
+      {!isPanel && (
+        <div className="absolute bottom-2 right-2 hidden md:block lg:bottom-4 lg:right-4">
+          <ChatHelp />
+        </div>
+      )}
     </div>
   )
 }

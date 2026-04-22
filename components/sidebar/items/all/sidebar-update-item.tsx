@@ -84,6 +84,8 @@ import { FC, useContext, useEffect, useRef, useState } from "react"
 import profile from "react-syntax-highlighter/dist/esm/languages/hljs/profile"
 import { toast } from "sonner"
 import { SidebarDeleteItem } from "./sidebar-delete-item"
+import { updateReport } from "@/db/reports-firestore"
+import { updateDesign } from "@/db/designs-firestore"
 
 interface SidebarUpdateItemProps {
   isTyping: boolean
@@ -113,6 +115,8 @@ export const SidebarUpdateItem: FC<SidebarUpdateItemProps> = ({
     setAssistants,
     setTools,
     setModels,
+    setReports,
+    setDesigns,
     setAssistantImages
   } = useContext(ChatbotUIContext)
 
@@ -175,6 +179,8 @@ export const SidebarUpdateItem: FC<SidebarUpdateItemProps> = ({
     presets: null,
     prompts: null,
     files: null,
+    reports: null,
+    designs: null,
     collections: {
       startingCollectionFiles,
       setStartingCollectionFiles,
@@ -196,8 +202,10 @@ export const SidebarUpdateItem: FC<SidebarUpdateItemProps> = ({
       setSelectedAssistantTools
     },
     tools: null,
-    models: null
-  }
+    models: null,
+    projects: null,
+    "data-collections": null
+  } as Record<string, any>
 
   const fetchDataFunctions = {
     chats: null,
@@ -225,16 +233,24 @@ export const SidebarUpdateItem: FC<SidebarUpdateItemProps> = ({
       setSelectedAssistantCollections([])
       setSelectedAssistantTools([])
     },
+    reports: null,
+    designs: null,
+    "data-collections": null,
     tools: null,
-    models: null
-  }
+    models: null,
+    projects: null
+  } as Record<string, any>
 
   const fetchWorkpaceFunctions = {
     chats: null,
+    reports: null,
+    designs: null,
+    "data-collections": null,
     presets: async (presetId: string) => {
       const item = await getPresetWorkspacesByPresetId(presetId)
       return item.workspaces
     },
+
     prompts: async (promptId: string) => {
       const item = await getPromptWorkspacesByPromptId(promptId)
       return item.workspaces
@@ -258,8 +274,9 @@ export const SidebarUpdateItem: FC<SidebarUpdateItemProps> = ({
     models: async (modelId: string) => {
       const item = await getModelWorkspacesByModelId(modelId)
       return item.workspaces
-    }
-  }
+    },
+    projects: null
+  } as Record<string, any>
 
   const fetchSelectedWorkspaces = async () => {
     const fetchFunction = fetchWorkpaceFunctions[contentType]
@@ -327,6 +344,9 @@ export const SidebarUpdateItem: FC<SidebarUpdateItemProps> = ({
 
   const updateFunctions = {
     chats: updateChat,
+    reports: updateReport,
+    designs: updateDesign,
+    "data-collections": null,
     presets: async (presetId: string, updateState: TablesUpdate<"presets">) => {
       const updatedPreset = await updatePreset(presetId, updateState)
 
@@ -568,8 +588,9 @@ export const SidebarUpdateItem: FC<SidebarUpdateItemProps> = ({
       )
 
       return updatedModel
-    }
-  }
+    },
+    projects: null
+  } as Record<string, any>
 
   const stateUpdateFunctions = {
     chats: setChats,
@@ -579,8 +600,12 @@ export const SidebarUpdateItem: FC<SidebarUpdateItemProps> = ({
     collections: setCollections,
     assistants: setAssistants,
     tools: setTools,
-    models: setModels
-  }
+    models: setModels,
+    reports: setReports,
+    designs: setDesigns,
+    projects: null,
+    "data-collections": null
+  } as Record<string, any>
 
   const handleUpdate = async () => {
     try {

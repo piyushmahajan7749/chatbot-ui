@@ -4,6 +4,8 @@
 
 import { ChatbotUIContext } from "@/context/context"
 import { getProfileByUserId } from "@/db/profile"
+import { getReports } from "@/db/reports-firestore"
+import { DataCollectionItem } from "@/types/sidebar-data"
 import { getWorkspaceImageFromStorage } from "@/db/storage/workspace-images"
 import { getWorkspacesByUserId } from "@/db/workspaces"
 import { convertBlobToBase64 } from "@/lib/blob-to-b64"
@@ -49,7 +51,11 @@ export const GlobalState: FC<GlobalStateProps> = ({ children }) => {
   const [prompts, setPrompts] = useState<Tables<"prompts">[]>([])
   const [tools, setTools] = useState<Tables<"tools">[]>([])
   const [workspaces, setWorkspaces] = useState<Tables<"workspaces">[]>([])
-
+  const [reports, setReports] = useState<Tables<"reports">[]>([])
+  const [designs, setDesigns] = useState<Tables<"designs">[]>([])
+  const [dataCollections, setDataCollections] = useState<DataCollectionItem[]>(
+    []
+  )
   // MODELS STORE
   const [envKeyMap, setEnvKeyMap] = useState<Record<string, VALID_ENV_KEYS>>({})
   const [availableHostedModels, setAvailableHostedModels] = useState<LLM[]>([])
@@ -77,13 +83,15 @@ export const GlobalState: FC<GlobalStateProps> = ({ children }) => {
   const [userInput, setUserInput] = useState<string>("")
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([])
   const [chatSettings, setChatSettings] = useState<ChatSettings>({
-    model: "gpt-4-turbo-preview",
+    model: "gpt-4o",
     prompt: "You are a helpful AI assistant.",
     temperature: 0.5,
     contextLength: 4000,
     includeProfileContext: true,
     includeWorkspaceInstructions: true,
-    embeddingsProvider: "openai"
+    // Default to local embeddings to avoid requiring a separate Azure embeddings deployment.
+    // You can switch this back to "openai" once AZURE_OPENAI_EMBEDDINGS_DEPLOYMENT is configured.
+    embeddingsProvider: "local"
   })
   const [selectedChat, setSelectedChat] = useState<Tables<"chats"> | null>(null)
   const [chatFileItems, setChatFileItems] = useState<Tables<"file_items">[]>([])
@@ -134,21 +142,20 @@ export const GlobalState: FC<GlobalStateProps> = ({ children }) => {
         setEnvKeyMap(hostedModelRes.envKeyMap)
         setAvailableHostedModels(hostedModelRes.hostedModels)
 
-        if (
-          profile["openrouter_api_key"] ||
-          hostedModelRes.envKeyMap["openrouter"]
-        ) {
-          const openRouterModels = await fetchOpenRouterModels()
-          if (!openRouterModels) return
-          setAvailableOpenRouterModels(openRouterModels)
-        }
+        // Azure-only: do not fetch OpenRouter models
       }
 
-      if (process.env.NEXT_PUBLIC_OLLAMA_URL) {
-        const localModels = await fetchOllamaModels()
-        if (!localModels) return
-        setAvailableLocalModels(localModels)
+      // Azure-only: do not fetch local (Ollama) models
+      const fetchReports = async () => {
+        const session = (await supabase.auth.getSession()).data.session
+
+        if (session) {
+          const user = session.user
+          const fetchedReports = await getReports(user.id)
+          setReports(fetchedReports)
+        }
       }
+      fetchReports()
     })()
   }, [])
 
@@ -159,6 +166,13 @@ export const GlobalState: FC<GlobalStateProps> = ({ children }) => {
       const user = session.user
 
       const profile = await getProfileByUserId(user.id)
+
+      if (!profile) {
+        // Profile doesn't exist (e.g., after database reset), redirect to setup
+        console.log("Profile not found for user, redirecting to setup")
+        return router.push("/setup")
+      }
+
       setProfile(profile)
 
       if (!profile.has_onboarded) {
@@ -209,6 +223,8 @@ export const GlobalState: FC<GlobalStateProps> = ({ children }) => {
         setAssistants,
         collections,
         setCollections,
+        designs,
+        setDesigns,
         chats,
         setChats,
         files,
@@ -225,7 +241,10 @@ export const GlobalState: FC<GlobalStateProps> = ({ children }) => {
         setTools,
         workspaces,
         setWorkspaces,
-
+        reports,
+        setReports,
+        dataCollections,
+        setDataCollections,
         // MODELS STORE
         envKeyMap,
         setEnvKeyMap,

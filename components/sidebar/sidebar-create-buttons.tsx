@@ -1,13 +1,16 @@
+import { IconFolderPlus, IconPlus } from "@tabler/icons-react"
 import { useChatHandler } from "@/components/chat/chat-hooks/use-chat-handler"
 import { ChatbotUIContext } from "@/context/context"
 import { createFolder } from "@/db/folders"
 import { ContentType } from "@/types"
-import { IconFolderPlus, IconPlus } from "@tabler/icons-react"
 import { FC, useContext, useState } from "react"
 import { Button } from "../ui/button"
 import { CreateAssistant } from "./items/assistants/create-assistant"
 import { CreateCollection } from "./items/collections/create-collection"
 import { CreateFile } from "./items/files/create-file"
+import { CreateReport } from "../reports/create-report"
+import { CreateDesign } from "../designs/create-design"
+import { CreateDataCollection } from "../data-collections/create-data-collection"
 
 interface SidebarCreateButtonsProps {
   contentType: ContentType
@@ -22,13 +25,13 @@ export const SidebarCreateButtons: FC<SidebarCreateButtonsProps> = ({
     useContext(ChatbotUIContext)
   const { handleNewChat } = useChatHandler()
 
-  const [isCreatingPrompt, setIsCreatingPrompt] = useState(false)
-  const [isCreatingPreset, setIsCreatingPreset] = useState(false)
   const [isCreatingFile, setIsCreatingFile] = useState(false)
   const [isCreatingCollection, setIsCreatingCollection] = useState(false)
   const [isCreatingAssistant, setIsCreatingAssistant] = useState(false)
-  const [isCreatingTool, setIsCreatingTool] = useState(false)
-  const [isCreatingModel, setIsCreatingModel] = useState(false)
+  const [isCreatingReport, setIsCreatingReport] = useState(false)
+  const [isCreatingDesign, setIsCreatingDesign] = useState(false)
+  const [isCreatingDataCollection, setIsCreatingDataCollection] =
+    useState(false)
 
   const handleCreateFolder = async () => {
     if (!profile) return
@@ -65,6 +68,18 @@ export const SidebarCreateButtons: FC<SidebarCreateButtonsProps> = ({
         return async () => {
           setIsCreatingAssistant(true)
         }
+      case "reports":
+        return async () => {
+          setIsCreatingReport(true)
+        }
+      case "designs":
+        return async () => {
+          setIsCreatingDesign(true)
+        }
+      case "data-collections":
+        return async () => {
+          setIsCreatingDataCollection(true)
+        }
 
       default:
         break
@@ -76,8 +91,10 @@ export const SidebarCreateButtons: FC<SidebarCreateButtonsProps> = ({
       <Button className="flex h-[36px] grow" onClick={getCreateFunction()}>
         <IconPlus className="mr-1" size={20} />
         New{" "}
-        {contentType.charAt(0).toUpperCase() +
-          contentType.slice(1, contentType.length - 1)}
+        {contentType === "data-collections"
+          ? "Data Collection"
+          : contentType.charAt(0).toUpperCase() +
+            contentType.slice(1, contentType.length - 1)}
       </Button>
 
       {hasData && (
@@ -101,6 +118,27 @@ export const SidebarCreateButtons: FC<SidebarCreateButtonsProps> = ({
         <CreateAssistant
           isOpen={isCreatingAssistant}
           onOpenChange={setIsCreatingAssistant}
+        />
+      )}
+
+      {isCreatingReport && (
+        <CreateReport
+          isOpen={isCreatingReport}
+          onOpenChange={setIsCreatingReport}
+        />
+      )}
+
+      {isCreatingDesign && (
+        <CreateDesign
+          isOpen={isCreatingDesign}
+          onOpenChange={setIsCreatingDesign}
+        />
+      )}
+
+      {isCreatingDataCollection && (
+        <CreateDataCollection
+          isOpen={isCreatingDataCollection}
+          onOpenChange={setIsCreatingDataCollection}
         />
       )}
     </div>
