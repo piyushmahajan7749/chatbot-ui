@@ -6,6 +6,14 @@
  * dropped in behind the same interface.
  */
 
+export type PaperSource =
+  | "pubmed"
+  | "arxiv"
+  | "semantic_scholar"
+  | "scholar"
+  | "tavily"
+  | "user"
+
 export interface Paper {
   id: string
   title: string
@@ -16,6 +24,13 @@ export interface Paper {
   authors?: string[]
   year?: string
   journal?: string
+  /** Which upstream search source surfaced the paper (pubmed, arxiv, …). */
+  source?: PaperSource
+  /**
+   * Relevance score vs the user's research problem. Higher = more relevant.
+   * Normalized to [0, 1] in the API layer so UI can compare across sources.
+   */
+  relevanceScore?: number
 }
 
 export interface Hypothesis {
@@ -24,6 +39,13 @@ export interface Hypothesis {
   reasoning: string
   basedOnPaperIds: string[]
   selected: boolean
+  /**
+   * True if the user typed this hypothesis directly (via the
+   * "Design from a hypothesis" entry-point). The design agent should
+   * not re-critique or re-word a user-supplied hypothesis — it should
+   * treat it as a fixed input and design around it.
+   */
+  userSupplied?: boolean
 }
 
 export interface DesignSection {
@@ -94,6 +116,13 @@ export interface ProblemContext {
   constraintsStructured?: ProblemContextConstraints
   /** Structured v3 variables — known vs unknown open text. */
   variablesStructured?: ProblemContextVariables
+  /**
+   * When the user enters via the "Structure an existing plan" mode, the
+   * free-form draft procedure they pasted is stashed here. Design-generation
+   * agents must treat this as a scaffolding they adopt (not just reference)
+   * so the final SOP tracks the user's intent.
+   */
+  userProvidedPlan?: string
 
   // ── Legacy v2 fields (kept so older saved designs still load) ──────────
   goal?: string

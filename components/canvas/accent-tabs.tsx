@@ -31,37 +31,38 @@ interface AccentTabsProps {
   className?: string
 }
 
+// All phase accents collapse to editorial ink + rust in the new design
+// system — the stage identity is now carried by the Stepper/phase tints,
+// not by tab chrome color. Kept `AccentKey` in the signature so legacy
+// callsites compile without ripping; the rendered look is unified.
 const ACCENT_CLASSES: Record<
   AccentKey,
   { active: string; inactive: string; activeText: string }
 > = {
   "teal-journey": {
-    active:
-      "bg-teal-journey-active border-teal-journey text-teal-journey shadow-sm",
-    inactive: "bg-teal-journey-tint text-ink-500 hover:text-teal-journey",
-    activeText: "text-teal-journey"
+    active: "bg-surface border-ink text-ink shadow-sm",
+    inactive: "bg-paper-2 text-ink-3 hover:text-ink",
+    activeText: "text-ink"
   },
   "orange-product": {
-    active:
-      "bg-orange-product-active border-orange-product text-orange-product shadow-sm",
-    inactive: "bg-orange-product-tint text-ink-500 hover:text-orange-product",
-    activeText: "text-orange-product"
+    active: "bg-surface border-ink text-ink shadow-sm",
+    inactive: "bg-paper-2 text-ink-3 hover:text-ink",
+    activeText: "text-ink"
   },
   "purple-persona": {
-    active:
-      "bg-purple-persona-active border-purple-persona text-purple-persona shadow-sm",
-    inactive: "bg-purple-persona-tint text-ink-500 hover:text-purple-persona",
-    activeText: "text-purple-persona"
+    active: "bg-surface border-ink text-ink shadow-sm",
+    inactive: "bg-paper-2 text-ink-3 hover:text-ink",
+    activeText: "text-ink"
   },
   "sage-brand": {
-    active: "bg-sage-brand-active border-sage-brand text-sage-brand shadow-sm",
-    inactive: "bg-sage-brand-tint text-ink-500 hover:text-sage-brand",
-    activeText: "text-sage-brand"
+    active: "bg-surface border-ink text-ink shadow-sm",
+    inactive: "bg-paper-2 text-ink-3 hover:text-ink",
+    activeText: "text-ink"
   },
   neutral: {
-    active: "bg-white border-ink-500 text-ink-900 shadow-sm",
-    inactive: "bg-ink-50 text-ink-500 hover:text-ink-900",
-    activeText: "text-ink-900"
+    active: "bg-surface border-ink text-ink shadow-sm",
+    inactive: "bg-paper-2 text-ink-3 hover:text-ink",
+    activeText: "text-ink"
   }
 }
 
@@ -75,7 +76,7 @@ export function AccentTabs({
     <div
       role="tablist"
       className={cn(
-        "border-ink-200 flex w-full items-stretch gap-3 border-b bg-white px-6 pb-3 pt-4",
+        "border-line bg-paper flex w-full items-stretch gap-3 border-b px-6 pb-3 pt-4",
         className
       )}
     >
@@ -92,7 +93,7 @@ export function AccentTabs({
             ? "h-[56px] min-w-0 flex-[1.5] justify-start gap-2 border-b-[5px] px-4 py-2"
             : "h-[50px] min-w-0 flex-[0.8] justify-center gap-2 px-3 py-2",
           isDisabled
-            ? "bg-ink-100 text-ink-300 cursor-not-allowed border-transparent opacity-60"
+            ? "bg-paper-3 text-ink-4 cursor-not-allowed border-transparent opacity-60"
             : isActive
               ? cn(
                   c.active,
@@ -148,9 +149,9 @@ export function AccentTabs({
                     "max-w-full truncate text-[13px]",
                     isPrimary
                       ? isActive
-                        ? "text-ink-900 font-extrabold"
-                        : "text-ink-500 font-semibold"
-                      : "text-ink-600 font-normal"
+                        ? "text-ink font-semibold"
+                        : "text-ink-3 font-medium"
+                      : "text-ink-2 font-normal"
                   )}
                 >
                   {tab.sublabel}

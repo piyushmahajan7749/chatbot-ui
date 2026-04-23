@@ -26,7 +26,7 @@ const Chip = React.forwardRef<HTMLSpanElement, ChipProps>(
     <span
       ref={ref}
       className={cn(
-        "inline-flex h-6 items-center gap-1.5 rounded-full border px-[10px] text-[11.5px] font-medium",
+        "inline-flex h-[26px] items-center gap-1.5 rounded-full border px-[10px] text-[12.5px] font-medium",
         variantClass[variant],
         className
       )}

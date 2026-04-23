@@ -2,9 +2,14 @@
 
 import {
   IconArrowRight,
+  IconBulb,
+  IconChartBar,
+  IconClipboardText,
   IconFlask,
   IconPlus,
-  IconSearch
+  IconSearch,
+  IconSparkles,
+  type Icon as TablerIconType
 } from "@tabler/icons-react"
 import { useRouter } from "next/navigation"
 import { FC, useContext, useMemo, useState } from "react"
@@ -74,24 +79,98 @@ export default function WorkspacePage() {
 
   const sortedDesigns = useMemo(
     () =>
-      [...designs]
-        .sort(
-          (a, b) =>
-            new Date(b.updated_at || b.created_at).getTime() -
-            new Date(a.updated_at || a.created_at).getTime()
-        )
-        .slice(0, 8),
+      [...designs].sort(
+        (a, b) =>
+          new Date(b.updated_at || b.created_at).getTime() -
+          new Date(a.updated_at || a.created_at).getTime()
+      ),
     [designs]
   )
 
+  // In-progress heuristic: touched in the last 14 days (in lieu of loading
+  // approvedPhases from Firestore for every design). Completed = total − active.
+  const FOURTEEN_DAYS_MS = 14 * 24 * 60 * 60 * 1000
+  const inProgressCount = useMemo(
+    () =>
+      designs.filter(d => {
+        const ts = d.updated_at || d.created_at
+        return ts && Date.now() - new Date(ts).getTime() < FOURTEEN_DAYS_MS
+      }).length,
+    [designs]
+  )
+  const completedCount = designs.length - inProgressCount
+
   const filter: "all" | "active" | "done" = "all"
-  const filteredDesigns = sortedDesigns
+  const filteredDesigns = sortedDesigns.slice(0, 8)
 
   const startDesign = (seed?: string) => {
     if (!wsId) return
     const base = `/${wsId}/designs/new`
     router.push(seed ? `${base}?q=${encodeURIComponent(seed)}` : base)
   }
+
+  type EntryMode =
+    | "from-scratch"
+    | "from-hypothesis"
+    | "from-plan"
+    | "check-stats"
+    | "make-plan"
+
+  const openMode = (mode: EntryMode) => {
+    if (!wsId) return
+    // "Existing-design" modes need a design to act on. Route to the dedicated
+    // picker when any design exists; else guide the user to create one first.
+    const needsExisting = mode === "check-stats" || mode === "make-plan"
+    if (needsExisting) {
+      const target = designs.length
+        ? `/${wsId}/designs/pick?mode=${mode}`
+        : `/${wsId}/designs/new`
+      router.push(target)
+      return
+    }
+    router.push(`/${wsId}/designs/new?mode=${mode}`)
+  }
+
+  const entryTiles: Array<{
+    mode: EntryMode
+    label: string
+    desc: string
+    icon: TablerIconType
+    badge?: string
+  }> = [
+    {
+      mode: "from-scratch",
+      label: "Design from a research question",
+      desc: "Scope a problem, surface literature, generate hypotheses — the full 5-stage flow.",
+      icon: IconSparkles
+    },
+    {
+      mode: "from-hypothesis",
+      label: "Design from a hypothesis",
+      desc: "You already have a hypothesis. Skip straight to the experiment design.",
+      icon: IconBulb
+    },
+    {
+      mode: "from-plan",
+      label: "Structure an existing plan",
+      desc: "Paste a draft procedure — Shadow AI fills the SOP sections around it.",
+      icon: IconClipboardText
+    },
+    {
+      mode: "check-stats",
+      label: "Check a design statistically",
+      desc: "Pick an existing design. Shadow AI reviews the stats plan: power, test choice, sample size.",
+      icon: IconChartBar,
+      badge: designs.length ? undefined : "needs a design"
+    },
+    {
+      mode: "make-plan",
+      label: "Make a plan for a design",
+      desc: "Pick an existing design. Shadow AI produces a dated execution plan with owners and checkpoints.",
+      icon: IconClipboardText,
+      badge: designs.length ? undefined : "needs a design"
+    }
+  ]
 
   return (
     <div className="bg-paper h-full overflow-auto px-10 pb-16 pt-7">
@@ -154,12 +233,56 @@ export default function WorkspacePage() {
           </form>
         </Card>
 
+        {/* Entry-point tiles — four ways to kick off work */}
+        <div className="mb-3 flex items-baseline justify-between">
+          <Eyebrow>Start</Eyebrow>
+        </div>
+        <div className="mb-7 grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-5">
+          {entryTiles.map(tile => {
+            const Icon = tile.icon
+            return (
+              <button
+                key={tile.mode}
+                type="button"
+                onClick={() => openMode(tile.mode)}
+                className="border-line bg-surface hover:border-line-strong hover:bg-paper group flex flex-col gap-3 rounded-lg border p-4 text-left transition-colors"
+              >
+                <div className="flex items-center justify-between">
+                  <div className="bg-paper-2 group-hover:bg-rust-soft flex size-9 items-center justify-center rounded-md transition-colors">
+                    <Icon
+                      size={18}
+                      className="text-ink-2 group-hover:text-rust"
+                    />
+                  </div>
+                  {tile.badge && (
+                    <span className="text-ink-3 font-mono text-[10px] uppercase tracking-[0.08em]">
+                      {tile.badge}
+                    </span>
+                  )}
+                </div>
+                <div>
+                  <div className="text-ink text-[14px] font-semibold leading-snug">
+                    {tile.label}
+                  </div>
+                  <div className="text-ink-3 mt-1 text-[12.5px] leading-relaxed">
+                    {tile.desc}
+                  </div>
+                </div>
+              </button>
+            )
+          })}
+        </div>
+
         {/* Stats */}
-        <div className="mb-7 grid grid-cols-4 gap-3.5">
+        <div className="mb-7 grid grid-cols-3 gap-3.5">
           <Stat
-            label="Active designs"
+            label="Total designs"
             value={designs.length}
-            sub={designs.length === 0 ? "none yet" : "in progress"}
+            sub={
+              designs.length === 0
+                ? "none yet"
+                : `${inProgressCount} in progress · ${completedCount} completed`
+            }
           />
           <Stat
             label="Reports"
@@ -170,11 +293,6 @@ export default function WorkspacePage() {
             label="Chats"
             value={chats.length}
             sub={chats.length === 0 ? "none yet" : "threads"}
-          />
-          <Stat
-            label="Workspace"
-            value={firstName}
-            sub={selectedWorkspace?.name || "current"}
           />
         </div>
 

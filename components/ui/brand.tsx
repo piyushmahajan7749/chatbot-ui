@@ -27,7 +27,7 @@ export const Brand: FC<BrandProps> = ({
       <ShadowAISVG scale={size / 24} />
       {!collapsed && (
         <span className="font-display text-ink pt-0.5 text-[22px] leading-none tracking-[-0.01em]">
-          Shadow<span className="text-rust">.</span>
+          Shadow <span className="text-rust">AI</span>
         </span>
       )}
     </div>

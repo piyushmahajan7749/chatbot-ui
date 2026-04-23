@@ -1,11 +1,12 @@
 "use client"
 
 import { useContext, useEffect, useMemo, useRef, useState } from "react"
-import { useParams, useRouter } from "next/navigation"
+import { useParams, useRouter, useSearchParams } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
+import { Kbd } from "@/components/ui/kbd"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import {
@@ -234,6 +235,12 @@ function buildDesignChatContext(input: {
 export default function DesignDetailPage() {
   const params = useParams()
   const router = useRouter()
+  const searchParams = useSearchParams()
+  // "auto" tells us the picker routed the user in with an intent to fire a
+  // specific action once the design finishes loading. We run it exactly once
+  // per mount and strip the param so it doesn't re-fire on back/forward.
+  const autoAction = searchParams.get("auto")
+  const autoFiredRef = useRef(false)
   const { toast } = useToast()
   const { profile, setUserInput } = useContext(ChatbotUIContext)
   void profile
@@ -246,7 +253,13 @@ export default function DesignDetailPage() {
   const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState("overview")
   const [busy, setBusy] = useState<
-    null | "literature" | "hypotheses" | "design" | "save"
+    | null
+    | "literature"
+    | "hypotheses"
+    | "design"
+    | "save"
+    | "stats-review"
+    | "make-plan"
   >(null)
 
   // Phase gating
@@ -363,7 +376,7 @@ export default function DesignDetailPage() {
           description: "Design not found.",
           variant: "destructive"
         })
-        router.push(`/${locale}/${workspaceId}/projects`)
+        router.push(`/${locale}/${workspaceId}`)
         return
       }
       const data = await response.json()
@@ -868,6 +881,174 @@ export default function DesignDetailPage() {
     }
   }
 
+  /**
+   * Re-run ONLY the statistical-analysis portion of phase 4 for a specific
+   * generated design. Writes the result into that design's Statistical
+   * Analysis section via the same edit path.
+   */
+  const handleReviewStatistics = async (targetGeneratedDesignId: string) => {
+    setBusy("stats-review")
+    try {
+      const res = await fetch(`/api/design/${designId}/stats-review`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ generatedDesignId: targetGeneratedDesignId })
+      })
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}))
+        throw new Error(body?.error || "Stats review failed")
+      }
+      const { statisticalAnalysis } = (await res.json()) as {
+        statisticalAnalysis: string
+      }
+      if (!statisticalAnalysis?.trim()) {
+        throw new Error("Agent returned empty statistics")
+      }
+      await handleEditSection(
+        targetGeneratedDesignId,
+        "Statistical Analysis",
+        statisticalAnalysis.trim()
+      )
+      toast({
+        title: "Statistics refreshed",
+        description: "Statistical Analysis section has been updated."
+      })
+    } catch (err: any) {
+      toast({
+        title: "Stats review failed",
+        description: err?.message ?? "Try again in a moment.",
+        variant: "destructive"
+      })
+    } finally {
+      setBusy(null)
+    }
+  }
+
+  /**
+   * Upsert a section onto a specific generated design — adds if missing,
+   * edits if present. Shares the persist+rollback path with edits.
+   */
+  const handleUpsertSection = async (
+    targetDesignId: string,
+    heading: string,
+    body: string
+  ) => {
+    const target = generatedDesigns.find(d => d.id === targetDesignId)
+    if (!target) return
+    const previousDesigns = generatedDesigns
+
+    const existsAt = target.sections.findIndex(s => s.heading === heading)
+    const nextDesigns = generatedDesigns.map(d => {
+      if (d.id !== targetDesignId) return d
+      const nextSections =
+        existsAt === -1
+          ? [...d.sections, { heading, body }]
+          : d.sections.map((s, i) => (i === existsAt ? { ...s, body } : s))
+      return { ...d, saved: false, sections: nextSections }
+    })
+    setGeneratedDesigns(nextDesigns)
+
+    try {
+      await persistContent({ designs: nextDesigns })
+    } catch (err: any) {
+      setGeneratedDesigns(previousDesigns)
+      toast({
+        title: "Couldn't save section",
+        description: err?.message ?? "Try again in a moment.",
+        variant: "destructive"
+      })
+    }
+  }
+
+  /**
+   * Call the make-plan endpoint to generate a dated execution plan for
+   * the active design, then upsert it onto the design as a new section
+   * "Execution Plan" (or replace if already present).
+   */
+  const handleMakePlan = async () => {
+    if (!activeDesign) return
+    setBusy("make-plan")
+    try {
+      const res = await fetch(`/api/design/${designId}/make-plan`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ generatedDesignId: activeDesign.id })
+      })
+      if (!res.ok) {
+        const b = await res.json().catch(() => ({}))
+        throw new Error(b?.error || "Plan generation failed")
+      }
+      const { executionPlan } = (await res.json()) as {
+        executionPlan: string
+      }
+      if (!executionPlan?.trim()) {
+        throw new Error("Agent returned empty execution plan")
+      }
+      await handleUpsertSection(
+        activeDesign.id,
+        "Execution Plan",
+        executionPlan.trim()
+      )
+      toast({
+        title: "Execution plan ready",
+        description: "Added as a new section on this design."
+      })
+    } catch (err: any) {
+      toast({
+        title: "Couldn't make a plan",
+        description: err?.message ?? "Try again in a moment.",
+        variant: "destructive"
+      })
+    } finally {
+      setBusy(null)
+    }
+  }
+
+  /**
+   * Edit a single section's body inline. Writes the updated `designs` array
+   * to Firestore via the shared persist path. Optimistic — local state
+   * flips immediately; rolls back on persist failure.
+   */
+  const handleEditSection = async (
+    designId: string,
+    heading: string,
+    nextBody: string
+  ) => {
+    const target = generatedDesigns.find(d => d.id === designId)
+    if (!target) return
+    const sectionIndex = target.sections.findIndex(s => s.heading === heading)
+    if (sectionIndex === -1) return
+    const previous = target.sections[sectionIndex].body
+    if (previous === nextBody) return
+
+    const nextDesigns = generatedDesigns.map(d =>
+      d.id !== designId
+        ? d
+        : {
+            ...d,
+            // Clear `saved` so the user knows there are unsaved edits since
+            // the last "Save" action — keeps the Save button meaningful.
+            saved: false,
+            sections: d.sections.map((s, i) =>
+              i === sectionIndex ? { ...s, body: nextBody } : s
+            )
+          }
+    )
+    setGeneratedDesigns(nextDesigns)
+
+    try {
+      await persistContent({ designs: nextDesigns })
+    } catch (err: any) {
+      // Roll back on failure so the UI doesn't lie to the user.
+      setGeneratedDesigns(generatedDesigns)
+      toast({
+        title: "Couldn't save edit",
+        description: err?.message ?? "Your change wasn't persisted. Try again.",
+        variant: "destructive"
+      })
+    }
+  }
+
   const handleDownloadDesign = (d: GeneratedDesign) => {
     const body = [
       `# ${d.title}`,
@@ -1124,6 +1305,29 @@ export default function DesignDetailPage() {
 
   const activeDesign =
     generatedDesigns.find(d => d.id === activeDesignId) ?? generatedDesigns[0]
+
+  // Auto-fire picker-routed actions once the design is loaded. Strips the
+  // `auto` query param so a back/forward doesn't re-trigger the action.
+  useEffect(() => {
+    if (autoFiredRef.current) return
+    if (loading) return
+    if (!autoAction) return
+    if (!activeDesign) return
+    autoFiredRef.current = true
+    // Make sure the user sees the design tab where the action lands.
+    if (activeTab !== "design") setActiveTab("design")
+    const locale = (params.locale as string) ?? "en"
+    const wsId = params.workspaceid as string
+    router.replace(`/${locale}/${wsId}/designs/${designId}`)
+
+    if (autoAction === "stats-review") {
+      void handleReviewStatistics(activeDesign.id)
+    } else if (autoAction === "make-plan") {
+      void handleMakePlan()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoAction, loading, activeDesign?.id])
+
   const chatContextPrompt = buildDesignChatContext({
     title,
     problemStatement,
@@ -1195,12 +1399,18 @@ export default function DesignDetailPage() {
                 variant="ghost"
                 size="sm"
                 onClick={() => {
-                  const projectId = design?.project_id
-                  router.push(
-                    projectId
-                      ? `/${locale}/${workspaceId}/projects/${projectId}`
-                      : `/${locale}/${workspaceId}/projects`
-                  )
+                  // Honor browser history if we have any — takes the user
+                  // back to wherever they came from (dashboard, project,
+                  // designs list). Deep-linked entries fall back to the
+                  // workspace dashboard rather than the projects index.
+                  if (
+                    typeof window !== "undefined" &&
+                    window.history.length > 1
+                  ) {
+                    router.back()
+                  } else {
+                    router.push(`/${locale}/${workspaceId}`)
+                  }
                 }}
                 className="text-ink-500 gap-1"
               >
@@ -1276,7 +1486,7 @@ export default function DesignDetailPage() {
                 : "no papers",
             hyp:
               hypotheses.length > 0
-                ? `${hypotheses.length} hypothesis${hypotheses.length === 1 ? "" : "es"}`
+                ? `${hypotheses.length === 1 ? "1 hypothesis" : `${hypotheses.length} hypotheses`}`
                 : "no hypotheses",
             design:
               generatedDesigns.length > 0
@@ -1369,6 +1579,7 @@ export default function DesignDetailPage() {
             {activeTab === "design" && (
               <DesignTab
                 designs={generatedDesigns}
+                hypotheses={hypotheses}
                 activeId={activeDesignId}
                 onSelect={setActiveDesignId}
                 activeDesign={activeDesign}
@@ -1383,6 +1594,11 @@ export default function DesignDetailPage() {
                 onRevise={() => handleRevisePhase("design")}
                 designVersions={designVersions}
                 onRestoreVersion={handleRestoreDesignVersion}
+                onEditSection={handleEditSection}
+                onReviewStatistics={handleReviewStatistics}
+                statsBusy={busy === "stats-review"}
+                onMakePlan={handleMakePlan}
+                planBusy={busy === "make-plan"}
               />
             )}
 
@@ -1651,10 +1867,15 @@ function ProblemTab(props: {
                 <Textarea
                   value={constraintMaterial}
                   onChange={e => setConstraintMaterial(e.target.value)}
-                  placeholder="e.g. ≤ 500 mg API; limited to in-house excipients"
+                  placeholder="e.g. ≤ 500 mg API total; max 30 runs total (including replicates)"
                   rows={2}
                   disabled={isApproved}
                 />
+                <p className="text-ink-3 text-[11.5px]">
+                  Include replicates in any run / condition budget you specify —
+                  the design agent treats this as the total including all
+                  replicate conditions.
+                </p>
               </div>
               <div className="space-y-1.5">
                 <Label className="text-muted-foreground text-xs">Time</Label>
@@ -1895,84 +2116,143 @@ function LiteratureTab(props: {
             events={progressToEvents(progress ?? [])}
           />
         ) : (
-          <div className="border-orange-product/30 bg-orange-product-tint text-ink-500 rounded-xl border border-dashed p-8 text-center text-xs">
+          <div className="border-line bg-paper-2 text-ink-3 rounded-xl border border-dashed p-8 text-center text-xs">
             {isBusy
               ? "Searching literature..."
               : "No literature yet. Approve the Problem tab to kick off the search."}
           </div>
         )
       ) : (
-        <div className="space-y-3">
-          {papers.map(paper => (
-            <div
-              key={paper.id}
-              className="border-ink-200 flex items-start gap-3 rounded-xl border bg-white p-4"
-            >
-              <Checkbox
-                checked={paper.selected}
-                onCheckedChange={() => onTogglePaper(paper.id)}
-                className="mt-1"
-                disabled={isApproved}
-              />
-              <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-2">
-                  <h4 className="text-ink-900 flex-1 text-sm font-semibold leading-snug">
-                    {paper.title}
-                  </h4>
-                  {paper.userAdded && (
-                    <span className="bg-orange-product-tint text-orange-product shrink-0 rounded px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide">
-                      Uploaded
-                    </span>
-                  )}
-                </div>
-                {(() => {
-                  const authorList = paper.authors ?? []
-                  const authorStr =
-                    authorList.length === 0
-                      ? ""
-                      : authorList.length <= 3
-                        ? authorList.join(", ")
-                        : `${authorList.slice(0, 3).join(", ")} et al.`
-                  const metaParts = [
-                    authorStr,
-                    paper.year,
-                    paper.journal
-                  ].filter(Boolean)
-                  return metaParts.length ? (
-                    <p className="text-ink-400 mt-0.5 text-[11px]">
-                      {metaParts.join(" · ")}
-                    </p>
-                  ) : null
-                })()}
-                {paper.summary && (
-                  <p className="text-ink-500 mt-1 line-clamp-3 text-xs leading-relaxed">
-                    {paper.summary}
-                  </p>
-                )}
-                {paper.sourceUrl && (
-                  <a
-                    href={paper.sourceUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="text-orange-product mt-1 inline-block text-[11px] underline"
-                  >
-                    View source
-                  </a>
+        (() => {
+          // Rank papers by relevance (desc), then by selected/userAdded so
+          // user-added + selected items surface at the top in ties.
+          const ranked = [...papers].sort((a, b) => {
+            const ra = a.relevanceScore ?? 0
+            const rb = b.relevanceScore ?? 0
+            if (rb !== ra) return rb - ra
+            if (a.userAdded !== b.userAdded) return a.userAdded ? -1 : 1
+            return 0
+          })
+          const sourceLabel: Record<string, string> = {
+            pubmed: "PubMed",
+            arxiv: "arXiv",
+            semantic_scholar: "Semantic Scholar",
+            scholar: "Google Scholar",
+            tavily: "Web",
+            user: "Uploaded"
+          }
+          const selectedCount = ranked.filter(p => p.selected).length
+          return (
+            <div className="space-y-3">
+              <div className="text-ink-3 flex items-center justify-between text-[12px]">
+                <span>
+                  <b className="text-ink">{ranked.length}</b> paper
+                  {ranked.length === 1 ? "" : "s"} surfaced · ranked by
+                  relevance
+                </span>
+                {selectedCount > 0 && (
+                  <span>
+                    <b className="text-ink">{selectedCount}</b> selected
+                  </span>
                 )}
               </div>
-              {!isApproved && (
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => onDeletePaper(paper.id)}
-                  className="text-ink-400 hover:text-red-500"
+              {ranked.map((paper, idx) => (
+                <div
+                  key={paper.id}
+                  className={cn(
+                    "group flex items-start gap-3 rounded-xl border p-4 transition-colors",
+                    paper.selected
+                      ? "border-ink bg-paper-2"
+                      : "border-line bg-surface hover:border-line-strong"
+                  )}
                 >
-                  <IconTrash size={14} />
-                </Button>
-              )}
+                  <Checkbox
+                    checked={paper.selected}
+                    onCheckedChange={() => onTogglePaper(paper.id)}
+                    className="mt-1"
+                    disabled={isApproved}
+                  />
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-baseline gap-2">
+                      <span className="text-rust font-mono text-[11px] font-semibold">
+                        #{idx + 1}
+                      </span>
+                      <h4 className="text-ink flex-1 text-[14px] font-semibold leading-snug">
+                        {paper.title}
+                      </h4>
+                      {paper.userAdded ? (
+                        <span className="bg-rust-soft text-rust-ink shrink-0 rounded px-2 py-0.5 font-mono text-[10px] uppercase tracking-wide">
+                          Uploaded
+                        </span>
+                      ) : paper.source ? (
+                        <span className="bg-paper-2 text-ink-3 border-line shrink-0 rounded border px-2 py-0.5 font-mono text-[10px] uppercase tracking-wide">
+                          {sourceLabel[paper.source] ?? paper.source}
+                        </span>
+                      ) : null}
+                      {typeof paper.relevanceScore === "number" &&
+                        paper.relevanceScore > 0 && (
+                          <span
+                            title={`Relevance ${(paper.relevanceScore * 100).toFixed(0)}%`}
+                            className="text-ink-3 shrink-0 font-mono text-[10.5px]"
+                          >
+                            {(paper.relevanceScore * 100).toFixed(0)}% match
+                          </span>
+                        )}
+                    </div>
+                    {(() => {
+                      const authorList = paper.authors ?? []
+                      const authorStr =
+                        authorList.length === 0
+                          ? ""
+                          : authorList.length <= 3
+                            ? authorList.join(", ")
+                            : `${authorList.slice(0, 3).join(", ")} et al.`
+                      const metaParts = [
+                        authorStr,
+                        paper.year,
+                        paper.journal
+                      ].filter(Boolean)
+                      return metaParts.length ? (
+                        <p className="text-ink-3 mt-1 text-[11.5px]">
+                          {metaParts.join(" · ")}
+                        </p>
+                      ) : null
+                    })()}
+                    {paper.summary && (
+                      <p className="text-ink-2 mt-1.5 line-clamp-3 text-[12.5px] leading-relaxed">
+                        {paper.summary}
+                      </p>
+                    )}
+                    {paper.sourceUrl && (
+                      <a
+                        href={paper.sourceUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        onClick={e => e.stopPropagation()}
+                        className="text-rust mt-2 inline-flex items-center gap-1 font-mono text-[11.5px] hover:underline"
+                      >
+                        {paper.sourceUrl
+                          .replace(/^https?:\/\//, "")
+                          .slice(0, 64)}
+                        {" ↗"}
+                      </a>
+                    )}
+                  </div>
+                  {!isApproved && (
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => onDeletePaper(paper.id)}
+                      className="text-ink-3 hover:text-destructive"
+                    >
+                      <IconTrash size={14} />
+                    </Button>
+                  )}
+                </div>
+              ))}
             </div>
-          ))}
-        </div>
+          )
+        })()
       )}
 
       <PhaseActionBar
@@ -2262,9 +2542,76 @@ function DesignSectionIndex(props: {
   )
 }
 
-function DesignSectionContent(props: { section: DesignSection }) {
-  const { section } = props
+function DesignSectionContent(props: {
+  section: DesignSection
+  index?: number
+  /** When true, hovering/click reveals an Edit affordance. */
+  editable?: boolean
+  /** Called when the user hits Save. Resolves once persisted. */
+  onSave?: (nextBody: string) => Promise<void>
+}) {
+  const { section, index, editable, onSave } = props
   const id = `section-${slugifyHeading(section.heading)}`
+
+  const [isEditing, setIsEditing] = useState(false)
+  const [draft, setDraft] = useState(section.body)
+  const [saving, setSaving] = useState(false)
+  const textareaRef = useRef<HTMLTextAreaElement | null>(null)
+
+  // Re-sync the draft any time the section body changes from outside
+  // (e.g. regenerate, or another device edited it). No-op while the user is
+  // actively editing so we don't stomp in-flight changes.
+  useEffect(() => {
+    if (!isEditing) setDraft(section.body)
+  }, [section.body, isEditing])
+
+  const enterEdit = () => {
+    if (!editable || !onSave) return
+    setDraft(section.body)
+    setIsEditing(true)
+    // Focus the textarea after the swap. Use a microtask so it's in the DOM.
+    queueMicrotask(() => {
+      const el = textareaRef.current
+      if (!el) return
+      el.focus()
+      // Fit to content on first open.
+      el.style.height = "auto"
+      el.style.height = `${el.scrollHeight}px`
+    })
+  }
+
+  const cancelEdit = () => {
+    setDraft(section.body)
+    setIsEditing(false)
+  }
+
+  const commitEdit = async () => {
+    if (!onSave) return
+    const next = draft.trim()
+    if (next === section.body.trim()) {
+      setIsEditing(false)
+      return
+    }
+    setSaving(true)
+    try {
+      await onSave(next)
+      setIsEditing(false)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const onTextareaKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === "Escape") {
+      e.preventDefault()
+      cancelEdit()
+      return
+    }
+    if ((e.metaKey || e.ctrlKey) && e.key === "Enter") {
+      e.preventDefault()
+      void commitEdit()
+    }
+  }
 
   // Promote any paragraph-embedded bullet markers onto their own line so the
   // markdown renderer turns them into a real list (fixes runs that squash
@@ -2277,20 +2624,113 @@ function DesignSectionContent(props: { section: DesignSection }) {
     <section
       id={id}
       data-section-id={id}
-      className="scroll-mt-4 border-b border-dashed border-transparent pb-6 last:border-b-0 last:pb-0"
+      className="group/section border-line scroll-mt-4 border-b pb-8 pt-1 last:border-b-0 last:pb-0"
     >
-      <h3 className="text-ink-900 mb-3 text-base font-semibold">
-        {section.heading}
-      </h3>
-      <div className="text-ink-700 [&_table]:border-ink-200 [&_td]:border-ink-200 [&_th]:border-ink-200 [&_th]:bg-ink-50 text-sm leading-relaxed [&_li]:my-0.5 [&_ol]:list-decimal [&_ol]:space-y-1 [&_ol]:pl-5 [&_p]:my-2 [&_table]:mt-2 [&_table]:w-full [&_table]:border-collapse [&_table]:border [&_table]:text-xs [&_td]:border [&_td]:px-2 [&_td]:py-1 [&_th]:border [&_th]:px-2 [&_th]:py-1 [&_th]:text-left [&_ul]:list-disc [&_ul]:space-y-1 [&_ul]:pl-5">
-        <ReactMarkdown remarkPlugins={[remarkGfm]}>{normalized}</ReactMarkdown>
+      <div className="mb-4 flex items-baseline gap-3">
+        {typeof index === "number" && (
+          <span className="text-ink-4 font-mono text-[12px] tabular-nums">
+            {String(index + 1).padStart(2, "0")}
+          </span>
+        )}
+        <h3 className="font-display text-ink m-0 text-[22px] font-normal leading-tight tracking-[-0.01em]">
+          {section.heading}
+        </h3>
+        {editable && !isEditing && (
+          <button
+            type="button"
+            onClick={enterEdit}
+            className="text-ink-3 hover:text-ink hover:bg-paper-2 ml-auto inline-flex h-7 items-center gap-1.5 rounded-md px-2 text-[12.5px] opacity-0 transition-opacity focus:opacity-100 group-hover/section:opacity-100"
+            title="Edit section"
+          >
+            <IconPencil size={13} /> Edit
+          </button>
+        )}
       </div>
+
+      {isEditing ? (
+        <div className="flex flex-col gap-3">
+          <textarea
+            ref={textareaRef}
+            value={draft}
+            onChange={e => {
+              setDraft(e.target.value)
+              const el = e.currentTarget
+              el.style.height = "auto"
+              el.style.height = `${el.scrollHeight}px`
+            }}
+            onKeyDown={onTextareaKeyDown}
+            spellCheck
+            disabled={saving}
+            className={cn(
+              "border-line bg-surface text-ink focus-visible:border-rust focus-visible:ring-rust-soft w-full resize-y rounded-md border px-3 py-2.5 font-mono text-[13px] leading-relaxed transition-colors focus-visible:outline-none focus-visible:ring",
+              saving && "cursor-not-allowed opacity-60"
+            )}
+            placeholder="Markdown. Bold **like this**. Lists start with -, 1. — tables use | …"
+            style={{ minHeight: 180 }}
+          />
+          <div className="text-ink-3 flex items-center gap-2 text-[12px]">
+            <span>
+              Markdown. Hit <Kbd>⌘</Kbd> <Kbd>⏎</Kbd> to save, <Kbd>Esc</Kbd> to
+              cancel.
+            </span>
+            <div className="flex-1" />
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              onClick={cancelEdit}
+              disabled={saving}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              variant="primary"
+              size="sm"
+              onClick={commitEdit}
+              disabled={saving}
+            >
+              {saving ? "Saving…" : "Save"}
+            </Button>
+          </div>
+        </div>
+      ) : (
+        // SOP-styled markdown:
+        //   - bold tags get rust-tinted ink + semibold to serve as lead-in labels
+        //   - lists have roomy spacing, numbered lists use circled numerals
+        //   - tables get warm-paper header + line borders
+        //   - headings inside the body (H3/H4 from the prompt) are editorial
+        <div
+          className={cn(
+            "text-ink-2 text-[14.5px] leading-[1.65]",
+            "[&_p]:my-3",
+            "[&_strong]:text-ink [&_strong]:font-semibold",
+            "[&_ul]:my-3 [&_ul]:list-disc [&_ul]:space-y-2 [&_ul]:pl-6",
+            "[&_ol]:my-3 [&_ol]:list-decimal [&_ol]:space-y-2 [&_ol]:pl-6",
+            "[&_li>p]:my-1 [&_li]:pl-1",
+            "[&_h3]:font-display [&_h3]:text-ink [&_h3]:mt-6 [&_h3]:text-[18px] [&_h3]:font-normal [&_h3]:tracking-[-0.01em]",
+            "[&_h4]:text-ink [&_h4]:mb-1 [&_h4]:mt-4 [&_h4]:text-[14px] [&_h4]:font-semibold",
+            "[&_blockquote]:border-rust [&_blockquote]:text-ink-2 [&_blockquote]:my-3 [&_blockquote]:border-l-2 [&_blockquote]:pl-3 [&_blockquote]:italic",
+            "[&_code]:bg-paper-2 [&_code]:text-ink [&_code]:rounded [&_code]:px-1 [&_code]:py-0.5 [&_code]:font-mono [&_code]:text-[12.5px]",
+            "[&_table]:bg-surface [&_table]:border-line [&_table]:my-4 [&_table]:w-full [&_table]:border-collapse [&_table]:overflow-hidden [&_table]:rounded-md [&_table]:border [&_table]:text-[12.5px]",
+            "[&_thead]:bg-paper-2",
+            "[&_th]:text-ink-3 [&_th]:border-line [&_th]:border-b [&_th]:px-3 [&_th]:py-2 [&_th]:text-left [&_th]:font-mono [&_th]:text-[11px] [&_th]:font-medium [&_th]:uppercase [&_th]:tracking-[0.08em]",
+            "[&_td]:text-ink [&_td]:border-line [&_td]:border-b [&_td]:px-3 [&_td]:py-2 [&_td]:align-top",
+            "[&_tbody_tr:last-child_td]:border-b-0"
+          )}
+        >
+          <ReactMarkdown remarkPlugins={[remarkGfm]}>
+            {normalized}
+          </ReactMarkdown>
+        </div>
+      )}
     </section>
   )
 }
 
 function DesignTab(props: {
   designs: GeneratedDesign[]
+  hypotheses: Hypothesis[]
   activeId: string | null
   onSelect: (id: string) => void
   activeDesign?: GeneratedDesign
@@ -2305,9 +2745,19 @@ function DesignTab(props: {
   onRevise: () => void
   designVersions?: DesignVersionSnapshot[]
   onRestoreVersion?: (versionId: string) => void
+  onEditSection?: (
+    designId: string,
+    heading: string,
+    nextBody: string
+  ) => Promise<void>
+  onReviewStatistics?: (designId: string) => Promise<void>
+  statsBusy?: boolean
+  onMakePlan?: () => void
+  planBusy?: boolean
 }) {
   const {
     designs,
+    hypotheses,
     activeId,
     onSelect,
     activeDesign,
@@ -2321,8 +2771,20 @@ function DesignTab(props: {
     progress,
     onRevise,
     designVersions = [],
-    onRestoreVersion
+    onRestoreVersion,
+    onEditSection,
+    onReviewStatistics,
+    statsBusy,
+    onMakePlan,
+    planBusy
   } = props
+
+  // Look up the hypothesis backing the active design so we can show its
+  // statement under the experiment title (makes it clear what the experiment
+  // is testing).
+  const activeHypothesis = activeDesign
+    ? hypotheses.find(h => h.id === activeDesign.hypothesisId)
+    : undefined
 
   const scrollContainerId = "design-detail-scroll"
 
@@ -2399,6 +2861,52 @@ function DesignTab(props: {
                     >
                       {activeDesign.title}
                     </CardTitle>
+                    {activeHypothesis?.text && (
+                      <div
+                        className="text-ink-2 mt-2 border-l-2 border-[color:var(--rust)] pl-3 text-[13.5px] italic leading-relaxed"
+                        title={activeHypothesis.text}
+                      >
+                        <span className="text-ink-3 mr-2 font-mono text-[11px] uppercase not-italic tracking-widest">
+                          Hypothesis
+                        </span>
+                        {activeHypothesis.text}
+                      </div>
+                    )}
+                  </div>
+                  {/* Per-design actions: stats review + make plan. */}
+                  <div className="flex shrink-0 flex-wrap items-center gap-2">
+                    {onReviewStatistics && (
+                      <Button
+                        variant="default"
+                        size="sm"
+                        disabled={statsBusy || isApproved}
+                        onClick={() => onReviewStatistics(activeDesign.id)}
+                        title={
+                          isApproved
+                            ? "Revise the design phase to edit"
+                            : "Re-run only the statistical analysis section"
+                        }
+                      >
+                        <IconChartBar size={13} />
+                        {statsBusy ? "Reviewing…" : "Check statistics"}
+                      </Button>
+                    )}
+                    {onMakePlan && (
+                      <Button
+                        variant="default"
+                        size="sm"
+                        disabled={planBusy || isApproved}
+                        onClick={onMakePlan}
+                        title={
+                          isApproved
+                            ? "Revise the design phase to modify"
+                            : "Generate a timed execution plan from this design"
+                        }
+                      >
+                        <IconClipboardText size={13} />
+                        {planBusy ? "Planning…" : "Make a plan"}
+                      </Button>
+                    )}
                   </div>
                   {designVersions.length > 0 && onRestoreVersion && (
                     <Popover>
@@ -2447,8 +2955,23 @@ function DesignTab(props: {
                     id={scrollContainerId}
                     className="max-h-[60vh] space-y-5 overflow-auto pr-2"
                   >
-                    {activeDesign.sections.map(sec => (
-                      <DesignSectionContent key={sec.heading} section={sec} />
+                    {activeDesign.sections.map((sec, i) => (
+                      <DesignSectionContent
+                        key={sec.heading}
+                        section={sec}
+                        index={i}
+                        editable={!isApproved && Boolean(onEditSection)}
+                        onSave={
+                          onEditSection
+                            ? async next =>
+                                onEditSection(
+                                  activeDesign.id,
+                                  sec.heading,
+                                  next
+                                )
+                            : undefined
+                        }
+                      />
                     ))}
                   </div>
 
@@ -2636,23 +3159,25 @@ function OverviewTab(props: {
             </CardHeader>
             <CardContent>
               <div className="mb-4 flex flex-wrap items-center gap-2">
-                {PHASE_ORDER.map(pipelinePhase => {
-                  const approved = approvedPhases.includes(pipelinePhase)
-                  return (
-                    <div
-                      key={pipelinePhase}
-                      className={cn(
-                        "flex items-center gap-1.5 rounded-full px-3 py-1 text-[11px] font-semibold capitalize",
-                        approved
-                          ? "bg-emerald-100 text-emerald-700"
-                          : "bg-ink-100 text-ink-400"
-                      )}
-                    >
-                      {approved && <IconCheck size={11} />}
-                      {pipelinePhase}
-                    </div>
-                  )
-                })}
+                {PHASE_ORDER.filter(p => p !== "simulation").map(
+                  pipelinePhase => {
+                    const approved = approvedPhases.includes(pipelinePhase)
+                    return (
+                      <div
+                        key={pipelinePhase}
+                        className={cn(
+                          "flex items-center gap-1.5 rounded-full px-3 py-1 text-[11px] font-semibold capitalize",
+                          approved
+                            ? "bg-[#DDE9DF] text-[#1F4A2C]"
+                            : "bg-paper-2 text-ink-3"
+                        )}
+                      >
+                        {approved && <IconCheck size={11} />}
+                        {pipelinePhase}
+                      </div>
+                    )
+                  }
+                )}
               </div>
               <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
                 <OverviewStat

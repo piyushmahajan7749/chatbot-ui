@@ -135,6 +135,18 @@
     --rust-soft: #3a1c13;
     --rust-ink: #f6e8e1;
 
+    /* Phase tints — brightened for legibility on dark ink. */
+    --p-overview: #9cab93;
+    --p-problem: #4fa0a0;
+    --p-lit: #c5694f;
+    --p-hyp: #9285c6;
+    --p-design: #c09a4f;
+
+    --success: #5fa06d;
+    --warn: #d6a333;
+    --danger: #c05a44;
+    --info: #4fa0a0;
+
     --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4), 0 1px 3px rgba(0, 0, 0, 0.3);
     --shadow-md: 0 2px 4px rgba(0, 0, 0, 0.4), 0 8px 24px rgba(0, 0, 0, 0.5);
     --shadow-lg: 0 8px 16px rgba(0, 0, 0, 0.5), 0 24px 56px rgba(0, 0, 0, 0.6);
@@ -306,30 +318,30 @@
 }
 .t-eyebrow {
   font-family: var(--f-mono);
-  font-size: 11px;
+  font-size: 12px;
   font-weight: 500;
   letter-spacing: 0.12em;
   text-transform: uppercase;
   color: hsl(var(--ink-3-hsl));
 }
 .t-label {
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 500;
   color: hsl(var(--ink-3-hsl));
   letter-spacing: 0.01em;
 }
 .t-body {
-  font-size: 14px;
+  font-size: 15px;
   color: hsl(var(--ink-2-hsl));
-  line-height: 1.55;
+  line-height: 1.6;
 }
 .t-mono {
   font-family: var(--f-mono);
-  font-size: 12px;
+  font-size: 13px;
   color: hsl(var(--ink-2-hsl));
 }
 .t-caption {
-  font-size: 12px;
+  font-size: 13px;
   color: hsl(var(--ink-3-hsl));
 }
 

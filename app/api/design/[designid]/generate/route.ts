@@ -186,38 +186,50 @@ export async function POST(
           )
           const litOutput = result.output
 
-          // Convert detailed citations to Paper[] for the frontend
+          // Convert detailed citations to Paper[] for the frontend.
+          // Carry over source + relevanceScore so the UI can badge and rank.
           const timestamp = Date.now()
-          const newPapers: Paper[] = (litOutput.citationsDetailed ?? []).map(
-            (c, i) => {
-              const anyC = c as any
-              const summary: string =
-                (typeof anyC.abstract === "string" && anyC.abstract.trim()) ||
-                (typeof anyC.summary === "string" && anyC.summary.trim()) ||
-                (typeof anyC.tldr === "string" && anyC.tldr.trim()) ||
-                ""
-              let title = (c.title || "").trim()
-              if (!title && summary) {
-                // Fallback: first sentence of the abstract.
-                const firstSentence = summary
-                  .split(/(?<=[.!?])\s+/)[0]
-                  ?.slice(0, 160)
-                title = firstSentence || `Paper ${i + 1}`
-              }
-              if (!title) title = `Paper ${i + 1}`
-              return {
-                id: `lit-${i}-${timestamp}`,
-                title,
-                summary,
-                sourceUrl: c.url || undefined,
-                userAdded: false,
-                selected: false,
-                authors: c.authors?.length ? c.authors : undefined,
-                year: c.year ? String(c.year) : undefined,
-                journal: c.journal || undefined
-              }
+          const rawDetailed = (litOutput.citationsDetailed ?? []) as any[]
+          // Collect raw relevance scores so we can normalize to [0, 1].
+          const rawScores = rawDetailed
+            .map(c => Number(c.relevanceScore ?? c.score ?? 0))
+            .filter(n => Number.isFinite(n) && n > 0)
+          const maxScore = rawScores.length ? Math.max(...rawScores) : 0
+          const newPapers: Paper[] = rawDetailed.map((c, i) => {
+            const summary: string =
+              (typeof c.abstract === "string" && c.abstract.trim()) ||
+              (typeof c.summary === "string" && c.summary.trim()) ||
+              (typeof c.tldr === "string" && c.tldr.trim()) ||
+              ""
+            let title = (c.title || "").trim()
+            if (!title && summary) {
+              const firstSentence = summary
+                .split(/(?<=[.!?])\s+/)[0]
+                ?.slice(0, 160)
+              title = firstSentence || `Paper ${i + 1}`
             }
-          )
+            if (!title) title = `Paper ${i + 1}`
+
+            const raw = Number(c.relevanceScore ?? c.score ?? 0)
+            const normalized =
+              maxScore > 0 && Number.isFinite(raw) && raw > 0
+                ? Math.max(0, Math.min(1, raw / maxScore))
+                : undefined
+
+            return {
+              id: `lit-${i}-${timestamp}`,
+              title,
+              summary,
+              sourceUrl: c.url || undefined,
+              userAdded: false,
+              selected: false,
+              authors: c.authors?.length ? c.authors : undefined,
+              year: c.year ? String(c.year) : undefined,
+              journal: c.journal || undefined,
+              source: c.source || undefined,
+              relevanceScore: normalized
+            }
+          })
 
           // If no detailed citations, create papers from the string citations
           if (newPapers.length === 0 && litOutput.citations.length > 0) {
@@ -654,17 +666,37 @@ Return every hypothesis with its original index number, a score, and a one-sente
 
           const analysisSchema = z.object({
             dataCollectionPlan: z.string(),
+            statisticalAnalysis: z.string(),
             safetyNotes: z.string(),
             rationale: z.string()
           })
+
+          // If the design was created via "Structure an existing plan", the
+          // user's draft procedure lives on problem.userProvidedPlan. We add
+          // it as an explicit priming block so every sub-phase's prompt
+          // treats it as scaffolding to adopt, not just reference.
+          const userPlan = (ctx.userProvidedPlan || "").trim()
+          const userPlanBlock = userPlan
+            ? `\n\nUser-supplied draft procedure (treat this as the SCAFFOLDING to adopt; preserve structure/wording where reasonable, fill gaps, correct scientific errors, and complete missing sections such as material quantities, stats, safety):\n<user-plan>\n${userPlan}\n</user-plan>`
+            : ""
 
           for (let hypIdx = 0; hypIdx < selected.length; hypIdx++) {
             const hyp = selected[hypIdx]
             const hypPrefix = `[${hypIdx + 1}/${selected.length}]`
             const hypShort = hyp.text.slice(0, 60)
             try {
-              const hypBlock = `Hypothesis: ${hyp.text}\nExplanation: ${hyp.reasoning}`
-              const problemBlock = `Research problem: ${[ctx.title, ctx.problemStatement].filter(Boolean).join(" — ")}\nGoal: ${ctx.goal || "Not specified"}\nVariables: ${(ctx.variables ?? []).join(", ") || "Not specified"}\nConstraints: ${(ctx.constraints ?? []).join(", ") || "Not specified"}`
+              // If the user typed this hypothesis directly (via "Design from
+              // a hypothesis"), pin it so the agent doesn't rewrite or
+              // re-critique it.
+              const userSuppliedNote = hyp.userSupplied
+                ? `\nNOTE: This hypothesis was provided directly by the researcher. Treat it as a fixed input — do NOT rewrite, soften, or re-scope it. Design the experiment around it exactly as written.`
+                : ""
+              const hypBlock =
+                `Hypothesis: ${hyp.text}\nExplanation: ${hyp.reasoning}` +
+                userSuppliedNote
+              const problemBlock =
+                `Research problem: ${[ctx.title, ctx.problemStatement].filter(Boolean).join(" — ")}\nGoal: ${ctx.goal || "Not specified"}\nVariables: ${(ctx.variables ?? []).join(", ") || "Not specified"}\nConstraints: ${(ctx.constraints ?? []).join(", ") || "Not specified"}` +
+                userPlanBlock
 
               // ── Phase 1: Experimental Setup ────────────────────────
               console.log(
@@ -683,11 +715,23 @@ Return every hypothesis with its original index number, a score, and a one-sente
                 messages: [
                   {
                     role: "system",
-                    content: `You are an expert experiment design scientist. Design the experimental setup for a biopharma hypothesis. Be specific about what will be tested, measured, which groups are needed, sample types, replication strategy, and any special requirements. Write detailed, lab-ready descriptions.`
+                    content: `You are an expert experiment design scientist writing SOP-grade output. Every field is Markdown. Each section must use bolded lead-in labels and bullet / numbered lists — never walls of prose. Be specific: concentrations with units, temperatures in °C, volumes in mL/µL, durations in h/min, replicate counts, equipment grades.
+
+Fields to produce:
+
+- **whatWillBeTested** — one short paragraph stating the concrete test objective, then a bulleted list of the 2–4 specific variables / factors being manipulated.
+- **whatWillBeMeasured** — bullet list. Each bullet: \`**Readout** — method — unit — expected range\`.
+- **controlGroups** — bullet list. Each bullet: \`**Control name** — composition / condition — what it isolates\`.
+- **experimentalGroups** — bullet list. Each bullet: \`**Group name** — condition — expected effect\`.
+- **sampleTypes** — bulleted. Describe sample matrix, concentration, container (material, volume, cap type), aliquot strategy.
+- **replicatesAndConditions** — bullet list. Give n per group (biological / technical), total vial count math, and any blocking / randomization scheme. Example line: \`n = 3 biological × 5 formulation × 2 temperatures = 30 vials\`.
+- **specificRequirements** — anything out-of-ordinary: BSL level, cold-chain, light-sensitive handling, certified reference standards, specific instrument calibration. Bullet list with bold hazard / requirement class.
+
+Do not output plain paragraphs. Every field uses bullets and/or bolded labels.`
                   },
                   {
                     role: "user",
-                    content: `${problemBlock}\n\n${hypBlock}${litBlock}${papersBlock}\n\nDesign the experimental setup. Reference specific methods or findings from the selected papers where relevant.`
+                    content: `${problemBlock}\n\n${hypBlock}${litBlock}${papersBlock}\n\nDesign the experimental setup per the SOP format. Reference specific methods or findings from the selected papers where relevant, citing as [Author, Year].`
                   }
                 ],
                 response_format: zodResponseFormat(
@@ -717,11 +761,42 @@ Return every hypothesis with its original index number, a score, and a one-sente
                 messages: [
                   {
                     role: "system",
-                    content: `You are a lab materials and logistics planner. Given an experimental design, specify every tool, material, and preparation step needed. Include complete materials lists with quantities/sources, detailed preparation protocols, setup instructions, and storage/disposal requirements.`
+                    content: `You are a lab materials planner writing SOP-grade output. All five fields are Markdown. Be concrete: numbers, units, vendors, catalog numbers, grades — not prose.
+
+1. **toolsNeeded** — Markdown bullet list. Each bullet: **Tool** — model / spec — example vendor (e.g. *Thermo Fisher*) — quantity needed.
+
+2. **materialsList** — Return a Markdown TABLE with columns:
+   \`| Material | Grade / Spec | Example Vendor | Cat. # (example) | Amount per condition | Total needed | Calculation |\`
+   Rules:
+   - Compute **Total needed** for every row from the experimental plan's conditions × replicates × volume-per-replicate (plus a 10–15% dead-volume buffer). Show the math in the **Calculation** column (e.g. *30 vials × 1.0 mL × 1.15 = 34.5 mL*).
+   - Include every buffer, excipient, consumable, and sample-handling item needed end-to-end.
+   - After the table, add a bullet list **"Raw-material totals"** consolidating bulk-ordered items (e.g. *L-arginine·HCl powder: ~12 g covering all formulation prep + 2× overage*).
+
+3. **materialPreparation** — For EACH buffer, stock solution, or reagent that must be prepared, write a Markdown sub-section like:
+   \`### Buffer name (e.g. 20 mM Histidine, pH 6.0)\`
+   - **Volume needed:** 250 mL (covers X mL × Y conditions × 1.2 dead-volume)
+   - **Target concentration / pH:** 20 mM, pH 6.0 at 25 °C
+   - **Stock used:** histidine base (MW 155.16), 1 N HCl for pH, WFI
+   - **Calculation:** show the math step by step using \`C1V1 = C2V2\` where applicable, e.g.
+     - moles needed = 0.020 M × 0.250 L = 5.0 × 10⁻³ mol
+     - mass = 5.0 × 10⁻³ × 155.16 = 0.776 g histidine base
+   - **Step-by-step prep:**
+     1. Weigh 0.776 g L-histidine base on analytical balance.
+     2. Dissolve in 200 mL WFI in a 250 mL volumetric flask.
+     3. Titrate to pH 6.0 at 25 °C with 1 N HCl (expect ~3–4 mL).
+     4. QS to 250 mL with WFI. Invert 10× to mix.
+     5. Filter through 0.22 µm PES. Label with date + initials + lot. Store 2–8 °C, use within 14 days.
+   Do one subsection per buffer/reagent. Be quantitative.
+
+4. **setupInstructions** — Numbered Markdown list describing workstation / equipment setup (balance calibration, pH-meter cal, biosafety cabinet setup, vial labeling scheme, temperature blocks). Each step has a bolded lead-in verb.
+
+5. **storageDisposal** — Markdown bullets. For each material class: storage condition, container type, disposal stream (e.g. *Aqueous biowaste — 10% bleach, 30-min soak, rinse down sink; log in biohazard register*). Use bold labels.
+
+Never use placeholder text like "TBD" — if a spec is reasonable to infer, infer it and mark the assumption.`
                   },
                   {
                     role: "user",
-                    content: `${problemBlock}\n\n${hypBlock}\n\n${setupSummary}${papersBlock}\n\nSpecify all materials, tools, and setup needed. Reference specific tools or protocols from the selected papers where applicable.`
+                    content: `${problemBlock}\n\n${hypBlock}\n\n${setupSummary}${papersBlock}\n\nProduce the five fields in the SOP format above. Base material quantities on the conditions × replicates you see in the experimental setup summary.`
                   }
                 ],
                 response_format: zodResponseFormat(materialsSchema, "materials")
@@ -748,11 +823,21 @@ Return every hypothesis with its original index number, a score, and a one-sente
                 messages: [
                   {
                     role: "system",
-                    content: `You are an experimental protocol writer. Given the experimental design and materials, write a detailed step-by-step procedure that a lab technician can follow exactly. Include a realistic timeline (day-by-day or phase-by-phase) and a structured conditions table showing all experimental conditions.`
+                    content: `You are an experimental protocol writer producing SOP-grade Markdown. All three fields must be scannable and copy-exec ready.
+
+- **stepByStepProcedure** — A single numbered Markdown list. Each step begins with a **bold imperative verb** ("**Weigh**", "**Dissolve**", "**Filter**", "**Incubate**", "**Aliquot**") followed by concrete quantities + times + temperatures + equipment. Group steps under Markdown sub-headings like \`### Day 1 — Buffer prep\`, \`### Day 2 — Formulation\`, \`### Day 3–28 — Stress incubation\`, \`### Day 28 — Readouts\`. Use sub-steps (3a, 3b) for branching. Include a short **"Checkpoint"** bold callout after each major phase listing what the operator should verify before continuing (e.g. *Checkpoint: pH reads 6.00 ± 0.05 on calibrated meter; monomer content by SEC ≥ 99% pre-stress*).
+
+- **timeline** — Markdown table:
+  \`| Day | Activity | Duration | Notes |\`
+  One row per scheduled day / phase. Notes column carries dependencies, decision points, and who performs the step.
+
+- **conditionsTable** — Markdown table describing every experimental arm. At minimum:
+  \`| Group | Condition / composition | Variable 1 | Variable 2 | T (°C) | Time | n | Read-outs |\`
+  Include baseline and stressed controls explicitly as their own rows. All numbers must have units. Add a short paragraph above the table summarizing the factorial structure (e.g. "5 arginine levels × 2 temperatures × 3 biological replicates = 30 vials"). Do not return prose in place of a table.`
                   },
                   {
                     role: "user",
-                    content: `${problemBlock}\n\n${hypBlock}\n\n${setupSummary}\n\n${materialsSummary}\n\nWrite the step-by-step protocol, timeline, and conditions table.`
+                    content: `${problemBlock}\n\n${hypBlock}\n\n${setupSummary}\n\n${materialsSummary}\n\nWrite the step-by-step protocol (by day, with Checkpoints), timeline table, and conditions table per the SOP format.`
                   }
                 ],
                 response_format: zodResponseFormat(protocolSchema, "protocol")
@@ -779,11 +864,25 @@ Return every hypothesis with its original index number, a score, and a one-sente
                 messages: [
                   {
                     role: "system",
-                    content: `You are a data analysis and safety review specialist. Given a complete experimental plan, specify the data collection strategy (what to record, when, how, which statistical tests), safety notes (PPE, chemical handling, biosafety), and a rationale explaining why this overall design is sound and what it will prove.`
+                    content: `You are a data analysis and safety review specialist. Given a complete experimental plan, produce four SEPARATE sections as Markdown. Each section must start with a bolded lead-in sentence and use clear bullet lists — do not return walls of prose.
+
+1. **dataCollectionPlan** — capture mechanics ONLY. What measurements are recorded, when (timepoints), how (instrument / method / file format), by whom, and how they're stored. Do NOT talk about statistics here.
+
+2. **statisticalAnalysis** — the dedicated stats plan. Structure it with these labeled sub-bullets:
+   - **Primary endpoint & test** — name the specific test (e.g. two-way ANOVA with Tukey HSD; mixed-effects model; Mann–Whitney). Justify the choice vs the data type and replicate structure.
+   - **Sample size / power** — state assumed effect size and variance, target power (e.g. 0.8), alpha (usually 0.05), and the computed n per group. Show a short power calculation.
+   - **Secondary endpoints** — list and their tests.
+   - **Multiple comparisons** — correction method (Bonferroni / BH-FDR / Tukey).
+   - **Outlier / missing-data handling** — rule (e.g. Grubbs, ROUT, or pre-registered exclusion).
+   - **Software** — concrete tools / packages (GraphPad Prism, R + lme4, Python + scipy.stats / statsmodels).
+
+3. **safetyNotes** — bulleted. Cover PPE, chemical hazards, biosafety level, waste stream, spill response. Start each bullet with a **bold hazard class** then the mitigation.
+
+4. **rationale** — 3–5 short paragraphs explaining why this design answers the hypothesis, what confounders it controls, and what the pass/fail decision criteria are.`
                   },
                   {
                     role: "user",
-                    content: `${problemBlock}\n\n${hypBlock}\n\n${setupSummary}\n\n${materialsSummary}\n\n${protocolSummary}\n\nSpecify the data collection plan, safety measures, and rationale.`
+                    content: `${problemBlock}\n\n${hypBlock}\n\n${setupSummary}\n\n${materialsSummary}\n\n${protocolSummary}\n\nReturn the four sections (dataCollectionPlan, statisticalAnalysis, safetyNotes, rationale) per the system-prompt format.`
                   }
                 ],
                 response_format: zodResponseFormat(analysisSchema, "analysis")
@@ -792,6 +891,12 @@ Return every hypothesis with its original index number, a score, and a one-sente
               if (!analysis) throw new Error("Empty response from Phase 4")
 
               // ── Assemble all 4 phases into sections ───────────────
+              // Canonical SOP-style order:
+              //   Design intent (what/measure/controls/experimental/samples)
+              //   → Replicates & Conditions → Conditions Table → Special Reqs
+              //   → Tools → Materials List → Prep → Setup → Storage
+              //   → Protocol → Timeline → Data Collection → Statistics
+              //   → Safety → Rationale
               designs.push({
                 id: `d-${uuidv4()}`,
                 hypothesisId: hyp.id,
@@ -814,6 +919,12 @@ Return every hypothesis with its original index number, a score, and a one-sente
                   {
                     heading: "Replicates & Conditions",
                     body: setup.replicatesAndConditions
+                  },
+                  // Conditions Table moved up — it's the concrete factorial
+                  // the rest of the SOP references.
+                  {
+                    heading: "Conditions Table",
+                    body: protocol.conditionsTable
                   },
                   {
                     heading: "Special Requirements",
@@ -842,12 +953,12 @@ Return every hypothesis with its original index number, a score, and a one-sente
                   },
                   { heading: "Timeline", body: protocol.timeline },
                   {
-                    heading: "Conditions Table",
-                    body: protocol.conditionsTable
-                  },
-                  {
                     heading: "Data Collection Plan",
                     body: analysis.dataCollectionPlan
+                  },
+                  {
+                    heading: "Statistical Analysis",
+                    body: analysis.statisticalAnalysis
                   },
                   { heading: "Safety Notes", body: analysis.safetyNotes },
                   { heading: "Rationale", body: analysis.rationale }

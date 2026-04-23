@@ -141,7 +141,17 @@ const renderPlanContext = (state: ExperimentDesignState) => {
         <>
           <p>Constraints:</p>
           <ul>
-            {material && <li>Material: {material}</li>}
+            {material && (
+              <li>
+                Material: {material}
+                <br />
+                <em>
+                  Any &quot;max runs / conditions&quot; figure above is the
+                  TOTAL including replicate conditions. Do not propose more
+                  distinct × replicate combinations than this total.
+                </em>
+              </li>
+            )}
             {time && <li>Time: {time}</li>}
             {equipment && <li>Equipment: {equipment}</li>}
           </ul>
@@ -483,7 +493,10 @@ export const createHypothesisBuilderPrompt = (
   const knownVars = state.variables?.known?.join("; ") || ""
   const unknownVars = state.variables?.unknown?.join("; ") || ""
   const constraintsParts = [
-    state.constraints?.material && `Material: ${state.constraints.material}`,
+    state.constraints?.material &&
+      `Material: ${state.constraints.material} ` +
+        `(Any "max runs / conditions" figure here is the TOTAL including all replicate conditions. ` +
+        `Do not propose more distinct × replicate combinations than this total.)`,
     state.constraints?.time && `Time: ${state.constraints.time}`,
     state.constraints?.equipment && `Equipment: ${state.constraints.equipment}`
   ].filter(Boolean)

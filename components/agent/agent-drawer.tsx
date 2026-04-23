@@ -66,7 +66,7 @@ export function AgentDrawer({
           className
         )}
         role="dialog"
-        aria-label="Shadow Agent"
+        aria-label="Shadow AI Agent"
       >
         {/* Header */}
         <div className="border-line flex flex-col gap-2 border-b p-4 pb-3">
@@ -76,7 +76,7 @@ export function AgentDrawer({
             </div>
             <div className="min-w-0 flex-1">
               <div className="text-ink text-[13px] font-semibold">
-                Shadow Agent
+                Shadow AI Agent
               </div>
               <div className="text-ink-3 flex items-center gap-1.5 text-[11.5px]">
                 <span

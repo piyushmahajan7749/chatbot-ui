@@ -277,24 +277,22 @@ export const Message: FC<MessageProps> = ({
                 alt="user"
               />
             ) : (
-              <div className="flex size-5 items-center justify-center rounded-full bg-gradient-to-br from-blue-500 to-purple-600">
-                <IconMoodSmile size={12} className="text-white" />
+              <div className="bg-rust flex size-5 items-center justify-center rounded-full">
+                <IconMoodSmile size={12} className="text-paper" />
               </div>
             )}
-            <span className="text-xs font-medium text-slate-500">
-              {senderName}
-            </span>
+            <span className="text-ink-3 text-xs font-medium">{senderName}</span>
           </div>
         )}
 
         {/* System message */}
         {isSystem && (
-          <div className="flex w-full items-center gap-3 rounded-xl bg-slate-100 px-4 py-3">
+          <div className="bg-paper-2 flex w-full items-center gap-3 rounded-xl px-4 py-3">
             <IconPencil
-              className="shrink-0 rounded bg-slate-800 p-1 text-white"
+              className="bg-ink text-paper shrink-0 rounded p-1"
               size={24}
             />
-            <div className="text-sm font-semibold text-slate-700">Prompt</div>
+            <div className="text-ink text-sm font-semibold">Prompt</div>
           </div>
         )}
 
@@ -304,8 +302,8 @@ export const Message: FC<MessageProps> = ({
             className={cn(
               "relative rounded-2xl px-4 py-2.5 text-sm shadow-sm",
               isUser
-                ? "rounded-tr-sm bg-blue-600 text-white"
-                : "rounded-tl-sm border border-slate-200 bg-white text-slate-800"
+                ? "bg-ink text-paper rounded-tr-sm"
+                : "border-line bg-surface text-ink rounded-tl-sm border"
             )}
           >
             {/* Hover actions */}
