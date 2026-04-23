@@ -183,19 +183,19 @@ export function ScopedChatRail({
 
   return (
     <div
-      className={cn("text-ink-900 flex size-full flex-col bg-white", className)}
+      className={cn("text-ink bg-surface flex size-full flex-col", className)}
     >
-      <div className="border-ink-200 bg-ink-50 shrink-0 border-b px-4 py-3">
+      <div className="border-line bg-paper-2 shrink-0 border-b px-4 py-3">
         <div className="flex items-center gap-2">
-          <div className="bg-teal-journey-dark flex size-7 items-center justify-center rounded-md text-white">
+          <div className="bg-ink text-paper flex size-7 items-center justify-center rounded-md">
             <IconBrain size={14} />
           </div>
           <div className="min-w-0 flex-1">
-            <div className="text-ink-400 text-[10px] font-bold uppercase tracking-[0.13em]">
+            <div className="text-ink-3 font-mono text-[11px] font-medium uppercase tracking-[0.12em]">
               {SCOPE_LABELS[scope]}
             </div>
             {scopeName && (
-              <div className="text-ink-900 truncate text-xs font-semibold">
+              <div className="text-ink truncate text-[13px] font-semibold">
                 {scopeName}
               </div>
             )}
@@ -208,16 +208,16 @@ export function ScopedChatRail({
         {onChatRoute ? (
           <ChatUI variant="panel" />
         ) : resolving ? (
-          <div className="text-ink-400 flex h-full items-center justify-center text-xs">
+          <div className="text-ink-3 flex h-full items-center justify-center text-[12px]">
             Loading thread…
           </div>
         ) : pinnedChat ? (
           <div className="flex h-full flex-col">
-            <div className="border-ink-100 flex shrink-0 items-center justify-end gap-2 border-b px-3 py-1.5">
+            <div className="border-line flex shrink-0 items-center justify-end gap-2 border-b px-3 py-1.5">
               <button
                 onClick={openPinnedThread}
                 title="Open thread full-screen"
-                className="text-ink-500 hover:bg-ink-100 hover:text-ink-900 flex items-center gap-1 rounded-md px-2 py-1 text-[10px] font-bold uppercase tracking-widest"
+                className="text-ink-3 hover:bg-paper-2 hover:text-ink flex items-center gap-1 rounded-md px-2 py-1 font-mono text-[11px] uppercase tracking-[0.08em]"
               >
                 <IconExternalLink size={11} />
                 Expand
@@ -229,12 +229,12 @@ export function ScopedChatRail({
           </div>
         ) : (
           <div className="flex h-full flex-col items-center justify-center gap-3 p-6 text-center">
-            <IconMessage size={28} className="text-ink-400" />
-            <p className="text-ink-500 text-xs">No {scope} chat yet.</p>
+            <IconMessage size={28} className="text-ink-3" />
+            <p className="text-ink-3 text-[12.5px]">No {scope} chat yet.</p>
             <button
               onClick={handleStartThread}
               disabled={creating || !scopeId || !selectedWorkspace}
-              className="bg-brick hover:bg-brick-hover flex items-center gap-1.5 rounded-md px-3 py-2 text-[11px] font-bold uppercase tracking-widest text-white disabled:opacity-50"
+              className="bg-rust text-paper flex items-center gap-1.5 rounded-md px-3 py-2 text-[12px] font-medium hover:bg-[color:var(--rust-hover)] disabled:opacity-50"
             >
               <IconPlus size={12} />
               {creating ? "Starting…" : "Start thread"}
@@ -243,8 +243,8 @@ export function ScopedChatRail({
         )}
       </div>
 
-      <div className="border-ink-200 bg-ink-50 shrink-0 border-t px-4 py-2">
-        <div className="text-ink-400 flex items-center gap-1.5 text-[10px] uppercase tracking-widest">
+      <div className="border-line bg-paper-2 shrink-0 border-t px-4 py-2">
+        <div className="text-ink-3 flex items-center gap-1.5 font-mono text-[11px] uppercase tracking-[0.08em]">
           <IconMessage size={12} />
           <span>Scoped to {scope}</span>
         </div>

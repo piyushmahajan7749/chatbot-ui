@@ -1,7 +1,7 @@
 "use client"
 
 import { useContext, useEffect, useMemo, useRef, useState } from "react"
-import { useParams, useRouter } from "next/navigation"
+import { useParams, useRouter, useSearchParams } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
@@ -235,6 +235,12 @@ function buildDesignChatContext(input: {
 export default function DesignDetailPage() {
   const params = useParams()
   const router = useRouter()
+  const searchParams = useSearchParams()
+  // "auto" tells us the picker routed the user in with an intent to fire a
+  // specific action once the design finishes loading. We run it exactly once
+  // per mount and strip the param so it doesn't re-fire on back/forward.
+  const autoAction = searchParams.get("auto")
+  const autoFiredRef = useRef(false)
   const { toast } = useToast()
   const { profile, setUserInput } = useContext(ChatbotUIContext)
   void profile
@@ -247,7 +253,13 @@ export default function DesignDetailPage() {
   const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState("overview")
   const [busy, setBusy] = useState<
-    null | "literature" | "hypotheses" | "design" | "save"
+    | null
+    | "literature"
+    | "hypotheses"
+    | "design"
+    | "save"
+    | "stats-review"
+    | "make-plan"
   >(null)
 
   // Phase gating
@@ -870,6 +882,129 @@ export default function DesignDetailPage() {
   }
 
   /**
+   * Re-run ONLY the statistical-analysis portion of phase 4 for a specific
+   * generated design. Writes the result into that design's Statistical
+   * Analysis section via the same edit path.
+   */
+  const handleReviewStatistics = async (targetGeneratedDesignId: string) => {
+    setBusy("stats-review")
+    try {
+      const res = await fetch(`/api/design/${designId}/stats-review`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ generatedDesignId: targetGeneratedDesignId })
+      })
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}))
+        throw new Error(body?.error || "Stats review failed")
+      }
+      const { statisticalAnalysis } = (await res.json()) as {
+        statisticalAnalysis: string
+      }
+      if (!statisticalAnalysis?.trim()) {
+        throw new Error("Agent returned empty statistics")
+      }
+      await handleEditSection(
+        targetGeneratedDesignId,
+        "Statistical Analysis",
+        statisticalAnalysis.trim()
+      )
+      toast({
+        title: "Statistics refreshed",
+        description: "Statistical Analysis section has been updated."
+      })
+    } catch (err: any) {
+      toast({
+        title: "Stats review failed",
+        description: err?.message ?? "Try again in a moment.",
+        variant: "destructive"
+      })
+    } finally {
+      setBusy(null)
+    }
+  }
+
+  /**
+   * Upsert a section onto a specific generated design — adds if missing,
+   * edits if present. Shares the persist+rollback path with edits.
+   */
+  const handleUpsertSection = async (
+    targetDesignId: string,
+    heading: string,
+    body: string
+  ) => {
+    const target = generatedDesigns.find(d => d.id === targetDesignId)
+    if (!target) return
+    const previousDesigns = generatedDesigns
+
+    const existsAt = target.sections.findIndex(s => s.heading === heading)
+    const nextDesigns = generatedDesigns.map(d => {
+      if (d.id !== targetDesignId) return d
+      const nextSections =
+        existsAt === -1
+          ? [...d.sections, { heading, body }]
+          : d.sections.map((s, i) => (i === existsAt ? { ...s, body } : s))
+      return { ...d, saved: false, sections: nextSections }
+    })
+    setGeneratedDesigns(nextDesigns)
+
+    try {
+      await persistContent({ designs: nextDesigns })
+    } catch (err: any) {
+      setGeneratedDesigns(previousDesigns)
+      toast({
+        title: "Couldn't save section",
+        description: err?.message ?? "Try again in a moment.",
+        variant: "destructive"
+      })
+    }
+  }
+
+  /**
+   * Call the make-plan endpoint to generate a dated execution plan for
+   * the active design, then upsert it onto the design as a new section
+   * "Execution Plan" (or replace if already present).
+   */
+  const handleMakePlan = async () => {
+    if (!activeDesign) return
+    setBusy("make-plan")
+    try {
+      const res = await fetch(`/api/design/${designId}/make-plan`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ generatedDesignId: activeDesign.id })
+      })
+      if (!res.ok) {
+        const b = await res.json().catch(() => ({}))
+        throw new Error(b?.error || "Plan generation failed")
+      }
+      const { executionPlan } = (await res.json()) as {
+        executionPlan: string
+      }
+      if (!executionPlan?.trim()) {
+        throw new Error("Agent returned empty execution plan")
+      }
+      await handleUpsertSection(
+        activeDesign.id,
+        "Execution Plan",
+        executionPlan.trim()
+      )
+      toast({
+        title: "Execution plan ready",
+        description: "Added as a new section on this design."
+      })
+    } catch (err: any) {
+      toast({
+        title: "Couldn't make a plan",
+        description: err?.message ?? "Try again in a moment.",
+        variant: "destructive"
+      })
+    } finally {
+      setBusy(null)
+    }
+  }
+
+  /**
    * Edit a single section's body inline. Writes the updated `designs` array
    * to Firestore via the shared persist path. Optimistic — local state
    * flips immediately; rolls back on persist failure.
@@ -1170,6 +1305,29 @@ export default function DesignDetailPage() {
 
   const activeDesign =
     generatedDesigns.find(d => d.id === activeDesignId) ?? generatedDesigns[0]
+
+  // Auto-fire picker-routed actions once the design is loaded. Strips the
+  // `auto` query param so a back/forward doesn't re-trigger the action.
+  useEffect(() => {
+    if (autoFiredRef.current) return
+    if (loading) return
+    if (!autoAction) return
+    if (!activeDesign) return
+    autoFiredRef.current = true
+    // Make sure the user sees the design tab where the action lands.
+    if (activeTab !== "design") setActiveTab("design")
+    const locale = (params.locale as string) ?? "en"
+    const wsId = params.workspaceid as string
+    router.replace(`/${locale}/${wsId}/designs/${designId}`)
+
+    if (autoAction === "stats-review") {
+      void handleReviewStatistics(activeDesign.id)
+    } else if (autoAction === "make-plan") {
+      void handleMakePlan()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoAction, loading, activeDesign?.id])
+
   const chatContextPrompt = buildDesignChatContext({
     title,
     problemStatement,
@@ -1437,6 +1595,10 @@ export default function DesignDetailPage() {
                 designVersions={designVersions}
                 onRestoreVersion={handleRestoreDesignVersion}
                 onEditSection={handleEditSection}
+                onReviewStatistics={handleReviewStatistics}
+                statsBusy={busy === "stats-review"}
+                onMakePlan={handleMakePlan}
+                planBusy={busy === "make-plan"}
               />
             )}
 
@@ -2588,6 +2750,10 @@ function DesignTab(props: {
     heading: string,
     nextBody: string
   ) => Promise<void>
+  onReviewStatistics?: (designId: string) => Promise<void>
+  statsBusy?: boolean
+  onMakePlan?: () => void
+  planBusy?: boolean
 }) {
   const {
     designs,
@@ -2606,7 +2772,11 @@ function DesignTab(props: {
     onRevise,
     designVersions = [],
     onRestoreVersion,
-    onEditSection
+    onEditSection,
+    onReviewStatistics,
+    statsBusy,
+    onMakePlan,
+    planBusy
   } = props
 
   // Look up the hypothesis backing the active design so we can show its
@@ -2701,6 +2871,41 @@ function DesignTab(props: {
                         </span>
                         {activeHypothesis.text}
                       </div>
+                    )}
+                  </div>
+                  {/* Per-design actions: stats review + make plan. */}
+                  <div className="flex shrink-0 flex-wrap items-center gap-2">
+                    {onReviewStatistics && (
+                      <Button
+                        variant="default"
+                        size="sm"
+                        disabled={statsBusy || isApproved}
+                        onClick={() => onReviewStatistics(activeDesign.id)}
+                        title={
+                          isApproved
+                            ? "Revise the design phase to edit"
+                            : "Re-run only the statistical analysis section"
+                        }
+                      >
+                        <IconChartBar size={13} />
+                        {statsBusy ? "Reviewing…" : "Check statistics"}
+                      </Button>
+                    )}
+                    {onMakePlan && (
+                      <Button
+                        variant="default"
+                        size="sm"
+                        disabled={planBusy || isApproved}
+                        onClick={onMakePlan}
+                        title={
+                          isApproved
+                            ? "Revise the design phase to modify"
+                            : "Generate a timed execution plan from this design"
+                        }
+                      >
+                        <IconClipboardText size={13} />
+                        {planBusy ? "Planning…" : "Make a plan"}
+                      </Button>
                     )}
                   </div>
                   {designVersions.length > 0 && onRestoreVersion && (

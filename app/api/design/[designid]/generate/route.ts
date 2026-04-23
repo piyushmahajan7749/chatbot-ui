@@ -671,13 +671,32 @@ Return every hypothesis with its original index number, a score, and a one-sente
             rationale: z.string()
           })
 
+          // If the design was created via "Structure an existing plan", the
+          // user's draft procedure lives on problem.userProvidedPlan. We add
+          // it as an explicit priming block so every sub-phase's prompt
+          // treats it as scaffolding to adopt, not just reference.
+          const userPlan = (ctx.userProvidedPlan || "").trim()
+          const userPlanBlock = userPlan
+            ? `\n\nUser-supplied draft procedure (treat this as the SCAFFOLDING to adopt; preserve structure/wording where reasonable, fill gaps, correct scientific errors, and complete missing sections such as material quantities, stats, safety):\n<user-plan>\n${userPlan}\n</user-plan>`
+            : ""
+
           for (let hypIdx = 0; hypIdx < selected.length; hypIdx++) {
             const hyp = selected[hypIdx]
             const hypPrefix = `[${hypIdx + 1}/${selected.length}]`
             const hypShort = hyp.text.slice(0, 60)
             try {
-              const hypBlock = `Hypothesis: ${hyp.text}\nExplanation: ${hyp.reasoning}`
-              const problemBlock = `Research problem: ${[ctx.title, ctx.problemStatement].filter(Boolean).join(" — ")}\nGoal: ${ctx.goal || "Not specified"}\nVariables: ${(ctx.variables ?? []).join(", ") || "Not specified"}\nConstraints: ${(ctx.constraints ?? []).join(", ") || "Not specified"}`
+              // If the user typed this hypothesis directly (via "Design from
+              // a hypothesis"), pin it so the agent doesn't rewrite or
+              // re-critique it.
+              const userSuppliedNote = hyp.userSupplied
+                ? `\nNOTE: This hypothesis was provided directly by the researcher. Treat it as a fixed input — do NOT rewrite, soften, or re-scope it. Design the experiment around it exactly as written.`
+                : ""
+              const hypBlock =
+                `Hypothesis: ${hyp.text}\nExplanation: ${hyp.reasoning}` +
+                userSuppliedNote
+              const problemBlock =
+                `Research problem: ${[ctx.title, ctx.problemStatement].filter(Boolean).join(" — ")}\nGoal: ${ctx.goal || "Not specified"}\nVariables: ${(ctx.variables ?? []).join(", ") || "Not specified"}\nConstraints: ${(ctx.constraints ?? []).join(", ") || "Not specified"}` +
+                userPlanBlock
 
               // ── Phase 1: Experimental Setup ────────────────────────
               console.log(

@@ -78,14 +78,14 @@ export function CanvasShell({
   return (
     <div
       className={cn(
-        "bg-ink-50 text-ink-900 flex size-full overflow-hidden",
+        "bg-paper text-ink flex size-full overflow-hidden",
         className
       )}
     >
       {/* Canvas column */}
       <div className="flex min-w-0 flex-1 flex-col">
         {header && (
-          <div className="border-ink-200 shrink-0 border-b bg-white">
+          <div className="border-line bg-surface shrink-0 border-b">
             {header}
           </div>
         )}
@@ -107,21 +107,19 @@ export function CanvasShell({
             onMouseDown={handleMouseDown}
             className={cn(
               "group z-10 flex w-1.5 shrink-0 cursor-col-resize justify-center",
-              isDragging ? "bg-teal-journey/30" : "hover:bg-teal-journey/20"
+              isDragging ? "bg-rust/30" : "hover:bg-rust/20"
             )}
           >
             <div
               className={cn(
                 "h-full w-px transition-colors",
-                isDragging
-                  ? "bg-teal-journey"
-                  : "bg-ink-200 group-hover:bg-teal-journey"
+                isDragging ? "bg-rust" : "bg-line group-hover:bg-rust"
               )}
             />
           </div>
 
           <aside
-            className="border-ink-200 shrink-0 border-l bg-white"
+            className="border-line bg-surface shrink-0 border-l"
             style={{ width: railWidth }}
           >
             <div className="h-full">{rail}</div>
@@ -131,10 +129,10 @@ export function CanvasShell({
 
       {/* Mobile rail overlay */}
       {rail && isMobile && showRail && (
-        <div className="fixed inset-0 z-40 flex flex-col bg-white">
+        <div className="bg-surface fixed inset-0 z-40 flex flex-col">
           <button
             onClick={onToggleRail}
-            className="border-ink-200 text-ink-500 shrink-0 border-b px-4 py-3 text-left text-xs font-bold uppercase tracking-widest"
+            className="border-line text-ink-3 shrink-0 border-b px-4 py-3 text-left font-mono text-[11px] uppercase tracking-[0.08em]"
           >
             ← Back to canvas
           </button>

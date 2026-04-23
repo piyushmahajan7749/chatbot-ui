@@ -2,9 +2,14 @@
 
 import {
   IconArrowRight,
+  IconBulb,
+  IconChartBar,
+  IconClipboardText,
   IconFlask,
   IconPlus,
-  IconSearch
+  IconSearch,
+  IconSparkles,
+  type Icon as TablerIconType
 } from "@tabler/icons-react"
 import { useRouter } from "next/navigation"
 import { FC, useContext, useMemo, useState } from "react"
@@ -104,6 +109,69 @@ export default function WorkspacePage() {
     router.push(seed ? `${base}?q=${encodeURIComponent(seed)}` : base)
   }
 
+  type EntryMode =
+    | "from-scratch"
+    | "from-hypothesis"
+    | "from-plan"
+    | "check-stats"
+    | "make-plan"
+
+  const openMode = (mode: EntryMode) => {
+    if (!wsId) return
+    // "Existing-design" modes need a design to act on. Route to the dedicated
+    // picker when any design exists; else guide the user to create one first.
+    const needsExisting = mode === "check-stats" || mode === "make-plan"
+    if (needsExisting) {
+      const target = designs.length
+        ? `/${wsId}/designs/pick?mode=${mode}`
+        : `/${wsId}/designs/new`
+      router.push(target)
+      return
+    }
+    router.push(`/${wsId}/designs/new?mode=${mode}`)
+  }
+
+  const entryTiles: Array<{
+    mode: EntryMode
+    label: string
+    desc: string
+    icon: TablerIconType
+    badge?: string
+  }> = [
+    {
+      mode: "from-scratch",
+      label: "Design from a research question",
+      desc: "Scope a problem, surface literature, generate hypotheses — the full 5-stage flow.",
+      icon: IconSparkles
+    },
+    {
+      mode: "from-hypothesis",
+      label: "Design from a hypothesis",
+      desc: "You already have a hypothesis. Skip straight to the experiment design.",
+      icon: IconBulb
+    },
+    {
+      mode: "from-plan",
+      label: "Structure an existing plan",
+      desc: "Paste a draft procedure — Shadow AI fills the SOP sections around it.",
+      icon: IconClipboardText
+    },
+    {
+      mode: "check-stats",
+      label: "Check a design statistically",
+      desc: "Pick an existing design. Shadow AI reviews the stats plan: power, test choice, sample size.",
+      icon: IconChartBar,
+      badge: designs.length ? undefined : "needs a design"
+    },
+    {
+      mode: "make-plan",
+      label: "Make a plan for a design",
+      desc: "Pick an existing design. Shadow AI produces a dated execution plan with owners and checkpoints.",
+      icon: IconClipboardText,
+      badge: designs.length ? undefined : "needs a design"
+    }
+  ]
+
   return (
     <div className="bg-paper h-full overflow-auto px-10 pb-16 pt-7">
       <div className="mx-auto max-w-[1060px]">
@@ -164,6 +232,46 @@ export default function WorkspacePage() {
             </Button>
           </form>
         </Card>
+
+        {/* Entry-point tiles — four ways to kick off work */}
+        <div className="mb-3 flex items-baseline justify-between">
+          <Eyebrow>Start</Eyebrow>
+        </div>
+        <div className="mb-7 grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-5">
+          {entryTiles.map(tile => {
+            const Icon = tile.icon
+            return (
+              <button
+                key={tile.mode}
+                type="button"
+                onClick={() => openMode(tile.mode)}
+                className="border-line bg-surface hover:border-line-strong hover:bg-paper group flex flex-col gap-3 rounded-lg border p-4 text-left transition-colors"
+              >
+                <div className="flex items-center justify-between">
+                  <div className="bg-paper-2 group-hover:bg-rust-soft flex size-9 items-center justify-center rounded-md transition-colors">
+                    <Icon
+                      size={18}
+                      className="text-ink-2 group-hover:text-rust"
+                    />
+                  </div>
+                  {tile.badge && (
+                    <span className="text-ink-3 font-mono text-[10px] uppercase tracking-[0.08em]">
+                      {tile.badge}
+                    </span>
+                  )}
+                </div>
+                <div>
+                  <div className="text-ink text-[14px] font-semibold leading-snug">
+                    {tile.label}
+                  </div>
+                  <div className="text-ink-3 mt-1 text-[12.5px] leading-relaxed">
+                    {tile.desc}
+                  </div>
+                </div>
+              </button>
+            )
+          })}
+        </div>
 
         {/* Stats */}
         <div className="mb-7 grid grid-cols-3 gap-3.5">
