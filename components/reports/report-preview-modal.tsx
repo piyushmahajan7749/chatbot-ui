@@ -7,88 +7,11 @@ import { IconEdit, IconX } from "@tabler/icons-react"
 import { FC, useEffect, useState } from "react"
 import ReactMarkdown from "react-markdown"
 import remarkGfm from "remark-gfm"
-
-type SectionDef = {
-  key: string
-  title: string
-  groupLabel: string
-  accentClassName: string
-}
-
-const SECTIONS: SectionDef[] = [
-  {
-    key: "aim",
-    title: "Aim",
-    groupLabel: "Theory",
-    accentClassName: "text-purple-persona"
-  },
-  {
-    key: "introduction",
-    title: "Introduction",
-    groupLabel: "Theory",
-    accentClassName: "text-purple-persona"
-  },
-  {
-    key: "principle",
-    title: "Principle",
-    groupLabel: "Theory",
-    accentClassName: "text-purple-persona"
-  },
-  {
-    key: "material",
-    title: "Material",
-    groupLabel: "Method",
-    accentClassName: "text-orange-product"
-  },
-  {
-    key: "preparation",
-    title: "Preparation",
-    groupLabel: "Method",
-    accentClassName: "text-orange-product"
-  },
-  {
-    key: "procedure",
-    title: "Procedure",
-    groupLabel: "Method",
-    accentClassName: "text-orange-product"
-  },
-  {
-    key: "setup",
-    title: "Setup",
-    groupLabel: "Method",
-    accentClassName: "text-orange-product"
-  },
-  {
-    key: "dataAnalysis",
-    title: "Data Analysis",
-    groupLabel: "Analysis",
-    accentClassName: "text-sage-brand"
-  },
-  {
-    key: "results",
-    title: "Results",
-    groupLabel: "Analysis",
-    accentClassName: "text-sage-brand"
-  },
-  {
-    key: "discussion",
-    title: "Discussion",
-    groupLabel: "Analysis",
-    accentClassName: "text-sage-brand"
-  },
-  {
-    key: "conclusion",
-    title: "Conclusion",
-    groupLabel: "Analysis",
-    accentClassName: "text-sage-brand"
-  },
-  {
-    key: "nextSteps",
-    title: "Next Steps",
-    groupLabel: "Analysis",
-    accentClassName: "text-sage-brand"
-  }
-]
+import {
+  getSectionGroups,
+  getTemplate,
+  ReportTemplate
+} from "@/lib/report/templates"
 
 interface ReportPreviewModalProps {
   isOpen: boolean
@@ -97,6 +20,7 @@ interface ReportPreviewModalProps {
   draft: Record<string, any> | null
   chartImage: string | null
   onEditContent: (sectionKey: string, value: string) => void
+  templateId?: string | null
 }
 
 const sectionAnchor = (key: string) => `preview-${key}`
@@ -107,8 +31,12 @@ export const ReportPreviewModal: FC<ReportPreviewModalProps> = ({
   title,
   draft,
   chartImage,
-  onEditContent
+  onEditContent,
+  templateId
 }) => {
+  const template: ReportTemplate = getTemplate(templateId)
+  const sectionGroups = getSectionGroups(template)
+
   const [editingKey, setEditingKey] = useState<string | null>(null)
   const [editValue, setEditValue] = useState("")
 
@@ -147,7 +75,7 @@ export const ReportPreviewModal: FC<ReportPreviewModalProps> = ({
         <div className="border-ink-200 flex shrink-0 items-center justify-between border-b bg-white px-6 py-4">
           <div>
             <div className="text-ink-400 text-[11px] font-bold uppercase tracking-[0.13em]">
-              Preview
+              Preview · {template.name}
             </div>
             <h2 className="text-ink-900 text-lg font-bold">{title}</h2>
           </div>
@@ -167,27 +95,17 @@ export const ReportPreviewModal: FC<ReportPreviewModalProps> = ({
             <div className="text-ink-400 mb-2 px-2 text-[11px] font-bold uppercase tracking-widest">
               Contents
             </div>
-            {chartImage && (
-              <button
-                type="button"
-                onClick={() => scrollTo("preview-chart")}
-                className="text-ink-700 hover:bg-ink-50 mb-1 block w-full rounded-lg px-2 py-1.5 text-left"
-              >
-                Chart
-              </button>
-            )}
-            {["Theory", "Method", "Analysis"].map(group => (
-              <div key={group} className="mb-2">
+            {sectionGroups.map(group => (
+              <div key={group.label} className="mb-2">
                 <div
                   className={
                     "px-2 pb-1 pt-2 text-[11px] font-bold uppercase tracking-widest " +
-                    (SECTIONS.find(s => s.groupLabel === group)
-                      ?.accentClassName ?? "text-ink-400")
+                    group.accentClassName
                   }
                 >
-                  {group}
+                  {group.label}
                 </div>
-                {SECTIONS.filter(s => s.groupLabel === group).map(section => (
+                {group.sections.map(section => (
                   <button
                     key={section.key}
                     type="button"
@@ -202,23 +120,20 @@ export const ReportPreviewModal: FC<ReportPreviewModalProps> = ({
           </aside>
 
           <div className="min-h-0 flex-1 overflow-y-auto bg-white">
-            <div className="mx-auto max-w-3xl space-y-6 p-8">
-              {chartImage && (
-                <section id="preview-chart" className="scroll-mt-4">
-                  <h3 className="text-sage-brand mb-3 text-xl font-bold">
-                    Chart
-                  </h3>
-                  <img
-                    src={chartImage}
-                    alt="Report chart"
-                    className="border-ink-100 max-w-full rounded-lg border"
-                  />
-                </section>
-              )}
+            <div className="mx-auto max-w-3xl space-y-8 p-10">
+              <header className="border-ink-100 border-b pb-6">
+                <div className="text-ink-400 mb-2 text-[11px] font-bold uppercase tracking-[0.13em]">
+                  Report · {template.name}
+                </div>
+                <h1 className="text-ink-900 text-4xl font-bold leading-tight">
+                  {title || "Untitled Report"}
+                </h1>
+              </header>
 
-              {SECTIONS.map(section => {
+              {template.sections.map(section => {
                 const content = contentFor(section.key)
                 const isEditing = editingKey === section.key
+                const isDataAnalysis = section.key === "dataAnalysis"
                 return (
                   <section
                     key={section.key}
@@ -283,6 +198,22 @@ export const ReportPreviewModal: FC<ReportPreviewModalProps> = ({
                         No content generated yet.
                       </p>
                     )}
+
+                    {isDataAnalysis &&
+                      template.includeChart &&
+                      chartImage &&
+                      !isEditing && (
+                        <div className="border-ink-100 mt-4 rounded-xl border bg-white/80 p-4">
+                          <div className="text-ink-500 mb-2 text-[11px] font-bold uppercase tracking-widest">
+                            Visualization
+                          </div>
+                          <img
+                            src={chartImage}
+                            alt="Report chart"
+                            className="border-ink-100 max-w-full rounded-lg border"
+                          />
+                        </div>
+                      )}
                   </section>
                 )
               })}

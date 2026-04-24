@@ -5,14 +5,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Tables } from "@/supabase/types"
-import {
-  IconFlask,
-  IconSparkles,
-  IconLoader2,
-  IconRefresh
-} from "@tabler/icons-react"
+import { IconSparkles, IconLoader2, IconRefresh } from "@tabler/icons-react"
 import { FC } from "react"
 import { ReportRetrievalSelect } from "../report-retrieval-select"
+import { DEFAULT_TEMPLATE_ID, REPORT_TEMPLATES } from "@/lib/report/templates"
 
 interface InputsTabProps {
   objective: string
@@ -28,6 +24,8 @@ interface InputsTabProps {
   hasDraft: boolean
   onGenerate: () => void
   generationError: string | null
+  templateId: string
+  onTemplateChange: (id: string) => void
 }
 
 export const InputsTab: FC<InputsTabProps> = ({
@@ -40,12 +38,61 @@ export const InputsTab: FC<InputsTabProps> = ({
   isGenerating,
   hasDraft,
   onGenerate,
-  generationError
+  generationError,
+  templateId,
+  onTemplateChange
 }) => {
   const canGenerate = !!objective.trim() && protocol.length > 0 && !isGenerating
+  const activeTemplateId = templateId || DEFAULT_TEMPLATE_ID
 
   return (
     <div className="space-y-5">
+      <Card className="rounded-2xl">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-ink-900 text-lg">Template</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <p className="text-ink-500 text-sm">
+            Choose the structure for this report.
+          </p>
+          <div className="grid gap-2 sm:grid-cols-3">
+            {REPORT_TEMPLATES.map(t => {
+              const selected = activeTemplateId === t.id
+              return (
+                <button
+                  key={t.id}
+                  type="button"
+                  disabled={isGenerating}
+                  onClick={() => onTemplateChange(t.id)}
+                  className={
+                    "rounded-xl border p-3 text-left transition-colors " +
+                    (selected
+                      ? "border-teal-journey bg-teal-journey-tint/30"
+                      : "border-ink-200 bg-white hover:bg-ink-50")
+                  }
+                >
+                  <div
+                    className={
+                      "text-sm font-semibold " +
+                      (selected ? "text-teal-journey" : "text-ink-900")
+                    }
+                  >
+                    {t.name}
+                  </div>
+                  <div className="text-ink-500 mt-1 text-xs leading-snug">
+                    {t.description}
+                  </div>
+                  <div className="text-ink-400 mt-2 text-[11px] font-bold uppercase tracking-widest">
+                    {t.sections.length} sections
+                    {t.includeChart ? " · chart" : ""}
+                  </div>
+                </button>
+              )
+            })}
+          </div>
+        </CardContent>
+      </Card>
+
       <Card className="rounded-2xl">
         <CardHeader className="pb-3">
           <CardTitle className="text-ink-900 text-lg">Inputs</CardTitle>

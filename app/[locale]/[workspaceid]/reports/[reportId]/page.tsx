@@ -20,7 +20,7 @@ import {
   IconLayoutGrid,
   IconUpload
 } from "@tabler/icons-react"
-import { FlaskConical, Download, Copy, Maximize2 } from "lucide-react"
+import { FlaskConical, FileText, Presentation } from "lucide-react"
 import {
   OverviewTab,
   type ReportTab
@@ -28,6 +28,8 @@ import {
 import { InputsTab } from "@/components/reports/tabs/inputs-tab"
 import { ReportTab as ReportTabView } from "@/components/reports/tabs/report-tab"
 import { ReportPreviewModal } from "@/components/reports/report-preview-modal"
+import { exportReportToPDF, exportReportToPPTX } from "@/lib/report/export"
+import { getTemplate, DEFAULT_TEMPLATE_ID } from "@/lib/report/templates"
 
 type Draft = Record<string, any>
 
@@ -74,6 +76,7 @@ export default function ReportDetailPage() {
   const [protocolFiles, setProtocolFiles] = useState<Tables<"files">[]>([])
   const [paperFiles, setPaperFiles] = useState<Tables<"files">[]>([])
   const [dataFiles, setDataFilesState] = useState<Tables<"files">[]>([])
+  const [templateId, setTemplateId] = useState<string>(DEFAULT_TEMPLATE_ID)
 
   const [isGenerating, setIsGenerating] = useState(false)
   const [regeneratingKey, setRegeneratingKey] = useState<string | null>(null)
@@ -137,6 +140,7 @@ export default function ReportDetailPage() {
       setProtocolFiles(data.files?.protocol ?? [])
       setPaperFiles(data.files?.papers ?? [])
       setDataFilesState(data.files?.dataFiles ?? [])
+      setTemplateId(data.template_id ?? DEFAULT_TEMPLATE_ID)
     } catch (error) {
       console.error("Error fetching report:", error)
       toast({
@@ -165,6 +169,14 @@ export default function ReportDetailPage() {
         console.warn("Failed to save objective:", err)
       })
     }, 600)
+  }
+
+  const handleTemplateChange = (id: string) => {
+    setTemplateId(id)
+    setReport((prev: any) => ({ ...prev, template_id: id }))
+    updateReport(reportId, { template_id: id }).catch(err => {
+      console.warn("Failed to save template:", err)
+    })
   }
 
   const persistFiles = (next: {
@@ -212,6 +224,7 @@ export default function ReportDetailPage() {
     try {
       await updateReport(reportId, {
         description: objective,
+        template_id: templateId,
         files: {
           protocol: protocolFiles,
           papers: paperFiles,
@@ -377,24 +390,44 @@ export default function ReportDetailPage() {
 
   const draftText = draftToText(draft)
 
-  const handleDownload = () => {
-    if (!report || !draftText) return
-    const blob = new Blob([draftText], { type: "text/plain" })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement("a")
-    a.href = url
-    a.download = `${report.name || "report"}.txt`
-    a.click()
-    URL.revokeObjectURL(url)
+  const template = getTemplate(templateId ?? DEFAULT_TEMPLATE_ID)
+
+  const handleDownloadPDF = async () => {
+    if (!report || !draft) return
+    try {
+      await exportReportToPDF({
+        title: report.name || "Report",
+        draft,
+        sections: template.sections,
+        chartImage: report?.chart_image ?? null
+      })
+    } catch (err: any) {
+      console.error("PDF export failed:", err)
+      toast({
+        title: "Export failed",
+        description: err?.message || "Could not generate PDF.",
+        variant: "destructive"
+      })
+    }
   }
 
-  const handleCopy = async () => {
-    if (!draftText) return
-    await navigator.clipboard.writeText(draftText)
-    toast({
-      title: "Copied",
-      description: "Report copied to clipboard."
-    })
+  const handleDownloadPPT = async () => {
+    if (!report || !draft) return
+    try {
+      await exportReportToPPTX({
+        title: report.name || "Report",
+        draft,
+        sections: template.sections,
+        chartImage: report?.chart_image ?? null
+      })
+    } catch (err: any) {
+      console.error("PPT export failed:", err)
+      toast({
+        title: "Export failed",
+        description: err?.message || "Could not generate PPT.",
+        variant: "destructive"
+      })
+    }
   }
 
   const getTimeAgo = (date: string): string => {
@@ -550,19 +583,19 @@ export default function ReportDetailPage() {
                   variant="outline"
                   size="sm"
                   className="gap-2"
-                  onClick={handleDownload}
+                  onClick={handleDownloadPDF}
                 >
-                  <Download className="size-4" />
-                  Download
+                  <FileText className="size-4" />
+                  Download as PDF
                 </Button>
                 <Button
                   variant="outline"
                   size="sm"
                   className="gap-2"
-                  onClick={handleCopy}
+                  onClick={handleDownloadPPT}
                 >
-                  <Copy className="size-4" />
-                  Copy
+                  <Presentation className="size-4" />
+                  Download as PPT
                 </Button>
                 <Button
                   size="sm"
@@ -614,6 +647,8 @@ export default function ReportDetailPage() {
                   ? (report?.generation_error ?? null)
                   : null
               }
+              templateId={templateId}
+              onTemplateChange={handleTemplateChange}
             />
           )}
           {activeTab === "report" && (
@@ -626,6 +661,8 @@ export default function ReportDetailPage() {
               onRegenerateChart={handleChartRegenerate}
               regeneratingChart={regeneratingChart}
               onOpenPreview={() => setShowPreview(true)}
+              templateId={templateId}
+              reportTitle={report?.name || "Untitled Report"}
             />
           )}
         </div>
@@ -638,6 +675,7 @@ export default function ReportDetailPage() {
         draft={draft}
         chartImage={report?.chart_image ?? null}
         onEditContent={handleSectionContentChange}
+        templateId={templateId}
       />
 
       <ELNExportModal

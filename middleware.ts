@@ -1,7 +1,16 @@
+import { getRedirectTarget } from "@/lib/auth/get-redirect-target"
 import { createClient } from "@/lib/supabase/middleware"
 import { i18nRouter } from "next-i18n-router"
 import { NextResponse, type NextRequest } from "next/server"
 import i18nConfig from "./i18nConfig"
+
+function stripLocale(pathname: string, locales: string[]): string {
+  const segments = pathname.split("/")
+  if (segments.length > 1 && locales.includes(segments[1])) {
+    return "/" + segments.slice(2).join("/")
+  }
+  return pathname
+}
 
 export async function middleware(request: NextRequest) {
   const i18nResult = i18nRouter(request, i18nConfig)
@@ -9,26 +18,43 @@ export async function middleware(request: NextRequest) {
 
   try {
     const { supabase, response } = createClient(request)
+    const pathname = stripLocale(request.nextUrl.pathname, i18nConfig.locales)
 
-    const session = await supabase.auth.getSession()
+    const isRoot = pathname === "/" || pathname === ""
+    const isLogin = pathname === "/login" || pathname.startsWith("/login/")
+    const isOnboarding = pathname === "/onboarding"
 
-    const redirectToChat = session && request.nextUrl.pathname === "/"
+    const target = await getRedirectTarget(supabase)
 
-    if (redirectToChat) {
-      const { data: homeWorkspace, error } = await supabase
-        .from("workspaces")
-        .select("*")
-        .eq("user_id", session.data.session?.user.id)
-        .eq("is_home", true)
-        .single()
+    // Unauthenticated.
+    if (target.kind === "path" && target.path === "/login") {
+      if (isLogin || isRoot) return response
+      return NextResponse.redirect(new URL("/login", request.url))
+    }
 
-      if (!homeWorkspace) {
-        throw new Error(error?.message)
-      }
+    // Signup trigger hasn't completed — only onboarding may render (shows a fallback).
+    if (target.kind === "profile_pending") {
+      if (isOnboarding) return response
+      return NextResponse.redirect(new URL("/onboarding", request.url))
+    }
 
-      return NextResponse.redirect(
-        new URL(`/${homeWorkspace.id}/chat`, request.url)
-      )
+    if (target.kind !== "path") return response
+    const targetPath = target.path
+
+    // Logged-in user on marketing/login pages — send to their destination.
+    if (isLogin || isRoot) {
+      return NextResponse.redirect(new URL(targetPath, request.url))
+    }
+
+    // Not onboarded — must be on /onboarding.
+    if (targetPath === "/onboarding") {
+      if (isOnboarding) return response
+      return NextResponse.redirect(new URL("/onboarding", request.url))
+    }
+
+    // Already onboarded — bounce away from /onboarding to home.
+    if (isOnboarding) {
+      return NextResponse.redirect(new URL(targetPath, request.url))
     }
 
     return response
