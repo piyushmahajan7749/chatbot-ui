@@ -5,6 +5,7 @@ import {
   getLogsByPlanId
 } from "../../utils/persistence-firestore"
 import { PlanStatus } from "../../types/interfaces"
+import { requireUser } from "@/lib/server/require-user"
 
 export async function GET(
   req: Request,
@@ -20,10 +21,17 @@ export async function GET(
       )
     }
 
+    const auth = await requireUser()
+    if (auth.response) return auth.response
+
     // Get plan
     const plan = await getResearchPlan(planId)
     if (!plan) {
       return NextResponse.json({ error: "Plan not found" }, { status: 404 })
+    }
+
+    if (!plan.userId || plan.userId !== auth.user.id) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 })
     }
 
     // Get hypotheses

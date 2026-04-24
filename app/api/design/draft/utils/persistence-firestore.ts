@@ -13,6 +13,7 @@ import {
 export async function saveResearchPlan(plan: ResearchPlan): Promise<void> {
   const planData = {
     plan_id: plan.planId,
+    user_id: plan.userId,
     title: plan.title,
     description: plan.description,
     status: plan.status || "pending",
@@ -46,15 +47,16 @@ export async function getResearchPlan(
   const metadata = (data.metadata ?? {}) as Partial<ResearchPlan>
 
   return {
+    ...metadata,
     planId: data.plan_id,
+    userId: data.user_id ?? metadata.userId ?? "",
     title: data.title,
     description: data.description,
     status: metadata.status || data.status,
     constraints: data.constraints ?? metadata.constraints ?? {},
     preferences: data.preferences ?? metadata.preferences ?? {},
     literatureContext: data.literature_context ?? metadata.literatureContext,
-    createdAt: metadata.createdAt || data.created_at,
-    ...metadata
+    createdAt: metadata.createdAt || data.created_at
   }
 }
 

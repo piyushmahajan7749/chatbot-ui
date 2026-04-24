@@ -2,6 +2,8 @@ import { NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { cookies } from "next/headers"
 import { adminDb } from "@/lib/firebase/admin"
+import { requireUser } from "@/lib/server/require-user"
+import { requireFirestoreOwner } from "@/lib/server/firestore-authz"
 
 export async function GET(
   request: Request,
@@ -13,12 +15,13 @@ export async function GET(
       return NextResponse.json({ error: "Invalid report ID" }, { status: 400 })
     }
 
-    const doc = await adminDb.collection("reports").doc(reportId).get()
-    if (!doc.exists) {
-      return NextResponse.json({ error: "Report not found" }, { status: 404 })
-    }
+    const auth = await requireUser()
+    if (auth.response) return auth.response
 
-    return NextResponse.json({ id: doc.id, ...doc.data() })
+    const owner = await requireFirestoreOwner("reports", reportId, auth.user.id)
+    if (owner.response) return owner.response
+
+    return NextResponse.json(owner.doc)
   } catch (error) {
     console.error("❌ [REPORTS_API] Error fetching report:", error)
     return NextResponse.json(

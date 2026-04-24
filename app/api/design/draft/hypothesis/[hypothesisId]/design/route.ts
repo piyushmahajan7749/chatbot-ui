@@ -23,6 +23,8 @@ import {
 } from "../../../utils/persistence-firestore"
 import { AgentPromptOverrides, AgentPromptUsage } from "@/types/design-prompts"
 import { designAgentPromptOrder } from "@/lib/design/prompt-schemas"
+import { requireUser } from "@/lib/server/require-user"
+import { checkRateLimit } from "@/lib/server/rate-limit"
 
 const agentKeys = designAgentPromptOrder
 
@@ -121,6 +123,17 @@ export async function POST(
       )
     }
 
+    const auth = await requireUser()
+    if (auth.response) return auth.response
+
+    const limited = await checkRateLimit({
+      name: "hypothesis-design",
+      identifier: auth.user.id,
+      requests: 20,
+      window: "1 h"
+    })
+    if (limited) return limited
+
     let requestBody: any = {}
     try {
       requestBody = await req.json()
@@ -146,6 +159,13 @@ export async function POST(
       return NextResponse.json(
         { success: false, error: "Research plan not found" },
         { status: 404 }
+      )
+    }
+
+    if (!plan.userId || plan.userId !== auth.user.id) {
+      return NextResponse.json(
+        { success: false, error: "Forbidden" },
+        { status: 403 }
       )
     }
 

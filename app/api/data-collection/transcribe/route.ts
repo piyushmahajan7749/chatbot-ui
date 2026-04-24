@@ -1,19 +1,21 @@
 import { NextResponse } from "next/server"
-import { createClient } from "@/lib/supabase/server"
-import { cookies } from "next/headers"
 import { getAzureOpenAIForDeployment } from "@/lib/azure-openai"
+import { requireUser } from "@/lib/server/require-user"
+import { checkRateLimit } from "@/lib/server/rate-limit"
+import { enforceSize, sniffAndValidate } from "@/lib/server/file-validation"
 
 export async function POST(request: Request) {
   try {
-    const supabase = createClient(cookies())
-    const {
-      data: { user },
-      error: authError
-    } = await supabase.auth.getUser()
+    const auth = await requireUser()
+    if (auth.response) return auth.response
 
-    if (authError || !user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-    }
+    const limited = await checkRateLimit({
+      name: "transcribe",
+      identifier: auth.user.id,
+      requests: 30,
+      window: "1 h"
+    })
+    if (limited) return limited
 
     const formData = await request.formData()
     const audioFile = formData.get("audio") as File
@@ -24,6 +26,18 @@ export async function POST(request: Request) {
         { status: 400 }
       )
     }
+
+    const sizeError = enforceSize(audioFile.size, "audio")
+    if (sizeError) return sizeError
+
+    const audioBuffer = Buffer.from(await audioFile.arrayBuffer())
+    const mimeError = await sniffAndValidate(
+      audioBuffer,
+      "audio",
+      audioFile.type,
+      audioFile.name
+    )
+    if (mimeError) return mimeError
 
     const whisperDeployment = process.env.AZURE_WHISPER_DEPLOYMENT || "whisper"
     const openai = getAzureOpenAIForDeployment(whisperDeployment)

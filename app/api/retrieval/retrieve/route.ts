@@ -26,6 +26,28 @@ export async function POST(request: Request) {
 
     const profile = await getServerProfile()
 
+    // Ensure every requested file belongs to the authenticated user before
+    // passing ids into the retrieval RPC. Without this, any caller could
+    // retrieve embeddings for another user's files by guessing UUIDs.
+    if (uniqueFileIds.length > 0) {
+      const { data: ownedFiles, error: ownedError } = await supabaseAdmin
+        .from("files")
+        .select("id")
+        .in("id", uniqueFileIds)
+        .eq("user_id", profile.user_id)
+
+      if (ownedError) {
+        throw ownedError
+      }
+
+      if (!ownedFiles || ownedFiles.length !== uniqueFileIds.length) {
+        return new Response(
+          JSON.stringify({ message: "Forbidden: unknown file id" }),
+          { status: 403 }
+        )
+      }
+    }
+
     let chunks: any[] = []
 
     if (embeddingsProvider === "openai") {

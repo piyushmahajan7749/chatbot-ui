@@ -2,6 +2,7 @@
 
 export interface ResearchPlan {
   planId: string
+  userId: string
   title: string
   description: string
   constraints?: Record<string, any>

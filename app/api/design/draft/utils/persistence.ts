@@ -58,7 +58,9 @@ const planFromRow = (row: DesignPlanRow): ResearchPlan => {
   const metadata =
     ((row.metadata ?? {}) as unknown as Partial<ResearchPlan>) ?? {}
   return {
+    ...metadata,
     planId: row.plan_id,
+    userId: metadata.userId ?? "",
     title: row.title,
     description: row.description,
     status:
@@ -72,8 +74,7 @@ const planFromRow = (row: DesignPlanRow): ResearchPlan => {
       (row.preferences as ResearchPlan["preferences"]) ??
       metadata.preferences ??
       {},
-    createdAt: metadata.createdAt || row.created_at,
-    ...metadata
+    createdAt: metadata.createdAt || row.created_at
   }
 }
 

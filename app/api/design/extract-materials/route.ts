@@ -5,11 +5,27 @@
 
 import { NextRequest, NextResponse } from "next/server"
 import { getAzureOpenAI, getAzureOpenAIModel } from "@/lib/azure-openai"
+import { requireUser } from "@/lib/server/require-user"
+import { checkRateLimit } from "@/lib/server/rate-limit"
+import { UPLOAD_SIZE_LIMITS, enforceSize } from "@/lib/server/file-validation"
 
-export const runtime = "edge"
+// Note: this route was previously `runtime = "edge"`, but auth / file-type
+// helpers rely on Node APIs (dns, crypto). Running on the Node runtime is
+// safe here and unblocks the auth check.
 
 export async function POST(request: NextRequest) {
   try {
+    const auth = await requireUser()
+    if (auth.response) return auth.response
+
+    const limited = await checkRateLimit({
+      name: "extract-materials",
+      identifier: auth.user.id,
+      requests: 30,
+      window: "1 h"
+    })
+    if (limited) return limited
+
     const { materialsText, preparationText } = await request.json()
 
     if (!materialsText && !preparationText) {
@@ -18,6 +34,13 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       )
     }
+
+    const combinedSize =
+      Buffer.byteLength(materialsText || "", "utf8") +
+      Buffer.byteLength(preparationText || "", "utf8")
+    const sizeError = enforceSize(combinedSize, "text")
+    if (sizeError) return sizeError
+    void UPLOAD_SIZE_LIMITS
 
     const openai = getAzureOpenAI()
     const model = getAzureOpenAIModel()

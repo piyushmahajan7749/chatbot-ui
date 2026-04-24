@@ -1,20 +1,13 @@
 import { NextResponse } from "next/server"
-import { createClient } from "@/lib/supabase/server"
-import { cookies } from "next/headers"
 import { adminDb } from "@/lib/firebase/admin"
 import type { QueryDocumentSnapshot } from "firebase-admin/firestore"
+import { requireUser, userOwnsWorkspace } from "@/lib/server/require-user"
 
 export async function POST(request: Request) {
   try {
-    const supabase = createClient(cookies())
-    const {
-      data: { user },
-      error: authError
-    } = await supabase.auth.getUser()
-
-    if (authError || !user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-    }
+    const auth = await requireUser()
+    if (auth.response) return auth.response
+    const user = auth.user
 
     const { dataCollection, workspaceId } = await request.json()
 
@@ -23,6 +16,10 @@ export async function POST(request: Request) {
         { error: "Workspace ID is required" },
         { status: 400 }
       )
+    }
+
+    if (!(await userOwnsWorkspace(user.id, workspaceId))) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 })
     }
 
     const id = crypto.randomUUID()
@@ -78,28 +75,22 @@ export async function POST(request: Request) {
 
 export async function GET(request: Request) {
   try {
-    const supabase = createClient(cookies())
-    const {
-      data: { user },
-      error: authError
-    } = await supabase.auth.getUser()
-
-    if (authError || !user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-    }
+    const auth = await requireUser()
+    if (auth.response) return auth.response
+    const user = auth.user
 
     const { searchParams } = new URL(request.url)
     const workspaceId = searchParams.get("workspaceId")
-    const userId = searchParams.get("userId")
 
-    let query = adminDb.collection("data_collections") as any
+    let query = adminDb
+      .collection("data_collections")
+      .where("user_id", "==", user.id) as any
 
     if (workspaceId) {
+      if (!(await userOwnsWorkspace(user.id, workspaceId))) {
+        return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+      }
       query = query.where("workspace_id", "==", workspaceId)
-    } else if (userId) {
-      query = query.where("user_id", "==", userId)
-    } else {
-      query = query.where("user_id", "==", user.id)
     }
 
     const snapshot = await query.orderBy("created_at", "desc").get()

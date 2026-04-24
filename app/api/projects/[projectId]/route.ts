@@ -1,30 +1,24 @@
 import { NextResponse } from "next/server"
-import { createClient } from "@/lib/supabase/server"
-import { cookies } from "next/headers"
 import { adminDb } from "@/lib/firebase/admin"
+import { requireUser } from "@/lib/server/require-user"
+import { requireFirestoreOwner } from "@/lib/server/firestore-authz"
 
 export async function GET(
   request: Request,
   { params }: { params: { projectId: string } }
 ) {
   try {
-    const supabase = createClient(cookies())
-    const {
-      data: { user },
-      error: authError
-    } = await supabase.auth.getUser()
+    const auth = await requireUser()
+    if (auth.response) return auth.response
 
-    if (authError || !user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-    }
+    const owner = await requireFirestoreOwner(
+      "projects",
+      params.projectId,
+      auth.user.id
+    )
+    if (owner.response) return owner.response
 
-    const doc = await adminDb.collection("projects").doc(params.projectId).get()
-
-    if (!doc.exists) {
-      return NextResponse.json({ error: "Project not found" }, { status: 404 })
-    }
-
-    return NextResponse.json({ id: doc.id, ...doc.data() })
+    return NextResponse.json(owner.doc)
   } catch (error) {
     console.error("❌ [PROJECTS_API] Error fetching project:", error)
     return NextResponse.json(
@@ -39,34 +33,37 @@ export async function PATCH(
   { params }: { params: { projectId: string } }
 ) {
   try {
-    const supabase = createClient(cookies())
-    const {
-      data: { user },
-      error: authError
-    } = await supabase.auth.getUser()
+    const auth = await requireUser()
+    if (auth.response) return auth.response
 
-    if (authError || !user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-    }
+    const owner = await requireFirestoreOwner(
+      "projects",
+      params.projectId,
+      auth.user.id
+    )
+    if (owner.response) return owner.response
 
     const updates = await request.json()
 
-    const updateData = {
-      ...updates,
-      updated_at: new Date().toISOString()
-    }
+    // Owner-only fields must not be rewritten by update payloads.
+    delete updates.user_id
+    delete updates.id
+    delete updates.workspace_id
+    delete updates.created_at
 
     await adminDb
       .collection("projects")
       .doc(params.projectId)
-      .update(updateData)
+      .update({
+        ...updates,
+        updated_at: new Date().toISOString()
+      })
 
     const updatedDoc = await adminDb
       .collection("projects")
       .doc(params.projectId)
       .get()
 
-    console.log("✅ [PROJECTS_API] Project updated:", params.projectId)
     return NextResponse.json({ id: updatedDoc.id, ...updatedDoc.data() })
   } catch (error) {
     console.error("❌ [PROJECTS_API] Error updating project:", error)
@@ -82,19 +79,18 @@ export async function DELETE(
   { params }: { params: { projectId: string } }
 ) {
   try {
-    const supabase = createClient(cookies())
-    const {
-      data: { user },
-      error: authError
-    } = await supabase.auth.getUser()
+    const auth = await requireUser()
+    if (auth.response) return auth.response
 
-    if (authError || !user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-    }
+    const owner = await requireFirestoreOwner(
+      "projects",
+      params.projectId,
+      auth.user.id
+    )
+    if (owner.response) return owner.response
 
     await adminDb.collection("projects").doc(params.projectId).delete()
 
-    console.log("✅ [PROJECTS_API] Project deleted:", params.projectId)
     return NextResponse.json({ success: true })
   } catch (error) {
     console.error("❌ [PROJECTS_API] Error deleting project:", error)

@@ -15,6 +15,7 @@ import { Database } from "@/supabase/types"
 import { FileItemChunk } from "@/types"
 import { createClient } from "@supabase/supabase-js"
 import { NextResponse } from "next/server"
+import { enforceSize, sniffAndValidate } from "@/lib/server/file-validation"
 
 export async function POST(req: Request) {
   try {
@@ -58,6 +59,18 @@ export async function POST(req: Request) {
       throw new Error(`Failed to retrieve file: ${fileError.message}`)
 
     const fileBuffer = Buffer.from(await file.arrayBuffer()) as Buffer
+
+    const sizeError = enforceSize(fileBuffer.byteLength, "document")
+    if (sizeError) return sizeError
+
+    const mimeError = await sniffAndValidate(
+      fileBuffer,
+      "document",
+      fileMetadata.type ?? undefined,
+      fileMetadata.name
+    )
+    if (mimeError) return mimeError
+
     const blob = new Blob([fileBuffer as BlobPart])
     const fileExtension = fileMetadata.name.split(".").pop()?.toLowerCase()
 

@@ -5,8 +5,22 @@ import { ChatSettings } from "@/types"
 import { OpenAIStream, StreamingTextResponse } from "ai"
 import type OpenAI from "openai"
 import { ChatCompletionCreateParamsBase } from "openai/resources/chat/completions.mjs"
+import { requireUser } from "@/lib/server/require-user"
+import { safeFetch, SafeFetchError } from "@/lib/server/safe-fetch"
+import { checkRateLimit } from "@/lib/server/rate-limit"
 
 export async function POST(request: Request) {
+  const auth = await requireUser()
+  if (auth.response) return auth.response
+
+  const limited = await checkRateLimit({
+    name: "chat-tools",
+    identifier: auth.user.id,
+    requests: 60,
+    window: "1 h"
+  })
+  if (limited) return limited
+
   const json = await request.json()
   const { chatSettings, messages, selectedTools } = json as {
     chatSettings: ChatSettings
@@ -144,7 +158,9 @@ export async function POST(request: Request) {
             body: JSON.stringify(bodyContent) // Use the extracted requestBody or the entire parsedArgs
           }
 
-          const response = await fetch(fullUrl, requestInit)
+          // safeFetch resolves the hostname and rejects URLs that point at
+          // internal networks (loopback, RFC1918, cloud metadata endpoints).
+          const response = await safeFetch(fullUrl, requestInit)
 
           if (!response.ok) {
             data = {
@@ -169,7 +185,7 @@ export async function POST(request: Request) {
             headers = JSON.parse(customHeaders)
           }
 
-          const response = await fetch(fullUrl, {
+          const response = await safeFetch(fullUrl, {
             method: "GET",
             headers: headers
           })
@@ -203,6 +219,12 @@ export async function POST(request: Request) {
     return new StreamingTextResponse(stream)
   } catch (error: any) {
     console.error(error)
+    if (error instanceof SafeFetchError) {
+      return new Response(
+        JSON.stringify({ message: "Tool target blocked by network policy" }),
+        { status: 400 }
+      )
+    }
     const errorMessage = error.error?.message || "An unexpected error occurred"
     const errorCode = error.status || 500
     return new Response(JSON.stringify({ message: errorMessage }), {

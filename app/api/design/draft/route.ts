@@ -3,6 +3,8 @@ import { ResearchPlan } from "./types/interfaces"
 import { v4 as uuidv4 } from "uuid"
 import { inngest } from "@/lib/inngest/client"
 import { saveResearchPlan } from "./utils/persistence-firestore"
+import { requireUser } from "@/lib/server/require-user"
+import { checkRateLimit } from "@/lib/server/rate-limit"
 
 export async function POST(req: Request) {
   const requestStartTime = Date.now()
@@ -11,9 +13,26 @@ export async function POST(req: Request) {
   console.log("=".repeat(100))
 
   try {
+    const auth = await requireUser()
+    if (auth.response) return auth.response
+    const user = auth.user
+
+    const limited = await checkRateLimit({
+      name: "design-draft",
+      identifier: user.id,
+      requests: 20,
+      window: "1 h"
+    })
+    if (limited) return limited
+
     const requestData = await req.json()
-    console.log("📥 [DESIGN_DRAFT_REQUEST] Request Data:")
-    console.log("  📋 Raw Request:", JSON.stringify(requestData, null, 2))
+    // Log only metadata — user research problem bodies can contain sensitive
+    // objectives/constraints we do not want persisted in server logs.
+    console.log("📥 [DESIGN_DRAFT_REQUEST] Received", {
+      userId: user.id,
+      hasPlanId: !!requestData.planId,
+      bodyKeys: Object.keys(requestData || {})
+    })
 
     // Support both old format (for backward compatibility) and new format
     let planId: string
@@ -65,6 +84,7 @@ export async function POST(req: Request) {
     console.log("\n🔧 [DESIGN_DRAFT_STATE] Creating Research Plan")
     const plan: ResearchPlan = {
       planId,
+      userId: user.id,
       title,
       description,
       constraints,
@@ -73,14 +93,11 @@ export async function POST(req: Request) {
       status: "pending"
     }
 
-    console.log("📋 [DESIGN_DRAFT_STATE] Research Plan Summary:")
-    console.log("  📋 Plan ID:", plan.planId)
-    console.log("  📋 Title:", plan.title)
-    console.log(
-      "  📋 Description Length:",
-      plan.description.length,
-      "characters"
-    )
+    console.log("📋 [DESIGN_DRAFT_STATE] Plan Created:", {
+      planId: plan.planId,
+      userId: plan.userId,
+      descriptionLength: plan.description.length
+    })
 
     // Save plan to database first
     try {

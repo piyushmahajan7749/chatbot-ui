@@ -1,22 +1,14 @@
 import { NextResponse } from "next/server"
-import { createClient } from "@/lib/supabase/server"
-import { cookies } from "next/headers"
 import { adminDb } from "@/lib/firebase/admin"
 import type { QueryDocumentSnapshot } from "firebase-admin/firestore"
 import { resolvePendingInvites } from "@/lib/design/sharing"
+import { requireUser, userOwnsWorkspace } from "@/lib/server/require-user"
 
 export async function POST(request: Request) {
   try {
-    // Verify user is authenticated with Supabase
-    const supabase = createClient(cookies())
-    const {
-      data: { user },
-      error: authError
-    } = await supabase.auth.getUser()
-
-    if (authError || !user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-    }
+    const auth = await requireUser()
+    if (auth.response) return auth.response
+    const user = auth.user
 
     const { design, workspaceId } = await request.json()
 
@@ -25,6 +17,10 @@ export async function POST(request: Request) {
         { error: "Workspace ID is required" },
         { status: 400 }
       )
+    }
+
+    if (!(await userOwnsWorkspace(user.id, workspaceId))) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 })
     }
 
     const designId = crypto.randomUUID()
@@ -64,21 +60,14 @@ export async function POST(request: Request) {
 
 export async function GET(request: Request) {
   try {
-    const supabase = createClient(cookies())
-    const {
-      data: { user },
-      error: authError
-    } = await supabase.auth.getUser()
-
-    if (authError || !user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-    }
+    const auth = await requireUser()
+    if (auth.response) return auth.response
+    const user = auth.user
 
     await resolvePendingInvites(user.id, user.email)
 
     const { searchParams } = new URL(request.url)
     const workspaceId = searchParams.get("workspaceId")
-    const userId = searchParams.get("userId")
     const projectId = searchParams.get("projectId")
     const scope = searchParams.get("scope")
 
@@ -95,18 +84,17 @@ export async function GET(request: Request) {
       return NextResponse.json({ designs })
     }
 
-    let query: FirebaseFirestore.Query = adminDb.collection("designs")
+    let query: FirebaseFirestore.Query = adminDb
+      .collection("designs")
+      .where("user_id", "==", user.id)
 
     if (projectId) {
-      query = query
-        .where("user_id", "==", user.id)
-        .where("project_id", "==", projectId)
+      query = query.where("project_id", "==", projectId)
     } else if (workspaceId) {
+      if (!(await userOwnsWorkspace(user.id, workspaceId))) {
+        return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+      }
       query = query.where("workspace_id", "==", workspaceId)
-    } else if (userId) {
-      query = query.where("user_id", "==", userId)
-    } else {
-      query = query.where("user_id", "==", user.id)
     }
 
     const snapshot = await query.orderBy("created_at", "desc").get()

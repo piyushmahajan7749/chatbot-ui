@@ -9,6 +9,7 @@ import { Database } from "@/supabase/types"
 import { FileItemChunk } from "@/types"
 import { createClient } from "@supabase/supabase-js"
 import { NextResponse } from "next/server"
+import { enforceSize } from "@/lib/server/file-validation"
 
 export async function POST(req: Request) {
   const json = await req.json()
@@ -26,6 +27,23 @@ export async function POST(req: Request) {
     )
 
     const profile = await getServerProfile()
+
+    // Verify fileId belongs to the authenticated user before embedding /
+    // writing file_items scoped to it.
+    const { data: ownedFile, error: ownedError } = await supabaseAdmin
+      .from("files")
+      .select("id")
+      .eq("id", fileId)
+      .eq("user_id", profile.user_id)
+      .maybeSingle()
+
+    if (ownedError) throw ownedError
+    if (!ownedFile) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+    }
+
+    const sizeError = enforceSize(Buffer.byteLength(text || "", "utf8"), "text")
+    if (sizeError) return sizeError
 
     let chunks: FileItemChunk[] = []
 

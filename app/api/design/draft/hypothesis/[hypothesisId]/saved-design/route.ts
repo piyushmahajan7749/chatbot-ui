@@ -1,8 +1,32 @@
 import { NextResponse } from "next/server"
 import {
+  getHypothesisById,
   getHypothesisSavedDesign,
+  getResearchPlan,
   saveHypothesisDesign
 } from "../../../utils/persistence-firestore"
+import { requireUser } from "@/lib/server/require-user"
+
+async function assertHypothesisOwnedByUser(
+  hypothesisId: string,
+  userId: string
+): Promise<NextResponse | null> {
+  const hypothesis = await getHypothesisById(hypothesisId)
+  if (!hypothesis) {
+    return NextResponse.json(
+      { success: false, error: "Hypothesis not found" },
+      { status: 404 }
+    )
+  }
+  const plan = await getResearchPlan(hypothesis.planId)
+  if (!plan || !plan.userId || plan.userId !== userId) {
+    return NextResponse.json(
+      { success: false, error: "Forbidden" },
+      { status: 403 }
+    )
+  }
+  return null
+}
 
 /**
  * GET /api/design/draft/hypothesis/[hypothesisId]/saved-design
@@ -14,17 +38,22 @@ export async function GET(
 ) {
   try {
     const hypothesisId = params.hypothesisId
-    console.log(
-      `[SAVED-DESIGN-GET] Checking for saved design: ${hypothesisId.slice(0, 8)}...`
-    )
 
     if (!hypothesisId) {
-      console.error("[SAVED-DESIGN-GET] No hypothesis ID provided")
       return NextResponse.json(
         { success: false, error: "Hypothesis ID is required" },
         { status: 400 }
       )
     }
+
+    const auth = await requireUser()
+    if (auth.response) return auth.response
+
+    const forbidden = await assertHypothesisOwnedByUser(
+      hypothesisId,
+      auth.user.id
+    )
+    if (forbidden) return forbidden
 
     const savedDesign = await getHypothesisSavedDesign(hypothesisId)
 
@@ -73,6 +102,15 @@ export async function POST(
         { status: 400 }
       )
     }
+
+    const auth = await requireUser()
+    if (auth.response) return auth.response
+
+    const forbidden = await assertHypothesisOwnedByUser(
+      hypothesisId,
+      auth.user.id
+    )
+    if (forbidden) return forbidden
 
     const body = await req.json()
     const {

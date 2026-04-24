@@ -1,20 +1,13 @@
 import { NextResponse } from "next/server"
-import { createClient } from "@/lib/supabase/server"
-import { cookies } from "next/headers"
 import { adminDb } from "@/lib/firebase/admin"
 import type { QueryDocumentSnapshot } from "firebase-admin/firestore"
+import { requireUser, userOwnsWorkspace } from "@/lib/server/require-user"
 
 export async function POST(request: Request) {
   try {
-    const supabase = createClient(cookies())
-    const {
-      data: { user },
-      error: authError
-    } = await supabase.auth.getUser()
-
-    if (authError || !user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-    }
+    const auth = await requireUser()
+    if (auth.response) return auth.response
+    const user = auth.user
 
     const { name, description, tags, workspace_id } = await request.json()
 
@@ -23,6 +16,10 @@ export async function POST(request: Request) {
         { error: "Workspace ID is required" },
         { status: 400 }
       )
+    }
+
+    if (!(await userOwnsWorkspace(user.id, workspace_id))) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 })
     }
 
     const projectId = crypto.randomUUID()
@@ -52,15 +49,9 @@ export async function POST(request: Request) {
 
 export async function GET(request: Request) {
   try {
-    const supabase = createClient(cookies())
-    const {
-      data: { user },
-      error: authError
-    } = await supabase.auth.getUser()
-
-    if (authError || !user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-    }
+    const auth = await requireUser()
+    if (auth.response) return auth.response
+    const user = auth.user
 
     const { searchParams } = new URL(request.url)
     const workspaceId = searchParams.get("workspaceId")
@@ -76,8 +67,13 @@ export async function GET(request: Request) {
       )
     }
 
+    if (!(await userOwnsWorkspace(user.id, workspaceId))) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+    }
+
     let query: FirebaseFirestore.Query = adminDb
       .collection("projects")
+      .where("user_id", "==", user.id)
       .where("workspace_id", "==", workspaceId)
 
     const snapshot = await query

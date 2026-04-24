@@ -2,6 +2,8 @@ import { NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { cookies } from "next/headers"
 import { adminDb } from "@/lib/firebase/admin"
+import { requireUser } from "@/lib/server/require-user"
+import { requireFirestoreOwner } from "@/lib/server/firestore-authz"
 
 export async function GET(
   request: Request,
@@ -13,13 +15,17 @@ export async function GET(
       return NextResponse.json({ error: "Invalid ID" }, { status: 400 })
     }
 
-    const doc = await adminDb.collection("data_collections").doc(id).get()
+    const auth = await requireUser()
+    if (auth.response) return auth.response
 
-    if (!doc.exists) {
-      return NextResponse.json({ error: "Not found" }, { status: 404 })
-    }
+    const owner = await requireFirestoreOwner(
+      "data_collections",
+      id,
+      auth.user.id
+    )
+    if (owner.response) return owner.response
 
-    return NextResponse.json({ id: doc.id, ...doc.data() })
+    return NextResponse.json(owner.doc)
   } catch (error) {
     console.error("[DATA_COLLECTIONS_API] Error fetching:", error)
     return NextResponse.json(

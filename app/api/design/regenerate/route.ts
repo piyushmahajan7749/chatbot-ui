@@ -8,6 +8,9 @@ import {
   getAzureOpenAIForDesign,
   getDesignDeployment
 } from "@/lib/azure-openai"
+import { requireUser } from "@/lib/server/require-user"
+import { requireFirestoreOwner } from "@/lib/server/firestore-authz"
+import { checkRateLimit } from "@/lib/server/rate-limit"
 
 // Add model constant
 const MODEL_NAME = () => getDesignDeployment()
@@ -736,10 +739,30 @@ export async function POST(req: NextRequest) {
   )
 
   try {
+    const auth = await requireUser()
+    if (auth.response) return auth.response
+
+    const limited = await checkRateLimit({
+      name: "design-regenerate",
+      identifier: auth.user.id,
+      requests: 20,
+      window: "1 h"
+    })
+    if (limited) return limited
+
     const { designId, feedback, currentDesign } = await req.json()
 
+    if (!designId || typeof designId !== "string") {
+      return NextResponse.json(
+        { success: false, error: "designId is required" },
+        { status: 400 }
+      )
+    }
+
+    const owner = await requireFirestoreOwner("designs", designId, auth.user.id)
+    if (owner.response) return owner.response
+
     console.log(`📋 [REGENERATE] Design ID: ${designId}`)
-    console.log(`💬 [REGENERATE] User feedback: ${feedback}`)
 
     // Enhanced query optimization for regeneration context
     const queryData = optimizeRegenerationQuery(
@@ -1022,70 +1045,15 @@ Generate a comprehensive improved experimental design that transforms the feedba
   } catch (error) {
     console.error("❌ [REGENERATE] Enhanced regeneration error:", error)
 
-    // Enhanced fallback regeneration
-    try {
-      console.log(
-        "🔄 [REGENERATE] Falling back to optimized basic regeneration..."
-      )
-      const { feedback, currentDesign } = await req.json()
-
-      const basicQuery = `${currentDesign.problem || "experimental design"} ${feedback} improvement methodology`
-      const fallbackResults = await performMultiSourceSearch(basicQuery, 5)
-
-      const basicPrompt = `You are an expert experimental designer. Improve the following experimental design based on user feedback and available research insights:
-
-CURRENT DESIGN:
-${JSON.stringify(currentDesign, null, 2)}
-
-USER FEEDBACK:
-${feedback}
-
-RESEARCH CONTEXT:
-- Available papers: ${fallbackResults.totalResults}
-- Search focus: Design improvement and optimization
-
-Please regenerate an improved design that addresses the feedback while incorporating evidence-based enhancements.`
-
-      const completion = await openai().beta.chat.completions.parse({
-        model: MODEL_NAME(),
-        messages: [
-          { role: "system", content: basicPrompt },
-          { role: "user", content: "Please regenerate the improved design." }
-        ],
-        response_format: zodResponseFormat(
-          ExperimentDesignSchema,
-          "experimentDesign"
-        )
-      })
-
-      console.log("✅ [REGENERATE] Enhanced fallback regeneration completed")
-      return NextResponse.json({
-        success: true,
-        design: {
-          ...completion.choices[0].message.parsed!,
-          literatureFindings: {
-            ...completion.choices[0].message.parsed!.literatureFindings,
-            searchResults: fallbackResults
-          }
-        },
-        fallback: true,
-        searchMetrics: {
-          totalPapers: fallbackResults.totalResults,
-          searchStrategy: "fallback single-query"
-        }
-      })
-    } catch (fallbackError) {
-      console.error(
-        "❌ [REGENERATE] Enhanced fallback also failed:",
-        fallbackError
-      )
-      return NextResponse.json(
-        {
-          success: false,
-          error: "Failed to regenerate design with enhanced capabilities"
-        },
-        { status: 500 }
-      )
-    }
+    // The previous implementation tried to re-read the request body for a
+    // fallback pass, but Next.js consumes request bodies once — the retry
+    // always threw. Surface the failure so the client can retry cleanly.
+    return NextResponse.json(
+      {
+        success: false,
+        error: "Failed to regenerate design with enhanced capabilities"
+      },
+      { status: 500 }
+    )
   }
 }

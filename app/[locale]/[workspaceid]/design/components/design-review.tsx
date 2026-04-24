@@ -907,7 +907,8 @@ export function DesignReview({
   designError,
   onRegenerateDesign,
   promptsUsed,
-  onLoadSavedDesign
+  onLoadSavedDesign,
+  readOnly = false
 }: DesignReviewProps) {
   const [showAllHypotheses, setShowAllHypotheses] =
     useState(!selectedHypothesisId)
@@ -1190,25 +1191,27 @@ export function DesignReview({
                   Download Prompts (.docx)
                 </Button>
               )}
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => onRegenerateDesign?.()}
-                    >
-                      <RefreshCw className="mr-2 size-4" />
-                      Regenerate
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    <p>
-                      Run the entire design pipeline again with fresh agents.
-                    </p>
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
+              {!readOnly && (
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => onRegenerateDesign?.()}
+                      >
+                        <RefreshCw className="mr-2 size-4" />
+                        Regenerate
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>
+                        Run the entire design pipeline again with fresh agents.
+                      </p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              )}
             </div>
           )}
         </CardHeader>
@@ -2188,45 +2191,49 @@ export function DesignReview({
                             Why this hypothesis?
                           </Button>
                         </div>
-                        <div className="flex flex-col items-end gap-2">
+                        {!readOnly && (
                           <div className="flex flex-col items-end gap-2">
-                            <Button
-                              size="sm"
-                              disabled={isGenerating}
-                              onClick={() => onGenerateDesign?.(hypothesis)}
-                            >
-                              {isGenerating ? (
-                                <>
-                                  <Loader2 className="mr-2 size-4 animate-spin" />
-                                  Generating…
-                                </>
-                              ) : (
-                                "Generate Experiment Design"
-                              )}
-                            </Button>
-                            {hypothesesWithSavedDesigns.has(
-                              hypothesis.hypothesisId
-                            ) && (
+                            <div className="flex flex-col items-end gap-2">
                               <Button
                                 size="sm"
-                                variant="secondary"
                                 disabled={isGenerating}
-                                onClick={() => onLoadSavedDesign?.(hypothesis)}
+                                onClick={() => onGenerateDesign?.(hypothesis)}
                               >
-                                <Download className="mr-2 size-4" />
-                                Load Design
+                                {isGenerating ? (
+                                  <>
+                                    <Loader2 className="mr-2 size-4 animate-spin" />
+                                    Generating…
+                                  </>
+                                ) : (
+                                  "Generate Experiment Design"
+                                )}
                               </Button>
-                            )}
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              disabled={isGenerating}
-                              onClick={() => onCustomizePrompts?.(hypothesis)}
-                            >
-                              Customize Prompts
-                            </Button>
+                              {hypothesesWithSavedDesigns.has(
+                                hypothesis.hypothesisId
+                              ) && (
+                                <Button
+                                  size="sm"
+                                  variant="secondary"
+                                  disabled={isGenerating}
+                                  onClick={() =>
+                                    onLoadSavedDesign?.(hypothesis)
+                                  }
+                                >
+                                  <Download className="mr-2 size-4" />
+                                  Load Design
+                                </Button>
+                              )}
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                disabled={isGenerating}
+                                onClick={() => onCustomizePrompts?.(hypothesis)}
+                              >
+                                Customize Prompts
+                              </Button>
+                            </div>
                           </div>
-                        </div>
+                        )}
                       </div>
                       {isSelected && isGenerating && (
                         <p className="text-muted-foreground text-xs">

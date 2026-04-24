@@ -78,6 +78,15 @@ export async function POST(request: Request) {
       )
     }
 
+    const declaredSize = typeof size === "number" ? size : 0
+    const MAX_PROJECT_FILE_SIZE = 25 * 1024 * 1024 // 25 MB
+    if (declaredSize > MAX_PROJECT_FILE_SIZE) {
+      return NextResponse.json(
+        { error: "File exceeds 25 MB limit" },
+        { status: 413 }
+      )
+    }
+
     const record = {
       id,
       user_id: user.id,
@@ -85,7 +94,7 @@ export async function POST(request: Request) {
       workspace_id,
       name,
       mime_type: mime_type || "application/octet-stream",
-      size: typeof size === "number" ? size : 0,
+      size: declaredSize,
       storage_path,
       created_at: new Date().toISOString()
     }

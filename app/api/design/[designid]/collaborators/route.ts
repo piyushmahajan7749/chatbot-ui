@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server"
-import { cookies } from "next/headers"
+import { cookies, headers } from "next/headers"
 import { createClient } from "@/lib/supabase/server"
 import { adminDb } from "@/lib/firebase/admin"
 import { normalizeEmail, permissionDocId } from "@/lib/design/sharing"
+import { sendDesignInviteEmail } from "@/lib/email/send"
 import type { CollaboratorRole, DesignPermission } from "@/types/sharing"
 
 const ALLOWED_ROLES: CollaboratorRole[] = ["viewer", "editor"]
@@ -131,6 +132,38 @@ export async function POST(
         updated_at: now
       })
     }
+  }
+
+  // Best-effort invite email. Delivery failures are logged but never block the
+  // API response — the permission row is the source of truth for access.
+  try {
+    const h = headers()
+    const origin =
+      process.env.NEXT_PUBLIC_SITE_URL ||
+      (h.get("origin") ?? (h.get("host") ? `https://${h.get("host")}` : ""))
+    const shareToken: string | null = auth.data.share_token ?? null
+    const designUrl = origin
+      ? shareToken
+        ? `${origin}/share/design/${shareToken}`
+        : `${origin}/login`
+      : null
+    const signupUrl = origin ? `${origin}/login?mode=signup` : null
+
+    await sendDesignInviteEmail({
+      to: email,
+      inviterName:
+        (auth.user.user_metadata as any)?.full_name ||
+        auth.user.email ||
+        "A collaborator",
+      inviterEmail: auth.user.email ?? null,
+      designName: auth.data.name || "Untitled design",
+      role,
+      designUrl,
+      signupUrl,
+      isPending: !resolvedUserId
+    })
+  } catch (err) {
+    console.error("[COLLABORATORS] invite email failed", err)
   }
 
   return NextResponse.json({ collaborator: permission })
