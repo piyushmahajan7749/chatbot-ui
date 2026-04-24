@@ -161,6 +161,7 @@ interface DesignReviewProps {
   onCustomizePrompts?: (hypothesis: DesignPlanHypothesis) => void
   promptsUsed?: AgentPromptUsage[] | null
   onLoadSavedDesign?: (hypothesis: DesignPlanHypothesis) => void
+  readOnly?: boolean
 }
 
 const markdownClasses =

@@ -27,7 +27,6 @@ import {
 } from "@/types"
 import { AssistantImage } from "@/types/images/assistant-image"
 import { VALID_ENV_KEYS } from "@/types/valid-keys"
-import { useRouter } from "next/navigation"
 import { FC, useEffect, useState } from "react"
 
 interface GlobalStateProps {
@@ -35,8 +34,6 @@ interface GlobalStateProps {
 }
 
 export const GlobalState: FC<GlobalStateProps> = ({ children }) => {
-  const router = useRouter()
-
   // PROFILE STORE
   const [profile, setProfile] = useState<Tables<"profiles"> | null>(null)
 
@@ -167,17 +164,11 @@ export const GlobalState: FC<GlobalStateProps> = ({ children }) => {
 
       const profile = await getProfileByUserId(user.id)
 
-      if (!profile) {
-        // Profile doesn't exist (e.g., after database reset), redirect to setup
-        console.log("Profile not found for user, redirecting to setup")
-        return router.push("/setup")
-      }
+      // Middleware gates session + onboarding. If profile is missing here, bail
+      // out of downstream fetching rather than duplicating the redirect.
+      if (!profile) return
 
       setProfile(profile)
-
-      if (!profile.has_onboarded) {
-        return router.push("/setup")
-      }
 
       const workspaces = await getWorkspacesByUserId(user.id)
       setWorkspaces(workspaces)

@@ -1271,13 +1271,17 @@ export type Database = {
           image_path: string
           image_url: string
           mistral_api_key: string | null
+          onboarding_step: number
           openai_api_key: string | null
           openai_organization_id: string | null
           openrouter_api_key: string | null
           perplexity_api_key: string | null
           profile_context: string
+          research_field: string | null
+          role: string | null
           updated_at: string | null
           use_azure_openai: boolean
+          use_case: string | null
           user_id: string
           username: string
         }
@@ -1299,13 +1303,17 @@ export type Database = {
           image_path: string
           image_url: string
           mistral_api_key?: string | null
+          onboarding_step?: number
           openai_api_key?: string | null
           openai_organization_id?: string | null
           openrouter_api_key?: string | null
           perplexity_api_key?: string | null
           profile_context: string
+          research_field?: string | null
+          role?: string | null
           updated_at?: string | null
           use_azure_openai: boolean
+          use_case?: string | null
           user_id: string
           username: string
         }
@@ -1327,13 +1335,17 @@ export type Database = {
           image_path?: string
           image_url?: string
           mistral_api_key?: string | null
+          onboarding_step?: number
           openai_api_key?: string | null
           openai_organization_id?: string | null
           openrouter_api_key?: string | null
           perplexity_api_key?: string | null
           profile_context?: string
+          research_field?: string | null
+          role?: string | null
           updated_at?: string | null
           use_azure_openai?: boolean
+          use_case?: string | null
           user_id?: string
           username?: string
         }

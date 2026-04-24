@@ -1,9 +1,10 @@
 "use client"
 
-import { useCallback, useEffect, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { Button } from "@/components/ui/button"
 import { DesignReview } from "../components/design-review"
 import PromptOverridesDialog from "@/components/design/prompt-overrides-dialog"
+import ShareDialog from "@/components/design-flow/share-dialog"
 import { DesignProgress } from "@/components/ui/design-progress"
 import {
   DesignPlanMetadata,
@@ -11,9 +12,17 @@ import {
   DesignPlanHypothesis
 } from "@/types/design-plan"
 import { AgentPromptOverrides, AgentPromptUsage } from "@/types/design-prompts"
+import type { Sharing } from "@/types/sharing"
 import { toast } from "sonner"
 import { Textarea } from "@/components/ui/textarea"
-import { Loader2, EyeOff, PanelTopOpen, Save, CheckCircle2 } from "lucide-react"
+import {
+  Loader2,
+  EyeOff,
+  PanelTopOpen,
+  Save,
+  CheckCircle2,
+  Share2
+} from "lucide-react"
 
 interface DesignData {
   name?: string
@@ -82,6 +91,15 @@ export default function DesignIDPage({
   const [latestPromptsUsed, setLatestPromptsUsed] = useState<
     AgentPromptUsage[] | null
   >(null)
+  const [shareDialogOpen, setShareDialogOpen] = useState(false)
+  const [sharingState, setSharingState] = useState<{
+    sharing: Sharing
+    share_token: string | null
+  }>({ sharing: "private", share_token: null })
+  const [isOwner, setIsOwner] = useState(true)
+  const [canEdit, setCanEdit] = useState(true)
+  const [rawDesignRecord, setRawDesignRecord] = useState<any>(null)
+  const designExportRef = useRef<HTMLDivElement>(null)
   const applySavedPayload = useCallback((rawPayload: any) => {
     if (!rawPayload || typeof rawPayload !== "object") {
       return
@@ -142,6 +160,14 @@ export default function DesignIDPage({
       }
 
       const designFromDb = await response.json()
+      setRawDesignRecord(designFromDb)
+      setSharingState({
+        sharing: designFromDb.sharing ?? "private",
+        share_token: designFromDb.share_token ?? null
+      })
+      const access = designFromDb._access ?? {}
+      setIsOwner(access.isOwner ?? true)
+      setCanEdit(access.canEdit ?? true)
       setLastSavedPayloadSignature(null)
       setSavedHypothesisSnapshot(null)
       const base: DesignData = {
@@ -755,11 +781,26 @@ export default function DesignIDPage({
 
   return (
     <div className="flex h-[calc(100vh-60px)] w-full flex-col overflow-hidden">
-      <div className="flex items-center justify-center border-b px-4 py-3">
+      <div className="relative flex items-center justify-center border-b px-4 py-3">
         <h1 className="text-2xl font-bold">{reviewProblem}</h1>
+        {isOwner && (
+          <div className="absolute right-4 top-1/2 -translate-y-1/2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShareDialogOpen(true)}
+            >
+              <Share2 className="mr-2 size-4" />
+              Share
+              {sharingState.sharing !== "private" && (
+                <span className="bg-primary ml-2 size-2 rounded-full" />
+              )}
+            </Button>
+          </div>
+        )}
       </div>
       <div className="flex-1 overflow-auto p-4">
-        <div className="pb-28">
+        <div ref={designExportRef} className="pb-28">
           <DesignReview
             designData={designData}
             planStatus={planStatus}
@@ -810,7 +851,7 @@ export default function DesignIDPage({
               <div className="flex shrink-0 flex-wrap items-center gap-2">
                 <Button
                   onClick={handleSaveDesign}
-                  disabled={!hasUnsavedChanges || isSavingDesign}
+                  disabled={!hasUnsavedChanges || isSavingDesign || !canEdit}
                   variant={hasUnsavedChanges ? "default" : "secondary"}
                 >
                   {isSavingDesign ? (
@@ -889,6 +930,23 @@ export default function DesignIDPage({
         isSubmitting={isPromptOverridesSubmitting}
         hypothesis={promptOverridesHypothesis}
       />
+      {isOwner && (
+        <ShareDialog
+          open={shareDialogOpen}
+          onOpenChange={setShareDialogOpen}
+          designId={params.designid}
+          design={{
+            id: params.designid,
+            name: rawDesignRecord?.name ?? reviewProblem,
+            description: rawDesignRecord?.description,
+            content: currentDesignSnapshot ?? rawDesignRecord?.content,
+            sharing: sharingState.sharing,
+            share_token: sharingState.share_token
+          }}
+          onSharingChange={setSharingState}
+          pdfTargetRef={designExportRef}
+        />
+      )}
     </div>
   )
 }

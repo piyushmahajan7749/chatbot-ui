@@ -46,22 +46,9 @@ export default async function Login({
   }
 
   if (session) {
-    const { data: homeWorkspace, error } = await supabase
-      .from("workspaces")
-      .select("*")
-      .eq("user_id", session.user.id)
-      .eq("is_home", true)
-      .maybeSingle()
-
-    if (!homeWorkspace) {
-      // If no home workspace exists (e.g., after database reset), redirect to setup
-      console.log(
-        "No home workspace found for user, redirecting to setup:",
-        error?.message
-      )
-      return redirect("/setup")
-    }
-    return redirect(`/${homeWorkspace.id}/chat`)
+    // Middleware decides where an authenticated user belongs. Bouncing through "/"
+    // keeps that decision in one place.
+    return redirect("/")
   }
 
   const clearCacheAndLogout = async () => {
@@ -85,7 +72,7 @@ export default async function Login({
     const cookieStore = cookies()
     const supabase = createClient(cookieStore)
 
-    const { data, error } = await supabase.auth.signInWithPassword({
+    const { error } = await supabase.auth.signInWithPassword({
       email,
       password
     })
@@ -94,23 +81,7 @@ export default async function Login({
       return redirect(`/login?message=${error.message}`)
     }
 
-    const { data: homeWorkspace, error: homeWorkspaceError } = await supabase
-      .from("workspaces")
-      .select("*")
-      .eq("user_id", data.user.id)
-      .eq("is_home", true)
-      .single()
-
-    if (!homeWorkspace) {
-      // If no home workspace exists (e.g., after database reset), redirect to setup
-      console.log(
-        "No home workspace found after login, redirecting to setup:",
-        homeWorkspaceError?.message
-      )
-      return redirect("/setup")
-    }
-
-    return redirect(`/${homeWorkspace.id}/chat`)
+    return redirect("/")
   }
 
   const getEnvVarOrEdgeConfigValue = async (name: string) => {
@@ -168,7 +139,7 @@ export default async function Login({
       return redirect(`/login?message=${error.message}`)
     }
 
-    return redirect("/setup")
+    return redirect("/")
 
     // USE IF YOU WANT TO SEND EMAIL VERIFICATION, ALSO CHANGE TOML FILE
     // return redirect("/login?message=Check email to continue sign in process")

@@ -32,12 +32,17 @@ const VisualizationSchema = z.object({
     .describe(
       "A descriptive title for the chart, e.g. 'Mean Viscosity by Formulation'"
     ),
+  chartType: z
+    .enum(["bar", "pie"])
+    .describe(
+      "Choose 'bar' for comparing a single numeric metric across conditions, 'pie' when showing proportion/share of a whole summing to ~100%."
+    ),
   yAxisLabel: z
     .string()
     .describe("Label for the Y axis including units, e.g. 'Viscosity (mPa·s)'"),
   data: z.array(
     z.object({
-      label: z.string().describe("Short category/group name for X axis"),
+      label: z.string().describe("Short category/group name"),
       value: z.number().describe("Numeric value to plot")
     })
   )
@@ -112,25 +117,29 @@ interface ReportState {
 async function callDataVisualizationAgent(
   state: ReportState
 ): Promise<VisualizationType> {
-  const systemPrompt = `You are a data visualization expert for biopharma research. Your job is to extract the MOST MEANINGFUL numeric comparison from experimental data and format it for a bar chart.
+  const systemPrompt = `You are a data visualization expert for biopharma research. Your job is to extract the MOST MEANINGFUL numeric comparison from experimental data and format it for a chart.
 
 RULES:
 1. Pick ONE primary numeric metric from the data (e.g. mean viscosity, % recovery, absorbance, yield, concentration). Do NOT mix different metrics or units in the same chart.
-2. Use SHORT labels (max 15 characters) for the X-axis categories. Abbreviate names (e.g. "C0 Control", "E1", "F2 Glycine").
-3. All values MUST be in the same unit. If the data has multiple metrics, choose the most scientifically relevant one.
-4. Provide a clear chartTitle (e.g. "Mean Viscosity by Formulation") and yAxisLabel WITH units (e.g. "Viscosity (mPa·s)").
-5. Return only POSITIVE values when possible. If comparing % changes, use absolute values or the raw measurement instead.
-6. IMPORTANT: Include ALL data points / conditions / formulations from the dataset. Do NOT skip or drop any rows. Every row in the data must appear as a bar in the chart.`
+2. Choose chartType:
+   - "bar" — comparing a numeric metric across conditions / samples / formulations (DEFAULT).
+   - "pie" — showing proportion / share / composition of a whole (values should sum to ~100% or represent parts of one whole). Use pie ONLY when parts-of-a-whole is the actual meaning.
+3. Use SHORT labels (max 15 characters) for the categories. Abbreviate names (e.g. "C0 Control", "E1", "F2 Glycine").
+4. All values MUST be in the same unit. If the data has multiple metrics, choose the most scientifically relevant one.
+5. Provide a clear chartTitle (e.g. "Mean Viscosity by Formulation") and yAxisLabel WITH units for bar charts (e.g. "Viscosity (mPa·s)"). yAxisLabel can be empty for pie charts.
+6. Return only POSITIVE values when possible. If comparing % changes, use absolute values or the raw measurement instead.
+7. IMPORTANT: Include ALL data points / conditions / formulations from the dataset. Do NOT skip or drop any rows.`
 
-  const userPrompt = `Extract data for a bar chart from this experiment.
+  const userPrompt = `Extract data for a chart from this experiment.
 
 Objective: ${state.experimentObjective}
 Protocol: ${state.protocol}
 Data files: ${state.dataFileSummary}
 
 Return a JSON object with:
-- chartTitle: descriptive title for the chart
-- yAxisLabel: Y-axis label with units in parentheses
+- chartTitle: descriptive title
+- chartType: "bar" or "pie"
+- yAxisLabel: Y-axis label with units (for bar charts)
 - data: array of {label, value} pairs with short labels and consistent numeric values`
 
   try {
@@ -182,8 +191,95 @@ Data Analysis Draft: {dataAnalysisDraft}
   }
 }
 
+const COLOR_PALETTE = [
+  "#3b82f6",
+  "#10b981",
+  "#f59e0b",
+  "#ef4444",
+  "#8b5cf6",
+  "#06b6d4",
+  "#ec4899",
+  "#84cc16",
+  "#f97316",
+  "#6366f1"
+]
+
+const renderPieChart = (
+  data: { label: string; value: number }[],
+  chartTitle: string
+): string => {
+  const width = 800
+  const height = 500
+  const canvas = createCanvas(width, height)
+  const ctx = canvas.getContext("2d")
+
+  ctx.fillStyle = "#ffffff"
+  ctx.fillRect(0, 0, width, height)
+
+  ctx.font = "bold 16px Arial"
+  ctx.textAlign = "center"
+  ctx.fillStyle = "#111827"
+  ctx.fillText(chartTitle || "Data Visualization", width / 2, 28)
+
+  const cx = width * 0.36
+  const cy = height / 2 + 10
+  const radius = Math.min(width * 0.22, height * 0.36)
+  const total = data.reduce((s, d) => s + Math.max(0, d.value), 0) || 1
+
+  let startAngle = -Math.PI / 2
+  data.forEach((d, idx) => {
+    const fraction = Math.max(0, d.value) / total
+    const endAngle = startAngle + fraction * Math.PI * 2
+
+    ctx.beginPath()
+    ctx.moveTo(cx, cy)
+    ctx.arc(cx, cy, radius, startAngle, endAngle)
+    ctx.closePath()
+    ctx.fillStyle = COLOR_PALETTE[idx % COLOR_PALETTE.length]
+    ctx.fill()
+    ctx.strokeStyle = "#ffffff"
+    ctx.lineWidth = 2
+    ctx.stroke()
+
+    if (fraction > 0.04) {
+      const mid = (startAngle + endAngle) / 2
+      const lx = cx + Math.cos(mid) * radius * 0.6
+      const ly = cy + Math.sin(mid) * radius * 0.6
+      ctx.fillStyle = "#ffffff"
+      ctx.font = "bold 12px Arial"
+      ctx.textAlign = "center"
+      ctx.textBaseline = "middle"
+      ctx.fillText(`${(fraction * 100).toFixed(1)}%`, lx, ly)
+    }
+
+    startAngle = endAngle
+  })
+
+  // Legend
+  const legendX = width * 0.62
+  let legendY = 90
+  ctx.textAlign = "left"
+  ctx.textBaseline = "middle"
+  data.forEach((d, idx) => {
+    ctx.fillStyle = COLOR_PALETTE[idx % COLOR_PALETTE.length]
+    ctx.fillRect(legendX, legendY - 8, 16, 16)
+    ctx.fillStyle = "#1f2937"
+    ctx.font = "13px Arial"
+    const pct = ((Math.max(0, d.value) / total) * 100).toFixed(1)
+    ctx.fillText(`${d.label} — ${d.value} (${pct}%)`, legendX + 24, legendY)
+    legendY += 26
+  })
+
+  const buffer = canvas.toBuffer("image/png") as Buffer
+  return `data:image/png;base64,${buffer.toString("base64")}`
+}
+
 const chartTool = tool(
-  async ({ data, chartTitle, yAxisLabel }) => {
+  async ({ data, chartTitle, yAxisLabel, chartType }) => {
+    if (chartType === "pie") {
+      return renderPieChart(data, chartTitle || "Data Visualization")
+    }
+
     const width = 800
     const height = 500
     const margin = {
@@ -213,18 +309,7 @@ const chartTool = tool(
       .nice()
       .range([height - margin.bottom, margin.top])
 
-    const colorPalette = [
-      "#3b82f6",
-      "#10b981",
-      "#f59e0b",
-      "#ef4444",
-      "#8b5cf6",
-      "#06b6d4",
-      "#ec4899",
-      "#84cc16",
-      "#f97316",
-      "#6366f1"
-    ]
+    const colorPalette = COLOR_PALETTE
 
     // Draw chart title
     ctx.font = "bold 16px Arial"
@@ -356,9 +441,9 @@ const chartTool = tool(
     return `data:image/png;base64,${base64Image}`
   },
   {
-    name: "generate_bar_chart",
+    name: "generate_chart",
     description:
-      "Generates a bar chart from an array of data points using D3.js and returns it as a base64-encoded PNG image.",
+      "Generates a bar or pie chart from an array of data points and returns it as a base64-encoded PNG image.",
     schema: z.object({
       data: z.array(
         z.object({
@@ -367,37 +452,49 @@ const chartTool = tool(
         })
       ),
       chartTitle: z.string().optional().describe("Title for the chart"),
+      chartType: z
+        .enum(["bar", "pie"])
+        .optional()
+        .describe("Chart type: 'bar' or 'pie'. Defaults to 'bar'."),
       yAxisLabel: z
         .string()
         .optional()
-        .describe("Label for the Y axis with units")
+        .describe("Label for the Y axis with units (bar charts only)")
     })
   }
 )
 
 async function callTheoryAgent(state: ReportState): Promise<ReportTheoryType> {
-  const systemPrompt = `You are an experienced senior scientist specializing in scientific theory and context writing, tasked with creating the theoretical foundation for a comprehensive research report in biopharma. Your role is to document the experiment's Aim, Introduction, and Principle in a scientifically rigorous and clear manner, providing essential context for reproducibility.
+  const systemPrompt = `You are an experienced senior scientist writing the theoretical foundation for a biopharma research report. Your job is to document Aim, Introduction, and Principle in a scientifically rigorous, scannable manner.
 
-FORMATTING: Write in well-structured paragraphs with clear, flowing prose. Use markdown formatting for emphasis where needed. Do NOT use bullet points or numbered lists — write in natural paragraph form as you would in a published scientific paper.
+FORMATTING RULES (apply strictly):
+- Use GitHub-Flavored Markdown.
+- Lead every section with a concise 1–2 sentence summary paragraph.
+- Then use **bullet points** for key items (objectives, hypotheses, background drivers, parameters, mechanisms).
+- Use **bold** for key terms. Use \`code\` style for variables/units where helpful.
+- Use subheadings (####) to organize when the section has multiple facets.
+- Do NOT produce wall-of-text paragraphs. Favor short, pointwise structure that a reader can scan in under a minute.
 
-Your primary tasks include writing: Aim, Introduction, Principle.
-
-Guidelines for Writing these sections:
+Your primary tasks: Aim, Introduction, Principle.
 
 1. Aim:
-Write 1-2 concise paragraphs that clearly state what is being tested or evaluated, why it matters, and the key objectives of the experiment. Connect the aim to the user-provided context and objective.
+   - One short paragraph stating what is being evaluated and why.
+   - Then a bulleted list titled "**Objectives:**" with 3–5 concrete, measurable objectives.
 
 2. Introduction:
-Write 2-4 well-structured paragraphs covering the scientific background, significance of the research in biopharma, and the rationale for this experiment. Reference user-provided protocols where applicable. The introduction should read as a cohesive narrative that sets the stage for the experiment.
+   - Open with 1–2 sentences of context.
+   - Use short subsections (####) such as: Background, Significance, Rationale.
+   - Under each subheading, use bullet points (2–4 bullets) with the key facts; avoid multi-sentence bullets where possible.
 
 3. Principle:
-Write 2-3 paragraphs explaining the underlying scientific theory, the core methodology or equations involved, and how the technique works mechanistically. Include key parameters and their roles. Use markdown for any equations if needed.
+   - Open with 1–2 sentences stating the core principle.
+   - Use subheadings like: #### Underlying Theory, #### Key Parameters, #### How It Works.
+   - Under each subheading use bullet points. Put equations inline or on their own line using markdown code/math formatting.
 
 Constraints:
-- Focus solely on theory-based sections; do not include procedural details, materials, or data analysis.
-- Maintain a scientific, objective tone throughout.
-- Write in flowing paragraph form — no bullet points or numbered lists.
-- Ensure content is accurate and aligned with the provided objective.
+- Focus only on theory; no procedure, materials, or data analysis.
+- Maintain a scientific, objective tone.
+- Be concise — aim for scannability and accuracy, not verbosity.
 `
 
   const userPrompt = `Generate aim, introduction, and principle using the following:
@@ -429,43 +526,41 @@ Data files: ${state.dataFileSummary}`
 async function callDataAnalystAgent(
   state: ReportState
 ): Promise<DataAnalysisType> {
-  const systemPrompt = `You are an expert data analyst and senior scientist tasked with documenting data-driven sections for a comprehensive biopharma research report. Your role is to interpret the data files based on the defined objective and present the Data Analysis, Results, Discussion, Conclusions, and Next Steps based on the experiment findings, offering clear insights and actionable recommendations.
+  const systemPrompt = `You are an expert data analyst and senior scientist documenting Data Analysis, Results, Discussion, Conclusion, and Next Steps for a biopharma research report.
 
-Your primary tasks include writing (as per individual instructions):
-Data analysis, Results, Discussion, Conclusion, Next steps
+FORMATTING RULES (apply strictly):
+- Use GitHub-Flavored Markdown.
+- Favor pointwise structure — bullets, numbered lists, and tables — over long paragraphs.
+- Every numeric value must carry its unit.
+- Use subheadings (####) to organize subsections.
+- Every section starts with one short 1–2 sentence intro, then switches to bullets / tables / numbered lists.
 
 1. Data Analysis:
-Write in paragraph form as a scientific narrative. Describe the analytical approach and methodology, the parameters and controls used, any software or tools applied, and a summary of key data trends. You may include a markdown table for numerical results (each row = one sample/condition with measured values and units), but all explanatory text should be in well-structured paragraphs, not bullet points.
+   - One-line intro describing the analytical objective.
+   - Include a markdown **table** summarizing numerical results (each row = one sample / condition; columns include values with units).
+   - Then subheadings: #### Approach (bullets covering methodology, software, parameters, controls) and #### Key Trends (bullets calling out trends, outliers, statistically notable comparisons).
+   - Chart is rendered directly after this section in the UI, so reference "the chart below" rather than re-stating every value.
 
 2. Results:
-FORMATTING: Use bullet points and numbered lists for this section.
-Present as bullet points with key numeric findings:
-- Each major finding as a standalone bullet point with specific values and units
-- Reference figures/tables by number
-- No interpretation (save for Discussion)
+   - Bullet list of key numeric findings.
+   - Each bullet stands alone with specific values and units.
+   - Reference figures/tables. No interpretation here.
 
 3. Discussion:
-FORMATTING: Use bullet points organized under subheadings for this section.
-#### Interpretation
-- Key interpretations of the findings
-#### Implications
-- Practical significance and potential impact
-#### Limitations
-- Specific limitations of the current study
+   - Subheadings with bullets under each:
+     #### Interpretation — what the results mean.
+     #### Implications — practical significance / downstream impact.
+     #### Limitations — specific caveats of this study.
 
 4. Conclusion:
-FORMATTING: Use bullet points for this section.
-Present as 3-5 concise bullet points summarizing the key takeaways from the study.
+   - 3–5 concise bullet points summarizing the key takeaways.
 
 5. Next Steps:
-FORMATTING: Use a numbered list for this section.
-Present as a numbered list of 3-7 recommended follow-up actions, each as a single clear statement.
+   - Numbered list of 3–7 recommended follow-up actions, each a single clear action.
 
 Constraints:
-- Focus solely on data analysis, interpretation and conclusion; do not add theory or procedural details.
-- Maintain scientific rigor, ensuring that findings are presented clearly, concisely, and without bias.
-- Ensure each section directly addresses the experiment's objectives and supports actionable insights.
-- Data Analysis section must be in paragraph form; Results, Discussion, Conclusion, and Next Steps must use bullet points or numbered lists.
+- Focus only on analysis, interpretation, and conclusions; no theory or procedural detail.
+- Be concise and rigorous. Favor scannability.
 `
 
   const userPrompt = `To generate the content, refer to the following:
@@ -494,31 +589,42 @@ Protocol: ${state.protocol}`
 async function callExecutorAgent(
   state: ReportState
 ): Promise<ReportExecutorType> {
-  const systemPrompt = `You are a seasoned scientist with expertise in experimental design and execution, tasked with documenting the practical aspects of an experiment in a comprehensive research report. Your focus is on Materials Needed, Preparation, Procedure, Experiment Setup and Layout for a biopharma experiment, ensuring clarity, detailed description of every step and reproducibility for hands-on execution. Write the sections in past tense, as how things were done to run the experiment.
+  const systemPrompt = `You are a seasoned scientist documenting the practical aspects of a biopharma experiment: Materials, Preparation, Procedure, and Setup. Write in past tense — how things were done.
 
-FORMATTING: Write in well-structured paragraphs and prose. You may use tables for listing materials, but all other content should be in paragraph form. Do NOT use bullet points or numbered lists for the main content. Write as you would in a formal lab report or scientific paper.
+FORMATTING RULES (apply strictly):
+- Use GitHub-Flavored Markdown.
+- Favor **pointwise structure** — bullet points and numbered lists — over long paragraphs.
+- Use **tables** for materials / reagents (columns like Item, Quantity, Specification, Catalog #).
+- Use **numbered lists** for step-by-step procedures.
+- Use subheadings (####) to organize subsections.
+- Open each section with one short paragraph, then switch to bullets / tables / numbered lists.
+- Do NOT produce large walls of text.
 
-Your primary tasks include writing: Material needed, Preparation, Procedure, Setup and layout.
+Your primary tasks: Material needed, Preparation, Procedure, Setup.
 
-Guidelines for Writing these sections:
-
-1. Material needed:
-Write a paragraph or use a markdown table listing all materials, equipment, reagents, buffers, and standards used. Include specifications such as concentrations, volumes, catalog numbers, and instrument models. Organize by category (consumables, equipment, reagents) using subheadings if needed. Find this information from the protocol material section and preparation files uploaded by the user.
+1. Material:
+   - One-line intro.
+   - A markdown table: | Item | Quantity | Specification | Source |
+   - Group via subheadings if useful: #### Reagents, #### Equipment, #### Consumables.
 
 2. Preparation:
-Write in paragraph form describing all preparation steps in chronological order. Include instrument setup, buffer preparation, and reagent preparation with exact quantities (e.g., "8 g of NaCl was dissolved in 800 mL deionized water"). Use subheadings to separate major preparation phases. Use preparation files given by the user for specific amounts and methods.
+   - One-line intro.
+   - Use subheadings (#### Buffer Preparation, #### Instrument Setup, #### Reagent Preparation).
+   - Under each subheading, use a numbered list with exact quantities (e.g. "1. Dissolved 8 g NaCl in 800 mL deionized water.").
 
 3. Procedure:
-Write as a detailed narrative describing the experimental procedure step by step in past tense. Cover all phases: instrument preparation, sample processing, measurement/data collection, and cleanup. Include specific volumes, temperatures, timing, and instrument settings. Organize into clearly labeled phases using subheadings. Refer to the protocol procedure section and other uploaded documents.
+   - One-line intro.
+   - Use subheadings for phases (#### Sample Loading, #### Measurement, #### Cleanup).
+   - Under each, use a numbered list capturing the actual steps in past tense with volumes, temperatures, times, and instrument settings.
 
 4. Setup:
-Write 1-2 paragraphs describing the experimental layout, including sample arrangement, vial positioning, labeling conventions (sample IDs, condition codes), and specific configurations required for accurate data collection. Reference any diagrams from uploaded files.
+   - One short paragraph of context.
+   - A bulleted list of layout / labeling / configuration details (sample IDs, condition codes, vial positions, instrument config).
 
 Constraints:
-- Focus exclusively on practical, preparation, and procedural details; do not provide theoretical context or interpret data.
-- Write in flowing paragraph form — avoid bullet points and numbered lists.
-- Ensure clear, detailed descriptions that support reproducibility.
-- Organize the information logically and with attention to accuracy.
+- Focus only on practical details; no theory or data interpretation.
+- Every numeric value should carry its unit.
+- Favor pointwise structure for scannability and reproducibility.
 `
 
   const userPrompt = `Generate material, preparation, procedure, and setup using the following:
@@ -617,9 +723,19 @@ const workflow = new StateGraph<ReportState>({
       value: (left?: VisualizationType, right?: VisualizationType) =>
         right ??
         left ??
-        ({ chartTitle: "", yAxisLabel: "", data: [] } as VisualizationType),
+        ({
+          chartTitle: "",
+          chartType: "bar",
+          yAxisLabel: "",
+          data: []
+        } as VisualizationType),
       default: () =>
-        ({ chartTitle: "", yAxisLabel: "", data: [] }) as VisualizationType
+        ({
+          chartTitle: "",
+          chartType: "bar",
+          yAxisLabel: "",
+          data: []
+        }) as VisualizationType
     },
     chartImage: {
       // Added chartImage channel
@@ -692,6 +808,7 @@ const workflow = new StateGraph<ReportState>({
       const chartImage = await chartTool.func({
         data: parsedData,
         chartTitle: state.chartData?.chartTitle || "Data Visualization",
+        chartType: state.chartData?.chartType || "bar",
         yAxisLabel: state.chartData?.yAxisLabel || ""
       })
       return { ...state, chartImage }
@@ -829,6 +946,7 @@ export async function POST(req: Request) {
       finalOutput: {} as ReportOutputType,
       chartData: {
         chartTitle: "",
+        chartType: "bar",
         yAxisLabel: "",
         data: []
       } as VisualizationType,

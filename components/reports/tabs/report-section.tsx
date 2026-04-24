@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Textarea } from "@/components/ui/textarea"
 import { IconEdit, IconRefresh, IconSparkles } from "@tabler/icons-react"
-import { FC, useEffect, useState } from "react"
+import { FC, ReactNode, useEffect, useState } from "react"
 import ReactMarkdown from "react-markdown"
 import remarkGfm from "remark-gfm"
 
@@ -16,6 +16,7 @@ interface ReportSectionProps {
   onEditContent?: (sectionKey: string, value: string) => void
   isBusy: boolean
   accentClassName?: string
+  afterContent?: ReactNode
 }
 
 export const ReportSection: FC<ReportSectionProps> = ({
@@ -25,7 +26,8 @@ export const ReportSection: FC<ReportSectionProps> = ({
   onRegenerate,
   onEditContent,
   isBusy,
-  accentClassName
+  accentClassName,
+  afterContent
 }) => {
   const [mode, setMode] = useState<"view" | "edit" | "ai">("view")
   const [draftText, setDraftText] = useState(content)
@@ -129,6 +131,8 @@ export const ReportSection: FC<ReportSectionProps> = ({
             </div>
           </div>
         )}
+
+        {afterContent}
       </CardContent>
     </Card>
   )
