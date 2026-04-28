@@ -36,7 +36,7 @@ export default async function OnboardingPage() {
       .eq("user_id", session.user.id)
       .eq("is_home", true)
       .maybeSingle()
-    if (homeWorkspace) return redirect(`/${homeWorkspace.id}/chat`)
+    if (homeWorkspace) return redirect(`/${homeWorkspace.id}`)
   }
 
   const emailLocalPart = session.user.email?.split("@")[0] ?? ""

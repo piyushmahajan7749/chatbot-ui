@@ -74,9 +74,7 @@ export const OnboardingForm: FC<OnboardingFormProps> = ({
       // Full page navigation so GlobalState remounts with the freshly-saved
       // profile (display_name, use_case) — a client-side router.replace would
       // leave stale context behind and skip the personalization payoff.
-      const target = result.homeWorkspaceId
-        ? `/${result.homeWorkspaceId}/chat`
-        : "/"
+      const target = result.homeWorkspaceId ? `/${result.homeWorkspaceId}` : "/"
       window.location.href = target
     })
   }

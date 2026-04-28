@@ -43,5 +43,5 @@ export async function getRedirectTarget(
     return { kind: "path", path: "/onboarding" }
   }
 
-  return { kind: "path", path: `/${homeWorkspace.id}/chat` }
+  return { kind: "path", path: `/${homeWorkspace.id}` }
 }
