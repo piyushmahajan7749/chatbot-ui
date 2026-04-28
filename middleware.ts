@@ -31,10 +31,11 @@ function redirectWith(
 }
 
 export async function middleware(request: NextRequest) {
-  const i18nResult = i18nRouter(request, i18nConfig)
-  if (i18nResult) return i18nResult
-
   try {
+    // Auth gate runs FIRST. i18nRouter always returns a response (a rewrite
+    // for the default locale, a redirect for others) — letting it run first
+    // would short-circuit middleware before we ever read the session cookie,
+    // so logged-in users get stuck on the marketing page at /.
     const { supabase, response } = createClient(request)
     const pathname = stripLocale(request.nextUrl.pathname, i18nConfig.locales)
 
@@ -55,38 +56,42 @@ export async function middleware(request: NextRequest) {
       })
     }
 
-    // Unauthenticated.
+    let redirectResponse: NextResponse | null = null
+
     if (target.kind === "path" && target.path === "/login") {
-      if (isLogin || isRoot) return response
-      return redirectWith(request, "/login", response)
+      // Unauthenticated.
+      if (!isLogin && !isRoot) {
+        redirectResponse = redirectWith(request, "/login", response)
+      }
+    } else if (target.kind === "profile_pending") {
+      // Signup trigger hasn't completed — only onboarding may render.
+      if (!isOnboarding) {
+        redirectResponse = redirectWith(request, "/onboarding", response)
+      }
+    } else if (target.kind === "path") {
+      const targetPath = target.path
+      if (isLogin || isRoot) {
+        // Logged-in user on marketing/login pages — send to their destination.
+        redirectResponse = redirectWith(request, targetPath, response)
+      } else if (targetPath === "/onboarding" && !isOnboarding) {
+        // Not onboarded — must be on /onboarding.
+        redirectResponse = redirectWith(request, "/onboarding", response)
+      } else if (isOnboarding) {
+        // Already onboarded — bounce away from /onboarding to home.
+        redirectResponse = redirectWith(request, targetPath, response)
+      }
     }
 
-    // Signup trigger hasn't completed — only onboarding may render (shows a fallback).
-    if (target.kind === "profile_pending") {
-      if (isOnboarding) return response
-      return redirectWith(request, "/onboarding", response)
-    }
+    if (redirectResponse) return redirectResponse
 
-    if (target.kind !== "path") return response
-    const targetPath = target.path
-
-    // Logged-in user on marketing/login pages — send to their destination.
-    if (isLogin || isRoot) {
-      return redirectWith(request, targetPath, response)
-    }
-
-    // Not onboarded — must be on /onboarding.
-    if (targetPath === "/onboarding") {
-      if (isOnboarding) return response
-      return redirectWith(request, "/onboarding", response)
-    }
-
-    // Already onboarded — bounce away from /onboarding to home.
-    if (isOnboarding) {
-      return redirectWith(request, targetPath, response)
-    }
-
-    return response
+    // No auth redirect needed — hand off to i18nRouter for the locale rewrite.
+    // Propagate any refreshed Supabase cookies onto its response so the browser
+    // sees them on the way back.
+    const i18nResult = i18nRouter(request, i18nConfig)
+    response.cookies.getAll().forEach(cookie => {
+      i18nResult.cookies.set(cookie)
+    })
+    return i18nResult
   } catch (e) {
     // eslint-disable-next-line no-console
     console.error("[mw] error:", e)
