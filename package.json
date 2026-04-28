@@ -94,7 +94,7 @@
     "html2canvas": "^1.4.1",
     "i18next": "^25.2.1",
     "i18next-resources-to-backend": "^1.2.1",
-    "inngest": "^3.46.0",
+    "inngest": "^3.54.1",
     "js-tiktoken": "^1.0.11",
     "jspdf": "^2.5.1",
     "katex": "^0.16.45",
