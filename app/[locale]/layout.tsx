@@ -6,26 +6,28 @@ import initTranslations from "@/lib/i18n"
 import { Database } from "@/supabase/types"
 import { createServerClient } from "@supabase/ssr"
 import { Metadata, Viewport } from "next"
-import { Instrument_Serif, Inter_Tight, JetBrains_Mono } from "next/font/google"
+import { IBM_Plex_Mono, IBM_Plex_Sans, Inter_Tight } from "next/font/google"
 import { cookies } from "next/headers"
 import { ReactNode } from "react"
 import "./globals.css"
 
 const interTight = Inter_Tight({
   subsets: ["latin"],
+  weight: ["400", "500", "600"],
   display: "swap",
   variable: "--font-inter-tight"
 })
-const instrumentSerif = Instrument_Serif({
+const ibmPlexSans = IBM_Plex_Sans({
   subsets: ["latin"],
-  weight: "400",
+  weight: ["400", "500", "600"],
   display: "swap",
-  variable: "--font-instrument-serif"
+  variable: "--font-ibm-plex-sans"
 })
-const jetbrainsMono = JetBrains_Mono({
+const ibmPlexMono = IBM_Plex_Mono({
   subsets: ["latin"],
+  weight: ["400", "500"],
   display: "swap",
-  variable: "--font-jetbrains-mono"
+  variable: "--font-ibm-plex-mono"
 })
 const APP_NAME = "Shadow AI"
 const APP_DEFAULT_TITLE = "Shadow AI"
@@ -113,7 +115,7 @@ export default async function RootLayout({
     <html
       lang="en"
       suppressHydrationWarning
-      className={`${interTight.variable} ${instrumentSerif.variable} ${jetbrainsMono.variable}`}
+      className={`${interTight.variable} ${ibmPlexSans.variable} ${ibmPlexMono.variable}`}
     >
       <body className="font-sans">
         <Providers attribute="class" defaultTheme="light">

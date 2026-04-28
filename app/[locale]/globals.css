@@ -3,197 +3,206 @@
 @tailwind utilities;
 
 /* ============================================================
-   Shadow AI — Scientific-editorial design tokens
-   Palette: warm paper neutrals + rust accent
-   Type: Inter Tight (UI) · Instrument Serif (display) · JetBrains Mono
+   Shadow AI — Scientific design tokens (aligned with shadowai.work)
+   Palette: cream-warm neutrals + electric blue accent
+   Type: Inter Tight (display) · IBM Plex Sans (body) · IBM Plex Mono
+   Token names retained (--rust, --paper, --ink-*) so component
+   code remains unchanged across the rebrand.
    ============================================================ */
 
 @layer base {
   :root {
-    /* ----- Editorial raw tokens (direct use) ----- */
-    --paper: #faf8f5;
-    --paper-2: #f3efe9;
-    --paper-3: #e9e3db;
-    --line: #e3ddd3;
-    --line-strong: #cfc6b8;
-    --ink: #1a1714;
-    --ink-2: #3d3732;
-    --ink-3: #6b635a;
-    --ink-4: #938a7e;
-    --surface: #ffffff;
+    /* ----- Surfaces (cream-warm) ----- */
+    --paper: #f7f5f1; /* page background */
+    --paper-2: #efebe3; /* recessed/quiet sections */
+    --paper-3: #e4e0d8; /* deeper recess */
+    --line: #e4e0d8; /* default borders */
+    --line-strong: #d6d1c5; /* hover borders */
+    --ink: #0e0f12; /* primary text */
+    --ink-2: #2a2c31; /* body text */
+    --ink-3: #6b6e76; /* tertiary, captions */
+    --ink-4: #9a9ca3; /* placeholders */
+    --surface: #ffffff; /* raised cards, inputs, modals */
 
-    --rust: #b25139;
-    --rust-hover: #9f4530;
-    --rust-soft: #f6e8e1;
-    --rust-ink: #5c2b1c;
+    /* ----- Brand: electric blue (token still named --rust for callsite stability) ----- */
+    --rust: oklch(0.58 0.19 240); /* CTA, accent, focus */
+    --rust-hover: oklch(0.46 0.19 240); /* primary on hover */
+    --rust-soft: oklch(0.95 0.04 240); /* subtle tinted backgrounds */
+    --rust-ink: oklch(0.36 0.18 240); /* legible blue ink */
 
-    /* Phase tints — used sparingly, only on stage identity */
-    --p-overview: #7a8471;
-    --p-problem: #2f6b6b;
-    --p-lit: #b25139;
+    /* Phase tints — re-tuned cool/neutral to harmonize with brand blue */
+    --p-overview: #5b6b7a;
+    --p-problem: #2a6a8a;
+    --p-lit: #2962ff;
     --p-hyp: #6b5ba8;
-    --p-design: #8b6f2b;
+    --p-design: #6f6a52;
 
-    --success: #3f7a4e;
-    --warn: #b8831f;
-    --danger: #a1422e;
-    --info: #2f6b6b;
+    --success: oklch(0.55 0.1 155);
+    --warn: oklch(0.62 0.14 50);
+    --danger: oklch(0.55 0.18 25);
+    --info: oklch(0.58 0.19 240);
 
-    /* Shadows */
-    --shadow-sm: 0 1px 2px rgba(26, 23, 20, 0.04),
-      0 1px 3px rgba(26, 23, 20, 0.03);
-    --shadow-md: 0 2px 4px rgba(26, 23, 20, 0.04),
-      0 8px 24px rgba(26, 23, 20, 0.06);
-    --shadow-lg: 0 8px 16px rgba(26, 23, 20, 0.06),
-      0 24px 56px rgba(26, 23, 20, 0.1);
-    --shadow-drawer: -24px 0 56px rgba(26, 23, 20, 0.12);
+    /* Shadows — deepest layer tints with brand blue */
+    --shadow-sm: 0 1px 0 rgba(14, 15, 18, 0.02),
+      0 1px 3px rgba(14, 15, 18, 0.04);
+    --shadow-md: 0 1px 0 rgba(14, 15, 18, 0.02),
+      0 12px 32px -16px rgba(14, 15, 18, 0.1),
+      0 32px 64px -32px rgba(14, 15, 18, 0.12);
+    --shadow-lg: 0 1px 0 rgba(14, 15, 18, 0.02),
+      0 20px 40px -20px rgba(14, 15, 18, 0.15),
+      0 32px 64px -32px color-mix(in oklab, var(--rust) 22%, transparent);
+    --shadow-drawer: -24px 0 56px -8px rgba(14, 15, 18, 0.18);
 
-    /* Radii */
-    --r-sm: 6px;
-    --r-md: 10px;
-    --r-lg: 14px;
-    --r-xl: 20px;
+    /* Radii — tight, scientific */
+    --r-sm: 2px; /* buttons, inputs, chips */
+    --r-md: 6px; /* dropdowns, faux browser windows */
+    --r-lg: 10px; /* cards */
+    --r-xl: 14px; /* premium / pricing cards */
 
     /* Density */
     --density: 1;
     --space-unit: calc(4px * var(--density));
 
-    /* Typography CSS vars (wired to next/font variables in layout.tsx) */
-    --f-ui: var(--font-inter-tight), ui-sans-serif, system-ui, -apple-system,
-      sans-serif;
-    --f-display: var(--font-instrument-serif), Georgia, serif;
-    --f-mono: var(--font-jetbrains-mono), ui-monospace, "SF Mono", monospace;
+    /* Typography CSS vars (wired to next/font variables in layout.tsx).
+       Per brand: Inter Tight = display/headings, IBM Plex Sans = body/UI,
+       IBM Plex Mono = code/eyebrow/metadata. */
+    --f-ui: var(--font-ibm-plex-sans), "IBM Plex Sans", -apple-system,
+      BlinkMacSystemFont, "Helvetica Neue", Arial, sans-serif;
+    --f-display: var(--font-inter-tight), "Inter Tight", -apple-system,
+      BlinkMacSystemFont, "Helvetica Neue", Arial, sans-serif;
+    --f-mono: var(--font-ibm-plex-mono), "IBM Plex Mono", ui-monospace,
+      SFMono-Regular, Menlo, Consolas, monospace;
 
-    /* ----- shadcn HSL tokens (remapped to editorial palette) ----- */
+    /* ----- shadcn HSL tokens (remapped to brand palette) ----- */
     /* Values are "H S% L%" triplets, consumed via hsl(var(--xxx)) */
-    --background: 36 33% 97%; /* paper */
-    --foreground: 25 12% 9%; /* ink */
+    --background: 38 27% 96%; /* paper */
+    --foreground: 225 13% 6%; /* ink */
 
     --surface-hsl: 0 0% 100%; /* surface */
-    --paper-hsl: 36 33% 97%;
-    --paper-2-hsl: 34 29% 93%;
-    --paper-3-hsl: 33 25% 89%;
-    --line-hsl: 35 27% 86%;
-    --line-strong-hsl: 37 20% 77%;
-    --ink-hsl: 25 12% 9%;
-    --ink-2-hsl: 27 9% 22%;
-    --ink-3-hsl: 30 9% 39%;
-    --ink-4-hsl: 29 10% 54%;
-    --rust-hsl: 13 53% 46%;
-    --rust-soft-hsl: 20 57% 93%;
-    --rust-ink-hsl: 15 53% 24%;
+    --paper-hsl: 38 27% 96%;
+    --paper-2-hsl: 38 23% 91%;
+    --paper-3-hsl: 39 19% 86%;
+    --line-hsl: 39 19% 86%;
+    --line-strong-hsl: 38 17% 80%;
+    --ink-hsl: 225 13% 6%;
+    --ink-2-hsl: 222 8% 18%;
+    --ink-3-hsl: 222 5% 44%;
+    --ink-4-hsl: 222 5% 62%;
+    --rust-hsl: 220 90% 55%; /* electric blue */
+    --rust-soft-hsl: 220 75% 95%;
+    --rust-ink-hsl: 220 85% 36%;
 
-    --muted: 34 29% 93%; /* paper-2 */
-    --muted-foreground: 30 9% 39%; /* ink-3 */
+    --muted: 38 23% 91%; /* paper-2 */
+    --muted-foreground: 222 5% 44%; /* ink-3 */
 
     --popover: 0 0% 100%; /* surface */
-    --popover-foreground: 25 12% 9%;
+    --popover-foreground: 225 13% 6%;
 
     --card: 0 0% 100%; /* surface */
-    --card-foreground: 25 12% 9%;
+    --card-foreground: 225 13% 6%;
 
-    --border: 35 27% 86%; /* line */
-    --input: 35 27% 86%;
+    --border: 39 19% 86%; /* line */
+    --input: 39 19% 86%;
 
-    /* Primary (neutral ink on paper) — used by default shadcn buttons */
-    --primary: 25 12% 9%;
-    --primary-foreground: 36 33% 97%;
+    /* Primary (neutral ink on paper) — default shadcn buttons */
+    --primary: 225 13% 6%;
+    --primary-foreground: 38 27% 96%;
 
     /* Secondary (muted paper bg) */
-    --secondary: 34 29% 93%;
-    --secondary-foreground: 25 12% 9%;
+    --secondary: 38 23% 91%;
+    --secondary-foreground: 225 13% 6%;
 
-    /* shadcn "accent" is a subtle hover surface, NOT the brand rust.
+    /* shadcn "accent" is a subtle hover surface, NOT the brand blue.
        Use --rust / bg-rust utilities for brand accent. */
-    --accent: 34 29% 93%;
-    --accent-foreground: 25 12% 9%;
+    --accent: 38 23% 91%;
+    --accent-foreground: 225 13% 6%;
 
-    --destructive: 12 56% 40%;
-    --destructive-foreground: 36 33% 97%;
+    --destructive: 18 70% 48%;
+    --destructive-foreground: 38 27% 96%;
 
-    --ring: 13 53% 46%; /* rust focus ring */
+    --ring: 220 90% 55%; /* electric-blue focus ring */
 
-    --radius: 0.625rem; /* 10px — editorial r-md */
+    --radius: 0.625rem; /* 10px — r-lg (cards) */
   }
 
   .dark {
-    /* Dark mode: warm near-black paper + warm ink-on-dark text.
-       Rust accent is kept but softened. */
-    --paper: #17140f;
-    --paper-2: #1f1b16;
-    --paper-3: #2a251f;
-    --line: #33302a;
-    --line-strong: #4a4540;
-    --ink: #f3efe9;
-    --ink-2: #cfc6b8;
-    --ink-3: #938a7e;
-    --ink-4: #6b635a;
-    --surface: #1a1714;
+    /* Dark mode: near-black with cool ink + softened electric-blue accent. */
+    --paper: #0e0f12; /* page background */
+    --paper-2: #16181d; /* recessed sections */
+    --paper-3: #1b1d23; /* deeper recess */
+    --line: #2a2c31; /* default borders */
+    --line-strong: #3a3d44; /* hover borders */
+    --ink: #f4f1ea; /* primary text (warm-cream on dark) */
+    --ink-2: #d6d1c5; /* body text */
+    --ink-3: #9a9ca3; /* tertiary */
+    --ink-4: #6b6e76; /* placeholders */
+    --surface: #1b1d23; /* raised cards, modals */
 
-    --rust: #c5694f;
-    --rust-hover: #d37d64;
-    --rust-soft: #3a1c13;
-    --rust-ink: #f6e8e1;
+    --rust: oklch(0.78 0.16 235); /* softened electric blue */
+    --rust-hover: oklch(0.86 0.13 235);
+    --rust-soft: oklch(0.32 0.1 240);
+    --rust-ink: oklch(0.86 0.13 235);
 
-    /* Phase tints — brightened for legibility on dark ink. */
-    --p-overview: #9cab93;
-    --p-problem: #4fa0a0;
-    --p-lit: #c5694f;
+    /* Phase tints — brightened for dark contrast, harmonized with blue. */
+    --p-overview: #8c9aa8;
+    --p-problem: #5fb4c8;
+    --p-lit: #6e9bff;
     --p-hyp: #9285c6;
-    --p-design: #c09a4f;
+    --p-design: #b9b08a;
 
-    --success: #5fa06d;
-    --warn: #d6a333;
-    --danger: #c05a44;
-    --info: #4fa0a0;
+    --success: oklch(0.7 0.13 155);
+    --warn: oklch(0.78 0.13 60);
+    --danger: oklch(0.7 0.16 25);
+    --info: oklch(0.78 0.16 235);
 
     --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4), 0 1px 3px rgba(0, 0, 0, 0.3);
     --shadow-md: 0 2px 4px rgba(0, 0, 0, 0.4), 0 8px 24px rgba(0, 0, 0, 0.5);
-    --shadow-lg: 0 8px 16px rgba(0, 0, 0, 0.5), 0 24px 56px rgba(0, 0, 0, 0.6);
+    --shadow-lg: 0 8px 16px rgba(0, 0, 0, 0.5),
+      0 24px 56px -16px color-mix(in oklab, var(--rust) 28%, transparent);
     --shadow-drawer: -24px 0 56px rgba(0, 0, 0, 0.5);
 
-    --background: 30 21% 8%;
-    --foreground: 34 29% 93%;
+    --background: 222 13% 6%;
+    --foreground: 38 27% 94%;
 
-    --surface-hsl: 25 12% 9%;
-    --paper-hsl: 30 21% 8%;
-    --paper-2-hsl: 30 17% 11%;
-    --paper-3-hsl: 29 15% 15%;
-    --line-hsl: 30 9% 18%;
-    --line-strong-hsl: 28 7% 27%;
-    --ink-hsl: 34 29% 93%;
-    --ink-2-hsl: 37 20% 77%;
-    --ink-3-hsl: 29 10% 54%;
-    --ink-4-hsl: 30 9% 39%;
-    --rust-hsl: 13 50% 54%;
-    --rust-soft-hsl: 15 53% 16%;
-    --rust-ink-hsl: 20 57% 93%;
+    --surface-hsl: 222 13% 12%;
+    --paper-hsl: 222 13% 6%;
+    --paper-2-hsl: 222 13% 10%;
+    --paper-3-hsl: 222 13% 12%;
+    --line-hsl: 222 9% 18%;
+    --line-strong-hsl: 222 8% 25%;
+    --ink-hsl: 38 27% 94%;
+    --ink-2-hsl: 38 17% 80%;
+    --ink-3-hsl: 222 5% 62%;
+    --ink-4-hsl: 222 5% 44%;
+    --rust-hsl: 215 100% 72%;
+    --rust-soft-hsl: 220 50% 22%;
+    --rust-ink-hsl: 215 100% 82%;
 
-    --muted: 30 17% 11%;
-    --muted-foreground: 29 10% 54%;
+    --muted: 222 13% 10%;
+    --muted-foreground: 222 5% 62%;
 
-    --popover: 25 12% 9%;
-    --popover-foreground: 34 29% 93%;
+    --popover: 222 13% 12%;
+    --popover-foreground: 38 27% 94%;
 
-    --card: 25 12% 9%;
-    --card-foreground: 34 29% 93%;
+    --card: 222 13% 12%;
+    --card-foreground: 38 27% 94%;
 
-    --border: 30 9% 18%;
-    --input: 30 9% 18%;
+    --border: 222 9% 18%;
+    --input: 222 9% 18%;
 
-    --primary: 34 29% 93%;
-    --primary-foreground: 25 12% 9%;
+    --primary: 38 27% 94%;
+    --primary-foreground: 225 13% 6%;
 
-    --secondary: 30 17% 11%;
-    --secondary-foreground: 34 29% 93%;
+    --secondary: 222 13% 10%;
+    --secondary-foreground: 38 27% 94%;
 
-    --accent: 30 17% 11%;
-    --accent-foreground: 34 29% 93%;
+    --accent: 222 13% 10%;
+    --accent-foreground: 38 27% 94%;
 
-    --destructive: 12 56% 50%;
-    --destructive-foreground: 34 29% 93%;
+    --destructive: 18 70% 60%;
+    --destructive-foreground: 38 27% 94%;
 
-    --ring: 13 50% 54%;
+    --ring: 215 100% 72%;
   }
 }
 
@@ -312,8 +321,8 @@
 /* Editorial text utilities */
 .t-display {
   font-family: var(--f-display);
-  font-weight: 400;
-  letter-spacing: -0.015em;
+  font-weight: 500;
+  letter-spacing: -0.022em;
   line-height: 1.05;
 }
 .t-eyebrow {
