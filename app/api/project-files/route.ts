@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { cookies } from "next/headers"
 import { adminDb } from "@/lib/firebase/admin"
+import { emitRagDocChanged } from "@/lib/rag/emit"
 import type { QueryDocumentSnapshot } from "firebase-admin/firestore"
 
 export async function GET(request: Request) {
@@ -100,6 +101,13 @@ export async function POST(request: Request) {
     }
 
     await adminDb.collection("project_files").doc(id).set(record)
+
+    emitRagDocChanged({
+      sourceType: "project_file",
+      sourceId: id,
+      workspaceId: workspace_id,
+      projectId: project_id
+    })
 
     return NextResponse.json(record)
   } catch (error) {

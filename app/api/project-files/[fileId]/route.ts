@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { cookies } from "next/headers"
 import { adminDb } from "@/lib/firebase/admin"
+import { emitRagDocChanged } from "@/lib/rag/emit"
 
 export async function DELETE(
   _request: Request,
@@ -31,6 +32,14 @@ export async function DELETE(
     }
 
     await docRef.delete()
+
+    emitRagDocChanged({
+      sourceType: "project_file",
+      sourceId: params.fileId,
+      workspaceId: data?.workspace_id ?? null,
+      projectId: data?.project_id ?? null
+    })
+
     return NextResponse.json({ ok: true })
   } catch (error) {
     console.error("❌ [PROJECT_FILES] Error deleting file:", error)

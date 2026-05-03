@@ -17,6 +17,7 @@ import {
   serverError,
   withOwnedResource
 } from "@/lib/server/firestore-resource"
+import { emitRagDocChanged } from "@/lib/rag/emit"
 import { DesignCreateInputSchema } from "@/lib/design/types"
 
 const COLLECTION = "designs"
@@ -52,6 +53,12 @@ export async function createDesign(request: Request): Promise<Response> {
         forked_from: null,
         folder_id: d.folder_id ?? null
       }
+    })
+    emitRagDocChanged({
+      sourceType: "design",
+      sourceId: doc.id,
+      workspaceId: doc.workspace_id,
+      projectId: (doc as any).project_id ?? null
     })
     return NextResponse.json(doc)
   } catch (error) {

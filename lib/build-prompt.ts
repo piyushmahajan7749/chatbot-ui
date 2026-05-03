@@ -175,12 +175,50 @@ export async function buildFinalMessages(
   return finalMessages
 }
 
-function buildRetrievalText(fileItems: Tables<"file_items">[]) {
-  const retrievalText = fileItems
-    .map(item => `<BEGIN SOURCE>\n${item.content}\n</END SOURCE>`)
-    .join("\n\n")
+/**
+ * Format retrieved items as numbered citations the model can reference
+ * with `[N]` markers. The accompanying answer instruction tells the
+ * model HOW to cite — frontend will then convert `[1]` etc. into
+ * clickable chips that resolve to source_url (PR-8).
+ *
+ * Accepts both legacy `Tables<"file_items">` rows (no source_title /
+ * source_url) and new `RagItem`s; missing metadata falls back to
+ * "Untitled source" / no link, so the model still has the content.
+ */
+function buildRetrievalText(
+  items: Array<{
+    id?: string
+    content?: string | null
+    source_title?: string | null
+    source_url?: string | null
+    source_section?: string | null
+  }>
+) {
+  const numbered = items.map((item, i) => {
+    const n = i + 1
+    const title = item.source_title?.trim() || "Untitled source"
+    const section = item.source_section?.trim()
+    const heading = section ? `${title} — ${section}` : title
+    return `[${n}] ${heading}\n${item.content ?? ""}`
+  })
 
-  return `You may use the following sources if needed to answer the user's question. If you don't know the answer, say "I don't know."\n\n${retrievalText}`
+  const refList = items
+    .map((item, i) => {
+      const n = i + 1
+      const title = item.source_title?.trim() || "Untitled source"
+      const url = item.source_url?.trim()
+      return url ? `[${n}] ${title} (${url})` : `[${n}] ${title}`
+    })
+    .join("\n")
+
+  return `You are given numbered sources [1]..[${items.length}]. When you use a source in your answer, cite it inline as [N]. End the answer with a "References" list mapping each [N] to its title. If a fact is not in the sources, say "I don't know" rather than guessing.
+
+Sources:
+
+${numbered.join("\n\n")}
+
+References (for your end-of-answer list):
+${refList}`
 }
 
 function adaptSingleMessageForGoogleGemini(message: any) {

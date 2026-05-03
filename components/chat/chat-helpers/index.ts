@@ -48,33 +48,36 @@ export const validateChatSettings = (
   }
 }
 
+/**
+ * Retrieve RAG context for the next chat turn.
+ *
+ * Post-PR-6 the endpoint searches the unified `rag_items` corpus
+ * filtered by chat scope (workspace / project / design / report).
+ * `attachedFileIds` (from chat-attached files) restricts to file rows
+ * only — preserves the legacy "chat with these specific PDFs" UX.
+ */
 export const handleRetrieval = async (
   userInput: string,
+  workspaceId: string,
+  scope: "project" | "design" | "report" | null,
+  scopeId: string | null,
   newMessageFiles: ChatFile[],
   chatFiles: ChatFile[],
-  embeddingsProvider: "openai" | "local",
   sourceCount: number
 ) => {
-  const fileIds = [...newMessageFiles, ...chatFiles].map(file => file.id)
-
-  // Common silent-failure mode: caller fired retrieval but no files were
-  // actually attached to the chat. The endpoint returns an empty match list
-  // and the model answers from its own weights — looking like RAG was off.
-  if (fileIds.length === 0) {
-    console.warn(
-      "[retrieval] No fileIds attached to chat — RAG produced no chunks. " +
-        "Attach files to the chat (paper-clip icon) or via project files."
-    )
-    return []
-  }
+  const attachedFileIds = [...newMessageFiles, ...chatFiles].map(
+    file => file.id
+  )
 
   const response = await fetch("/api/retrieval/retrieve", {
     method: "POST",
     body: JSON.stringify({
       userInput,
-      fileIds,
-      embeddingsProvider,
-      sourceCount
+      workspaceId,
+      scope,
+      scopeId,
+      sourceCount,
+      ...(attachedFileIds.length > 0 ? { fileIds: attachedFileIds } : {})
     })
   })
 
@@ -84,15 +87,20 @@ export const handleRetrieval = async (
   }
 
   const { results } = (await response.json()) as {
-    results: Tables<"file_items">[]
+    results: Array<{
+      id: string
+      content: string
+      source_title?: string | null
+      source_url?: string | null
+      source_section?: string | null
+    }>
   }
 
   if (!results || results.length === 0) {
     console.warn(
-      `[retrieval] 0 chunks matched query against ${fileIds.length} file(s). ` +
-        "Check: (a) files have been processed (file_items rows exist), " +
-        "(b) embeddingsProvider matches the one used at ingest time, " +
-        "(c) query is specific enough to score above similarity threshold."
+      `[retrieval] 0 chunks matched scope=${scope ?? "workspace"}` +
+        (scopeId ? ` (id=${scopeId})` : "") +
+        ". Likely cause: no docs indexed yet for this scope, or query too vague."
     )
   }
 
@@ -491,15 +499,41 @@ export const handleCreateMessages = async (
       image_paths: paths
     })
 
-    const createdMessageFileItems = await createMessageFileItems(
-      retrievedFileItems.map(fileItem => {
-        return {
-          user_id: profile.user_id,
-          message_id: createdMessages[1].id,
-          file_item_id: fileItem.id
-        }
-      })
-    )
+    // Persist citations.
+    //
+    // Post-PR-9a `message_file_items` accepts EITHER `file_item_id`
+    // (legacy file-attached chats) OR `rag_item_id` (new unified RAG
+    // corpus). Each retrieved item carries denormalized citation
+    // metadata (source_title / source_url / content) so chips survive
+    // page reload + future doc re-indexing.
+    try {
+      await createMessageFileItems(
+        retrievedFileItems.map(fileItem => {
+          const item = fileItem as any
+          return {
+            user_id: profile.user_id,
+            message_id: createdMessages[1].id,
+            // RagItem rows live in `rag_items` and have no file_items
+            // FK; legacy chat-attached files only set file_item_id.
+            // Detection: presence of source_title / source_url marks
+            // a RagItem (those columns don't exist on file_items).
+            file_item_id: item.source_title || item.source_url ? null : item.id,
+            rag_item_id: item.source_title || item.source_url ? item.id : null,
+            source_title: item.source_title ?? null,
+            source_url: item.source_url ?? null,
+            content_snapshot: item.content ?? null
+          }
+        })
+      )
+    } catch (err) {
+      // Don't block the assistant message render path. Live citations
+      // still work via in-memory `chatFileItems`; only persistence
+      // (chip survival on reload) is affected.
+      console.warn(
+        "[chat-helpers] message_file_items write failed (citations live-only):",
+        err
+      )
+    }
 
     finalChatMessages = [
       ...chatMessages,

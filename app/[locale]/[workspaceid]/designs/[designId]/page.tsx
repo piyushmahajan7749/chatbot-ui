@@ -183,6 +183,21 @@ function parseContent(raw: unknown): DesignContentV2 | null {
   return null
 }
 
+/**
+ * Build the system-prompt context for tier-3 (single-design) chat.
+ *
+ * Tier-3 strategy is "long-context dump" (locked decision in
+ * /Users/piyush/.claude/plans/rosy-rolling-flute.md): the whole design
+ * goes into the system prompt so the model has the full document and
+ * doesn't have to play retrieval games on its own document.
+ *
+ * Hard cap at TIER3_MAX_CHARS (~75k tokens) to leave room for chat
+ * history + the user's question + the model's response. If the design
+ * exceeds the cap we trim the lowest-priority sections (papers,
+ * unselected hypotheses) before truncating the active design body.
+ */
+const TIER3_MAX_CHARS = 300_000
+
 function buildDesignChatContext(input: {
   title: string
   problemStatement: string
@@ -190,11 +205,14 @@ function buildDesignChatContext(input: {
   domain: string
   phase: string
   selectedHypotheses: Hypothesis[]
+  hypotheses?: Hypothesis[]
+  papers?: Paper[]
+  generatedDesigns?: GeneratedDesign[]
   activeDesign: GeneratedDesign | undefined
 }): string {
   const lines: string[] = []
   lines.push(
-    "You are Shadow AI, the scientific design assistant for this experiment. Answer questions in reference to the experiment described below WITHOUT asking the user to re-supply which design they mean. If a calculation is requested, use the numeric values from the design's procedure and materials when available."
+    "You are Shadow AI, the scientific design assistant for this experiment. The full experiment is provided below — refer to it directly without asking the user to re-supply which design they mean. Use numeric values from the design's procedure and materials when calculations are requested."
   )
 
   const problemLines: string[] = []
@@ -208,25 +226,79 @@ function buildDesignChatContext(input: {
     lines.push("", "## Problem", ...problemLines)
   }
 
-  if (input.selectedHypotheses.length) {
-    lines.push("", "## Selected hypotheses")
-    input.selectedHypotheses.forEach((h, i) => {
-      lines.push(`${i + 1}. ${h.text}`)
+  // All hypotheses (selected first, then the rest) — full reasoning, no
+  // truncation. The model needs to know what was rejected to answer
+  // "why didn't we test X" questions.
+  const allHyp = [
+    ...input.selectedHypotheses,
+    ...(input.hypotheses ?? []).filter(
+      h => !input.selectedHypotheses.find(s => s.id === h.id)
+    )
+  ]
+  if (allHyp.length) {
+    lines.push("", "## Hypotheses")
+    allHyp.forEach((h, i) => {
+      const tag = input.selectedHypotheses.find(s => s.id === h.id)
+        ? "[selected]"
+        : "[not selected]"
+      lines.push(`${i + 1}. ${tag} ${h.text}`)
       if (h.reasoning) lines.push(`   Reasoning: ${h.reasoning}`)
     })
   }
 
-  if (input.activeDesign) {
-    lines.push("", `## Active design: ${input.activeDesign.title}`)
-    input.activeDesign.sections.forEach(sec => {
-      lines.push("", `### ${sec.heading}`)
-      const body = sec.body.trim()
-      // Cap each section at ~1500 chars to keep the system prompt bounded.
-      lines.push(body.length > 1500 ? body.slice(0, 1500) + "…" : body)
+  if (input.papers?.length) {
+    lines.push("", "## Cited literature")
+    input.papers.forEach((p, i) => {
+      const meta = [
+        p.authors?.length ? p.authors.join(", ") : "",
+        (p as any).year ?? "",
+        (p as any).journal ?? ""
+      ]
+        .filter(Boolean)
+        .join(" · ")
+      lines.push(
+        `${i + 1}. ${p.title}${meta ? ` — ${meta}` : ""}${
+          p.sourceUrl ? ` (${p.sourceUrl})` : ""
+        }`
+      )
+      if (p.summary) lines.push(`   ${p.summary}`)
     })
   }
 
-  return lines.join("\n")
+  // All generated designs — the active one first, full body. Other
+  // designs included as alternates so the model can compare/contrast.
+  const ordered = input.activeDesign
+    ? [
+        input.activeDesign,
+        ...(input.generatedDesigns ?? []).filter(
+          d => d.id !== input.activeDesign!.id
+        )
+      ]
+    : (input.generatedDesigns ?? [])
+  ordered.forEach((d, idx) => {
+    const heading =
+      idx === 0
+        ? `## Active design: ${d.title}`
+        : `## Alternate design: ${d.title}`
+    lines.push("", heading)
+    d.sections.forEach(sec => {
+      lines.push("", `### ${sec.heading}`)
+      lines.push(sec.body.trim())
+    })
+  })
+
+  let context = lines.join("\n")
+
+  // Hard cap. If we blow past, log so we know to wire tier-3 RAG
+  // fallback (PR-9-ish work — left as a known gap for now).
+  if (context.length > TIER3_MAX_CHARS) {
+    console.warn(
+      `[design-chat-context] design content ${context.length} chars exceeds tier-3 cap ${TIER3_MAX_CHARS}; truncating. Consider RAG fallback.`
+    )
+    context = context.slice(0, TIER3_MAX_CHARS) + "\n\n…[truncated]"
+  }
+
+  return context
 }
 
 // ─────────────────────────────────────────────────────────────────────────
@@ -1383,6 +1455,9 @@ export default function DesignDetailPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [autoAction, loading, activeDesign?.id])
 
+  // Tier-3 long-context dump: pass the full design (all hypotheses, all
+  // papers, all generated designs). buildDesignChatContext caps at
+  // ~75k tokens; if oversize, RAG fallback would kick in (not yet wired).
   const chatContextPrompt = buildDesignChatContext({
     title,
     problemStatement,
@@ -1390,6 +1465,9 @@ export default function DesignDetailPage() {
     domain,
     phase,
     selectedHypotheses: hypotheses.filter(h => h.selected),
+    hypotheses,
+    papers,
+    generatedDesigns,
     activeDesign
   })
 

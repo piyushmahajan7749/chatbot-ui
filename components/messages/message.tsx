@@ -359,7 +359,20 @@ export const Message: FC<MessageProps> = ({
                 maxRows={20}
               />
             ) : (
-              <MessageMarkdown content={message.content} isUser={isUser} />
+              <MessageMarkdown
+                content={message.content}
+                isUser={isUser}
+                // Post-PR-6 each fileItem may carry RagItem citation
+                // metadata (source_title / source_url / source_section)
+                // so the chip renderer can resolve [N] markers to
+                // clickable links. Legacy file_items rows just produce
+                // styled pills via the renderer's fallback path.
+                sources={fileItems.map(fi => ({
+                  source_title: (fi as any).source_title ?? null,
+                  source_url: (fi as any).source_url ?? null,
+                  source_section: (fi as any).source_section ?? null
+                }))}
+              />
             )}
           </div>
         )}

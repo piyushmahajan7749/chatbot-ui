@@ -1,6 +1,11 @@
 import { serve } from "inngest/next"
 import { inngest } from "@/lib/inngest/client"
 import { processDesignDraft } from "@/lib/inngest/functions"
+import {
+  ragBackfillWorkspace,
+  ragCronSweep,
+  ragDocChanged
+} from "@/lib/inngest/functions/rag"
 
 // Inngest verifies the request signature when a signing key is configured.
 // In production we require it to be set so unauthenticated callers can't
@@ -20,6 +25,11 @@ if (!process.env.INNGEST_SIGNING_KEY) {
 
 export const { GET, POST, PUT } = serve({
   client: inngest,
-  functions: [processDesignDraft],
+  functions: [
+    processDesignDraft,
+    ragDocChanged,
+    ragCronSweep,
+    ragBackfillWorkspace
+  ],
   signingKey: process.env.INNGEST_SIGNING_KEY
 })

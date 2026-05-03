@@ -5,7 +5,10 @@ import { ChatbotUIContext } from "@/context/context"
 import { getAssistantToolsByAssistantId } from "@/db/assistant-tools"
 import { getChatFilesByChatId } from "@/db/chat-files"
 import { getChatById } from "@/db/chats"
-import { getMessageFileItemsByMessageId } from "@/db/message-file-items"
+import {
+  getMessageFileItemsByMessageId,
+  getRagCitationsByMessageId
+} from "@/db/message-file-items"
 import { getMessagesByChatId } from "@/db/messages"
 import { getMessageImageFromStorage } from "@/db/storage/message-images"
 import { convertBlobToBase64 } from "@/lib/blob-to-b64"
@@ -126,13 +129,48 @@ export const ChatUI: FC<ChatUIProps> = ({ variant = "full", chatId }) => {
     const images: MessageImage[] = await Promise.all(imagePromises.flat())
     setChatImages(images)
 
+    // Load BOTH legacy file-items AND rag-citation snapshots per message.
+    // Legacy: join on file_items table (chunks of attached files).
+    // RAG: snapshot rows on message_file_items (post-PR-9a) — survive
+    //      doc re-indexing because they carry the title/url/content
+    //      copy that was true at message-write time.
     const messageFileItemPromises = fetchedMessages.map(
       async message => await getMessageFileItemsByMessageId(message.id)
     )
+    const ragCitationPromises = fetchedMessages.map(
+      async message => await getRagCitationsByMessageId(message.id)
+    )
 
     const messageFileItems = await Promise.all(messageFileItemPromises)
+    const ragCitationsPerMsg = await Promise.all(ragCitationPromises)
 
-    const uniqueFileItems = messageFileItems.flatMap(item => item.file_items)
+    const legacyFileItems = messageFileItems.flatMap(item => item.file_items)
+    // Adapt RAG snapshots into the file-item-shape expected downstream
+    // (chat-messages.tsx filters chatFileItems by id). Carry the
+    // citation metadata so MessageMarkdown can render clickable chips.
+    // Cast: `content_snapshot`/`source_*` were added by migration
+    // 20260504 + 20260507 but the generated Database types lag until
+    // `npm run db-types` runs against the migrated DB.
+    const ragVirtualItems = (ragCitationsPerMsg.flat() as any[]).map(row => ({
+      id: row.rag_item_id ?? row.id,
+      content: row.content_snapshot ?? "",
+      source_title: row.source_title,
+      source_url: row.source_url,
+      // Legacy fields the downstream renderer reads — set safe defaults.
+      file_id: null as any,
+      tokens: 0,
+      sharing: "private",
+      created_at: "",
+      updated_at: null,
+      user_id: "",
+      local_embedding: null,
+      openai_embedding: null
+    }))
+
+    const uniqueFileItems = [
+      ...legacyFileItems,
+      ...ragVirtualItems
+    ] as typeof legacyFileItems
     setChatFileItems(uniqueFileItems)
 
     const chatFiles = await getChatFilesByChatId(effectiveChatId)
@@ -149,14 +187,26 @@ export const ChatUI: FC<ChatUIProps> = ({ variant = "full", chatId }) => {
     setUseRetrieval(true)
     setShowFilesDisplay(true)
 
+    // Index rag citations by message id so per-message lookup is O(1).
+    // ragCitationsPerMsg is parallel to fetchedMessages by index.
+    const ragIdsByMessage = new Map<string, string[]>()
+    fetchedMessages.forEach((msg, i) => {
+      const ids = (ragCitationsPerMsg[i] as any[])
+        .map(row => row.rag_item_id ?? row.id)
+        .filter(Boolean) as string[]
+      if (ids.length) ragIdsByMessage.set(msg.id, ids)
+    })
+
     const fetchedChatMessages = fetchedMessages.map(message => {
+      const legacyIds = messageFileItems
+        .filter(messageFileItem => messageFileItem.id === message.id)
+        .flatMap(messageFileItem =>
+          messageFileItem.file_items.map(fileItem => fileItem.id)
+        )
+      const ragIds = ragIdsByMessage.get(message.id) ?? []
       return {
         message,
-        fileItems: messageFileItems
-          .filter(messageFileItem => messageFileItem.id === message.id)
-          .flatMap(messageFileItem =>
-            messageFileItem.file_items.map(fileItem => fileItem.id)
-          )
+        fileItems: [...legacyIds, ...ragIds]
       }
     })
 

@@ -12,6 +12,7 @@ import {
   withOwnedResource,
   type OwnedDocBase
 } from "@/lib/server/firestore-resource"
+import { emitRagDocChanged } from "@/lib/rag/emit"
 import {
   DataCollectionCreateInputSchema,
   DataCollectionPatchInputSchema,
@@ -60,6 +61,12 @@ export async function createDataCollection(
         messages: [] as unknown[],
         structured_data: null
       }
+    })
+    emitRagDocChanged({
+      sourceType: "data_collection",
+      sourceId: doc.id,
+      workspaceId: doc.workspace_id,
+      projectId: null
     })
     return NextResponse.json(doc)
   } catch (error) {
@@ -135,6 +142,12 @@ export async function patchDataCollection(
       doc: auth.doc!,
       patch: parsed.data as Partial<DataCollection & OwnedDocBase>
     })
+    emitRagDocChanged({
+      sourceType: "data_collection",
+      sourceId: updated.id,
+      workspaceId: updated.workspace_id,
+      projectId: null
+    })
     return NextResponse.json(updated)
   } catch (error) {
     console.error("[DATA_COLLECTIONS] patchDataCollection failed:", error)
@@ -154,6 +167,12 @@ export async function deleteDataCollection(
     if (auth.response) return auth.response
 
     await deleteOwnedDoc({ collection: COLLECTION, doc: auth.doc! })
+    emitRagDocChanged({
+      sourceType: "data_collection",
+      sourceId: id,
+      workspaceId: auth.doc?.workspace_id,
+      projectId: null
+    })
     return NextResponse.json({ success: true })
   } catch (error) {
     console.error("[DATA_COLLECTIONS] deleteDataCollection failed:", error)

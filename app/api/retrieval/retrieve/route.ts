@@ -1,155 +1,75 @@
-import { generateLocalEmbedding } from "@/lib/generate-local-embedding"
-import {
-  getAzureOpenAIEmbeddingsClient,
-  getAzureOpenAIEmbeddingsDeployment
-} from "@/lib/azure-openai"
-import { getServerProfile } from "@/lib/server/server-chat-helpers"
-import { Database } from "@/supabase/types"
-import { createClient } from "@supabase/supabase-js"
-
 /**
- * RAG retrieve endpoint.
+ * Unified RAG retrieve endpoint.
  *
- * `file_items` rows can carry `openai_embedding`, `local_embedding`, or
- * both. The schema doesn't track which provider a file was ingested with,
- * so a previous version of this route would silently return zero chunks
- * when the caller's chat-time `embeddingsProvider` didn't match the column
- * that was actually populated at ingest.
+ * Replaces the legacy file-only retrieve. The chat handler now passes
+ * scope information (workspace_id + scope + scope_id) and the endpoint
+ * delegates to `lib/rag/retrieve` which:
+ *   - hits `match_rag_items` (dense + BM25 hybrid)
+ *   - RRF-fuses, applies recency boost + chat-content multiplier
+ *   - returns RagItem[] with denormalized citation metadata
  *
- * We now try the caller's preferred provider first and, if it returns
- * nothing, fall back to the OTHER provider before giving up. This catches
- * the common cross-provider mismatch without doubling cost in the happy
- * path.
+ * Back-compat: callers may still pass `fileIds` to restrict retrieval
+ * to a set of attached files (preserves the chat-attached-files UX).
  */
+import { NextResponse } from "next/server"
+import { z } from "zod"
+
+import { retrieve } from "@/lib/rag/retrieve"
+import { requireUser } from "@/lib/server/require-user"
+
+const RetrieveBodySchema = z.object({
+  userInput: z.string().min(1),
+  workspaceId: z.string().min(1).nullable().optional(),
+  scope: z.enum(["project", "design", "report"]).nullable().optional(),
+  scopeId: z.string().nullable().optional(),
+  sourceCount: z.number().int().positive().max(50).optional(),
+  fileIds: z.array(z.string()).optional()
+})
+
 export async function POST(request: Request) {
-  const json = await request.json()
-  const { userInput, fileIds, embeddingsProvider, sourceCount } = json as {
-    userInput: string
-    fileIds: string[]
-    embeddingsProvider: "openai" | "local"
-    sourceCount: number
-  }
-
-  const uniqueFileIds = [...new Set(fileIds ?? [])]
-  const matchSourceCount = sourceCount ?? 8
-
   try {
-    const supabaseAdmin = createClient<Database>(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!
-    )
+    const auth = await requireUser()
+    if (auth.response) return auth.response
 
-    const profile = await getServerProfile()
-
-    // Ownership check: refuse to retrieve embeddings for files the caller
-    // doesn't own — would otherwise be a uuid-guessing attack.
-    if (uniqueFileIds.length > 0) {
-      const { data: ownedFiles, error: ownedError } = await supabaseAdmin
-        .from("files")
-        .select("id")
-        .in("id", uniqueFileIds)
-        .eq("user_id", profile.user_id)
-
-      if (ownedError) throw ownedError
-
-      if (!ownedFiles || ownedFiles.length !== uniqueFileIds.length) {
-        return new Response(
-          JSON.stringify({ message: "Forbidden: unknown file id" }),
-          { status: 403 }
-        )
-      }
-    }
-
-    const tryOpenAI = async (): Promise<any[]> => {
-      const embeddingsDeployment =
-        profile.azure_openai_embeddings_id ||
-        getAzureOpenAIEmbeddingsDeployment()
-      if (!embeddingsDeployment) {
-        throw new Error(
-          "Azure embeddings deployment not configured. Set AZURE_OPENAI_EMBEDDINGS_DEPLOYMENT or configure azure_openai_embeddings_id."
-        )
-      }
-      const openai = getAzureOpenAIEmbeddingsClient()
-      const response = await openai.embeddings.create({
-        model: embeddingsDeployment,
-        input: userInput,
-        dimensions: 1536
-      })
-      const embedding = response.data.map(item => item.embedding)[0]
-      const { data, error } = await supabaseAdmin.rpc(
-        "match_file_items_openai",
-        {
-          query_embedding: embedding as any,
-          match_count: matchSourceCount,
-          file_ids: uniqueFileIds
-        }
-      )
-      if (error) throw error
-      return data ?? []
-    }
-
-    const tryLocal = async (): Promise<any[]> => {
-      const localEmbedding = await generateLocalEmbedding(userInput)
-      const { data, error } = await supabaseAdmin.rpc(
-        "match_file_items_local",
-        {
-          query_embedding: localEmbedding as any,
-          match_count: matchSourceCount,
-          file_ids: uniqueFileIds
-        }
-      )
-      if (error) throw error
-      return data ?? []
-    }
-
-    const primary = embeddingsProvider === "openai" ? tryOpenAI : tryLocal
-    const fallback = embeddingsProvider === "openai" ? tryLocal : tryOpenAI
-
-    let chunks = await primary()
-    let usedFallback = false
-    if (chunks.length === 0 && uniqueFileIds.length > 0) {
-      try {
-        const fallbackChunks = await fallback()
-        if (fallbackChunks.length > 0) {
-          chunks = fallbackChunks
-          usedFallback = true
-          console.warn(
-            `[retrieve] Primary provider (${embeddingsProvider}) returned 0 ` +
-              `chunks; ${fallbackChunks.length} from fallback. Files were ` +
-              "likely ingested with the other provider."
-          )
-        }
-      } catch (fallbackError) {
-        // Fallback misconfig (e.g. Azure missing): keep the empty primary
-        // result and surface a warning. The chat will still answer from
-        // model weights.
-        console.warn("[retrieve] Fallback provider failed:", fallbackError)
-      }
-    }
-
-    if (uniqueFileIds.length > 0 && chunks.length === 0) {
-      console.warn(
-        `[retrieve] 0 chunks for ${uniqueFileIds.length} file(s) on both ` +
-          "providers. Likely cause: files haven't been processed yet (no " +
-          "file_items rows). Run the file-processing pipeline."
+    const raw = await request.json().catch(() => null)
+    const parsed = RetrieveBodySchema.safeParse(raw)
+    if (!parsed.success) {
+      return NextResponse.json(
+        { message: "Invalid request body", details: parsed.error.flatten() },
+        { status: 400 }
       )
     }
 
-    const mostSimilarChunks = chunks
-      .sort((a: any, b: any) => (b.similarity ?? 0) - (a.similarity ?? 0))
-      .slice(0, matchSourceCount)
+    const { userInput, workspaceId, scope, scopeId, sourceCount, fileIds } =
+      parsed.data
 
-    return new Response(
-      JSON.stringify({ results: mostSimilarChunks, usedFallback }),
-      { status: 200 }
-    )
+    // workspaceId is required for any scope-driven query. The legacy
+    // fileIds-only path can run without one (the RPC just filters by
+    // source_id) but RLS demands the row's user_id matches caller — and
+    // the new retrieve module uses the service-role client. We require a
+    // workspaceId to keep tenancy explicit.
+    if (!workspaceId) {
+      return NextResponse.json(
+        { message: "workspaceId is required" },
+        { status: 400 }
+      )
+    }
+
+    const results = await retrieve({
+      query: userInput,
+      workspaceId,
+      scope: scope ?? null,
+      scopeId: scopeId ?? null,
+      sourceCount,
+      fileIds
+    })
+
+    return NextResponse.json({ results })
   } catch (error: any) {
     console.error("[retrieve] Error:", error)
-    const errorMessage =
-      error.message || error.error?.message || "An unexpected error occurred"
-    const errorCode = error.status || 500
-    return new Response(JSON.stringify({ message: errorMessage }), {
-      status: errorCode
-    })
+    return NextResponse.json(
+      { message: error?.message ?? "Unexpected error" },
+      { status: error?.status ?? 500 }
+    )
   }
 }

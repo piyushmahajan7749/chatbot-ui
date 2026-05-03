@@ -9,6 +9,7 @@ import {
   stripPrivateFieldsForPublic
 } from "@/lib/design/sharing"
 import { isPubliclyViewable } from "@/types/sharing"
+import { emitRagDocChanged } from "@/lib/rag/emit"
 
 export async function GET(
   request: Request,
@@ -180,7 +181,14 @@ export async function PUT(
     await designRef.update(updates)
 
     const updatedDoc = await designRef.get()
-    const updatedDesign = { id: updatedDoc.id, ...updatedDoc.data() }
+    const updatedDesign = { id: updatedDoc.id, ...updatedDoc.data() } as any
+
+    emitRagDocChanged({
+      sourceType: "design",
+      sourceId: designId,
+      workspaceId: updatedDesign?.workspace_id ?? null,
+      projectId: updatedDesign?.project_id ?? null
+    })
 
     return NextResponse.json({ success: true, design: updatedDesign })
   } catch (error) {
@@ -226,8 +234,16 @@ export async function PATCH(
       })
 
     const updated = await adminDb.collection("designs").doc(designId).get()
+    const data = updated.data() as any
 
-    return NextResponse.json({ id: updated.id, ...updated.data() })
+    emitRagDocChanged({
+      sourceType: "design",
+      sourceId: designId,
+      workspaceId: data?.workspace_id ?? null,
+      projectId: data?.project_id ?? null
+    })
+
+    return NextResponse.json({ id: updated.id, ...data })
   } catch (error) {
     console.error("❌ [DESIGN_API] Error updating design:", error)
     return NextResponse.json(
@@ -278,6 +294,13 @@ export async function DELETE(
     const batch = adminDb.batch()
     permSnap.docs.forEach((d: any) => batch.delete(d.ref))
     if (!permSnap.empty) await batch.commit()
+
+    emitRagDocChanged({
+      sourceType: "design",
+      sourceId: designId,
+      workspaceId: designData?.workspace_id ?? null,
+      projectId: designData?.project_id ?? null
+    })
 
     return NextResponse.json({ success: true })
   } catch (error) {

@@ -17,10 +17,10 @@ export type Database = {
     Functions: {
       graphql: {
         Args: {
-          operationName?: string
           query?: string
           variables?: Json
           extensions?: Json
+          operationName?: string
         }
         Returns: Json
       }
@@ -70,159 +70,6 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "collections"
             referencedColumns: ["id"]
-          },
-        ]
-      }
-      design_research_plans: {
-        Row: {
-          plan_id: string
-          title: string
-          description: string
-          status: string
-          constraints: Json
-          preferences: Json
-          metadata: Json
-          created_at: string
-          updated_at: string
-        }
-        Insert: {
-          plan_id: string
-          title: string
-          description: string
-          status: string
-          constraints?: Json
-          preferences?: Json
-          metadata?: Json
-          created_at?: string
-          updated_at?: string
-        }
-        Update: {
-          plan_id?: string
-          title?: string
-          description?: string
-          status?: string
-          constraints?: Json
-          preferences?: Json
-          metadata?: Json
-          created_at?: string
-          updated_at?: string
-        }
-        Relationships: []
-      }
-      design_hypotheses: {
-        Row: {
-          hypothesis_id: string
-          plan_id: string
-          content: string
-          explanation: string | null
-          elo: number | null
-          provenance: Json
-          metadata: Json
-          created_at: string
-        }
-        Insert: {
-          hypothesis_id: string
-          plan_id: string
-          content: string
-          explanation?: string | null
-          elo?: number | null
-          provenance?: Json
-          metadata?: Json
-          created_at?: string
-        }
-        Update: {
-          hypothesis_id?: string
-          plan_id?: string
-          content?: string
-          explanation?: string | null
-          elo?: number | null
-          provenance?: Json
-          metadata?: Json
-          created_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "design_hypotheses_plan_id_fkey"
-            columns: ["plan_id"]
-            isOneToOne: false
-            referencedRelation: "design_research_plans"
-            referencedColumns: ["plan_id"]
-          },
-        ]
-      }
-      design_tournament_matches: {
-        Row: {
-          match_id: string
-          plan_id: string
-          challenger_hypothesis_id: string | null
-          defender_hypothesis_id: string | null
-          winner_hypothesis_id: string | null
-          metadata: Json
-          created_at: string
-        }
-        Insert: {
-          match_id: string
-          plan_id: string
-          challenger_hypothesis_id?: string | null
-          defender_hypothesis_id?: string | null
-          winner_hypothesis_id?: string | null
-          metadata?: Json
-          created_at?: string
-        }
-        Update: {
-          match_id?: string
-          plan_id?: string
-          challenger_hypothesis_id?: string | null
-          defender_hypothesis_id?: string | null
-          winner_hypothesis_id?: string | null
-          metadata?: Json
-          created_at?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "design_tournament_matches_plan_id_fkey"
-            columns: ["plan_id"]
-            isOneToOne: false
-            referencedRelation: "design_research_plans"
-            referencedColumns: ["plan_id"]
-          },
-        ]
-      }
-      design_logs: {
-        Row: {
-          id: number
-          plan_id: string
-          timestamp: string
-          actor: string
-          level: string
-          message: string
-          context: Json
-        }
-        Insert: {
-          id?: number
-          plan_id: string
-          timestamp: string
-          actor: string
-          level: string
-          message: string
-          context?: Json
-        }
-        Update: {
-          id?: number
-          plan_id?: string
-          timestamp?: string
-          actor?: string
-          level?: string
-          message?: string
-          context?: Json
-        }
-        Relationships: [
-          {
-            foreignKeyName: "design_logs_plan_id_fkey"
-            columns: ["plan_id"]
-            isOneToOne: false
-            referencedRelation: "design_research_plans"
-            referencedColumns: ["plan_id"]
           },
         ]
       }
@@ -527,6 +374,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "chats_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
             foreignKeyName: "chats_workspace_id_fkey"
             columns: ["workspace_id"]
             isOneToOne: false
@@ -654,6 +508,159 @@ export type Database = {
           },
         ]
       }
+      design_hypotheses: {
+        Row: {
+          content: string
+          created_at: string
+          elo: number | null
+          explanation: string | null
+          hypothesis_id: string
+          metadata: Json | null
+          plan_id: string
+          provenance: Json | null
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          elo?: number | null
+          explanation?: string | null
+          hypothesis_id: string
+          metadata?: Json | null
+          plan_id: string
+          provenance?: Json | null
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          elo?: number | null
+          explanation?: string | null
+          hypothesis_id?: string
+          metadata?: Json | null
+          plan_id?: string
+          provenance?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "design_hypotheses_plan_id_fkey"
+            columns: ["plan_id"]
+            isOneToOne: false
+            referencedRelation: "design_research_plans"
+            referencedColumns: ["plan_id"]
+          },
+        ]
+      }
+      design_logs: {
+        Row: {
+          actor: string
+          context: Json | null
+          id: number
+          level: string
+          message: string
+          plan_id: string
+          timestamp: string
+        }
+        Insert: {
+          actor: string
+          context?: Json | null
+          id?: number
+          level: string
+          message: string
+          plan_id: string
+          timestamp: string
+        }
+        Update: {
+          actor?: string
+          context?: Json | null
+          id?: number
+          level?: string
+          message?: string
+          plan_id?: string
+          timestamp?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "design_logs_plan_id_fkey"
+            columns: ["plan_id"]
+            isOneToOne: false
+            referencedRelation: "design_research_plans"
+            referencedColumns: ["plan_id"]
+          },
+        ]
+      }
+      design_research_plans: {
+        Row: {
+          constraints: Json | null
+          created_at: string
+          description: string
+          metadata: Json | null
+          plan_id: string
+          preferences: Json | null
+          status: string
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          constraints?: Json | null
+          created_at?: string
+          description: string
+          metadata?: Json | null
+          plan_id: string
+          preferences?: Json | null
+          status: string
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          constraints?: Json | null
+          created_at?: string
+          description?: string
+          metadata?: Json | null
+          plan_id?: string
+          preferences?: Json | null
+          status?: string
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      design_tournament_matches: {
+        Row: {
+          challenger_hypothesis_id: string | null
+          created_at: string
+          defender_hypothesis_id: string | null
+          match_id: string
+          metadata: Json | null
+          plan_id: string
+          winner_hypothesis_id: string | null
+        }
+        Insert: {
+          challenger_hypothesis_id?: string | null
+          created_at?: string
+          defender_hypothesis_id?: string | null
+          match_id: string
+          metadata?: Json | null
+          plan_id: string
+          winner_hypothesis_id?: string | null
+        }
+        Update: {
+          challenger_hypothesis_id?: string | null
+          created_at?: string
+          defender_hypothesis_id?: string | null
+          match_id?: string
+          metadata?: Json | null
+          plan_id?: string
+          winner_hypothesis_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "design_tournament_matches_plan_id_fkey"
+            columns: ["plan_id"]
+            isOneToOne: false
+            referencedRelation: "design_research_plans"
+            referencedColumns: ["plan_id"]
+          },
+        ]
+      }
       design_workspaces: {
         Row: {
           created_at: string
@@ -692,42 +699,6 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
-      }
-      eln_connections: {
-        Row: {
-          access_token_encrypted: string
-          connected_at: string
-          created_at: string
-          display_name: string | null
-          id: string
-          provider: string
-          tenant_url: string | null
-          updated_at: string | null
-          user_id: string
-        }
-        Insert: {
-          access_token_encrypted: string
-          connected_at?: string
-          created_at?: string
-          display_name?: string | null
-          id?: string
-          provider: string
-          tenant_url?: string | null
-          updated_at?: string | null
-          user_id: string
-        }
-        Update: {
-          access_token_encrypted?: string
-          connected_at?: string
-          created_at?: string
-          display_name?: string | null
-          id?: string
-          provider?: string
-          tenant_url?: string | null
-          updated_at?: string | null
-          user_id?: string
-        }
-        Relationships: []
       }
       designs: {
         Row: {
@@ -779,6 +750,42 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      eln_connections: {
+        Row: {
+          access_token_encrypted: string
+          connected_at: string
+          created_at: string
+          display_name: string | null
+          id: string
+          provider: string
+          tenant_url: string | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          access_token_encrypted: string
+          connected_at?: string
+          created_at?: string
+          display_name?: string | null
+          id?: string
+          provider: string
+          tenant_url?: string | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          access_token_encrypted?: string
+          connected_at?: string
+          created_at?: string
+          display_name?: string | null
+          id?: string
+          provider?: string
+          tenant_url?: string | null
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
       }
       file_items: {
         Row: {
@@ -918,6 +925,13 @@ export type Database = {
             columns: ["folder_id"]
             isOneToOne: false
             referencedRelation: "folders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "files_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
             referencedColumns: ["id"]
           },
         ]
@@ -1271,17 +1285,13 @@ export type Database = {
           image_path: string
           image_url: string
           mistral_api_key: string | null
-          onboarding_step: number
           openai_api_key: string | null
           openai_organization_id: string | null
           openrouter_api_key: string | null
           perplexity_api_key: string | null
           profile_context: string
-          research_field: string | null
-          role: string | null
           updated_at: string | null
           use_azure_openai: boolean
-          use_case: string | null
           user_id: string
           username: string
         }
@@ -1303,17 +1313,13 @@ export type Database = {
           image_path: string
           image_url: string
           mistral_api_key?: string | null
-          onboarding_step?: number
           openai_api_key?: string | null
           openai_organization_id?: string | null
           openrouter_api_key?: string | null
           perplexity_api_key?: string | null
           profile_context: string
-          research_field?: string | null
-          role?: string | null
           updated_at?: string | null
           use_azure_openai: boolean
-          use_case?: string | null
           user_id: string
           username: string
         }
@@ -1335,21 +1341,58 @@ export type Database = {
           image_path?: string
           image_url?: string
           mistral_api_key?: string | null
-          onboarding_step?: number
           openai_api_key?: string | null
           openai_organization_id?: string | null
           openrouter_api_key?: string | null
           perplexity_api_key?: string | null
           profile_context?: string
-          research_field?: string | null
-          role?: string | null
           updated_at?: string | null
           use_azure_openai?: boolean
-          use_case?: string | null
           user_id?: string
           username?: string
         }
         Relationships: []
+      }
+      projects: {
+        Row: {
+          created_at: string | null
+          description: string | null
+          id: string
+          name: string
+          tags: string[] | null
+          updated_at: string | null
+          user_id: string
+          workspace_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          name?: string
+          tags?: string[] | null
+          updated_at?: string | null
+          user_id: string
+          workspace_id: string
+        }
+        Update: {
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          name?: string
+          tags?: string[] | null
+          updated_at?: string | null
+          user_id?: string
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "projects_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       prompt_workspaces: {
         Row: {
@@ -1427,47 +1470,6 @@ export type Database = {
             columns: ["folder_id"]
             isOneToOne: false
             referencedRelation: "folders"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      projects: {
-        Row: {
-          created_at: string
-          description: string
-          id: string
-          name: string
-          tags: string[]
-          updated_at: string
-          user_id: string
-          workspace_id: string
-        }
-        Insert: {
-          created_at?: string
-          description?: string
-          id?: string
-          name: string
-          tags?: string[]
-          updated_at?: string
-          user_id: string
-          workspace_id: string
-        }
-        Update: {
-          created_at?: string
-          description?: string
-          id?: string
-          name?: string
-          tags?: string[]
-          updated_at?: string
-          user_id?: string
-          workspace_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "projects_workspace_id_fkey"
-            columns: ["workspace_id"]
-            isOneToOne: false
-            referencedRelation: "workspaces"
             referencedColumns: ["id"]
           },
         ]
@@ -1604,10 +1606,8 @@ export type Database = {
           report_draft: Json | null
           report_outline: string[] | null
           sharing: string
-          summary: string | null
           updated_at: string | null
           user_id: string
-          workspace_id: string | null
         }
         Insert: {
           chart_image?: string | null
@@ -1620,10 +1620,8 @@ export type Database = {
           report_draft?: Json | null
           report_outline?: string[] | null
           sharing?: string
-          summary?: string | null
           updated_at?: string | null
           user_id: string
-          workspace_id?: string | null
         }
         Update: {
           chart_image?: string | null
@@ -1636,10 +1634,8 @@ export type Database = {
           report_draft?: Json | null
           report_outline?: string[] | null
           sharing?: string
-          summary?: string | null
           updated_at?: string | null
           user_id?: string
-          workspace_id?: string | null
         }
         Relationships: [
           {
@@ -1647,6 +1643,13 @@ export type Database = {
             columns: ["folder_id"]
             isOneToOne: false
             referencedRelation: "folders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "reports_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
             referencedColumns: ["id"]
           },
         ]
@@ -1812,16 +1815,16 @@ export type Database = {
       delete_message_including_and_after: {
         Args: {
           p_user_id: string
-          p_chat_id: string
           p_sequence_number: number
+          p_chat_id: string
         }
         Returns: undefined
       }
       delete_messages_including_and_after: {
         Args: {
           p_user_id: string
-          p_chat_id: string
           p_sequence_number: number
+          p_chat_id: string
         }
         Returns: undefined
       }
@@ -1830,7 +1833,7 @@ export type Database = {
         Returns: Record<string, unknown>
       }
       delete_storage_object_from_bucket: {
-        Args: { bucket_name: string; object_path: string }
+        Args: { object_path: string; bucket_name: string }
         Returns: Record<string, unknown>
       }
       match_file_items_local: {
@@ -1840,18 +1843,18 @@ export type Database = {
           file_ids?: string[]
         }
         Returns: {
+          tokens: number
           id: string
           file_id: string
           content: string
-          tokens: number
           similarity: number
         }[]
       }
       match_file_items_openai: {
         Args: {
-          query_embedding: string
           match_count?: number
           file_ids?: string[]
+          query_embedding: string
         }
         Returns: {
           id: string
@@ -1928,21 +1931,48 @@ export type Database = {
       buckets_analytics: {
         Row: {
           created_at: string
+          deleted_at: string | null
           format: string
+          id: string
+          name: string
+          type: Database["storage"]["Enums"]["buckettype"]
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          deleted_at?: string | null
+          format?: string
+          id?: string
+          name: string
+          type?: Database["storage"]["Enums"]["buckettype"]
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          deleted_at?: string | null
+          format?: string
+          id?: string
+          name?: string
+          type?: Database["storage"]["Enums"]["buckettype"]
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      buckets_vectors: {
+        Row: {
+          created_at: string
           id: string
           type: Database["storage"]["Enums"]["buckettype"]
           updated_at: string
         }
         Insert: {
           created_at?: string
-          format?: string
           id: string
           type?: Database["storage"]["Enums"]["buckettype"]
           updated_at?: string
         }
         Update: {
           created_at?: string
-          format?: string
           id?: string
           type?: Database["storage"]["Enums"]["buckettype"]
           updated_at?: string
@@ -1951,30 +1981,36 @@ export type Database = {
       }
       iceberg_namespaces: {
         Row: {
-          bucket_id: string
+          bucket_name: string
+          catalog_id: string
           created_at: string
           id: string
+          metadata: Json
           name: string
           updated_at: string
         }
         Insert: {
-          bucket_id: string
+          bucket_name: string
+          catalog_id: string
           created_at?: string
           id?: string
+          metadata?: Json
           name: string
           updated_at?: string
         }
         Update: {
-          bucket_id?: string
+          bucket_name?: string
+          catalog_id?: string
           created_at?: string
           id?: string
+          metadata?: Json
           name?: string
           updated_at?: string
         }
         Relationships: [
           {
-            foreignKeyName: "iceberg_namespaces_bucket_id_fkey"
-            columns: ["bucket_id"]
+            foreignKeyName: "iceberg_namespaces_catalog_id_fkey"
+            columns: ["catalog_id"]
             isOneToOne: false
             referencedRelation: "buckets_analytics"
             referencedColumns: ["id"]
@@ -1983,36 +2019,48 @@ export type Database = {
       }
       iceberg_tables: {
         Row: {
-          bucket_id: string
+          bucket_name: string
+          catalog_id: string
           created_at: string
           id: string
           location: string
           name: string
           namespace_id: string
+          remote_table_id: string | null
+          shard_id: string | null
+          shard_key: string | null
           updated_at: string
         }
         Insert: {
-          bucket_id: string
+          bucket_name: string
+          catalog_id: string
           created_at?: string
           id?: string
           location: string
           name: string
           namespace_id: string
+          remote_table_id?: string | null
+          shard_id?: string | null
+          shard_key?: string | null
           updated_at?: string
         }
         Update: {
-          bucket_id?: string
+          bucket_name?: string
+          catalog_id?: string
           created_at?: string
           id?: string
           location?: string
           name?: string
           namespace_id?: string
+          remote_table_id?: string | null
+          shard_id?: string | null
+          shard_key?: string | null
           updated_at?: string
         }
         Relationships: [
           {
-            foreignKeyName: "iceberg_tables_bucket_id_fkey"
-            columns: ["bucket_id"]
+            foreignKeyName: "iceberg_tables_catalog_id_fkey"
+            columns: ["catalog_id"]
             isOneToOne: false
             referencedRelation: "buckets_analytics"
             referencedColumns: ["id"]
@@ -2233,21 +2281,69 @@ export type Database = {
           },
         ]
       }
+      vector_indexes: {
+        Row: {
+          bucket_id: string
+          created_at: string
+          data_type: string
+          dimension: number
+          distance_metric: string
+          id: string
+          metadata_configuration: Json | null
+          name: string
+          updated_at: string
+        }
+        Insert: {
+          bucket_id: string
+          created_at?: string
+          data_type: string
+          dimension: number
+          distance_metric: string
+          id?: string
+          metadata_configuration?: Json | null
+          name: string
+          updated_at?: string
+        }
+        Update: {
+          bucket_id?: string
+          created_at?: string
+          data_type?: string
+          dimension?: number
+          distance_metric?: string
+          id?: string
+          metadata_configuration?: Json | null
+          name?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "vector_indexes_bucket_id_fkey"
+            columns: ["bucket_id"]
+            isOneToOne: false
+            referencedRelation: "buckets_vectors"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
       add_prefixes: {
-        Args: { _bucket_id: string; _name: string }
+        Args: { _name: string; _bucket_id: string }
         Returns: undefined
       }
       can_insert_object: {
-        Args: { bucketid: string; name: string; owner: string; metadata: Json }
+        Args: { metadata: Json; owner: string; name: string; bucketid: string }
+        Returns: undefined
+      }
+      delete_leaf_prefixes: {
+        Args: { bucket_ids: string[]; names: string[] }
         Returns: undefined
       }
       delete_prefix: {
-        Args: { _bucket_id: string; _name: string }
+        Args: { _name: string; _bucket_id: string }
         Returns: boolean
       }
       extension: {
@@ -2277,18 +2373,18 @@ export type Database = {
       get_size_by_bucket: {
         Args: Record<PropertyKey, never>
         Returns: {
-          size: number
           bucket_id: string
+          size: number
         }[]
       }
       list_multipart_uploads_with_delimiter: {
         Args: {
-          bucket_id: string
-          prefix_param: string
           delimiter_param: string
           max_keys?: number
           next_key_token?: string
           next_upload_token?: string
+          bucket_id: string
+          prefix_param: string
         }
         Returns: {
           key: string
@@ -2298,12 +2394,12 @@ export type Database = {
       }
       list_objects_with_delimiter: {
         Args: {
-          bucket_id: string
-          prefix_param: string
-          delimiter_param: string
           max_keys?: number
-          start_after?: string
           next_token?: string
+          start_after?: string
+          delimiter_param: string
+          prefix_param: string
+          bucket_id: string
         }
         Returns: {
           name: string
@@ -2312,12 +2408,17 @@ export type Database = {
           updated_at: string
         }[]
       }
+      lock_top_prefixes: {
+        Args: { names: string[]; bucket_ids: string[] }
+        Returns: undefined
+      }
       operation: {
         Args: Record<PropertyKey, never>
         Returns: string
       }
       search: {
         Args: {
+          sortorder?: string
           prefix: string
           bucketname: string
           limits?: number
@@ -2325,7 +2426,6 @@ export type Database = {
           offsets?: number
           search?: string
           sortcolumn?: string
-          sortorder?: string
         }
         Returns: {
           name: string
@@ -2338,22 +2438,22 @@ export type Database = {
       }
       search_legacy_v1: {
         Args: {
-          prefix: string
-          bucketname: string
           limits?: number
-          levels?: number
-          offsets?: number
-          search?: string
-          sortcolumn?: string
           sortorder?: string
+          sortcolumn?: string
+          search?: string
+          bucketname: string
+          prefix: string
+          offsets?: number
+          levels?: number
         }
         Returns: {
-          name: string
-          id: string
-          updated_at: string
-          created_at: string
-          last_accessed_at: string
           metadata: Json
+          last_accessed_at: string
+          created_at: string
+          updated_at: string
+          id: string
+          name: string
         }[]
       }
       search_v1_optimised: {
@@ -2378,24 +2478,28 @@ export type Database = {
       }
       search_v2: {
         Args: {
+          sort_column_after?: string
+          sort_column?: string
+          sort_order?: string
+          start_after?: string
+          levels?: number
           prefix: string
           bucket_name: string
           limits?: number
-          levels?: number
-          start_after?: string
         }
         Returns: {
-          key: string
-          name: string
           id: string
           updated_at: string
           created_at: string
+          last_accessed_at: string
           metadata: Json
+          key: string
+          name: string
         }[]
       }
     }
     Enums: {
-      buckettype: "STANDARD" | "ANALYTICS"
+      buckettype: "STANDARD" | "ANALYTICS" | "VECTOR"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -2517,7 +2621,7 @@ export const Constants = {
   },
   storage: {
     Enums: {
-      buckettype: ["STANDARD", "ANALYTICS"],
+      buckettype: ["STANDARD", "ANALYTICS", "VECTOR"],
     },
   },
 } as const

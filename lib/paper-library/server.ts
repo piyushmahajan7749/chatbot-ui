@@ -15,6 +15,7 @@ import {
   serverError,
   withOwnedResource
 } from "@/lib/server/firestore-resource"
+import { emitRagDocChanged } from "@/lib/rag/emit"
 import {
   PaperLibraryAddInputSchema,
   normalizeUrl,
@@ -67,6 +68,12 @@ export async function addPaper(request: Request): Promise<Response> {
           updated_at: new Date().toISOString()
         })
         const fresh = await existing.ref.get()
+        emitRagDocChanged({
+          sourceType: "paper_library",
+          sourceId: fresh.id,
+          workspaceId: parsed.data.workspaceId,
+          projectId: null
+        })
         return NextResponse.json({
           id: fresh.id,
           ...fresh.data(),
@@ -92,6 +99,12 @@ export async function addPaper(request: Request): Promise<Response> {
           ? [parsed.data.sourceDesignId]
           : []
       }
+    })
+    emitRagDocChanged({
+      sourceType: "paper_library",
+      sourceId: doc.id,
+      workspaceId: doc.workspace_id,
+      projectId: null
     })
     return NextResponse.json(doc)
   } catch (error) {
@@ -135,6 +148,12 @@ export async function deletePaper(
     if (auth.response) return auth.response
 
     await deleteOwnedDoc({ collection: COLLECTION, doc: auth.doc! })
+    emitRagDocChanged({
+      sourceType: "paper_library",
+      sourceId: paperId,
+      workspaceId: auth.doc?.workspace_id,
+      projectId: null
+    })
     return NextResponse.json({ success: true })
   } catch (error) {
     console.error("[PAPER_LIBRARY] deletePaper failed:", error)

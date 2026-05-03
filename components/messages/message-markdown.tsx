@@ -5,6 +5,70 @@ import { cn } from "@/lib/utils"
 import { MessageCodeBlock } from "./message-codeblock"
 import { MessageMarkdownMemoized } from "./message-markdown-memoized"
 
+/**
+ * Render `[N]` tokens as styled citation chips. When the chat passes a
+ * `sources` array, each chip resolves to the source's URL on click +
+ * shows title/section in a tooltip; otherwise we render plain styled
+ * pills so the answer's reference markers stay visible.
+ */
+const CITATION_RE = /\[(\d{1,3})\]/g
+
+function renderCitations(
+  text: string,
+  sources?: Array<{
+    source_title?: string | null
+    source_url?: string | null
+    source_section?: string | null
+  }>
+): React.ReactNode[] {
+  if (typeof text !== "string" || !text.includes("[")) return [text]
+  const out: React.ReactNode[] = []
+  let lastIndex = 0
+  let match: RegExpExecArray | null
+  CITATION_RE.lastIndex = 0
+  while ((match = CITATION_RE.exec(text)) !== null) {
+    const n = parseInt(match[1], 10)
+    if (match.index > lastIndex) out.push(text.slice(lastIndex, match.index))
+    const src = sources?.[n - 1]
+    const title = src?.source_title ?? `Source ${n}`
+    const section = src?.source_section
+    const tooltip = section ? `${title} — ${section}` : title
+    if (src?.source_url) {
+      out.push(
+        <a
+          key={`cite-${match.index}`}
+          href={src.source_url}
+          target="_blank"
+          rel="noreferrer"
+          title={tooltip}
+          className="bg-rust-soft text-rust hover:bg-rust hover:text-paper mx-0.5 inline-flex h-[18px] min-w-[20px] items-center justify-center rounded-md px-1 align-middle font-mono text-[10.5px] font-semibold no-underline transition-colors"
+        >
+          {n}
+        </a>
+      )
+    } else {
+      out.push(
+        <span
+          key={`cite-${match.index}`}
+          title={tooltip}
+          className="bg-paper-2 text-ink-2 mx-0.5 inline-flex h-[18px] min-w-[20px] items-center justify-center rounded-md px-1 align-middle font-mono text-[10.5px] font-semibold"
+        >
+          {n}
+        </span>
+      )
+    }
+    lastIndex = match.index + match[0].length
+  }
+  if (lastIndex < text.length) out.push(text.slice(lastIndex))
+  return out
+}
+
+export interface MessageCitationSource {
+  source_title?: string | null
+  source_url?: string | null
+  source_section?: string | null
+}
+
 // Enhanced chemical formula and math rendering component
 const ChemicalFormula: React.FC<{ children: React.ReactNode }> = ({
   children
@@ -30,11 +94,18 @@ const ChemicalFormula: React.FC<{ children: React.ReactNode }> = ({
 interface MessageMarkdownProps {
   content: string
   isUser?: boolean
+  /**
+   * Sources used to resolve `[N]` citation markers into clickable chips.
+   * Index N corresponds to `sources[N-1]`. When omitted, markers render
+   * as styled pills without click handlers.
+   */
+  sources?: MessageCitationSource[]
 }
 
 export const MessageMarkdown: FC<MessageMarkdownProps> = ({
   content,
-  isUser = false
+  isUser = false,
+  sources
 }) => {
   // Enhanced content preprocessing for scientific notation
   const preprocessContent = (text: string) => {
@@ -61,8 +132,17 @@ export const MessageMarkdown: FC<MessageMarkdownProps> = ({
       )}
       remarkPlugins={[remarkGfm, remarkMath]}
       components={{
+        // Walk paragraph children, replacing `[N]` tokens inside any
+        // string nodes with citation chips. Non-string children pass
+        // through (so links / formatting inside paragraphs are
+        // preserved).
         p({ children }) {
-          return <p className="mb-2 last:mb-0">{children}</p>
+          const arr = React.Children.toArray(children).flatMap(child =>
+            typeof child === "string"
+              ? renderCitations(child, sources)
+              : [child]
+          )
+          return <p className="mb-2 last:mb-0">{arr}</p>
         },
         img({ node, ...props }) {
           return <img className="max-w-[67%]" {...props} />

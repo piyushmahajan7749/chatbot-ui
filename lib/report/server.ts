@@ -19,6 +19,7 @@ import {
   withOwnedResource,
   type OwnedDocBase
 } from "@/lib/server/firestore-resource"
+import { emitRagDocChanged } from "@/lib/rag/emit"
 import {
   ReportCreateInputSchema,
   ReportPatchInputSchema,
@@ -71,6 +72,13 @@ export async function createReport(request: Request): Promise<Response> {
       collection: COLLECTION,
       workspaceId: auth.workspaceId!,
       payload
+    })
+
+    emitRagDocChanged({
+      sourceType: "report",
+      sourceId: doc.id,
+      workspaceId: doc.workspace_id,
+      projectId: null
     })
 
     return NextResponse.json(doc)
@@ -151,6 +159,14 @@ export async function patchReport(
       doc: auth.doc!,
       patch: parsed.data as Partial<Report & OwnedDocBase>
     })
+
+    emitRagDocChanged({
+      sourceType: "report",
+      sourceId: updated.id,
+      workspaceId: updated.workspace_id,
+      projectId: null
+    })
+
     return NextResponse.json(updated)
   } catch (error) {
     console.error("[REPORTS] patchReport failed:", error)
@@ -170,6 +186,15 @@ export async function deleteReport(
     if (auth.response) return auth.response
 
     await deleteOwnedDoc({ collection: COLLECTION, doc: auth.doc! })
+
+    // Emit so the rag worker clears stale rows for this source.
+    emitRagDocChanged({
+      sourceType: "report",
+      sourceId: reportId,
+      workspaceId: auth.doc?.workspace_id,
+      projectId: null
+    })
+
     return NextResponse.json({ success: true })
   } catch (error) {
     console.error("[REPORTS] deleteReport failed:", error)
