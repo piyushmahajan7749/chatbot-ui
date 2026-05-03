@@ -71,13 +71,30 @@ export const uploadProjectFile = async (params: {
   const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_")
   const storagePath = `${userId}/projects/${projectId}/${fileId}-${safeName}`
 
+  console.log("[uploadProjectFile] storage.upload starting", {
+    bucket: "files",
+    storagePath,
+    size: file.size,
+    type: file.type
+  })
+
   const { error: uploadError } = await supabase.storage
     .from("files")
     .upload(storagePath, file, { upsert: false })
 
   if (uploadError) {
-    throw new Error(uploadError.message || "Failed to upload file")
+    console.error("[uploadProjectFile] storage.upload failed", uploadError)
+    // Surface the specific Supabase error message — common ones:
+    //  • "Bucket not found"  → `files` bucket doesn't exist
+    //  • "new row violates row-level security policy" → storage RLS
+    //    policies on storage.objects don't allow the user's path
+    //  • "The resource already exists" → duplicate path (rare w/ uuid)
+    throw new Error(
+      `Storage upload failed: ${uploadError.message || "unknown error"}`
+    )
   }
+
+  console.log("[uploadProjectFile] storage OK; POSTing metadata")
 
   const res = await fetch(`/api/project-files`, {
     method: "POST",
@@ -96,8 +113,13 @@ export const uploadProjectFile = async (params: {
   if (!res.ok) {
     // Roll back the upload on metadata failure so we don't leak orphan objects.
     await supabase.storage.from("files").remove([storagePath])
-    const msg = await res.text().catch(() => "")
-    throw new Error(msg || `Failed to save file metadata (${res.status})`)
+    const body = await res.json().catch(() => null)
+    const msg =
+      body?.detail ||
+      body?.error ||
+      `Failed to save file metadata (${res.status})`
+    console.error("[uploadProjectFile] metadata POST failed", res.status, body)
+    throw new Error(msg)
   }
 
   return (await res.json()) as ProjectFileMeta

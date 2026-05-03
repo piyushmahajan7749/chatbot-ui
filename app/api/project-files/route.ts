@@ -75,6 +75,7 @@ export async function POST(request: Request) {
     } = await supabase.auth.getUser()
 
     if (authError || !user) {
+      console.warn("[PROJECT_FILES] POST unauthorized")
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
@@ -89,9 +90,27 @@ export async function POST(request: Request) {
       storage_path
     } = body
 
+    console.log("[PROJECT_FILES] POST received", {
+      id,
+      project_id,
+      workspace_id,
+      name,
+      size,
+      hasStoragePath: !!storage_path
+    })
+
     if (!id || !project_id || !workspace_id || !name || !storage_path) {
       return NextResponse.json(
-        { error: "Missing required fields" },
+        {
+          error: "Missing required fields",
+          missing: {
+            id: !id,
+            project_id: !project_id,
+            workspace_id: !workspace_id,
+            name: !name,
+            storage_path: !storage_path
+          }
+        },
         { status: 400 }
       )
     }
@@ -118,6 +137,7 @@ export async function POST(request: Request) {
     }
 
     await adminDb.collection("project_files").doc(id).set(record)
+    console.log("[PROJECT_FILES] POST wrote Firestore doc", id)
 
     emitRagDocChanged({
       sourceType: "project_file",
@@ -127,10 +147,13 @@ export async function POST(request: Request) {
     })
 
     return NextResponse.json(record)
-  } catch (error) {
+  } catch (error: any) {
     console.error("❌ [PROJECT_FILES] Error creating file record:", error)
     return NextResponse.json(
-      { error: "Failed to save file metadata" },
+      {
+        error: "Failed to save file metadata",
+        detail: error?.message ?? String(error)
+      },
       { status: 500 }
     )
   }
