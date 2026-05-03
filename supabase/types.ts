@@ -18,9 +18,9 @@ export type Database = {
       graphql: {
         Args: {
           query?: string
-          variables?: Json
-          extensions?: Json
           operationName?: string
+          extensions?: Json
+          variables?: Json
         }
         Returns: Json
       }
@@ -880,6 +880,10 @@ export type Database = {
           file_path: string
           folder_id: string | null
           id: string
+          index_error: string | null
+          index_status: string
+          index_version: number
+          last_indexed_at: string | null
           name: string
           project_id: string | null
           sharing: string
@@ -895,6 +899,10 @@ export type Database = {
           file_path: string
           folder_id?: string | null
           id?: string
+          index_error?: string | null
+          index_status?: string
+          index_version?: number
+          last_indexed_at?: string | null
           name: string
           project_id?: string | null
           sharing?: string
@@ -910,6 +918,10 @@ export type Database = {
           file_path?: string
           folder_id?: string | null
           id?: string
+          index_error?: string | null
+          index_status?: string
+          index_version?: number
+          last_indexed_at?: string | null
           name?: string
           project_id?: string | null
           sharing?: string
@@ -979,23 +991,38 @@ export type Database = {
       }
       message_file_items: {
         Row: {
+          content_snapshot: string | null
           created_at: string
-          file_item_id: string
+          file_item_id: string | null
+          id: string
           message_id: string
+          rag_item_id: string | null
+          source_title: string | null
+          source_url: string | null
           updated_at: string | null
           user_id: string
         }
         Insert: {
+          content_snapshot?: string | null
           created_at?: string
-          file_item_id: string
+          file_item_id?: string | null
+          id?: string
           message_id: string
+          rag_item_id?: string | null
+          source_title?: string | null
+          source_url?: string | null
           updated_at?: string | null
           user_id: string
         }
         Update: {
+          content_snapshot?: string | null
           created_at?: string
-          file_item_id?: string
+          file_item_id?: string | null
+          id?: string
           message_id?: string
+          rag_item_id?: string | null
+          source_title?: string | null
+          source_url?: string | null
           updated_at?: string | null
           user_id?: string
         }
@@ -1012,6 +1039,13 @@ export type Database = {
             columns: ["message_id"]
             isOneToOne: false
             referencedRelation: "messages"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "message_file_items_rag_item_id_fkey"
+            columns: ["rag_item_id"]
+            isOneToOne: false
+            referencedRelation: "rag_items"
             referencedColumns: ["id"]
           },
         ]
@@ -1285,13 +1319,17 @@ export type Database = {
           image_path: string
           image_url: string
           mistral_api_key: string | null
+          onboarding_step: number
           openai_api_key: string | null
           openai_organization_id: string | null
           openrouter_api_key: string | null
           perplexity_api_key: string | null
           profile_context: string
+          research_field: string | null
+          role: string | null
           updated_at: string | null
           use_azure_openai: boolean
+          use_case: string | null
           user_id: string
           username: string
         }
@@ -1313,13 +1351,17 @@ export type Database = {
           image_path: string
           image_url: string
           mistral_api_key?: string | null
+          onboarding_step?: number
           openai_api_key?: string | null
           openai_organization_id?: string | null
           openrouter_api_key?: string | null
           perplexity_api_key?: string | null
           profile_context: string
+          research_field?: string | null
+          role?: string | null
           updated_at?: string | null
           use_azure_openai: boolean
+          use_case?: string | null
           user_id: string
           username: string
         }
@@ -1341,13 +1383,17 @@ export type Database = {
           image_path?: string
           image_url?: string
           mistral_api_key?: string | null
+          onboarding_step?: number
           openai_api_key?: string | null
           openai_organization_id?: string | null
           openrouter_api_key?: string | null
           perplexity_api_key?: string | null
           profile_context?: string
+          research_field?: string | null
+          role?: string | null
           updated_at?: string | null
           use_azure_openai?: boolean
+          use_case?: string | null
           user_id?: string
           username?: string
         }
@@ -1470,6 +1516,87 @@ export type Database = {
             columns: ["folder_id"]
             isOneToOne: false
             referencedRelation: "folders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      rag_items: {
+        Row: {
+          chunk_index: number
+          content: string
+          contextualized_content: string
+          created_at: string
+          id: string
+          index_version: number
+          metadata: Json
+          openai_embedding: string | null
+          project_id: string | null
+          source_id: string
+          source_section: string | null
+          source_title: string | null
+          source_type: Database["public"]["Enums"]["rag_source_type"]
+          source_updated_at: string | null
+          source_url: string | null
+          tsvector_content: unknown | null
+          updated_at: string
+          user_id: string
+          workspace_id: string
+        }
+        Insert: {
+          chunk_index: number
+          content: string
+          contextualized_content: string
+          created_at?: string
+          id?: string
+          index_version?: number
+          metadata?: Json
+          openai_embedding?: string | null
+          project_id?: string | null
+          source_id: string
+          source_section?: string | null
+          source_title?: string | null
+          source_type: Database["public"]["Enums"]["rag_source_type"]
+          source_updated_at?: string | null
+          source_url?: string | null
+          tsvector_content?: unknown | null
+          updated_at?: string
+          user_id: string
+          workspace_id: string
+        }
+        Update: {
+          chunk_index?: number
+          content?: string
+          contextualized_content?: string
+          created_at?: string
+          id?: string
+          index_version?: number
+          metadata?: Json
+          openai_embedding?: string | null
+          project_id?: string | null
+          source_id?: string
+          source_section?: string | null
+          source_title?: string | null
+          source_type?: Database["public"]["Enums"]["rag_source_type"]
+          source_updated_at?: string | null
+          source_url?: string | null
+          tsvector_content?: unknown | null
+          updated_at?: string
+          user_id?: string
+          workspace_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "rag_items_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rag_items_workspace_id_fkey"
+            columns: ["workspace_id"]
+            isOneToOne: false
+            referencedRelation: "workspaces"
             referencedColumns: ["id"]
           },
         ]
@@ -1822,9 +1949,9 @@ export type Database = {
       }
       delete_messages_including_and_after: {
         Args: {
-          p_user_id: string
           p_sequence_number: number
           p_chat_id: string
+          p_user_id: string
         }
         Returns: undefined
       }
@@ -1836,7 +1963,41 @@ export type Database = {
         Args: { object_path: string; bucket_name: string }
         Returns: Record<string, unknown>
       }
+      gtrgm_compress: {
+        Args: { "": unknown }
+        Returns: unknown
+      }
+      gtrgm_decompress: {
+        Args: { "": unknown }
+        Returns: unknown
+      }
+      gtrgm_in: {
+        Args: { "": unknown }
+        Returns: unknown
+      }
+      gtrgm_options: {
+        Args: { "": unknown }
+        Returns: undefined
+      }
+      gtrgm_out: {
+        Args: { "": unknown }
+        Returns: unknown
+      }
       match_file_items_local: {
+        Args: {
+          match_count?: number
+          file_ids?: string[]
+          query_embedding: string
+        }
+        Returns: {
+          id: string
+          content: string
+          tokens: number
+          similarity: number
+          file_id: string
+        }[]
+      }
+      match_file_items_openai: {
         Args: {
           query_embedding: string
           match_count?: number
@@ -1850,18 +2011,30 @@ export type Database = {
           similarity: number
         }[]
       }
-      match_file_items_openai: {
+      match_rag_items: {
         Args: {
-          match_count?: number
-          file_ids?: string[]
           query_embedding: string
+          query_text: string
+          match_count?: number
+          p_workspace_id?: string
+          p_project_id?: string
+          p_source_types?: Database["public"]["Enums"]["rag_source_type"][]
+          p_exclude_source_ids?: string[]
+          p_only_source_ids?: string[]
         }
         Returns: {
-          id: string
-          file_id: string
+          metadata: Json
+          age_days: number
+          source_section: string
+          source_url: string
+          source_title: string
           content: string
-          tokens: number
+          source_id: string
+          source_type: Database["public"]["Enums"]["rag_source_type"]
+          id: string
+          source_updated_at: string
           similarity: number
+          bm25_rank: number
         }[]
       }
       non_private_assistant_exists: {
@@ -1876,9 +2049,28 @@ export type Database = {
         Args: { p_name: string }
         Returns: boolean
       }
+      set_limit: {
+        Args: { "": number }
+        Returns: number
+      }
+      show_limit: {
+        Args: Record<PropertyKey, never>
+        Returns: number
+      }
+      show_trgm: {
+        Args: { "": string }
+        Returns: string[]
+      }
     }
     Enums: {
-      [_ in never]: never
+      rag_source_type:
+        | "file"
+        | "design"
+        | "report"
+        | "project_file"
+        | "paper_library"
+        | "data_collection"
+        | "chat_message"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -2335,15 +2527,15 @@ export type Database = {
         Returns: undefined
       }
       can_insert_object: {
-        Args: { metadata: Json; owner: string; name: string; bucketid: string }
+        Args: { name: string; owner: string; metadata: Json; bucketid: string }
         Returns: undefined
       }
       delete_leaf_prefixes: {
-        Args: { bucket_ids: string[]; names: string[] }
+        Args: { names: string[]; bucket_ids: string[] }
         Returns: undefined
       }
       delete_prefix: {
-        Args: { _name: string; _bucket_id: string }
+        Args: { _bucket_id: string; _name: string }
         Returns: boolean
       }
       extension: {
@@ -2379,27 +2571,27 @@ export type Database = {
       }
       list_multipart_uploads_with_delimiter: {
         Args: {
-          delimiter_param: string
-          max_keys?: number
-          next_key_token?: string
-          next_upload_token?: string
           bucket_id: string
+          next_upload_token?: string
+          next_key_token?: string
+          max_keys?: number
+          delimiter_param: string
           prefix_param: string
         }
         Returns: {
-          key: string
-          id: string
           created_at: string
+          id: string
+          key: string
         }[]
       }
       list_objects_with_delimiter: {
         Args: {
-          max_keys?: number
-          next_token?: string
           start_after?: string
-          delimiter_param: string
-          prefix_param: string
+          next_token?: string
           bucket_id: string
+          prefix_param: string
+          delimiter_param: string
+          max_keys?: number
         }
         Returns: {
           name: string
@@ -2409,7 +2601,7 @@ export type Database = {
         }[]
       }
       lock_top_prefixes: {
-        Args: { names: string[]; bucket_ids: string[] }
+        Args: { bucket_ids: string[]; names: string[] }
         Returns: undefined
       }
       operation: {
@@ -2418,14 +2610,14 @@ export type Database = {
       }
       search: {
         Args: {
-          sortorder?: string
+          offsets?: number
           prefix: string
           bucketname: string
           limits?: number
           levels?: number
-          offsets?: number
           search?: string
           sortcolumn?: string
+          sortorder?: string
         }
         Returns: {
           name: string
@@ -2438,63 +2630,63 @@ export type Database = {
       }
       search_legacy_v1: {
         Args: {
-          limits?: number
-          sortorder?: string
-          sortcolumn?: string
-          search?: string
-          bucketname: string
           prefix: string
-          offsets?: number
+          bucketname: string
+          limits?: number
           levels?: number
+          offsets?: number
+          search?: string
+          sortcolumn?: string
+          sortorder?: string
         }
         Returns: {
-          metadata: Json
-          last_accessed_at: string
-          created_at: string
-          updated_at: string
           id: string
           name: string
+          updated_at: string
+          created_at: string
+          last_accessed_at: string
+          metadata: Json
         }[]
       }
       search_v1_optimised: {
         Args: {
+          sortorder?: string
+          sortcolumn?: string
+          search?: string
+          offsets?: number
+          levels?: number
+          limits?: number
           prefix: string
           bucketname: string
-          limits?: number
-          levels?: number
-          offsets?: number
-          search?: string
-          sortcolumn?: string
-          sortorder?: string
         }
         Returns: {
-          name: string
+          metadata: Json
           id: string
           updated_at: string
           created_at: string
           last_accessed_at: string
-          metadata: Json
+          name: string
         }[]
       }
       search_v2: {
         Args: {
-          sort_column_after?: string
-          sort_column?: string
-          sort_order?: string
-          start_after?: string
-          levels?: number
           prefix: string
           bucket_name: string
           limits?: number
+          levels?: number
+          start_after?: string
+          sort_order?: string
+          sort_column?: string
+          sort_column_after?: string
         }
         Returns: {
-          id: string
-          updated_at: string
-          created_at: string
           last_accessed_at: string
-          metadata: Json
           key: string
           name: string
+          id: string
+          created_at: string
+          updated_at: string
+          metadata: Json
         }[]
       }
     }
@@ -2617,7 +2809,17 @@ export const Constants = {
     Enums: {},
   },
   public: {
-    Enums: {},
+    Enums: {
+      rag_source_type: [
+        "file",
+        "design",
+        "report",
+        "project_file",
+        "paper_library",
+        "data_collection",
+        "chat_message",
+      ],
+    },
   },
   storage: {
     Enums: {
