@@ -27,23 +27,40 @@ export async function GET(request: Request) {
       )
     }
 
+    // Two-clause where + orderBy(created_at desc) requires a composite
+    // index on (user_id, project_id, created_at). Fresh Firestore
+    // projects don't have it, and a missing index returns
+    // FAILED_PRECONDITION which surfaced as opaque 500s on the project
+    // dashboard. Drop the orderBy and sort in-memory — workspace-sized
+    // file lists are small enough that the cost is irrelevant.
     const snapshot = await adminDb
       .collection("project_files")
       .where("user_id", "==", user.id)
       .where("project_id", "==", projectId)
-      .orderBy("created_at", "desc")
       .get()
 
-    const files = snapshot.docs.map((doc: QueryDocumentSnapshot) => ({
-      id: doc.id,
-      ...doc.data()
-    }))
+    const files = snapshot.docs
+      .map((doc: QueryDocumentSnapshot) => ({
+        id: doc.id,
+        ...(doc.data() as any)
+      }))
+      .sort((a: any, b: any) => {
+        const aTs = new Date(a.created_at ?? 0).getTime()
+        const bTs = new Date(b.created_at ?? 0).getTime()
+        return bTs - aTs
+      })
 
     return NextResponse.json({ files })
-  } catch (error) {
+  } catch (error: any) {
     console.error("❌ [PROJECT_FILES] Error fetching files:", error)
+    // Surface the underlying message (Firestore errors are descriptive
+    // — index hints, permission detail) so the chrome console shows
+    // something actionable instead of just "Failed to fetch".
     return NextResponse.json(
-      { error: "Failed to fetch project files" },
+      {
+        error: "Failed to fetch project files",
+        detail: error?.message ?? String(error)
+      },
       { status: 500 }
     )
   }
