@@ -28,6 +28,7 @@ import {
 } from "@/components/design-flow/stepper"
 import { ScopedChatRail } from "@/components/canvas/scoped-chat-rail"
 import { SplitRailLayout } from "@/components/canvas/split-rail-layout"
+import { addPaperToLibrary } from "@/db/paper-library"
 import { ChatbotUIContext } from "@/context/context"
 import { useToast } from "@/app/hooks/use-toast"
 import { cn } from "@/lib/utils"
@@ -251,7 +252,11 @@ export default function DesignDetailPage() {
 
   const [design, setDesign] = useState<any>(null)
   const [loading, setLoading] = useState(true)
-  const [activeTab, setActiveTab] = useState("overview")
+  // Default landing tab is "problem" — newly-created designs should drop the
+  // user straight into editing instead of showing the Overview placeholder.
+  // Once the loader sees an `approvedPhases` list with progress past Problem,
+  // the resume effect below jumps to the first non-approved phase.
+  const [activeTab, setActiveTab] = useState("problem")
   const [busy, setBusy] = useState<
     | null
     | "literature"
@@ -387,12 +392,11 @@ export default function DesignDetailPage() {
       const problem = content?.problem ?? {}
       const loadedTitle = problem.title ?? data.name ?? ""
       setTitle(loadedTitle)
-      const rawStatement = problem.problemStatement ?? data.description ?? ""
-      setProblemStatement(
-        rawStatement.trim().toLowerCase() === loadedTitle.trim().toLowerCase()
-          ? ""
-          : rawStatement
-      )
+      // Always preserve the user-supplied problem statement. The previous
+      // heuristic wiped it when it equalled the title (a workaround for
+      // legacy seeding that mirrored title→description); now create-design
+      // sends both fields explicitly so we trust what we get.
+      setProblemStatement(problem.problemStatement ?? data.description ?? "")
       setDomain((problem.domain as DesignDomain | undefined) ?? "")
       setPhase((problem.phase as DesignPhase | undefined) ?? "")
       setObjective(problem.objective ?? problem.goal ?? "")
@@ -814,6 +818,55 @@ export default function DesignDetailPage() {
     })
   }
 
+  /**
+   * Save paper into the workspace paper library + open the source URL in a
+   * new tab so the user can read / actually download. Library save is
+   * fire-and-forget — failures only log; the user-visible action (open
+   * URL) always runs.
+   */
+  const handleDownloadPaper = (paper: Paper) => {
+    if (paper.sourceUrl) {
+      window.open(paper.sourceUrl, "_blank", "noopener,noreferrer")
+    }
+    if (!workspaceId) return
+    void addPaperToLibrary({
+      workspaceId,
+      paper: {
+        title: paper.title,
+        url: paper.sourceUrl || "",
+        summary: paper.summary || "",
+        authors: paper.authors ?? [],
+        year: paper.year || "",
+        journal: paper.journal || "",
+        source: paper.source || undefined
+      },
+      sourceDesignId: designId
+    })
+      .then((res: any) => {
+        if (res?.deduplicated) {
+          // Already in library — keep the toast quiet to avoid noise on
+          // repeat clicks. Just a console line for observability.
+          console.log("[paper-library] paper already saved:", paper.title)
+        } else {
+          toast({
+            title: "Saved to library",
+            description: `"${paper.title.slice(0, 60)}" added to workspace papers.`
+          })
+        }
+      })
+      .catch(err => {
+        console.warn("[paper-library] save failed:", err)
+        // Don't block the user — the URL already opened. Surface a soft
+        // toast so they know the library save didn't take.
+        toast({
+          title: "Couldn't save to library",
+          description:
+            err?.message ?? "Paper opened, but workspace save failed.",
+          variant: "destructive"
+        })
+      })
+  }
+
   const handleUploadPdfs = (files: FileList | null) => {
     if (!files || files.length === 0) return
     const added: Paper[] = Array.from(files)
@@ -904,7 +957,9 @@ export default function DesignDetailPage() {
       if (!statisticalAnalysis?.trim()) {
         throw new Error("Agent returned empty statistics")
       }
-      await handleEditSection(
+      // Upsert (not edit-only) so external designs that don't yet have a
+      // Statistical Analysis section get one created on first review.
+      await handleUpsertSection(
         targetGeneratedDesignId,
         "Statistical Analysis",
         statisticalAnalysis.trim()
@@ -1429,6 +1484,20 @@ export default function DesignDetailPage() {
                 <h1 className="text-ink-900 text-xl font-bold">
                   {title || design.name || "Untitled Design"}
                 </h1>
+                {/* Persistent context strip — problem statement is the second
+                    most important piece of context after the title and stays
+                    visible across every stage of the timeline. */}
+                {problemStatement?.trim() && (
+                  <div
+                    className="text-ink-500 mt-0.5 line-clamp-1 max-w-screen-sm text-[12.5px]"
+                    title={problemStatement}
+                  >
+                    <span className="text-ink-400 mr-1.5 font-medium uppercase tracking-wider">
+                      Problem
+                    </span>
+                    {problemStatement}
+                  </div>
+                )}
               </div>
             </div>
 
@@ -1445,7 +1514,7 @@ export default function DesignDetailPage() {
                 }
               >
                 <IconSparkles size={14} className="shrink-0" />
-                Agent
+                Chat
               </button>
             </div>
           </div>
@@ -1557,6 +1626,7 @@ export default function DesignDetailPage() {
                 isSearching={busy === "literature"}
                 progress={literatureProgress}
                 onRevise={() => handleRevisePhase("literature")}
+                onDownloadPaper={handleDownloadPaper}
               />
             )}
 
@@ -1595,10 +1665,6 @@ export default function DesignDetailPage() {
                 designVersions={designVersions}
                 onRestoreVersion={handleRestoreDesignVersion}
                 onEditSection={handleEditSection}
-                onReviewStatistics={handleReviewStatistics}
-                statsBusy={busy === "stats-review"}
-                onMakePlan={handleMakePlan}
-                planBusy={busy === "make-plan"}
               />
             )}
 
@@ -2053,6 +2119,8 @@ function LiteratureTab(props: {
   isSearching?: boolean
   progress?: LiteratureProgress[]
   onRevise: () => void
+  /** Save the paper to the workspace paper library + trigger browser open. */
+  onDownloadPaper: (paper: Paper) => void
 }) {
   const {
     papers,
@@ -2066,7 +2134,8 @@ function LiteratureTab(props: {
     isBusy,
     isSearching,
     progress,
-    onRevise
+    onRevise,
+    onDownloadPaper
   } = props
 
   return (
@@ -2238,16 +2307,33 @@ function LiteratureTab(props: {
                       </a>
                     )}
                   </div>
-                  {!isApproved && (
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => onDeletePaper(paper.id)}
-                      className="text-ink-3 hover:text-destructive"
-                    >
-                      <IconTrash size={14} />
-                    </Button>
-                  )}
+                  <div className="flex shrink-0 items-center gap-1">
+                    {paper.sourceUrl && (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={e => {
+                          e.stopPropagation()
+                          onDownloadPaper(paper)
+                        }}
+                        className="text-ink-3 hover:text-ink"
+                        title="Download paper + save to workspace library"
+                      >
+                        <IconDownload size={14} />
+                      </Button>
+                    )}
+                    {!isApproved && (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => onDeletePaper(paper.id)}
+                        className="text-ink-3 hover:text-destructive"
+                        title="Remove paper"
+                      >
+                        <IconTrash size={14} />
+                      </Button>
+                    )}
+                  </div>
                 </div>
               ))}
             </div>
@@ -2367,6 +2453,37 @@ function HypothesesTab(props: {
               />
               <div className="min-w-0 flex-1">
                 <p className="text-ink-900 text-sm leading-relaxed">{h.text}</p>
+                {/* Cited-from chips: surface paper titles inline so the user
+                    sees the evidence chain without opening the popover. */}
+                {h.basedOnPaperIds.length > 0 && (
+                  <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                    <span className="text-ink-400 text-[10px] font-bold uppercase tracking-wide">
+                      Cited from
+                    </span>
+                    {h.basedOnPaperIds.slice(0, 3).map(pid => {
+                      const paper = paperById.get(pid)
+                      const label = paper?.title
+                        ? paper.title.length > 60
+                          ? `${paper.title.slice(0, 60)}…`
+                          : paper.title
+                        : `Reference ${pid}`
+                      return (
+                        <span
+                          key={pid}
+                          title={paper?.title ?? pid}
+                          className="text-ink-700 border-ink-200 bg-ink-50 inline-flex max-w-[220px] truncate rounded-full border px-2 py-0.5 text-[10.5px]"
+                        >
+                          {label}
+                        </span>
+                      )
+                    })}
+                    {h.basedOnPaperIds.length > 3 && (
+                      <span className="text-ink-400 text-[10.5px]">
+                        +{h.basedOnPaperIds.length - 3} more
+                      </span>
+                    )}
+                  </div>
+                )}
                 <Popover>
                   <PopoverTrigger asChild>
                     <button className="text-purple-persona hover:bg-purple-persona-tint mt-2 inline-flex items-center gap-1 rounded px-2 py-1 text-[11px] font-semibold">
@@ -2380,7 +2497,19 @@ function HypothesesTab(props: {
                         <div className="text-ink-400 text-[10px] font-bold uppercase tracking-wide">
                           Reasoning
                         </div>
-                        <p className="text-ink-700 mt-1">{h.reasoning}</p>
+                        {/* Render multi-paragraph reasoning legibly. The
+                            model often emits a 3-paragraph structure
+                            (premise → mechanism → prediction) — splitting on
+                            blank lines keeps that intact. */}
+                        <div className="text-ink-700 mt-1 space-y-2 leading-relaxed">
+                          {(h.reasoning ?? "")
+                            .split(/\n{2,}|\r{2,}/)
+                            .map(s => s.trim())
+                            .filter(Boolean)
+                            .map((para, i) => (
+                              <p key={i}>{para}</p>
+                            ))}
+                        </div>
                       </div>
                       <div>
                         <div className="text-ink-400 text-[10px] font-bold uppercase tracking-wide">
@@ -2728,6 +2857,21 @@ function DesignSectionContent(props: {
   )
 }
 
+/**
+ * Synthesize a short tab label from the full hypothesis text. We don't ask
+ * the model for a title — the user is browsing several hypotheses side by
+ * side and wants something quick to scan. ~6 words is enough to recognize
+ * the hypothesis without dominating the tab strip.
+ */
+function autoTitleFromHypothesis(text?: string): string {
+  if (!text) return "Untitled"
+  const cleaned = text.trim().replace(/\s+/g, " ")
+  if (!cleaned) return "Untitled"
+  const words = cleaned.split(" ")
+  const head = words.slice(0, 6).join(" ")
+  return words.length > 6 ? `${head}…` : head
+}
+
 function DesignTab(props: {
   designs: GeneratedDesign[]
   hypotheses: Hypothesis[]
@@ -2750,10 +2894,6 @@ function DesignTab(props: {
     heading: string,
     nextBody: string
   ) => Promise<void>
-  onReviewStatistics?: (designId: string) => Promise<void>
-  statsBusy?: boolean
-  onMakePlan?: () => void
-  planBusy?: boolean
 }) {
   const {
     designs,
@@ -2772,11 +2912,7 @@ function DesignTab(props: {
     onRevise,
     designVersions = [],
     onRestoreVersion,
-    onEditSection,
-    onReviewStatistics,
-    statsBusy,
-    onMakePlan,
-    planBusy
+    onEditSection
   } = props
 
   // Look up the hypothesis backing the active design so we can show its
@@ -2816,11 +2952,19 @@ function DesignTab(props: {
           <div className="flex flex-wrap gap-2">
             {designs.map(d => {
               const isActive = d.id === (activeId ?? designs[0].id)
+              const hyp = hypotheses.find(h => h.id === d.hypothesisId)
+              const hypIdx = hyp
+                ? hypotheses.findIndex(h => h.id === hyp.id) + 1
+                : null
+              const shortHyp = autoTitleFromHypothesis(hyp?.text)
+              const tabLabel = hyp
+                ? `Hypothesis #${hypIdx}: ${shortHyp}`
+                : d.title
               return (
                 <button
                   key={d.id}
                   onClick={() => onSelect(d.id)}
-                  title={d.title}
+                  title={hyp?.text ?? d.title}
                   className={
                     "flex max-w-full items-center gap-2 whitespace-normal break-words rounded-lg border px-3 py-1.5 text-left text-xs font-semibold transition-colors md:max-w-[360px] " +
                     (isActive
@@ -2828,7 +2972,7 @@ function DesignTab(props: {
                       : "border-ink-200 text-ink-500 hover:bg-ink-100")
                   }
                 >
-                  <span className="min-w-0 flex-1">{d.title}</span>
+                  <span className="min-w-0 flex-1">{tabLabel}</span>
                   {d.saved && (
                     <span
                       aria-label="Saved"
@@ -2873,41 +3017,11 @@ function DesignTab(props: {
                       </div>
                     )}
                   </div>
-                  {/* Per-design actions: stats review + make plan. */}
-                  <div className="flex shrink-0 flex-wrap items-center gap-2">
-                    {onReviewStatistics && (
-                      <Button
-                        variant="default"
-                        size="sm"
-                        disabled={statsBusy || isApproved}
-                        onClick={() => onReviewStatistics(activeDesign.id)}
-                        title={
-                          isApproved
-                            ? "Revise the design phase to edit"
-                            : "Re-run only the statistical analysis section"
-                        }
-                      >
-                        <IconChartBar size={13} />
-                        {statsBusy ? "Reviewing…" : "Check statistics"}
-                      </Button>
-                    )}
-                    {onMakePlan && (
-                      <Button
-                        variant="default"
-                        size="sm"
-                        disabled={planBusy || isApproved}
-                        onClick={onMakePlan}
-                        title={
-                          isApproved
-                            ? "Revise the design phase to modify"
-                            : "Generate a timed execution plan from this design"
-                        }
-                      >
-                        <IconClipboardText size={13} />
-                        {planBusy ? "Planning…" : "Make a plan"}
-                      </Button>
-                    )}
-                  </div>
+                  {/* Per-design "Check statistics" + "Make a plan" actions
+                      were removed from this view. Both flows are now reached
+                      via the dashboard "New design" dropdown using the
+                      `check-stats` / `make-plan` modes against an existing
+                      design. */}
                   {designVersions.length > 0 && onRestoreVersion && (
                     <Popover>
                       <PopoverTrigger asChild>

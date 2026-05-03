@@ -82,6 +82,7 @@ export default function ReportDetailPage() {
   const [regeneratingKey, setRegeneratingKey] = useState<string | null>(null)
   const [regeneratingChart, setRegeneratingChart] = useState(false)
   const [showPreview, setShowPreview] = useState(false)
+  const [isSavingNow, setIsSavingNow] = useState(false)
   const sectionSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const [elnConnections, setElnConnections] = useState<ELNConnection[]>([])
@@ -309,7 +310,12 @@ export default function ReportDetailPage() {
         })
       })
       if (!response.ok) {
-        throw new Error(`Regeneration failed (${response.status})`)
+        const detail = await response
+          .json()
+          .catch(() => ({ error: response.statusText }))
+        throw new Error(
+          detail.error || `Regeneration failed (${response.status})`
+        )
       }
       const data = await response.json()
       const nextDraft = {
@@ -326,6 +332,36 @@ export default function ReportDetailPage() {
       )
     } finally {
       setRegeneratingKey(null)
+    }
+  }
+
+  /**
+   * Explicit "Save now" — flushes any pending autosave timer and writes the
+   * latest draft + objective immediately. Useful before navigating away or
+   * exporting, when the 800ms debounce hasn't fired yet.
+   */
+  const handleSaveNow = async () => {
+    if (isSavingNow) return
+    setIsSavingNow(true)
+    if (sectionSaveTimer.current) {
+      clearTimeout(sectionSaveTimer.current)
+      sectionSaveTimer.current = null
+    }
+    if (objectiveSaveTimer.current) {
+      clearTimeout(objectiveSaveTimer.current)
+      objectiveSaveTimer.current = null
+    }
+    try {
+      await updateReport(reportId, {
+        report_draft: report?.report_draft ?? null,
+        description: objective
+      })
+      sonnerToast.success("Saved")
+    } catch (error: any) {
+      console.error("Save failed:", error)
+      sonnerToast.error(`Save failed: ${error?.message ?? "Unknown error"}`)
+    } finally {
+      setIsSavingNow(false)
     }
   }
 
@@ -579,6 +615,17 @@ export default function ReportDetailPage() {
           <div className="flex items-center gap-2">
             {hasDraft && (
               <>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="gap-2"
+                  onClick={handleSaveNow}
+                  disabled={isSavingNow}
+                  title="Flush any pending edits to the server"
+                >
+                  <FileText className="size-4" />
+                  {isSavingNow ? "Saving…" : "Save"}
+                </Button>
                 <Button
                   variant="outline"
                   size="sm"

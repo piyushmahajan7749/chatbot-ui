@@ -15,6 +15,21 @@ export const getReports = async (userId: string) => {
   }
 }
 
+export const getReportsByProject = async (
+  _userId: string,
+  projectId: string
+) => {
+  try {
+    const response = await fetch(`/api/reports?projectId=${projectId}`)
+    if (!response.ok) throw new Error("Failed to fetch reports for project")
+    const data = await response.json()
+    return data.reports || []
+  } catch (error) {
+    console.error("[Reports API] Error getting reports by project:", error)
+    return []
+  }
+}
+
 export const getReportsByWorkspaceId = async (workspaceId: string) => {
   try {
     const response = await fetch(`/api/reports?workspaceId=${workspaceId}`)

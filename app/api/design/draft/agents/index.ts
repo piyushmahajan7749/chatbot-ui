@@ -207,11 +207,11 @@ export async function callLiteratureScoutAgent(
       .filter(Boolean)
       .join("\n")
 
-    // PaperFinder is best-effort: if it fails, we still run the pipeline with no citations.
-    // We want a richer library surfaced in the UI (CEO feedback: 8–10 papers
-    // was too few). Default target is now 15 unique papers; early-exit still
-    // kicks in once we hit that threshold.
-    const minPapers = searchOptions.minPapers ?? 15
+    // PaperFinder is best-effort: if it fails, we still run the pipeline
+    // with no citations. Target 10 unique papers per round — keeps the
+    // literature shortlist scannable while staying within the 8–10 band the
+    // product asks for. Early-exit fires once we hit this threshold.
+    const minPapers = searchOptions.minPapers ?? 10
     const excludeUrls = new Set(
       (searchOptions.excludeUrls ?? [])
         .filter(Boolean)

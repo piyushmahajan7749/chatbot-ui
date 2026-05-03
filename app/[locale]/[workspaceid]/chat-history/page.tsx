@@ -9,18 +9,34 @@ import type { AccentKey } from "@/components/canvas/accent-tabs"
 import { ChatbotUIContext } from "@/context/context"
 import { useToast } from "@/app/hooks/use-toast"
 import { createChat, getChatsByWorkspaceId } from "@/db/chats"
+import { getReportsByWorkspaceId } from "@/db/reports-firestore"
+import { getFileWorkspacesByWorkspaceId } from "@/db/files"
 import { supabase } from "@/lib/supabase/browser-client"
 import type { Tables } from "@/supabase/types"
-import { IconMessagePlus, IconSearch, IconMessages } from "@tabler/icons-react"
+import {
+  IconFile,
+  IconFileText,
+  IconMessagePlus,
+  IconMessages,
+  IconSearch
+} from "@tabler/icons-react"
 import { cn } from "@/lib/utils"
 
-type ScopeFilter = "all" | "workspace" | "project" | "design"
+type ScopeFilter =
+  | "all"
+  | "workspace"
+  | "project"
+  | "design"
+  | "reports"
+  | "files"
 
 const FILTERS: { key: ScopeFilter; label: string; accent: AccentKey }[] = [
   { key: "all", label: "All", accent: "neutral" },
   { key: "workspace", label: "Workspace", accent: "sage-brand" },
   { key: "project", label: "Project", accent: "teal-journey" },
-  { key: "design", label: "Design", accent: "purple-persona" }
+  { key: "design", label: "Design", accent: "purple-persona" },
+  { key: "reports", label: "Reports", accent: "orange-product" },
+  { key: "files", label: "Files", accent: "neutral" }
 ]
 
 const SCOPE_ACCENT: Record<string, AccentKey> = {
@@ -39,6 +55,8 @@ export default function ChatHistoryPage() {
   const locale = params.locale as string
 
   const [chats, setChats] = useState<Tables<"chats">[]>([])
+  const [reports, setReports] = useState<any[]>([])
+  const [files, setFiles] = useState<Tables<"files">[]>([])
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState<ScopeFilter>("all")
   const [search, setSearch] = useState("")
@@ -47,18 +65,28 @@ export default function ChatHistoryPage() {
   useEffect(() => {
     let cancelled = false
     setLoading(true)
-    getChatsByWorkspaceId(workspaceId)
-      .then(rows => {
-        if (!cancelled) setChats(rows as Tables<"chats">[])
-      })
-      .catch(err => {
-        console.error("Failed to load chat history:", err)
-        if (!cancelled) {
-          toast({
-            title: "Error",
-            description: "Failed to load chat history.",
-            variant: "destructive"
-          })
+    // Fan out — chats are the primary feed but reports + files share the
+    // same surface as adjacent chat targets. Each promise is best-effort:
+    // a failed report/file fetch shouldn't blank the whole page.
+    Promise.allSettled([
+      getChatsByWorkspaceId(workspaceId),
+      getReportsByWorkspaceId(workspaceId),
+      getFileWorkspacesByWorkspaceId(workspaceId).then(
+        ws => (ws as any).files ?? []
+      )
+    ])
+      .then(([chatRes, reportRes, fileRes]) => {
+        if (cancelled) return
+        if (chatRes.status === "fulfilled") {
+          setChats(chatRes.value as Tables<"chats">[])
+        } else {
+          console.error("Failed to load chats:", chatRes.reason)
+        }
+        if (reportRes.status === "fulfilled") {
+          setReports(reportRes.value as any[])
+        }
+        if (fileRes.status === "fulfilled") {
+          setFiles(fileRes.value as Tables<"files">[])
         }
       })
       .finally(() => {
@@ -71,6 +99,7 @@ export default function ChatHistoryPage() {
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase()
+    if (filter === "reports" || filter === "files") return chats // unused — feeds below
     return chats.filter(c => {
       const scopeMatch =
         filter === "all"
@@ -82,6 +111,22 @@ export default function ChatHistoryPage() {
       return scopeMatch && searchMatch
     })
   }, [chats, filter, search])
+
+  const filteredReports = useMemo(() => {
+    const q = search.trim().toLowerCase()
+    if (!q) return reports
+    return reports.filter(r =>
+      (r.name || r.description || "").toLowerCase().includes(q)
+    )
+  }, [reports, search])
+
+  const filteredFiles = useMemo(() => {
+    const q = search.trim().toLowerCase()
+    if (!q) return files
+    return files.filter(f =>
+      (f.name || f.description || "").toLowerCase().includes(q)
+    )
+  }, [files, search])
 
   const getTimeAgo = (date: string | null): string => {
     if (!date) return ""
@@ -204,6 +249,62 @@ export default function ChatHistoryPage() {
         <div className="flex h-64 items-center justify-center">
           <div className="border-ink-200 border-t-teal-journey size-8 animate-spin rounded-full border-2" />
         </div>
+      ) : filter === "reports" ? (
+        filteredReports.length === 0 ? (
+          <div className="flex h-64 flex-col items-center justify-center gap-2 text-center">
+            <IconFileText size={36} className="text-ink-200" />
+            <p className="text-ink-400 text-sm">
+              {search
+                ? "No reports match this search."
+                : "No reports yet in this workspace."}
+            </p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            {filteredReports.map(r => (
+              <EntityCard
+                key={r.id}
+                title={r.name || "Untitled report"}
+                badges={["report"]}
+                chips={[
+                  { label: "report", filled: true, accent: "orange-product" }
+                ]}
+                timestampLabel="Updated"
+                timestamp={getTimeAgo(r.updated_at || r.created_at)}
+                onClick={() =>
+                  router.push(`/${locale}/${workspaceId}/reports/${r.id}`)
+                }
+              />
+            ))}
+          </div>
+        )
+      ) : filter === "files" ? (
+        filteredFiles.length === 0 ? (
+          <div className="flex h-64 flex-col items-center justify-center gap-2 text-center">
+            <IconFile size={36} className="text-ink-200" />
+            <p className="text-ink-400 text-sm">
+              {search
+                ? "No files match this search."
+                : "No files in this workspace yet."}
+            </p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+            {filteredFiles.map(f => (
+              <EntityCard
+                key={f.id}
+                title={f.name || "Untitled file"}
+                badges={[f.type ?? "file"]}
+                chips={[
+                  { label: f.type ?? "file", filled: true, accent: "neutral" }
+                ]}
+                timestampLabel="Updated"
+                timestamp={getTimeAgo(f.updated_at || f.created_at)}
+                onClick={() => undefined}
+              />
+            ))}
+          </div>
+        )
       ) : filtered.length === 0 ? (
         <div className="flex h-64 flex-col items-center justify-center gap-2 text-center">
           <IconMessages size={36} className="text-ink-200" />

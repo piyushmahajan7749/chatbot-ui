@@ -55,25 +55,48 @@ export const handleRetrieval = async (
   embeddingsProvider: "openai" | "local",
   sourceCount: number
 ) => {
+  const fileIds = [...newMessageFiles, ...chatFiles].map(file => file.id)
+
+  // Common silent-failure mode: caller fired retrieval but no files were
+  // actually attached to the chat. The endpoint returns an empty match list
+  // and the model answers from its own weights — looking like RAG was off.
+  if (fileIds.length === 0) {
+    console.warn(
+      "[retrieval] No fileIds attached to chat — RAG produced no chunks. " +
+        "Attach files to the chat (paper-clip icon) or via project files."
+    )
+    return []
+  }
+
   const response = await fetch("/api/retrieval/retrieve", {
     method: "POST",
     body: JSON.stringify({
       userInput,
-      fileIds: [...newMessageFiles, ...chatFiles].map(file => file.id),
+      fileIds,
       embeddingsProvider,
       sourceCount
     })
   })
 
   if (!response.ok) {
-    console.error("Error retrieving:", response)
+    console.error("[retrieval] Error retrieving:", response)
+    return []
   }
 
   const { results } = (await response.json()) as {
     results: Tables<"file_items">[]
   }
 
-  return results
+  if (!results || results.length === 0) {
+    console.warn(
+      `[retrieval] 0 chunks matched query against ${fileIds.length} file(s). ` +
+        "Check: (a) files have been processed (file_items rows exist), " +
+        "(b) embeddingsProvider matches the one used at ingest time, " +
+        "(c) query is specific enough to score above similarity threshold."
+    )
+  }
+
+  return results ?? []
 }
 
 export const createTempMessages = (

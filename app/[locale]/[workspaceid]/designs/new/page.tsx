@@ -11,7 +11,9 @@ import {
 const VALID_MODES: CreateDesignMode[] = [
   "from-scratch",
   "from-hypothesis",
-  "from-plan"
+  "from-plan",
+  "check-stats",
+  "make-plan"
 ]
 
 function parseMode(raw: string | null): CreateDesignMode {
