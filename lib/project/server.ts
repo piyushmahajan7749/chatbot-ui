@@ -75,11 +75,15 @@ export async function listProjects(request: Request): Promise<Response> {
     const sortBy = VALID_SORT_FIELDS.has(sortByRaw) ? sortByRaw : "updated_at"
     const sortOrder: "asc" | "desc" = sortOrderRaw === "asc" ? "asc" : "desc"
 
+    // user_id (added by listOwnedDocs) + workspace_id + orderBy needs a
+    // 3-field composite Firestore index. Sort in-memory so fresh
+    // deployments work without index management.
     let projects = await listOwnedDocs<Project>({
       user: auth.user,
       collection: COLLECTION,
       where: [["workspace_id", "==", workspaceId]],
-      orderBy: { field: sortBy, dir: sortOrder }
+      orderBy: "in-memory",
+      inMemorySort: { field: sortBy, dir: sortOrder }
     })
 
     // Firestore doesn't support `ilike` — filter in memory.

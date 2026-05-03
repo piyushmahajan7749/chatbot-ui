@@ -42,11 +42,12 @@ jest.mock("@/lib/design/sharing", () => ({
 jest.mock("@/lib/firebase/admin", () => ({
   __esModule: true,
   adminDb: {
+    // Post-Firestore-index-sweep, the shared-with-me path drops
+    // `.orderBy(...)` (composite index would otherwise be required) and
+    // sorts in-memory. Mock now resolves `.where(...).get()` directly.
     collection: () => ({
       where: () => ({
-        orderBy: () => ({
-          get: () => mockSharedSnapshot()
-        })
+        get: () => mockSharedSnapshot()
       })
     })
   }

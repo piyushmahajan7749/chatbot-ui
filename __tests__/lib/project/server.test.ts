@@ -104,7 +104,11 @@ describe("listProjects", () => {
     expect(res.status).toBe(200)
     const opts = mockListOwnedDocs.mock.calls[0][0]
     expect(opts.where).toEqual([["workspace_id", "==", "w1"]])
-    expect(opts.orderBy).toEqual({ field: "name", dir: "asc" })
+    // Post-index-sweep: orderBy is "in-memory" (composite Firestore
+    // index would otherwise be required); sort field carried in
+    // `inMemorySort`.
+    expect(opts.orderBy).toBe("in-memory")
+    expect(opts.inMemorySort).toEqual({ field: "name", dir: "asc" })
   })
 
   test("rejects unsafe sortBy by falling back to updated_at", async () => {
@@ -113,7 +117,9 @@ describe("listProjects", () => {
     await listProjects(
       new Request("http://x/api/projects?workspaceId=w1&sortBy=__proto__")
     )
-    expect(mockListOwnedDocs.mock.calls[0][0].orderBy.field).toBe("updated_at")
+    expect(mockListOwnedDocs.mock.calls[0][0].inMemorySort.field).toBe(
+      "updated_at"
+    )
   })
 
   test("client-side searchTerm filter", async () => {

@@ -179,10 +179,20 @@ export async function listOwnedDocs<T = DocumentData>(
 
   if (opts.orderBy === "in-memory" && opts.inMemorySort) {
     const { field, dir } = opts.inMemorySort
+    const sign = dir === "asc" ? 1 : -1
     rows = rows.sort((a: any, b: any) => {
-      const av = new Date(a[field] || a.created_at || 0).getTime()
-      const bv = new Date(b[field] || b.created_at || 0).getTime()
-      return dir === "asc" ? av - bv : bv - av
+      const av = a[field]
+      const bv = b[field]
+      // Date-like ISO timestamps sort lexicographically the same as
+      // numeric — use string comparison as the generic path so this
+      // helper handles `name`, `created_at`, `updated_at` uniformly.
+      // Nullish values sort last in either direction.
+      if (av == null && bv == null) return 0
+      if (av == null) return 1
+      if (bv == null) return -1
+      if (av < bv) return -1 * sign
+      if (av > bv) return 1 * sign
+      return 0
     })
   }
 

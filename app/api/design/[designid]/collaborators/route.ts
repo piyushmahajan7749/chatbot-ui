@@ -38,16 +38,24 @@ export async function GET(
   const auth = await authorizeOwner(params.designid)
   if ("error" in auth) return auth.error
 
+  // where + orderBy on a different field requires a composite Firestore
+  // index. Drop the orderBy and sort in-memory — collaborator lists are
+  // small enough that the cost is negligible.
   const snap = await adminDb
     .collection("design_permissions")
     .where("design_id", "==", params.designid)
-    .orderBy("created_at", "desc")
     .get()
 
-  const collaborators = snap.docs.map((d: any) => ({
-    id: d.id,
-    ...d.data()
-  })) as DesignPermission[]
+  const collaborators = snap.docs
+    .map((d: any) => ({
+      id: d.id,
+      ...d.data()
+    }))
+    .sort(
+      (a: any, b: any) =>
+        new Date(b.created_at ?? 0).getTime() -
+        new Date(a.created_at ?? 0).getTime()
+    ) as DesignPermission[]
 
   return NextResponse.json({ collaborators })
 }

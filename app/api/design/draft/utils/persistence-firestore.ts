@@ -181,13 +181,15 @@ export async function saveTournamentMatch(
 export async function getTournamentMatchesByPlanId(
   planId: string
 ): Promise<TournamentMatch[]> {
+  // where + orderBy on a different field requires a composite Firestore
+  // index. Sort in-memory after fetching all matches for this plan
+  // (per-plan match counts are bounded and fit easily in memory).
   const snapshot = await adminDb
     .collection("tournament_matches")
     .where("plan_id", "==", planId)
-    .orderBy("created_at", "asc")
     .get()
 
-  return snapshot.docs.map((doc: QueryDocumentSnapshot) => {
+  const rows = snapshot.docs.map((doc: QueryDocumentSnapshot) => {
     const data = doc.data()
     const metadata = (data.metadata ?? {}) as Partial<TournamentMatch>
 
@@ -201,6 +203,12 @@ export async function getTournamentMatchesByPlanId(
       ...metadata
     }
   })
+
+  return rows.sort(
+    (a: any, b: any) =>
+      new Date(a.createdAt ?? 0).getTime() -
+      new Date(b.createdAt ?? 0).getTime()
+  )
 }
 
 /**
@@ -227,14 +235,16 @@ export async function getLogsByPlanId(
   planId: string,
   limit: number = 20
 ): Promise<LogEntry[]> {
+  // where + orderBy on a different field requires a composite Firestore
+  // index. Fetch all logs for this plan, sort + slice in-memory. Logs
+  // are bounded per plan (worst case a few hundred for a long-running
+  // plan); switch to cursor pagination if size becomes a concern.
   const snapshot = await adminDb
     .collection("logs")
     .where("plan_id", "==", planId)
-    .orderBy("timestamp", "desc")
-    .limit(limit)
     .get()
 
-  return snapshot.docs.map((doc: QueryDocumentSnapshot) => {
+  const all = snapshot.docs.map((doc: QueryDocumentSnapshot) => {
     const data = doc.data()
     const level = ["info", "warn", "error", "debug"].includes(data.level)
       ? data.level
@@ -248,6 +258,14 @@ export async function getLogsByPlanId(
       context: data.context ?? { planId: data.plan_id }
     }
   })
+
+  return all
+    .sort(
+      (a: any, b: any) =>
+        new Date(b.timestamp ?? 0).getTime() -
+        new Date(a.timestamp ?? 0).getTime()
+    )
+    .slice(0, limit)
 }
 
 /**

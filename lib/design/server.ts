@@ -94,15 +94,23 @@ export async function listDesigns(request: Request): Promise<Response> {
     const scope = searchParams.get("scope")
 
     if (scope === "shared-with-me") {
+      // array-contains + orderBy on a different field needs a composite
+      // Firestore index. Sort in-memory to keep fresh deployments
+      // working out of the box.
       const snapshot = await adminDb
         .collection(COLLECTION)
         .where("shared_with", "array-contains", user.id)
-        .orderBy("updated_at", "desc")
         .get()
-      const designs = snapshot.docs.map((d: QueryDocumentSnapshot) => ({
-        id: d.id,
-        ...d.data()
-      }))
+      const designs = snapshot.docs
+        .map((d: QueryDocumentSnapshot) => ({
+          id: d.id,
+          ...(d.data() as any)
+        }))
+        .sort(
+          (a: any, b: any) =>
+            new Date(b.updated_at ?? 0).getTime() -
+            new Date(a.updated_at ?? 0).getTime()
+        )
       return NextResponse.json({ designs })
     }
 
@@ -113,11 +121,15 @@ export async function listDesigns(request: Request): Promise<Response> {
       where.push(["workspace_id", "==", workspaceId])
     }
 
+    // user_id (added by listOwnedDocs) + workspace_id/project_id +
+    // orderBy(created_at) requires a 3-field composite index. In-memory
+    // sort sidesteps it.
     const designs = await listOwnedDocs<Record<string, unknown>>({
       user,
       collection: COLLECTION,
       where,
-      orderBy: { field: "created_at", dir: "desc" }
+      orderBy: "in-memory",
+      inMemorySort: { field: "created_at", dir: "desc" }
     })
     return NextResponse.json({ designs })
   } catch (error) {
