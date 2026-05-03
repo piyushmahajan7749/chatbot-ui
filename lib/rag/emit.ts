@@ -24,20 +24,31 @@ export function emitRagDocChanged(payload: EmitDocChanged): void {
   // worker can still run via the cron-sweep fallback.
   if (!payload?.sourceType || !payload?.sourceId) return
 
-  void inngest
-    .send({
-      name: "rag.doc.changed",
-      data: {
-        sourceType: payload.sourceType,
-        sourceId: payload.sourceId,
-        workspaceId: payload.workspaceId ?? undefined,
-        projectId: payload.projectId ?? null
-      }
-    })
-    .catch(err => {
-      console.warn(
-        `[rag/emit] rag.doc.changed for ${payload.sourceType}:${payload.sourceId} failed (non-fatal):`,
-        err
-      )
-    })
+  // Wrap the entire dispatch — including the synchronous portion of
+  // `inngest.send()` — so a missing INNGEST_EVENT_KEY or a transport
+  // glitch can never bubble out and crash the calling user-facing
+  // handler. Cron-sweep is the ultimate fallback.
+  try {
+    void inngest
+      .send({
+        name: "rag.doc.changed",
+        data: {
+          sourceType: payload.sourceType,
+          sourceId: payload.sourceId,
+          workspaceId: payload.workspaceId ?? undefined,
+          projectId: payload.projectId ?? null
+        }
+      })
+      .catch(err => {
+        console.warn(
+          `[rag/emit] rag.doc.changed for ${payload.sourceType}:${payload.sourceId} failed async (non-fatal):`,
+          err
+        )
+      })
+  } catch (err) {
+    console.warn(
+      `[rag/emit] rag.doc.changed for ${payload.sourceType}:${payload.sourceId} failed sync (non-fatal):`,
+      err
+    )
+  }
 }

@@ -347,22 +347,60 @@ export function StudioCanvas({
   }, [files, search])
 
   const handleUploadFiles = async (list: FileList | null) => {
-    if (!list || list.length === 0) return
-    if (!profile || !actualWorkspaceId || !actualProjectId) return
+    console.log("[project-files] upload triggered", {
+      count: list?.length ?? 0,
+      hasProfile: !!profile,
+      actualWorkspaceId,
+      actualProjectId
+    })
+
+    if (!list || list.length === 0) {
+      console.warn("[project-files] no files in selection")
+      return
+    }
+
+    // Surface the silent-prereq failure mode the user just hit. Without
+    // these values the upload route has no tenancy info; previously we
+    // bailed silently which looked like a no-op.
+    if (!profile) {
+      toast({
+        title: "Not signed in",
+        description: "Reload the page and sign in before uploading.",
+        variant: "destructive"
+      })
+      return
+    }
+    if (!actualWorkspaceId || !actualProjectId) {
+      toast({
+        title: "Project not loaded yet",
+        description:
+          "Wait for the project to finish loading, then try the upload again.",
+        variant: "destructive"
+      })
+      return
+    }
+
     setUploadingFiles(true)
     let uploaded = 0
     try {
       for (const file of Array.from(list)) {
         try {
+          console.log("[project-files] uploading:", {
+            name: file.name,
+            size: file.size,
+            type: file.type
+          })
           const record = await uploadProjectFile({
             file,
             projectId: actualProjectId,
             workspaceId: actualWorkspaceId,
             userId: profile.user_id
           })
+          console.log("[project-files] upload OK:", record.id)
           setFiles(prev => [record, ...prev])
           uploaded++
         } catch (err: any) {
+          console.error("[project-files] upload FAILED:", file.name, err)
           toast({
             title: `Couldn't upload ${file.name}`,
             description: err?.message ?? "Unsupported file or upload failed.",
