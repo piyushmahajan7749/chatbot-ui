@@ -42,7 +42,13 @@ export const searchGlobalContent = async (
           description: project.description || undefined,
           url: `/projects/${project.id}`,
           metadata: {
-            date: new Date(project.updated_at).toLocaleDateString(),
+            // updated_at can be null on freshly-created projects;
+            // created_at is also typed nullable in the generated
+            // Database types — fall back to current time as last resort
+            // so the search row always renders a date.
+            date: new Date(
+              project.updated_at ?? project.created_at ?? Date.now()
+            ).toLocaleDateString(),
             tags: project.tags || []
           }
         })
@@ -124,21 +130,31 @@ export const searchGlobalContent = async (
       })
     }
 
-    // Search Reports
+    // Search Reports.
+    //
+    // Pre-PR-9a this query selected `summary` — a column that doesn't
+    // exist on the Supabase `reports` table (the equivalent field is
+    // `description`). The regenerated Database types caught it.
+    //
+    // NOTE: report content has migrated to Firestore (see
+    // db/reports-firestore.ts). This Supabase row is now metadata-only;
+    // the Firestore doc holds the real `report_draft` + `report_outline`.
+    // A future cleanup should query Firestore for full-text search of
+    // report bodies — for now we match against the metadata columns.
     const { data: reports } = await supabase
       .from("reports")
       .select(
         `
-        id, 
-        name, 
-        summary,
+        id,
+        name,
+        description,
         created_at,
         project_id,
         projects!left(name)
       `
       )
       .eq("user_id", userId)
-      .or(`name.ilike.%${searchTerm}%,summary.ilike.%${searchTerm}%`)
+      .or(`name.ilike.%${searchTerm}%,description.ilike.%${searchTerm}%`)
       .order("created_at", { ascending: false })
       .limit(10)
 
@@ -149,7 +165,7 @@ export const searchGlobalContent = async (
           id: report.id,
           type: "report",
           title: report.name,
-          description: report.summary || undefined,
+          description: report.description || undefined,
           url: `/reports/${report.id}`,
           metadata: {
             date: new Date(report.created_at).toLocaleDateString(),
