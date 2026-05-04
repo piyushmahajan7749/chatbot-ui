@@ -456,7 +456,7 @@ export const AppSidebar = ({ isCollapsed, onToggle }: AppSidebarProps) => {
             />
             <NavItem
               icon={<IconMessage size={16} />}
-              label="Chat history"
+              label="Chats"
               active={isActive("/chat-history")}
               onClick={() => wsId && router.push(`/${wsId}/chat-history`)}
               collapsed={isCollapsed}

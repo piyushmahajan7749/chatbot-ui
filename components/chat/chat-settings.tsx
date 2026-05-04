@@ -62,20 +62,22 @@ export const ChatSettings: FC<ChatSettingsProps> = ({}) => {
     ...availableOpenRouterModels
   ]
 
-  const fullModel = allModels.find(llm => llm.modelId === chatSettings.model)
+  // Model identity intentionally not shown in the chat header — users
+  // shouldn't have to think about which LLM they're talking to. The
+  // model is still chosen via the settings popover (gear icon) but the
+  // name no longer occupies the chat header. `allModels` lookup left in
+  // place so chatSettings can still be edited inside the form.
+  void allModels
 
   return (
     <Popover>
       <PopoverTrigger>
         <Button
           ref={buttonRef}
-          className="flex items-center space-x-2"
+          className="flex items-center"
           variant="ghost"
+          aria-label="Chat settings"
         >
-          <div className="max-w-[120px] truncate text-lg sm:max-w-[300px] lg:max-w-[500px]">
-            {fullModel?.modelName || chatSettings.model}
-          </div>
-
           <IconAdjustmentsHorizontal size={28} />
         </Button>
       </PopoverTrigger>
