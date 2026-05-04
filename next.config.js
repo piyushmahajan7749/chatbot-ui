@@ -3,7 +3,11 @@ const withBundleAnalyzer = require("@next/bundle-analyzer")({
 })
 
 const withPWA = require("next-pwa")({
-  dest: "public"
+  dest: "public",
+  // Skip service-worker generation in dev. Dev SW cached stale responses
+  // (chrome-error://chromewebdata) and intercepted requests after key
+  // rotations / container restarts. Production builds still get SW.
+  disable: process.env.NODE_ENV === "development"
 })
 
 module.exports = withBundleAnalyzer(

@@ -16,7 +16,7 @@ export const SidebarSwitchItem: FC<SidebarSwitchItemProps> = ({
 }) => {
   const DISPLAY_NAMES: Partial<Record<ContentType, string>> = {
     "data-collections": "Data Collection",
-    "chat-history": "Chat History"
+    "chat-history": "Chats"
   }
   const title =
     DISPLAY_NAMES[contentType] ||

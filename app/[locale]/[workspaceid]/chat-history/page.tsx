@@ -8,6 +8,11 @@ import { EntityCard } from "@/components/cards/entity-card"
 import type { AccentKey } from "@/components/canvas/accent-tabs"
 import { ChatbotUIContext } from "@/context/context"
 import { useToast } from "@/app/hooks/use-toast"
+import {
+  StartChatModal,
+  type StartChatSelection
+} from "@/components/chat/start-chat-modal"
+import { createChatFiles } from "@/db/chat-files"
 import { createChat, getChatsByWorkspaceId } from "@/db/chats"
 import { getReportsByWorkspaceId } from "@/db/reports-firestore"
 import { getFileWorkspacesByWorkspaceId } from "@/db/files"
@@ -59,6 +64,7 @@ export default function ChatHistoryPage() {
   const [files, setFiles] = useState<Tables<"files">[]>([])
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState<ScopeFilter>("all")
+  const [startModalOpen, setStartModalOpen] = useState(false)
   const [search, setSearch] = useState("")
   const [creating, setCreating] = useState(false)
 
@@ -141,7 +147,14 @@ export default function ChatHistoryPage() {
     return new Date(date).toLocaleDateString()
   }
 
-  const handleStartNew = async () => {
+  const handleStartNew = () => {
+    // Open the picker modal — actual chat creation happens in
+    // `handleStartFromModal` once the user picks workspace / project /
+    // design / report / files.
+    setStartModalOpen(true)
+  }
+
+  const handleStartFromModal = async (sel: StartChatSelection) => {
     if (!selectedWorkspace) return
     setCreating(true)
     try {
@@ -150,13 +163,18 @@ export default function ChatHistoryPage() {
       } = await supabase.auth.getUser()
       if (!user) throw new Error("Not signed in")
 
+      // Map the picker's selection onto chats.scope + chats.scope_id +
+      // chats.project_id. The retrieve route reads these to scope the
+      // unified `rag_items` query (lib/rag/retrieve.ts:resolveScope).
       const chat = await createChat({
         user_id: user.id,
         workspace_id: selectedWorkspace.id,
-        name: "New workspace chat",
-        scope: null,
-        scope_id: null,
-        project_id: null,
+        name: sel.label,
+        scope: sel.scope,
+        scope_id: sel.scopeId,
+        // For project-scoped chats we mirror scopeId into project_id so
+        // the existing project-chat surface (studio-canvas) finds it.
+        project_id: sel.scope === "project" ? sel.scopeId : null,
         model: chatSettings?.model ?? selectedWorkspace.default_model,
         prompt: chatSettings?.prompt ?? selectedWorkspace.default_prompt ?? "",
         temperature:
@@ -175,9 +193,31 @@ export default function ChatHistoryPage() {
           selectedWorkspace.include_workspace_instructions,
         sharing: "private"
       })
+
+      // For "files" scope: insert chat_files rows so handleRetrieval
+      // (chat-helpers/index.ts) sees them as attached files and
+      // restricts retrieval to those file rows in `rag_items`.
+      if (sel.fileIds.length > 0) {
+        try {
+          await createChatFiles(
+            sel.fileIds.map(fileId => ({
+              user_id: user.id,
+              chat_id: chat.id,
+              file_id: fileId
+            }))
+          )
+        } catch (err) {
+          console.warn(
+            "[chat-history] failed to attach files; chat created without file scope:",
+            err
+          )
+        }
+      }
+
+      setStartModalOpen(false)
       router.push(`/${locale}/${workspaceId}/chat/${chat.id}`)
     } catch (err) {
-      console.error("Failed to start new workspace chat:", err)
+      console.error("Failed to start new chat:", err)
       toast({
         title: "Error",
         description: "Failed to start chat.",
@@ -196,7 +236,7 @@ export default function ChatHistoryPage() {
             Workspace
           </div>
           <h1 className="text-ink-900 text-2xl font-extrabold tracking-tight">
-            Chat History
+            Chats
           </h1>
           <p className="text-ink-500 mt-1 text-sm">
             Every thread across every project and design, in one place.
@@ -345,6 +385,13 @@ export default function ChatHistoryPage() {
           })}
         </div>
       )}
+
+      <StartChatModal
+        isOpen={startModalOpen}
+        onOpenChange={setStartModalOpen}
+        onConfirm={handleStartFromModal}
+        busy={creating}
+      />
     </div>
   )
 }

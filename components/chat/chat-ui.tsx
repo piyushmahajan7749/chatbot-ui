@@ -277,12 +277,16 @@ export const ChatUI: FC<ChatUIProps> = ({ variant = "full", chatId }) => {
         <ChatSecondaryButtons />
       </div>
 
-      {/* Chat header - hidden in panel mode (studio has its own header) */}
+      {/* Chat header - hidden in panel mode (studio has its own header).
+          Surfaces the chat's scope (workspace / project / design / report
+          or the count of attached files) so the user always knows which
+          context their answers are pulling from. */}
       {!isPanel && (
-        <div className="bg-secondary flex max-h-[50px] min-h-[50px] w-full items-center justify-center border-b-2 font-bold">
-          <div className="max-w-[200px] truncate sm:max-w-[400px] md:max-w-[500px] lg:max-w-[600px] xl:max-w-[700px]">
+        <div className="bg-secondary flex min-h-[50px] w-full items-center justify-center gap-3 border-b-2 px-4 py-2 font-bold">
+          <div className="max-w-[600px] truncate">
             {selectedChat?.name || "Chat"}
           </div>
+          <ChatScopeBadge />
         </div>
       )}
 
@@ -315,5 +319,93 @@ export const ChatUI: FC<ChatUIProps> = ({ variant = "full", chatId }) => {
         </div>
       )}
     </div>
+  )
+}
+
+/**
+ * Pill in the chat header that names the context this chat is bound to.
+ * Reads from `selectedChat.scope` / `scope_id` (set by StartChatModal)
+ * plus `chatFiles` (for file-attached chats). Lets the user always see
+ * which slice of the corpus their answers will come from.
+ */
+const SCOPE_PILL_CLASSES =
+  "rounded-full border px-2.5 py-0.5 text-[11px] font-semibold uppercase tracking-wide"
+
+const ChatScopeBadge: FC = () => {
+  const { selectedChat, chatFiles, selectedWorkspace, designs, reports } =
+    useContext(ChatbotUIContext)
+
+  if (!selectedChat) return null
+
+  // File-attached chats win over scope (they were created via the
+  // StartChatModal "Files" tab and `chat_files` rows are the source of
+  // truth for retrieval restriction).
+  if (chatFiles && chatFiles.length > 0) {
+    return (
+      <span
+        className={cn(
+          SCOPE_PILL_CLASSES,
+          "border-ink-200 bg-paper-2 text-ink-700"
+        )}
+        title={chatFiles.map(f => f.name).join(", ")}
+      >
+        Files · {chatFiles.length}
+      </span>
+    )
+  }
+
+  const scope = selectedChat.scope
+  const scopeId = selectedChat.scope_id
+
+  if (scope === "project" && scopeId) {
+    return (
+      <span
+        className={cn(
+          SCOPE_PILL_CLASSES,
+          "border-teal-journey/30 bg-teal-journey-tint text-teal-journey"
+        )}
+      >
+        Project
+      </span>
+    )
+  }
+  if (scope === "design" && scopeId) {
+    const d = designs.find(x => x.id === scopeId)
+    return (
+      <span
+        className={cn(
+          SCOPE_PILL_CLASSES,
+          "border-purple-persona/30 bg-purple-persona-tint text-purple-persona"
+        )}
+        title={d?.name}
+      >
+        Design · {d?.name ?? "—"}
+      </span>
+    )
+  }
+  if (scope === "report" && scopeId) {
+    const r = reports.find(x => x.id === scopeId)
+    return (
+      <span
+        className={cn(
+          SCOPE_PILL_CLASSES,
+          "border-orange-product/30 bg-orange-product-tint text-orange-product"
+        )}
+        title={r?.name ?? undefined}
+      >
+        Report · {r?.name ?? "—"}
+      </span>
+    )
+  }
+
+  return (
+    <span
+      className={cn(
+        SCOPE_PILL_CLASSES,
+        "border-sage-brand/30 bg-sage-brand-tint text-sage-brand"
+      )}
+    >
+      Workspace · {selectedWorkspace?.name ?? ""}
+    </span>
   )
 }
