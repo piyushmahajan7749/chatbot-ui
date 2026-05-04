@@ -355,9 +355,15 @@ const ChatScopeBadge: FC = () => {
   }
 
   const scope = selectedChat.scope
-  const scopeId = selectedChat.scope_id
+  // scope_id is CSV-encoded for multi-pick (StartChatModal can select
+  // 1+ ids per non-Workspace tab). Show the picked count when N>1, the
+  // resolved name when N==1.
+  const scopeIds = (selectedChat.scope_id ?? "")
+    .split(",")
+    .map(s => s.trim())
+    .filter(Boolean)
 
-  if (scope === "project" && scopeId) {
+  if (scope === "project" && scopeIds.length > 0) {
     return (
       <span
         className={cn(
@@ -365,35 +371,65 @@ const ChatScopeBadge: FC = () => {
           "border-teal-journey/30 bg-teal-journey-tint text-teal-journey"
         )}
       >
-        Project
+        {scopeIds.length === 1 ? "Project" : `Projects · ${scopeIds.length}`}
       </span>
     )
   }
-  if (scope === "design" && scopeId) {
-    const d = designs.find(x => x.id === scopeId)
+  if (scope === "design" && scopeIds.length > 0) {
+    if (scopeIds.length === 1) {
+      const d = designs.find(x => x.id === scopeIds[0])
+      return (
+        <span
+          className={cn(
+            SCOPE_PILL_CLASSES,
+            "border-purple-persona/30 bg-purple-persona-tint text-purple-persona"
+          )}
+          title={d?.name}
+        >
+          Design · {d?.name ?? "—"}
+        </span>
+      )
+    }
     return (
       <span
         className={cn(
           SCOPE_PILL_CLASSES,
           "border-purple-persona/30 bg-purple-persona-tint text-purple-persona"
         )}
-        title={d?.name}
+        title={scopeIds
+          .map(id => designs.find(x => x.id === id)?.name ?? id)
+          .join(", ")}
       >
-        Design · {d?.name ?? "—"}
+        Designs · {scopeIds.length}
       </span>
     )
   }
-  if (scope === "report" && scopeId) {
-    const r = reports.find(x => x.id === scopeId)
+  if (scope === "report" && scopeIds.length > 0) {
+    if (scopeIds.length === 1) {
+      const r = reports.find(x => x.id === scopeIds[0])
+      return (
+        <span
+          className={cn(
+            SCOPE_PILL_CLASSES,
+            "border-orange-product/30 bg-orange-product-tint text-orange-product"
+          )}
+          title={r?.name ?? undefined}
+        >
+          Report · {r?.name ?? "—"}
+        </span>
+      )
+    }
     return (
       <span
         className={cn(
           SCOPE_PILL_CLASSES,
           "border-orange-product/30 bg-orange-product-tint text-orange-product"
         )}
-        title={r?.name ?? undefined}
+        title={scopeIds
+          .map(id => reports.find(x => x.id === id)?.name ?? id)
+          .join(", ")}
       >
-        Report · {r?.name ?? "—"}
+        Reports · {scopeIds.length}
       </span>
     )
   }

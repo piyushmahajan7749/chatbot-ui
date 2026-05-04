@@ -67,8 +67,15 @@ export async function POST(request: Request) {
     return NextResponse.json({ results })
   } catch (error: any) {
     console.error("[retrieve] Error:", error)
+    // Surface the underlying message + Postgres/PostgREST hint when
+    // present so the browser console shows actionable diagnostics
+    // instead of opaque 500s. PostgREST errors carry `code`, `details`,
+    // `hint`; pgvector dimension mismatches show up as plain SQL errors.
     return NextResponse.json(
-      { message: error?.message ?? "Unexpected error" },
+      {
+        message: error?.message ?? "Unexpected error",
+        detail: error?.details ?? error?.hint ?? error?.code ?? String(error)
+      },
       { status: error?.status ?? 500 }
     )
   }

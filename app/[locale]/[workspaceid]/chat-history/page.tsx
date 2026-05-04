@@ -164,17 +164,27 @@ export default function ChatHistoryPage() {
       if (!user) throw new Error("Not signed in")
 
       // Map the picker's selection onto chats.scope + chats.scope_id +
-      // chats.project_id. The retrieve route reads these to scope the
-      // unified `rag_items` query (lib/rag/retrieve.ts:resolveScope).
+      // chats.project_id. Multi-pick (e.g. 3 designs) is encoded as
+      // CSV in scope_id; the retrieve route splits on "," before
+      // passing as p_only_source_ids to the RPC.
+      const scopeIdEncoded =
+        sel.scopeIds.length > 0 ? sel.scopeIds.join(",") : null
+      // For project-scoped chats we mirror the FIRST picked id into
+      // project_id so the existing project-chat surface (studio-canvas)
+      // continues to find this chat. Multi-project still works for RAG;
+      // only the surface routing uses the first id.
+      const projectId =
+        sel.scope === "project" && sel.scopeIds.length > 0
+          ? sel.scopeIds[0]
+          : null
+
       const chat = await createChat({
         user_id: user.id,
         workspace_id: selectedWorkspace.id,
         name: sel.label,
         scope: sel.scope,
-        scope_id: sel.scopeId,
-        // For project-scoped chats we mirror scopeId into project_id so
-        // the existing project-chat surface (studio-canvas) finds it.
-        project_id: sel.scope === "project" ? sel.scopeId : null,
+        scope_id: scopeIdEncoded,
+        project_id: projectId,
         model: chatSettings?.model ?? selectedWorkspace.default_model,
         prompt: chatSettings?.prompt ?? selectedWorkspace.default_prompt ?? "",
         temperature:

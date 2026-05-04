@@ -3,16 +3,18 @@
 /**
  * StartChatModal — picker for the new-thread flow.
  *
- * The user chooses what they want to chat with: the whole workspace,
- * one project, one design, one report, or a hand-picked set of files.
- * The selection drives `chats.scope` + `chats.scope_id` (and, for files,
- * the chat_files join), which the retrieve route uses to filter the
+ * The user chooses what they want to chat with: the whole workspace, one
+ * or more projects, designs, reports, or hand-picked files. Selection
+ * drives `chats.scope`, `chats.scope_id` (CSV-encoded for multi-pick),
+ * and the `chat_files` join. The retrieve route uses these to filter the
  * unified `rag_items` corpus (see lib/rag/retrieve.ts).
+ *
+ * All non-Workspace tabs are multi-select. Workspace is single-click
+ * (it's already the broadest possible scope; multi-select is meaningless).
  */
 import {
   IconBriefcase,
   IconCheck,
-  IconClipboardText,
   IconFile,
   IconFlask,
   IconFolder,
@@ -41,10 +43,17 @@ import { cn } from "@/lib/utils"
 export type ChatScope = "workspace" | "project" | "design" | "report" | "files"
 
 export interface StartChatSelection {
+  /** The chat scope to persist on `chats.scope` (NULL for workspace + files). */
   scope: "project" | "design" | "report" | null
-  scopeId: string | null
+  /**
+   * Picked source ids. For Projects/Designs/Reports tabs this carries
+   * 1+ ids; the caller CSV-encodes them into `chats.scope_id` so the
+   * retrieve route can fan out via `p_only_source_ids`.
+   */
+  scopeIds: string[]
+  /** Picked file ids (Files tab). Persisted via `chat_files`. */
   fileIds: string[]
-  /** Human-readable label for the picked context (for the new chat name + header). */
+  /** Human-readable label for the new chat name + header pill. */
   label: string
 }
 
@@ -70,6 +79,9 @@ export const StartChatModal: FC<StartChatModalProps> = ({
 
   const [activeTab, setActiveTab] = useState<ChatScope>("workspace")
   const [search, setSearch] = useState("")
+  const [pickedProjectIds, setPickedProjectIds] = useState<string[]>([])
+  const [pickedDesignIds, setPickedDesignIds] = useState<string[]>([])
+  const [pickedReportIds, setPickedReportIds] = useState<string[]>([])
   const [pickedFileIds, setPickedFileIds] = useState<string[]>([])
   // Projects aren't carried in ChatbotUIContext today — fetch on modal
   // open so the Projects tab populates without a context refactor.
@@ -93,6 +105,9 @@ export const StartChatModal: FC<StartChatModalProps> = ({
   const reset = () => {
     setActiveTab("workspace")
     setSearch("")
+    setPickedProjectIds([])
+    setPickedDesignIds([])
+    setPickedReportIds([])
     setPickedFileIds([])
   }
 
@@ -104,36 +119,34 @@ export const StartChatModal: FC<StartChatModalProps> = ({
   const handlePickWorkspace = () => {
     onConfirm({
       scope: null,
-      scopeId: null,
+      scopeIds: [],
       fileIds: [],
       label: `Workspace · ${selectedWorkspace?.name ?? "Workspace"}`
     })
   }
 
-  const handlePickProject = (id: string, name: string) => {
+  /**
+   * Pick handler shared by Projects / Designs / Reports tabs. Builds a
+   * label that names the single picked item or shows the count for
+   * multi-pick.
+   */
+  const handlePickMulti = (
+    scope: "project" | "design" | "report",
+    ids: string[],
+    titleResolver: (id: string) => string,
+    labelSingular: string,
+    labelPlural: string
+  ) => {
+    if (ids.length === 0) return
+    const label =
+      ids.length === 1
+        ? `${labelSingular} · ${titleResolver(ids[0])}`
+        : `${labelPlural} · ${ids.length} selected`
     onConfirm({
-      scope: "project",
-      scopeId: id,
+      scope,
+      scopeIds: ids,
       fileIds: [],
-      label: `Project · ${name}`
-    })
-  }
-
-  const handlePickDesign = (id: string, name: string) => {
-    onConfirm({
-      scope: "design",
-      scopeId: id,
-      fileIds: [],
-      label: `Design · ${name}`
-    })
-  }
-
-  const handlePickReport = (id: string, name: string) => {
-    onConfirm({
-      scope: "report",
-      scopeId: id,
-      fileIds: [],
-      label: `Report · ${name}`
+      label
     })
   }
 
@@ -141,7 +154,7 @@ export const StartChatModal: FC<StartChatModalProps> = ({
     if (pickedFileIds.length === 0) return
     onConfirm({
       scope: null,
-      scopeId: null,
+      scopeIds: [],
       fileIds: pickedFileIds,
       label: `Files · ${pickedFileIds.length} selected`
     })
@@ -183,11 +196,21 @@ export const StartChatModal: FC<StartChatModalProps> = ({
     )
   }, [workspaceFiles, search])
 
-  const toggleFile = (id: string) => {
-    setPickedFileIds(prev =>
-      prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
-    )
-  }
+  // Title resolvers used by the multi-pick label builder.
+  const projectTitle = (id: string) =>
+    projects.find((p: any) => p.id === id)?.name ?? "project"
+  const designTitle = (id: string) =>
+    designs.find(d => d.id === id)?.name ?? "design"
+  const reportTitle = (id: string) =>
+    reports.find(r => r.id === id)?.name ?? "report"
+
+  const togglePicked =
+    (setter: React.Dispatch<React.SetStateAction<string[]>>) =>
+    (id: string) => {
+      setter(prev =>
+        prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
+      )
+    }
 
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
@@ -244,7 +267,7 @@ export const StartChatModal: FC<StartChatModalProps> = ({
             <div className="border-line bg-paper-2 flex items-start gap-3 rounded-lg border p-4">
               <IconBriefcase size={18} className="text-ink-700 mt-0.5" />
               <div className="min-w-0 flex-1">
-                <div className="text-ink text-sm font-semibold">
+                <div className="text-ink truncate text-sm font-semibold">
                   {selectedWorkspace?.name ?? "Workspace"}
                 </div>
                 <div className="text-ink-3 mt-0.5 text-[12.5px] leading-relaxed">
@@ -256,42 +279,45 @@ export const StartChatModal: FC<StartChatModalProps> = ({
             </div>
           </TabsContent>
 
-          {/* PROJECT */}
+          {/* PROJECT (multi-select) */}
           <TabsContent value="project" className="mt-3">
-            <PickList
+            <MultiPickList
               items={filteredProjects.map((p: any) => ({
                 id: p.id,
                 title: p.name,
                 subtitle: p.description ?? undefined
               }))}
+              picked={pickedProjectIds}
+              onToggle={togglePicked(setPickedProjectIds)}
               emptyHint="No projects in this workspace yet."
-              onSelect={(id, title) => handlePickProject(id, title)}
             />
           </TabsContent>
 
-          {/* DESIGN */}
+          {/* DESIGN (multi-select) */}
           <TabsContent value="design" className="mt-3">
-            <PickList
+            <MultiPickList
               items={filteredDesigns.map(d => ({
                 id: d.id,
                 title: d.name,
                 subtitle: d.description ?? undefined
               }))}
+              picked={pickedDesignIds}
+              onToggle={togglePicked(setPickedDesignIds)}
               emptyHint="No designs in this workspace yet."
-              onSelect={(id, title) => handlePickDesign(id, title)}
             />
           </TabsContent>
 
-          {/* REPORT */}
+          {/* REPORT (multi-select) */}
           <TabsContent value="report" className="mt-3">
-            <PickList
+            <MultiPickList
               items={filteredReports.map(r => ({
                 id: r.id,
                 title: r.name ?? "Untitled report",
                 subtitle: (r as any).description ?? undefined
               }))}
+              picked={pickedReportIds}
+              onToggle={togglePicked(setPickedReportIds)}
               emptyHint="No reports in this workspace yet."
-              onSelect={(id, title) => handlePickReport(id, title)}
             />
           </TabsContent>
 
@@ -304,7 +330,7 @@ export const StartChatModal: FC<StartChatModalProps> = ({
                 subtitle: f.type ?? undefined
               }))}
               picked={pickedFileIds}
-              onToggle={toggleFile}
+              onToggle={togglePicked(setPickedFileIds)}
               emptyHint="No files in this workspace yet. Upload from a project's Files tab."
             />
           </TabsContent>
@@ -318,11 +344,76 @@ export const StartChatModal: FC<StartChatModalProps> = ({
           >
             Cancel
           </Button>
+
           {activeTab === "workspace" && (
             <Button onClick={handlePickWorkspace} disabled={busy}>
               {busy ? "Starting…" : "Chat with workspace"}
             </Button>
           )}
+
+          {activeTab === "project" && (
+            <Button
+              onClick={() =>
+                handlePickMulti(
+                  "project",
+                  pickedProjectIds,
+                  projectTitle,
+                  "Project",
+                  "Projects"
+                )
+              }
+              disabled={busy || pickedProjectIds.length === 0}
+            >
+              {busy
+                ? "Starting…"
+                : `Chat with ${pickedProjectIds.length} project${
+                    pickedProjectIds.length === 1 ? "" : "s"
+                  }`}
+            </Button>
+          )}
+
+          {activeTab === "design" && (
+            <Button
+              onClick={() =>
+                handlePickMulti(
+                  "design",
+                  pickedDesignIds,
+                  designTitle,
+                  "Design",
+                  "Designs"
+                )
+              }
+              disabled={busy || pickedDesignIds.length === 0}
+            >
+              {busy
+                ? "Starting…"
+                : `Chat with ${pickedDesignIds.length} design${
+                    pickedDesignIds.length === 1 ? "" : "s"
+                  }`}
+            </Button>
+          )}
+
+          {activeTab === "report" && (
+            <Button
+              onClick={() =>
+                handlePickMulti(
+                  "report",
+                  pickedReportIds,
+                  reportTitle,
+                  "Report",
+                  "Reports"
+                )
+              }
+              disabled={busy || pickedReportIds.length === 0}
+            >
+              {busy
+                ? "Starting…"
+                : `Chat with ${pickedReportIds.length} report${
+                    pickedReportIds.length === 1 ? "" : "s"
+                  }`}
+            </Button>
+          )}
+
           {activeTab === "files" && (
             <Button
               onClick={handleConfirmFiles}
@@ -335,68 +426,19 @@ export const StartChatModal: FC<StartChatModalProps> = ({
                   }`}
             </Button>
           )}
-          {activeTab !== "workspace" && activeTab !== "files" && (
-            <span className="text-ink-3 self-center text-[12px]">
-              Select an item above to start the chat
-            </span>
-          )}
         </DialogFooter>
       </DialogContent>
     </Dialog>
   )
 }
 
-// ── Generic single-pick list ─────────────────────────────────────────────
+// ── Multi-select list (used by all non-Workspace tabs) ───────────────────
 
 interface PickListItem {
   id: string
   title: string
   subtitle?: string
 }
-
-const PickList: FC<{
-  items: PickListItem[]
-  emptyHint: string
-  onSelect: (id: string, title: string) => void
-}> = ({ items, emptyHint, onSelect }) => {
-  if (items.length === 0) {
-    return (
-      <div className="border-line bg-paper-2 text-ink-3 rounded-md border border-dashed p-6 text-center text-[12.5px]">
-        {emptyHint}
-      </div>
-    )
-  }
-  return (
-    <div className="max-h-[320px] space-y-1.5 overflow-y-auto pr-1">
-      {items.map(it => (
-        <button
-          key={it.id}
-          type="button"
-          onClick={() => onSelect(it.id, it.title)}
-          className="border-line bg-surface hover:border-line-strong hover:bg-paper-2 flex w-full items-center gap-3 rounded-md border px-3 py-2.5 text-left transition-colors"
-        >
-          <div className="min-w-0 flex-1">
-            <div className="text-ink truncate text-[13px] font-semibold">
-              {it.title}
-            </div>
-            {it.subtitle && (
-              <div className="text-ink-3 mt-0.5 line-clamp-1 text-[11.5px]">
-                {it.subtitle}
-              </div>
-            )}
-          </div>
-          <IconClipboardText
-            size={14}
-            className="text-ink-400 shrink-0"
-            aria-hidden
-          />
-        </button>
-      ))}
-    </div>
-  )
-}
-
-// ── Multi-select list (files) ────────────────────────────────────────────
 
 const MultiPickList: FC<{
   items: PickListItem[]
@@ -438,22 +480,31 @@ const MultiPickList: FC<{
             type="button"
             onClick={() => onToggle(it.id)}
             className={cn(
-              "border-line bg-surface hover:border-line-strong hover:bg-paper-2 flex w-full items-center gap-3 rounded-md border px-3 py-2.5 text-left transition-colors",
+              // `min-w-0 max-w-full` on the row + flex-children + the inner
+              // `min-w-0 flex-1 truncate` chain is what actually clips long
+              // unbroken titles. Without `min-w-0` on the button itself,
+              // flex items default to `min-width: auto` and refuse to
+              // shrink below their content's intrinsic width — which is
+              // why long report names were blowing past the dialog edge.
+              "border-line bg-surface hover:border-line-strong hover:bg-paper-2 flex w-full min-w-0 max-w-full items-center gap-3 overflow-hidden rounded-md border px-3 py-2.5 text-left transition-colors",
               isPicked && "border-rust bg-rust-soft"
             )}
           >
-            <Checkbox checked={isPicked} className="pointer-events-none" />
-            <div className="min-w-0 flex-1">
-              <div className="text-ink truncate text-[13px] font-semibold">
+            <Checkbox
+              checked={isPicked}
+              className="pointer-events-none shrink-0"
+            />
+            <div className="min-w-0 flex-1 overflow-hidden">
+              <div className="text-ink block truncate text-[13px] font-semibold">
                 {it.title}
               </div>
               {it.subtitle && (
-                <div className="text-ink-3 mt-0.5 line-clamp-1 text-[11.5px]">
+                <div className="text-ink-3 mt-0.5 line-clamp-1 break-all text-[11.5px]">
                   {it.subtitle}
                 </div>
               )}
             </div>
-            {isPicked && <IconCheck size={14} className="text-rust" />}
+            {isPicked && <IconCheck size={14} className="text-rust shrink-0" />}
           </button>
         )
       })}

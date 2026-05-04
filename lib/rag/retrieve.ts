@@ -59,14 +59,27 @@ function resolveScope(q: RetrieveQuery): RpcFilters {
     p_exclude_source_ids: null
   }
 
-  if (q.scope === "project" && q.scopeId) {
-    filters.p_project_id = q.scopeId
-  } else if (q.scope === "design" && q.scopeId) {
+  // scope_id is CSV-encoded for multi-pick (StartChatModal can attach
+  // 1+ ids per non-Workspace tab). Split here so the RPC's
+  // `p_only_source_ids` filter fans out across all picked sources.
+  const scopeIdList = (q.scopeId ?? "")
+    .split(",")
+    .map(s => s.trim())
+    .filter(Boolean)
+
+  if (q.scope === "project" && scopeIdList.length > 0) {
+    // For projects we filter by `project_id` column on rag_items, not
+    // by source_id. Multi-project means OR across project_ids — but
+    // the RPC takes a single p_project_id; v1 limitation = first picked
+    // project wins for filtering. Multi-project filter would need a new
+    // RPC param; tracked as a follow-up.
+    filters.p_project_id = scopeIdList[0]
+  } else if (q.scope === "design" && scopeIdList.length > 0) {
     filters.p_source_types = ["design"]
-    filters.p_only_source_ids = [q.scopeId]
-  } else if (q.scope === "report" && q.scopeId) {
+    filters.p_only_source_ids = scopeIdList
+  } else if (q.scope === "report" && scopeIdList.length > 0) {
     filters.p_source_types = ["report"]
-    filters.p_only_source_ids = [q.scopeId]
+    filters.p_only_source_ids = scopeIdList
   }
 
   // Caller-restricted attached files take precedence over scope (when
