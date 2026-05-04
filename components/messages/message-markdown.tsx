@@ -144,6 +144,18 @@ export const MessageMarkdown: FC<MessageMarkdownProps> = ({
           )
           return <p className="mb-2 last:mb-0">{arr}</p>
         },
+        // Citation chips also appear inside the model's "References" list
+        // at the end of the answer, which renders as <ul><li>[1] ...</li>
+        // …</ul>. Apply the same `[N]` → chip transform to <li> children
+        // so reference items become clickable.
+        li({ children, ...props }) {
+          const arr = React.Children.toArray(children).flatMap(child =>
+            typeof child === "string"
+              ? renderCitations(child, sources)
+              : [child]
+          )
+          return <li {...props}>{arr}</li>
+        },
         img({ node, ...props }) {
           return <img className="max-w-[67%]" {...props} />
         },

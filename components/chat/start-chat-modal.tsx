@@ -455,7 +455,14 @@ const MultiPickList: FC<{
   }
   const isAllPicked = items.every(it => picked.includes(it.id))
   return (
-    <div className="max-h-[320px] space-y-1.5 overflow-y-auto pr-1">
+    // `w-full` + `min-w-0` here are load-bearing: without an explicit
+    // width on the scroll container, the parent (TabsContent) sizes to
+    // its widest child — and the widest child is the button row, which
+    // takes its width from the title text (long unbroken design names
+    // pushed the dialog off-screen). Setting w-full forces the scroll
+    // container to track the dialog width, which lets the row's
+    // `truncate` chain finally clip the title.
+    <div className="max-h-[320px] w-full min-w-0 space-y-1.5 overflow-y-auto pr-1">
       <div className="flex items-center justify-between px-1 pb-1">
         <span className="text-ink-3 text-[11.5px]">
           {picked.length} selected

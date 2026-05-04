@@ -164,34 +164,10 @@ export const Message: FC<MessageProps> = ({
 
   const modelDetails = LLM_LIST.find(model => model.modelId === message.model)
 
-  const fileAccumulator: Record<
-    string,
-    {
-      id: string
-      name: string
-      count: number
-      type: string
-      description: string
-    }
-  > = {}
-
-  const fileSummary = fileItems.reduce((acc, fileItem) => {
-    const parentFile = files.find(file => file.id === fileItem.file_id)
-    if (parentFile) {
-      if (!acc[parentFile.id]) {
-        acc[parentFile.id] = {
-          id: parentFile.id,
-          name: parentFile.name,
-          count: 1,
-          type: parentFile.type,
-          description: parentFile.description
-        }
-      } else {
-        acc[parentFile.id].count += 1
-      }
-    }
-    return acc
-  }, fileAccumulator)
+  // Legacy `fileSummary` (parent-file aggregation) was removed when the
+  // Sources panel switched to rendering RAG citations directly. Each
+  // `fileItem` now carries its own source_title / source_url / preview
+  // (set by the chat-ui adapter that fetches rag_item snapshots).
 
   const isLoadingThisMessage =
     !firstTokenReceived &&
@@ -208,24 +184,28 @@ export const Message: FC<MessageProps> = ({
     })()
   }, [isLoadingThisMessage, azureDeploymentName])
 
+  // Model name intentionally not surfaced anywhere user-visible —
+  // Shadow AI is the product, the underlying LLM (or Azure deployment)
+  // is implementation detail. `displayedModelName` retained as an
+  // unused local so future debug overlays can still toggle it on
+  // without rewiring.
   const displayedModelName =
     isLoadingThisMessage && azureDeploymentName
       ? azureDeploymentName
       : MODEL_DATA?.modelName
+  void displayedModelName
 
   const isUser = message.role === "user"
   const isAssistant = message.role === "assistant"
   const isSystem = message.role === "system"
 
-  const scopedAssistantLabel =
-    selectedChat?.scope === "design" ? "Shadow AI" : null
-
+  // Default assistant label across all chat scopes (was design-only).
+  // Only an explicitly-attached assistant or selectedAssistant overrides
+  // this — never the raw model name.
   const senderName = isAssistant
     ? message.assistant_id
       ? assistants.find(a => a.id === message.assistant_id)?.name
-      : selectedAssistant
-        ? selectedAssistant?.name
-        : (scopedAssistantLabel ?? displayedModelName)
+      : (selectedAssistant?.name ?? "Shadow AI")
     : (profile?.display_name ?? profile?.username)
 
   return (
@@ -380,64 +360,103 @@ export const Message: FC<MessageProps> = ({
         {/* Sources */}
         {fileItems.length > 0 && (
           <div className="mt-2 w-full rounded-xl border border-slate-100 bg-slate-50 px-3 py-2 text-sm">
-            {!viewSources ? (
-              <div
-                className="flex cursor-pointer items-center font-medium text-slate-600 hover:text-slate-800"
-                onClick={() => setViewSources(true)}
-              >
-                {fileItems.length}
-                {fileItems.length > 1 ? " Sources " : " Source "}
-                from {Object.keys(fileSummary).length}{" "}
-                {Object.keys(fileSummary).length > 1 ? "Files" : "File"}{" "}
-                <IconCaretRightFilled className="ml-1" size={14} />
-              </div>
-            ) : (
-              <>
-                <div
-                  className="flex cursor-pointer items-center font-medium text-slate-600 hover:text-slate-800"
-                  onClick={() => setViewSources(false)}
-                >
-                  {fileItems.length}
-                  {fileItems.length > 1 ? " Sources " : " Source "}
-                  from {Object.keys(fileSummary).length}{" "}
-                  {Object.keys(fileSummary).length > 1 ? "Files" : "File"}{" "}
-                  <IconCaretDownFilled className="ml-1" size={14} />
-                </div>
-
-                <div className="mt-2 space-y-3">
-                  {Object.values(fileSummary).map((file, index) => (
-                    <div key={index}>
-                      <div className="flex items-center space-x-2">
-                        <FileIcon type={file.type} />
-                        <div className="truncate font-medium text-slate-700">
-                          {file.name}
-                        </div>
+            {(() => {
+              // Post-PR-6 each fileItem may carry RAG citation metadata
+              // (source_title, source_url, source_section). The legacy
+              // `fileSummary` path joins to `files` table and only finds
+              // anything for chats that attached actual file_items rows
+              // — RAG citations have file_id=null so file count came out
+              // as zero ("4 Sources from 0 File"). Render the panel
+              // directly off `fileItems` instead.
+              const items = fileItems as Array<any>
+              return (
+                <>
+                  {!viewSources ? (
+                    <div
+                      className="flex cursor-pointer items-center font-medium text-slate-600 hover:text-slate-800"
+                      onClick={() => setViewSources(true)}
+                    >
+                      {items.length}
+                      {items.length > 1 ? " Sources" : " Source"}
+                      <IconCaretRightFilled className="ml-1" size={14} />
+                    </div>
+                  ) : (
+                    <>
+                      <div
+                        className="flex cursor-pointer items-center font-medium text-slate-600 hover:text-slate-800"
+                        onClick={() => setViewSources(false)}
+                      >
+                        {items.length}
+                        {items.length > 1 ? " Sources" : " Source"}
+                        <IconCaretDownFilled className="ml-1" size={14} />
                       </div>
 
-                      {fileItems
-                        .filter(fileItem => {
-                          const parentFile = files.find(
-                            pf => pf.id === fileItem.file_id
+                      <div className="mt-2 space-y-2.5">
+                        {items.map((fileItem, idx) => {
+                          const title =
+                            fileItem.source_title ??
+                            files.find(f => f.id === fileItem.file_id)?.name ??
+                            "Untitled source"
+                          const url = fileItem.source_url ?? null
+                          const section = fileItem.source_section ?? null
+                          const preview = (fileItem.content ?? "")
+                            .toString()
+                            .slice(0, 200)
+                          const inner = (
+                            <div className="flex items-start gap-2">
+                              <span className="bg-rust-soft text-rust mt-0.5 inline-flex h-[18px] min-w-[20px] shrink-0 items-center justify-center rounded-md px-1 font-mono text-[10.5px] font-semibold">
+                                {idx + 1}
+                              </span>
+                              <div className="min-w-0 flex-1">
+                                <div className="truncate font-medium text-slate-700">
+                                  {title}
+                                  {section && (
+                                    <span className="text-slate-400">
+                                      {" — "}
+                                      {section}
+                                    </span>
+                                  )}
+                                </div>
+                                {preview && (
+                                  <div className="mt-0.5 line-clamp-2 break-words text-xs font-normal text-slate-500">
+                                    {preview}
+                                    {fileItem.content?.length > 200 && "…"}
+                                  </div>
+                                )}
+                              </div>
+                            </div>
                           )
-                          return parentFile?.id === file.id
-                        })
-                        .map((fileItem, idx) => (
-                          <div
-                            key={idx}
-                            className="ml-6 mt-1 cursor-pointer text-xs font-normal text-slate-500 hover:text-slate-700"
-                            onClick={() => {
-                              setSelectedFileItem(fileItem)
-                              setShowFileItemPreview(true)
-                            }}
-                          >
-                            {fileItem.content.substring(0, 200)}...
-                          </div>
-                        ))}
-                    </div>
-                  ))}
-                </div>
-              </>
-            )}
+                          return url ? (
+                            <a
+                              key={idx}
+                              href={url}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="block rounded-md p-1.5 hover:bg-slate-100"
+                              title={`Open: ${title}`}
+                            >
+                              {inner}
+                            </a>
+                          ) : (
+                            <button
+                              key={idx}
+                              type="button"
+                              onClick={() => {
+                                setSelectedFileItem(fileItem)
+                                setShowFileItemPreview(true)
+                              }}
+                              className="block w-full rounded-md p-1.5 text-left hover:bg-slate-100"
+                            >
+                              {inner}
+                            </button>
+                          )
+                        })}
+                      </div>
+                    </>
+                  )}
+                </>
+              )
+            })()}
           </div>
         )}
 
