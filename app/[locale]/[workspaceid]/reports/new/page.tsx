@@ -1,25 +1,31 @@
 "use client"
 
-import { useSearchParams } from "next/navigation"
-import { useState, useEffect } from "react"
+import { useParams, useRouter, useSearchParams } from "next/navigation"
+import { useState } from "react"
 import { CreateReport } from "@/components/reports/create-report"
 
 export default function NewReportPage() {
+  const router = useRouter()
+  const params = useParams() as { locale: string; workspaceid: string }
   const searchParams = useSearchParams()
   const projectId = searchParams.get("projectId")
   const [isOpen, setIsOpen] = useState(true)
 
-  // Handle closing the dialog - redirect back to the project or reports list
+  // Cancel returns the user to wherever the report was being created
+  // from — explicit routing, NOT `history.back()`. The history-back
+  // path bounced into the previous design page when the user navigated
+  // there before opening the create-report flow (#12 in the May ask).
   const handleOpenChange = (open: boolean) => {
     setIsOpen(open)
-    if (!open) {
-      if (projectId) {
-        // Redirect back to project page if came from project context
-        window.history.back()
-      } else {
-        // Redirect to reports list
-        window.location.href = window.location.href.replace("/new", "")
-      }
+    if (open) return
+    if (projectId) {
+      // Came from a project canvas → return to its Reports tab.
+      router.push(
+        `/${params.locale}/${params.workspaceid}/projects/${projectId}#reports`
+      )
+    } else {
+      // Came from the workspace Reports list.
+      router.push(`/${params.locale}/${params.workspaceid}/reports`)
     }
   }
 

@@ -276,9 +276,12 @@ export default function ProjectsPage() {
           <Button
             variant="outline"
             className="gap-2"
-            onClick={() =>
-              router.push(`/${params.locale}/${workspaceId}/chat-history`)
-            }
+            // From the Projects page, "New Chat" means "chat with every
+            // project in the workspace" — i.e. workspace-scoped RAG.
+            // Skip the picker modal and route straight to the fresh
+            // chat surface (which creates a NULL-scoped chat on first
+            // message, matching workspace-wide retrieval).
+            onClick={() => router.push(`/${params.locale}/${workspaceId}/chat`)}
           >
             <IconMessagePlus size={16} />
             New Chat

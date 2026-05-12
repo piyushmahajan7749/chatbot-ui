@@ -14,7 +14,8 @@ import { getMessageImageFromStorage } from "@/db/storage/message-images"
 import { convertBlobToBase64 } from "@/lib/blob-to-b64"
 import useHotkey from "@/lib/hooks/use-hotkey"
 import { LLMID, MessageImage } from "@/types"
-import { useParams } from "next/navigation"
+import { useParams, useRouter } from "next/navigation"
+import { IconArrowLeft } from "@tabler/icons-react"
 import { FC, useContext, useEffect, useState } from "react"
 import { ChatHelp } from "./chat-help"
 import { useScroll } from "./chat-hooks/use-scroll"
@@ -282,7 +283,8 @@ export const ChatUI: FC<ChatUIProps> = ({ variant = "full", chatId }) => {
           or the count of attached files) so the user always knows which
           context their answers are pulling from. */}
       {!isPanel && (
-        <div className="bg-secondary flex min-h-[50px] w-full items-center justify-center gap-3 border-b-2 px-4 py-2 font-bold">
+        <div className="bg-secondary relative flex min-h-[50px] w-full items-center justify-center gap-3 border-b-2 px-4 py-2 font-bold">
+          <ChatBackNav />
           <div className="max-w-[600px] truncate">
             {selectedChat?.name || "Chat"}
           </div>
@@ -319,6 +321,59 @@ export const ChatUI: FC<ChatUIProps> = ({ variant = "full", chatId }) => {
         </div>
       )}
     </div>
+  )
+}
+
+/**
+ * Back arrow in the chat header. Routes context-aware:
+ *   • project-scoped chat → that project's canvas
+ *   • design-scoped chat  → that design page
+ *   • report-scoped chat  → that report page
+ *   • workspace chat      → /projects (the "all projects" view, since
+ *                            that's where users typically launched
+ *                            "chat with all projects")
+ * Falls back to history.back() if scope info is unavailable.
+ */
+const ChatBackNav: FC = () => {
+  const router = useRouter()
+  const params = useParams() as { locale?: string; workspaceid?: string }
+  const { selectedChat } = useContext(ChatbotUIContext)
+
+  const handleBack = () => {
+    const ws = params.workspaceid
+    const locale = params.locale
+    if (!ws || !locale) {
+      router.back()
+      return
+    }
+    const firstScopeId = (selectedChat?.scope_id ?? "")
+      .split(",")
+      .map(s => s.trim())
+      .filter(Boolean)[0]
+
+    if (selectedChat?.scope === "project" && firstScopeId) {
+      router.push(`/${locale}/${ws}/projects/${firstScopeId}`)
+    } else if (selectedChat?.scope === "design" && firstScopeId) {
+      router.push(`/${locale}/${ws}/designs/${firstScopeId}`)
+    } else if (selectedChat?.scope === "report" && firstScopeId) {
+      router.push(`/${locale}/${ws}/reports/${firstScopeId}`)
+    } else {
+      // Workspace / NULL scope → "all projects" (the natural parent for
+      // a workspace-wide chat, per the user's mental model).
+      router.push(`/${locale}/${ws}/projects`)
+    }
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={handleBack}
+      aria-label="Back"
+      className="text-ink-3 hover:text-ink absolute left-3 flex h-7 items-center gap-1 rounded-md px-2 text-[12px] font-medium transition-colors hover:bg-slate-100"
+    >
+      <IconArrowLeft size={14} />
+      Back
+    </button>
   )
 }
 

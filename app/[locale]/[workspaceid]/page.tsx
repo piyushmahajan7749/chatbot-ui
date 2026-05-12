@@ -15,7 +15,9 @@ import {
   type Icon as TablerIconType
 } from "@tabler/icons-react"
 import { useRouter } from "next/navigation"
-import { FC, useContext, useMemo, useState } from "react"
+import { FC, useContext, useEffect, useMemo, useState } from "react"
+
+import { getProjectsByWorkspaceId } from "@/db/projects"
 
 import { ShadowAISVG } from "@/components/icons/chatbotui-svg"
 import { Button } from "@/components/ui/button"
@@ -102,10 +104,37 @@ export default function WorkspacePage() {
     useContext(ChatbotUIContext)
   const [query, setQuery] = useState("")
   const [activeList, setActiveList] = useState<ListKind>("designs")
+  // Projects aren't on the global context; fetch once so list rows can
+  // resolve project_id → name for cross-project attribution chips.
+  const [projects, setProjects] = useState<Array<{ id: string; name: string }>>(
+    []
+  )
 
   const firstName =
     profile?.display_name?.split(" ")[0] || profile?.username || "there"
   const wsId = selectedWorkspace?.id
+
+  useEffect(() => {
+    if (!wsId) return
+    let cancelled = false
+    void getProjectsByWorkspaceId(wsId)
+      .then((rows: any[]) => {
+        if (!cancelled) {
+          setProjects(
+            (rows ?? []).map(p => ({ id: p.id, name: p.name as string }))
+          )
+        }
+      })
+      .catch(err =>
+        console.warn("[WorkspacePage] failed to load projects:", err)
+      )
+    return () => {
+      cancelled = true
+    }
+  }, [wsId])
+
+  const projectName = (id: string | null | undefined) =>
+    (id && projects.find(p => p.id === id)?.name) || null
 
   const sortedDesigns = useMemo(
     () =>
@@ -332,13 +361,24 @@ export default function WorkspacePage() {
             items={sortedDesigns.slice(0, 8)}
             wsId={wsId}
             onNew={() => startDesign()}
+            projectNameOf={projectName}
           />
         )}
         {activeList === "reports" && (
-          <ReportsList items={sortedReports.slice(0, 8)} wsId={wsId} />
+          <ReportsList
+            items={sortedReports.slice(0, 8)}
+            wsId={wsId}
+            projectNameOf={projectName}
+          />
         )}
         {activeList === "chats" && (
-          <ChatsList items={sortedChats.slice(0, 8)} wsId={wsId} />
+          <ChatsList
+            items={sortedChats.slice(0, 8)}
+            wsId={wsId}
+            projectNameOf={projectName}
+            designs={designs}
+            reports={reports}
+          />
         )}
       </div>
     </div>
@@ -361,6 +401,7 @@ interface DesignsListProps {
     id: string
     name: string
     description?: string | null
+    project_id?: string | null
     updated_at?: string | null
     created_at: string
     current_stage?: StageId | null
@@ -368,14 +409,15 @@ interface DesignsListProps {
   }>
   wsId?: string
   onNew: () => void
+  projectNameOf: (id: string | null | undefined) => string | null
 }
 
-function DesignsList({ items, wsId, onNew }: DesignsListProps) {
+function DesignsList({ items, wsId, onNew, projectNameOf }: DesignsListProps) {
   const router = useRouter()
   if (items.length === 0) {
     return (
       <>
-        <ListHeader title="Your designs" count={0} />
+        <ListHeader title="Designs" count={0} />
         <Card className="p-10 text-center">
           <IconFlask size={28} className="text-ink-3 mx-auto mb-3" />
           <div className="text-ink mb-1 text-[14px] font-semibold">
@@ -393,46 +435,54 @@ function DesignsList({ items, wsId, onNew }: DesignsListProps) {
   }
   return (
     <>
-      <ListHeader title="Your designs" count={items.length} />
+      <ListHeader title="Designs" count={items.length} />
       <div className="flex flex-col gap-2.5">
-        {items.map(d => (
-          <button
-            key={d.id}
-            type="button"
-            onClick={() => wsId && router.push(`/${wsId}/designs/${d.id}`)}
-            className="border-line bg-surface hover:border-line-strong hover:bg-paper grid grid-cols-[1fr_auto_auto] items-center gap-5 rounded-lg border px-5 py-4 text-left transition-colors"
-          >
-            <div className="min-w-0">
-              <div className="mb-1 flex items-center gap-2">
-                <Chip variant="default" className="h-[18px] text-[10px]">
-                  Design
-                </Chip>
-                {d.updated_at &&
-                  new Date(d.updated_at).getTime() >
-                    Date.now() - 1000 * 60 * 60 * 24 && (
+        {items.map(d => {
+          const pname = projectNameOf(d.project_id)
+          return (
+            <button
+              key={d.id}
+              type="button"
+              onClick={() => wsId && router.push(`/${wsId}/designs/${d.id}`)}
+              className="border-line bg-surface hover:border-line-strong hover:bg-paper grid grid-cols-[1fr_auto_auto] items-center gap-5 rounded-lg border px-5 py-4 text-left transition-colors"
+            >
+              <div className="min-w-0">
+                <div className="mb-1 flex items-center gap-2">
+                  <Chip variant="default" className="h-[18px] text-[10px]">
+                    Design
+                  </Chip>
+                  {pname && (
                     <Chip variant="accent" className="h-[18px] text-[10px]">
-                      Updated recently
+                      {pname}
                     </Chip>
                   )}
-              </div>
-              <div className="text-ink truncate text-[15px] font-semibold">
-                {d.name}
-              </div>
-              {d.description && (
-                <div className="text-ink-3 mt-1 line-clamp-1 text-[12.5px]">
-                  {d.description}
+                  {d.updated_at &&
+                    new Date(d.updated_at).getTime() >
+                      Date.now() - 1000 * 60 * 60 * 24 && (
+                      <Chip variant="accent" className="h-[18px] text-[10px]">
+                        Updated recently
+                      </Chip>
+                    )}
                 </div>
-              )}
-            </div>
-            <PhaseBar
-              currentStage={d.current_stage ?? null}
-              approvedPhases={d.approved_phases ?? null}
-            />
-            <div className="text-ink-3 min-w-[90px] text-right font-mono text-[12px]">
-              {relativeTime(d.updated_at || d.created_at)}
-            </div>
-          </button>
-        ))}
+                <div className="text-ink truncate text-[15px] font-semibold">
+                  {d.name}
+                </div>
+                {d.description && (
+                  <div className="text-ink-3 mt-1 line-clamp-1 text-[12.5px]">
+                    {d.description}
+                  </div>
+                )}
+              </div>
+              <PhaseBar
+                currentStage={d.current_stage ?? null}
+                approvedPhases={d.approved_phases ?? null}
+              />
+              <div className="text-ink-3 min-w-[90px] text-right font-mono text-[12px]">
+                {relativeTime(d.updated_at || d.created_at)}
+              </div>
+            </button>
+          )
+        })}
       </div>
     </>
   )
@@ -485,18 +535,20 @@ interface ReportsListProps {
     id: string
     name?: string | null
     description?: string | null
+    project_id?: string | null
     updated_at?: string | null
     created_at: string
   }>
   wsId?: string
+  projectNameOf: (id: string | null | undefined) => string | null
 }
 
-function ReportsList({ items, wsId }: ReportsListProps) {
+function ReportsList({ items, wsId, projectNameOf }: ReportsListProps) {
   const router = useRouter()
   if (items.length === 0) {
     return (
       <>
-        <ListHeader title="Your reports" count={0} />
+        <ListHeader title="Reports" count={0} />
         <Card className="p-10 text-center">
           <IconFileText size={28} className="text-ink-3 mx-auto mb-3" />
           <div className="text-ink mb-1 text-[14px] font-semibold">
@@ -511,33 +563,43 @@ function ReportsList({ items, wsId }: ReportsListProps) {
   }
   return (
     <>
-      <ListHeader title="Your reports" count={items.length} />
+      <ListHeader title="Reports" count={items.length} />
       <div className="flex flex-col gap-2.5">
-        {items.map(r => (
-          <button
-            key={r.id}
-            type="button"
-            onClick={() => wsId && router.push(`/${wsId}/reports/${r.id}`)}
-            className="border-line bg-surface hover:border-line-strong hover:bg-paper grid grid-cols-[1fr_auto] items-center gap-5 rounded-lg border px-5 py-4 text-left transition-colors"
-          >
-            <div className="min-w-0">
-              <Chip variant="default" className="mb-1 h-[18px] text-[10px]">
-                Report
-              </Chip>
-              <div className="text-ink truncate text-[15px] font-semibold">
-                {r.name || "Untitled report"}
-              </div>
-              {r.description && (
-                <div className="text-ink-3 mt-1 line-clamp-1 text-[12.5px]">
-                  {r.description}
+        {items.map(r => {
+          const pname = projectNameOf(r.project_id)
+          return (
+            <button
+              key={r.id}
+              type="button"
+              onClick={() => wsId && router.push(`/${wsId}/reports/${r.id}`)}
+              className="border-line bg-surface hover:border-line-strong hover:bg-paper grid grid-cols-[1fr_auto] items-center gap-5 rounded-lg border px-5 py-4 text-left transition-colors"
+            >
+              <div className="min-w-0">
+                <div className="mb-1 flex items-center gap-2">
+                  <Chip variant="default" className="h-[18px] text-[10px]">
+                    Report
+                  </Chip>
+                  {pname && (
+                    <Chip variant="accent" className="h-[18px] text-[10px]">
+                      {pname}
+                    </Chip>
+                  )}
                 </div>
-              )}
-            </div>
-            <div className="text-ink-3 min-w-[90px] text-right font-mono text-[12px]">
-              {relativeTime(r.updated_at || r.created_at)}
-            </div>
-          </button>
-        ))}
+                <div className="text-ink truncate text-[15px] font-semibold">
+                  {r.name || "Untitled report"}
+                </div>
+                {r.description && (
+                  <div className="text-ink-3 mt-1 line-clamp-1 text-[12.5px]">
+                    {r.description}
+                  </div>
+                )}
+              </div>
+              <div className="text-ink-3 min-w-[90px] text-right font-mono text-[12px]">
+                {relativeTime(r.updated_at || r.created_at)}
+              </div>
+            </button>
+          )
+        })}
       </div>
     </>
   )
@@ -547,18 +609,30 @@ interface ChatsListProps {
   items: Array<{
     id: string
     name?: string | null
+    scope?: string | null
+    scope_id?: string | null
+    project_id?: string | null
     updated_at?: string | null
     created_at: string
   }>
   wsId?: string
+  projectNameOf: (id: string | null | undefined) => string | null
+  designs: Array<{ id: string; name: string }>
+  reports: Array<{ id: string; name?: string | null }>
 }
 
-function ChatsList({ items, wsId }: ChatsListProps) {
+function ChatsList({
+  items,
+  wsId,
+  projectNameOf,
+  designs,
+  reports
+}: ChatsListProps) {
   const router = useRouter()
   if (items.length === 0) {
     return (
       <>
-        <ListHeader title="Your chats" count={0} />
+        <ListHeader title="Chats" count={0} />
         <Card className="p-10 text-center">
           <IconMessage size={28} className="text-ink-3 mx-auto mb-3" />
           <div className="text-ink mb-1 text-[14px] font-semibold">
@@ -573,28 +647,66 @@ function ChatsList({ items, wsId }: ChatsListProps) {
   }
   return (
     <>
-      <ListHeader title="Your chats" count={items.length} />
+      <ListHeader title="Chats" count={items.length} />
       <div className="flex flex-col gap-2.5">
-        {items.map(c => (
-          <button
-            key={c.id}
-            type="button"
-            onClick={() => wsId && router.push(`/${wsId}/chat/${c.id}`)}
-            className="border-line bg-surface hover:border-line-strong hover:bg-paper grid grid-cols-[1fr_auto] items-center gap-5 rounded-lg border px-5 py-4 text-left transition-colors"
-          >
-            <div className="min-w-0">
-              <Chip variant="default" className="mb-1 h-[18px] text-[10px]">
-                Chat
-              </Chip>
-              <div className="text-ink truncate text-[15px] font-semibold">
-                {c.name || "Untitled chat"}
+        {items.map(c => {
+          // Surface what this chat is grounded against. Mirrors
+          // ChatScopeBadge logic in the chat header (CSV-encoded
+          // scope_id supports multi-pick).
+          const scopeIds = (c.scope_id ?? "")
+            .split(",")
+            .map(s => s.trim())
+            .filter(Boolean)
+          let scopeChip: string | null = null
+          if (c.scope === "project") {
+            scopeChip =
+              scopeIds.length === 1
+                ? (projectNameOf(scopeIds[0]) ?? "Project")
+                : `${scopeIds.length} projects`
+          } else if (c.scope === "design") {
+            scopeChip =
+              scopeIds.length === 1
+                ? (designs.find(d => d.id === scopeIds[0])?.name ?? "Design")
+                : `${scopeIds.length} designs`
+          } else if (c.scope === "report") {
+            scopeChip =
+              scopeIds.length === 1
+                ? (reports.find(r => r.id === scopeIds[0])?.name ?? "Report")
+                : `${scopeIds.length} reports`
+          } else if (c.project_id) {
+            // legacy: project_id alone (no scope), still show
+            scopeChip = projectNameOf(c.project_id) ?? "Project"
+          } else {
+            scopeChip = "Workspace"
+          }
+          return (
+            <button
+              key={c.id}
+              type="button"
+              onClick={() => wsId && router.push(`/${wsId}/chat/${c.id}`)}
+              className="border-line bg-surface hover:border-line-strong hover:bg-paper grid grid-cols-[1fr_auto] items-center gap-5 rounded-lg border px-5 py-4 text-left transition-colors"
+            >
+              <div className="min-w-0">
+                <div className="mb-1 flex items-center gap-2">
+                  <Chip variant="default" className="h-[18px] text-[10px]">
+                    Chat
+                  </Chip>
+                  {scopeChip && (
+                    <Chip variant="accent" className="h-[18px] text-[10px]">
+                      {scopeChip}
+                    </Chip>
+                  )}
+                </div>
+                <div className="text-ink truncate text-[15px] font-semibold">
+                  {c.name || "Untitled chat"}
+                </div>
               </div>
-            </div>
-            <div className="text-ink-3 min-w-[90px] text-right font-mono text-[12px]">
-              {relativeTime(c.updated_at || c.created_at)}
-            </div>
-          </button>
-        ))}
+              <div className="text-ink-3 min-w-[90px] text-right font-mono text-[12px]">
+                {relativeTime(c.updated_at || c.created_at)}
+              </div>
+            </button>
+          )
+        })}
       </div>
     </>
   )

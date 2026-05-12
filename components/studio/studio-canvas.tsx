@@ -85,7 +85,17 @@ export function StudioCanvas({
   const [loading, setLoading] = useState(true)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [search, setSearch] = useState("")
-  const [activeTab, setActiveTab] = useState<TabKey>("designs")
+  // Allow callers to deep-link a tab via the URL hash (e.g. cancel from
+  // /reports/new sends users back to `#reports`). Hash-based — no
+  // useSearchParams hook needed; safe on first render via window check.
+  const initialTab: TabKey =
+    typeof window !== "undefined" &&
+    (window.location.hash === "#reports" ||
+      window.location.hash === "#chats" ||
+      window.location.hash === "#files")
+      ? (window.location.hash.slice(1) as TabKey)
+      : "designs"
+  const [activeTab, setActiveTab] = useState<TabKey>(initialTab)
   const [creatingChat, setCreatingChat] = useState(false)
   const [uploadingFiles, setUploadingFiles] = useState(false)
   const fileInputRef = useRef<HTMLInputElement | null>(null)

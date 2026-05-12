@@ -442,7 +442,7 @@ export const AppSidebar = ({ isCollapsed, onToggle }: AppSidebarProps) => {
             />
             <NavItem
               icon={<IconFlask size={16} />}
-              label="All Designs"
+              label="Designs"
               active={isActive("/designs")}
               onClick={() => wsId && router.push(`/${wsId}/designs`)}
               collapsed={isCollapsed}
