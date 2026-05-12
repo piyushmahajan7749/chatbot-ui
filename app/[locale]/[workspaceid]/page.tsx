@@ -439,6 +439,10 @@ function DesignsList({ items, wsId, onNew, projectNameOf }: DesignsListProps) {
       <div className="flex flex-col gap-2.5">
         {items.map(d => {
           const pname = projectNameOf(d.project_id)
+          // Status derived from approved phases — Completed when all 5
+          // stages signed off; otherwise In progress (#14). PhaseBar
+          // beside the row still shows the visual breakdown.
+          const isCompleted = (d.approved_phases ?? []).length >= 5
           return (
             <button
               key={d.id}
@@ -456,6 +460,12 @@ function DesignsList({ items, wsId, onNew, projectNameOf }: DesignsListProps) {
                       {pname}
                     </Chip>
                   )}
+                  <Chip
+                    variant={isCompleted ? "default" : "accent"}
+                    className="h-[18px] text-[10px]"
+                  >
+                    {isCompleted ? "Completed" : "In progress"}
+                  </Chip>
                   {d.updated_at &&
                     new Date(d.updated_at).getTime() >
                       Date.now() - 1000 * 60 * 60 * 24 && (
@@ -536,6 +546,8 @@ interface ReportsListProps {
     name?: string | null
     description?: string | null
     project_id?: string | null
+    /** Generated report body — when non-empty we mark the report Completed. */
+    report_draft?: unknown
     updated_at?: string | null
     created_at: string
   }>
@@ -567,6 +579,15 @@ function ReportsList({ items, wsId, projectNameOf }: ReportsListProps) {
       <div className="flex flex-col gap-2.5">
         {items.map(r => {
           const pname = projectNameOf(r.project_id)
+          // Reports are "Completed" once the draft body is populated;
+          // otherwise still "In progress" (#14). Tolerant of both
+          // string-stored draft and object-with-sections shapes.
+          const draft = r.report_draft
+          const reportCompleted =
+            (typeof draft === "string" && draft.trim().length > 0) ||
+            (!!draft &&
+              typeof draft === "object" &&
+              Object.keys(draft as Record<string, unknown>).length > 0)
           return (
             <button
               key={r.id}
@@ -584,6 +605,12 @@ function ReportsList({ items, wsId, projectNameOf }: ReportsListProps) {
                       {pname}
                     </Chip>
                   )}
+                  <Chip
+                    variant={reportCompleted ? "default" : "accent"}
+                    className="h-[18px] text-[10px]"
+                  >
+                    {reportCompleted ? "Completed" : "In progress"}
+                  </Chip>
                 </div>
                 <div className="text-ink truncate text-[15px] font-semibold">
                   {r.name || "Untitled report"}

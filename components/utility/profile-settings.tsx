@@ -43,9 +43,21 @@ import { TextareaAutosize } from "../ui/textarea-autosize"
 import { WithTooltip } from "../ui/with-tooltip"
 import { ThemeSwitcher } from "./theme-switcher"
 
-interface ProfileSettingsProps {}
+interface ProfileSettingsProps {
+  /**
+   * When supplied, makes the sheet a controlled component. The default
+   * built-in trigger (user avatar) is hidden — caller renders their own
+   * trigger and calls `onOpenChange(true)`. Used by the sidebar
+   * Settings + 3-dot-menu buttons in the new app-sidebar.
+   */
+  open?: boolean
+  onOpenChange?: (open: boolean) => void
+}
 
-export const ProfileSettings: FC<ProfileSettingsProps> = ({}) => {
+export const ProfileSettings: FC<ProfileSettingsProps> = ({
+  open: controlledOpen,
+  onOpenChange: controlledOnOpenChange
+}) => {
   const {
     profile,
     setProfile,
@@ -59,7 +71,13 @@ export const ProfileSettings: FC<ProfileSettingsProps> = ({}) => {
 
   const buttonRef = useRef<HTMLButtonElement>(null)
 
-  const [isOpen, setIsOpen] = useState(false)
+  const [internalOpen, setInternalOpen] = useState(false)
+  const isControlled = controlledOpen !== undefined
+  const isOpen = isControlled ? controlledOpen : internalOpen
+  const setIsOpen = (next: boolean) => {
+    if (isControlled) controlledOnOpenChange?.(next)
+    else setInternalOpen(next)
+  }
 
   const [displayName, setDisplayName] = useState(profile?.display_name || "")
   const [username, setUsername] = useState(profile?.username || "")
@@ -295,21 +313,23 @@ export const ProfileSettings: FC<ProfileSettingsProps> = ({}) => {
 
   return (
     <Sheet open={isOpen} onOpenChange={setIsOpen}>
-      <SheetTrigger asChild>
-        {profile.image_url ? (
-          <Image
-            className="mt-2 size-[34px] cursor-pointer rounded hover:opacity-50"
-            src={profile.image_url + "?" + new Date().getTime()}
-            height={34}
-            width={34}
-            alt={"Image"}
-          />
-        ) : (
-          <Button size="icon" variant="ghost">
-            <IconUser size={SIDEBAR_ICON_SIZE} />
-          </Button>
-        )}
-      </SheetTrigger>
+      {!isControlled && (
+        <SheetTrigger asChild>
+          {profile.image_url ? (
+            <Image
+              className="mt-2 size-[34px] cursor-pointer rounded hover:opacity-50"
+              src={profile.image_url + "?" + new Date().getTime()}
+              height={34}
+              width={34}
+              alt={"Image"}
+            />
+          ) : (
+            <Button size="icon" variant="ghost">
+              <IconUser size={SIDEBAR_ICON_SIZE} />
+            </Button>
+          )}
+        </SheetTrigger>
+      )}
 
       <SheetContent
         className="flex flex-col justify-between"

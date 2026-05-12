@@ -12,16 +12,33 @@ export interface ProjectFileMeta {
   created_at: string
 }
 
+// File types accepted by the project Files tab. Mirrors the input's
+// `accept` attribute (studio-canvas.tsx) — keep these two in sync.
+//   PDF, JPG/JPEG/PNG/WebP/GIF images, CSV, and Word .docx (#15).
 const ACCEPTED_MIME = [
   "application/pdf",
   "image/jpeg",
   "image/jpg",
   "image/png",
+  "image/webp",
+  "image/gif",
   "text/csv",
-  "application/vnd.ms-excel" // some browsers tag csv as this
+  "application/vnd.ms-excel", // some browsers tag csv as this
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document", // .docx
+  "application/msword" // legacy .doc — accept upload, content extraction tbd
 ]
 
-const ACCEPTED_EXT = [".pdf", ".jpg", ".jpeg", ".png", ".csv"]
+const ACCEPTED_EXT = [
+  ".pdf",
+  ".jpg",
+  ".jpeg",
+  ".png",
+  ".webp",
+  ".gif",
+  ".csv",
+  ".docx",
+  ".doc"
+]
 
 const isAccepted = (file: File): boolean => {
   const lowerName = file.name.toLowerCase()
@@ -54,7 +71,7 @@ export const uploadProjectFile = async (params: {
 
   if (!isAccepted(file)) {
     throw new Error(
-      `Unsupported file type. Upload PDF, JPEG, PNG, or CSV instead.`
+      `Unsupported file type. Upload PDF, JPEG/PNG/WebP/GIF, CSV, or DOCX.`
     )
   }
 

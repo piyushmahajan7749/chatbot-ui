@@ -1,4 +1,4 @@
-import Image from "next/image"
+import { ShadowAISVG } from "@/components/icons/chatbotui-svg"
 
 interface LoaderProps {
   text: String // Optional callback for New Project button click
@@ -7,8 +7,10 @@ interface LoaderProps {
 export const Loader: React.FC<LoaderProps> = ({ text }) => {
   return (
     <div className="flex h-full flex-col items-center justify-center gap-y-4 pt-12">
-      <div className="relative size-8 animate-spin">
-        <Image alt="Logo" src="/LIGHT_BRAND_LOGO.png" fill />
+      {/* Inline monogram (same one used in <Brand>) — was loading the
+          legacy PNG which made the spinner blink in/out on slow links. */}
+      <div className="size-8 animate-spin">
+        <ShadowAISVG scale={32 / 24} />
       </div>
       <p className="text-foreground text-sm font-semibold">{text}</p>
     </div>

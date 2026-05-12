@@ -82,10 +82,19 @@ export const ChatUI: FC<ChatUIProps> = ({ variant = "full", chatId }) => {
 
     if (effectiveChatId) {
       setLoading(true)
-      fetchData().then(() => {
-        handleFocusChatInput()
-        setLoading(false)
-      })
+      // Always clear the loading flag in `finally` — historically the
+      // .then() chain meant any throw inside fetchData() (e.g. RAG
+      // snapshot fetch failing if migration 20260507 isn't applied)
+      // left the chat stuck on an infinite spinner ("keeps processing"
+      // bug #7). Logging the error here surfaces the real cause.
+      fetchData()
+        .catch(err => {
+          console.error("[ChatUI] failed to load chat:", err)
+        })
+        .finally(() => {
+          handleFocusChatInput()
+          setLoading(false)
+        })
     } else {
       setLoading(false)
     }
@@ -138,9 +147,21 @@ export const ChatUI: FC<ChatUIProps> = ({ variant = "full", chatId }) => {
     const messageFileItemPromises = fetchedMessages.map(
       async message => await getMessageFileItemsByMessageId(message.id)
     )
-    const ragCitationPromises = fetchedMessages.map(
-      async message => await getRagCitationsByMessageId(message.id)
-    )
+    // RAG citation snapshots fail if migration 20260507 (which adds the
+    // `rag_item_id` + `content_snapshot` cols on `message_file_items`)
+    // hasn't been applied yet. Swallow the per-message failure so chat
+    // load isn't blocked — citations just fall back to live-only mode.
+    const ragCitationPromises = fetchedMessages.map(async message => {
+      try {
+        return await getRagCitationsByMessageId(message.id)
+      } catch (err) {
+        console.warn(
+          "[ChatUI] getRagCitationsByMessageId failed (migration 20260507 may be unapplied):",
+          err
+        )
+        return [] as Awaited<ReturnType<typeof getRagCitationsByMessageId>>
+      }
+    })
 
     const messageFileItems = await Promise.all(messageFileItemPromises)
     const ragCitationsPerMsg = await Promise.all(ragCitationPromises)

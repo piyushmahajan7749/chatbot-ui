@@ -11,13 +11,18 @@ import { ErrorBoundary } from "@/components/ui/error-boundary"
 import { AccentTabs } from "@/components/canvas/accent-tabs"
 import { getProjectById, updateProject, deleteProject } from "@/db/projects"
 import { getDesignsByProject } from "@/db/designs"
-import { getReportsByProject } from "@/db/reports-firestore"
-import { createChat, getChatsByWorkspaceId } from "@/db/chats"
+import { deleteDesign as deleteDesignFirestore } from "@/db/designs-firestore"
+import {
+  deleteReport as deleteReportFirestore,
+  getReportsByProject
+} from "@/db/reports-firestore"
+import { createChat, deleteChat, getChatsByWorkspaceId } from "@/db/chats"
 import type { Tables } from "@/supabase/types"
 import { Project } from "@/types/project"
 import { ProjectSettingsModal } from "./project-settings-modal"
 import {
   IconClipboardText,
+  IconDotsVertical,
   IconDownload,
   IconEdit,
   IconFile,
@@ -34,6 +39,12 @@ import {
   IconTrash,
   IconUpload
 } from "@tabler/icons-react"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger
+} from "@/components/ui/dropdown-menu"
 import { useToast } from "@/app/hooks/use-toast"
 import { ChatbotUIContext } from "@/context/context"
 import { supabase } from "@/lib/supabase/browser-client"
@@ -254,6 +265,55 @@ export function StudioCanvas({
       toast({
         title: "Error",
         description: "Failed to update project.",
+        variant: "destructive"
+      })
+    }
+  }
+
+  // Per-sub-item delete handlers (#13). Each removes the item from
+  // its source-of-truth + drops it from the local list state. Confirm
+  // is handled inline in the kebab menu via window.confirm — cheaper
+  // than wiring per-row AlertDialog given how many items can render.
+  const handleDeleteDesign = async (id: string) => {
+    if (!window.confirm("Delete this design? This cannot be undone.")) return
+    try {
+      await deleteDesignFirestore(id)
+      setDesigns(prev => prev.filter(d => d.id !== id))
+      toast({ title: "Design deleted" })
+    } catch (err: any) {
+      toast({
+        title: "Couldn't delete design",
+        description: err?.message ?? "Try again in a moment.",
+        variant: "destructive"
+      })
+    }
+  }
+
+  const handleDeleteReportItem = async (id: string) => {
+    if (!window.confirm("Delete this report? This cannot be undone.")) return
+    try {
+      await deleteReportFirestore(id)
+      setReports(prev => prev.filter(r => r.id !== id))
+      toast({ title: "Report deleted" })
+    } catch (err: any) {
+      toast({
+        title: "Couldn't delete report",
+        description: err?.message ?? "Try again in a moment.",
+        variant: "destructive"
+      })
+    }
+  }
+
+  const handleDeleteChatItem = async (id: string) => {
+    if (!window.confirm("Delete this chat? This cannot be undone.")) return
+    try {
+      await deleteChat(id)
+      setChats(prev => prev.filter(c => c.id !== id))
+      toast({ title: "Chat deleted" })
+    } catch (err: any) {
+      toast({
+        title: "Couldn't delete chat",
+        description: err?.message ?? "Try again in a moment.",
         variant: "destructive"
       })
     }
@@ -585,7 +645,7 @@ export function StudioCanvas({
               <input
                 ref={fileInputRef}
                 type="file"
-                accept=".pdf,.jpg,.jpeg,.png,.csv,application/pdf,image/jpeg,image/png,text/csv"
+                accept=".pdf,.jpg,.jpeg,.png,.webp,.gif,.csv,.docx,.doc,application/pdf,image/jpeg,image/png,image/webp,image/gif,text/csv,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
                 multiple
                 className="hidden"
                 onChange={e => {
@@ -603,22 +663,24 @@ export function StudioCanvas({
                 {uploadingFiles ? "Uploading…" : "Upload Files"}
               </button>
 
-              {/* Chat: toggles chat rail */}
-              {onToggleRail && (
-                <button
-                  onClick={onToggleRail}
-                  aria-label="Toggle chat"
-                  className={
-                    "flex h-9 items-center gap-2 rounded-full px-4 text-xs font-semibold uppercase tracking-wide text-white shadow-sm ring-1 ring-inset transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md active:translate-y-0 " +
-                    (showRail
-                      ? "bg-ink-700 hover:bg-ink-800 ring-white/10"
-                      : "from-brick to-brick-hover bg-gradient-to-r ring-white/20")
-                  }
-                >
-                  <IconSparkles size={14} className="shrink-0" />
-                  Chat
-                </button>
-              )}
+              {/* Chat: launches a full-screen project-scoped chat. The
+                  previous side-rail toggle (#16) was confusing — the
+                  chat felt cramped and had inconsistent scope vs the
+                  full-screen path. Now this button mirrors the in-grid
+                  "Start a Chat" CTA: create-or-reuse a project chat,
+                  then route to /chat/<id>. The side rail still exists
+                  for in-design quick threads (different surface). */}
+              <button
+                onClick={handleNewChat}
+                disabled={creatingChat}
+                aria-label="Open project chat"
+                className={
+                  "from-brick to-brick-hover flex h-9 items-center gap-2 rounded-full bg-gradient-to-r px-4 text-xs font-semibold uppercase tracking-wide text-white shadow-sm ring-1 ring-inset ring-white/20 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md active:translate-y-0 disabled:opacity-60"
+                }
+              >
+                <IconSparkles size={14} className="shrink-0" />
+                {creatingChat ? "Starting…" : "Chat"}
+              </button>
             </div>
           </div>
         </div>
@@ -684,6 +746,7 @@ export function StudioCanvas({
                 router.push(`/${locale}/${actualWorkspaceId}/designs/${id}`)
               }
               onNewDesign={handleNewDesign}
+              onDeleteDesign={handleDeleteDesign}
             />
           )}
 
@@ -697,6 +760,7 @@ export function StudioCanvas({
                 router.push(`/${locale}/${actualWorkspaceId}/reports/${id}`)
               }
               onNewReport={handleNewReport}
+              onDeleteReport={handleDeleteReportItem}
             />
           )}
 
@@ -711,6 +775,7 @@ export function StudioCanvas({
               }
               onNewChat={handleNewChat}
               creatingChat={creatingChat}
+              onDeleteChat={handleDeleteChatItem}
             />
           )}
 
@@ -751,6 +816,7 @@ function DesignsGrid(props: {
   getTimeAgo: (d: string | null) => string
   onOpenDesign: (id: string) => void
   onNewDesign: () => void
+  onDeleteDesign: (id: string) => void
 }) {
   const { designs, rawCount, searching, chipsFor, getTimeAgo } = props
   if (designs.length === 0) {
@@ -779,6 +845,12 @@ function DesignsGrid(props: {
           timestampLabel="Updated"
           timestamp={getTimeAgo(design.updated_at || design.created_at)}
           onClick={() => props.onOpenDesign(design.id)}
+          actions={
+            <ItemKebab
+              onOpen={() => props.onOpenDesign(design.id)}
+              onDelete={() => props.onDeleteDesign(design.id)}
+            />
+          }
         />
       ))}
     </div>
@@ -792,6 +864,7 @@ function ReportsGrid(props: {
   getTimeAgo: (d: string | null) => string
   onOpenReport: (id: string) => void
   onNewReport: () => void
+  onDeleteReport: (id: string) => void
 }) {
   const { reports, rawCount, searching, getTimeAgo } = props
   if (reports.length === 0) {
@@ -819,6 +892,12 @@ function ReportsGrid(props: {
           timestampLabel="Updated"
           timestamp={getTimeAgo(report.updated_at || report.created_at)}
           onClick={() => props.onOpenReport(report.id)}
+          actions={
+            <ItemKebab
+              onOpen={() => props.onOpenReport(report.id)}
+              onDelete={() => props.onDeleteReport(report.id)}
+            />
+          }
         />
       ))}
     </div>
@@ -833,6 +912,7 @@ function ChatsGrid(props: {
   onOpenChat: (id: string) => void
   onNewChat: () => void
   creatingChat: boolean
+  onDeleteChat: (id: string) => void
 }) {
   const { chats, rawCount, searching, getTimeAgo } = props
   if (chats.length === 0) {
@@ -859,6 +939,12 @@ function ChatsGrid(props: {
           timestampLabel="Updated"
           timestamp={getTimeAgo(chat.updated_at || chat.created_at)}
           onClick={() => props.onOpenChat(chat.id)}
+          actions={
+            <ItemKebab
+              onOpen={() => props.onOpenChat(chat.id)}
+              onDelete={() => props.onDeleteChat(chat.id)}
+            />
+          }
         />
       ))}
     </div>
@@ -892,8 +978,8 @@ function FilesGrid(props: {
         </div>
         <p className="text-ink-700 text-sm font-semibold">No files yet</p>
         <p className="text-ink-400 max-w-sm text-xs">
-          Upload supporting materials (PDF, JPEG, PNG, CSV) to share context
-          across designs and chats in this project.
+          Upload supporting materials (PDF, JPEG/PNG/WebP/GIF, CSV, DOCX) to
+          share context across designs and chats in this project.
         </p>
         <Button
           onClick={props.onUpload}
@@ -1012,5 +1098,45 @@ function EmptyState(props: {
         {ctaLabel}
       </Button>
     </div>
+  )
+}
+
+/**
+ * Per-card kebab menu — Open + Delete actions. Edit is implicit via
+ * Open (each entity has its own edit-in-place affordances). Stops
+ * propagation so the wrapping card's onClick doesn't also fire.
+ */
+function ItemKebab(props: { onOpen: () => void; onDelete: () => void }) {
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="text-ink-400 hover:text-ink-700 size-7"
+          aria-label="More actions"
+          onClick={e => e.stopPropagation()}
+        >
+          <IconDotsVertical size={14} />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent
+        align="end"
+        className="w-36"
+        onClick={e => e.stopPropagation()}
+      >
+        <DropdownMenuItem onSelect={props.onOpen} className="cursor-pointer">
+          <IconEdit size={14} className="mr-2" />
+          Open / edit
+        </DropdownMenuItem>
+        <DropdownMenuItem
+          onSelect={props.onDelete}
+          className="text-destructive focus:text-destructive cursor-pointer"
+        >
+          <IconTrash size={14} className="mr-2" />
+          Delete
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
   )
 }

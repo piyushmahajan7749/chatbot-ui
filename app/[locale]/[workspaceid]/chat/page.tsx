@@ -1,59 +1,47 @@
 "use client"
 
+/**
+ * Workspace-level "/chat" landing.
+ *
+ * When the chat is empty (no messages yet), shows the user a quick
+ * picker for what to chat with: Workspace / Projects / Designs /
+ * Reports / Files. Each card opens StartChatModal on the matching tab.
+ *
+ * Previous version had:
+ *   - QuickSettings (model picker) at the top — model identity is
+ *     intentionally hidden from users now (Shadow AI is the product)
+ *   - 4 "suggestion task" cards (Analyze data, Summarize a paper, …) —
+ *     replaced by the scope picker so users select their context
+ *     instead of a generic intent
+ */
 import { ChatHelp } from "@/components/chat/chat-help"
 import { useChatHandler } from "@/components/chat/chat-hooks/use-chat-handler"
 import { ChatInput } from "@/components/chat/chat-input"
 import { ChatUI } from "@/components/chat/chat-ui"
-import { QuickSettings } from "@/components/chat/quick-settings"
+import {
+  StartChatModal,
+  type StartChatSelection,
+  type ChatScope
+} from "@/components/chat/start-chat-modal"
+import { createChat } from "@/db/chats"
+import { createChatFiles } from "@/db/chat-files"
 import { Brand } from "@/components/ui/brand"
 import { ChatbotUIContext } from "@/context/context"
 import useHotkey from "@/lib/hooks/use-hotkey"
+import { supabase } from "@/lib/supabase/browser-client"
+import { useToast } from "@/app/hooks/use-toast"
 import { cn } from "@/lib/utils"
-import { FileText, FlaskConical, Lightbulb, MessageSquare } from "lucide-react"
-import { useContext } from "react"
+import {
+  IconBriefcase,
+  IconFile,
+  IconFlask,
+  IconFolder,
+  IconReport
+} from "@tabler/icons-react"
+import { useParams, useRouter } from "next/navigation"
+import { useContext, useState } from "react"
 
 type UseCase = "design" | "validate" | "explore" | "browse"
-
-const SUGGESTION_CARDS = [
-  {
-    id: "analyze",
-    icon: FlaskConical,
-    title: "Analyze data",
-    description: "Upload a dataset and get insights",
-    color: "text-blue-600 bg-blue-50 border-blue-100"
-  },
-  {
-    id: "summarize",
-    icon: FileText,
-    title: "Summarize a paper",
-    description: "Get key findings from research",
-    color: "text-emerald-600 bg-emerald-50 border-emerald-100"
-  },
-  {
-    id: "brainstorm",
-    icon: MessageSquare,
-    title: "Brainstorm ideas",
-    description: "Explore new research directions",
-    color: "text-purple-600 bg-purple-50 border-purple-100"
-  },
-  {
-    id: "explain",
-    icon: Lightbulb,
-    title: "Explain a concept",
-    description: "Break down complex topics",
-    color: "text-orange-600 bg-orange-50 border-orange-100"
-  }
-] as const
-
-const USE_CASE_LEAD_CARD: Record<
-  UseCase,
-  (typeof SUGGESTION_CARDS)[number]["id"]
-> = {
-  design: "brainstorm",
-  validate: "explain",
-  explore: "summarize",
-  browse: "analyze"
-}
 
 const USE_CASE_GREETING: Record<UseCase, string> = {
   design: "Ready to design your next experiment?",
@@ -62,13 +50,51 @@ const USE_CASE_GREETING: Record<UseCase, string> = {
   browse: "What can I help with today?"
 }
 
-function sortCardsByUseCase(useCase: UseCase | null) {
-  if (!useCase) return SUGGESTION_CARDS
-  const leadId = USE_CASE_LEAD_CARD[useCase]
-  const lead = SUGGESTION_CARDS.find(c => c.id === leadId)
-  if (!lead) return SUGGESTION_CARDS
-  return [lead, ...SUGGESTION_CARDS.filter(c => c.id !== leadId)]
+interface ScopeCard {
+  id: ChatScope
+  icon: typeof IconBriefcase
+  title: string
+  description: string
+  color: string
 }
+
+const SCOPE_CARDS: ScopeCard[] = [
+  {
+    id: "workspace",
+    icon: IconBriefcase,
+    title: "Workspace",
+    description: "Chat across everything in this workspace",
+    color: "text-blue-600 bg-blue-50 border-blue-100"
+  },
+  {
+    id: "project",
+    icon: IconFolder,
+    title: "Projects",
+    description: "Pick one or more projects to chat with",
+    color: "text-emerald-600 bg-emerald-50 border-emerald-100"
+  },
+  {
+    id: "design",
+    icon: IconFlask,
+    title: "Designs",
+    description: "Chat about specific designs",
+    color: "text-purple-600 bg-purple-50 border-purple-100"
+  },
+  {
+    id: "report",
+    icon: IconReport,
+    title: "Reports",
+    description: "Pick reports to discuss",
+    color: "text-orange-600 bg-orange-50 border-orange-100"
+  },
+  {
+    id: "files",
+    icon: IconFile,
+    title: "Files",
+    description: "Chat with selected files only",
+    color: "text-slate-600 bg-slate-50 border-slate-100"
+  }
+]
 
 export default function ChatPage() {
   useHotkey("o", () => handleNewChat())
@@ -76,7 +102,11 @@ export default function ChatPage() {
     handleFocusChatInput()
   })
 
-  const { chatMessages, setUserInput, profile } = useContext(ChatbotUIContext)
+  const router = useRouter()
+  const params = useParams() as { locale: string; workspaceid: string }
+  const { chatMessages, profile, selectedWorkspace, chatSettings } =
+    useContext(ChatbotUIContext)
+  const { toast } = useToast()
 
   const { handleNewChat, handleFocusChatInput } = useChatHandler()
 
@@ -85,20 +115,99 @@ export default function ChatPage() {
   const greeting = useCase
     ? USE_CASE_GREETING[useCase]
     : "What can I help with today?"
-  const cards = sortCardsByUseCase(useCase)
-  const leadId = useCase ? USE_CASE_LEAD_CARD[useCase] : null
+
+  const [modalOpen, setModalOpen] = useState(false)
+  const [initialTab, setInitialTab] = useState<ChatScope>("workspace")
+  const [creating, setCreating] = useState(false)
+
+  // Routes to a fresh chat created from the picker selection. Mirrors
+  // chat-history/page.tsx:handleStartFromModal (CSV scope_id, project
+  // mirror, chat_files for the Files tab).
+  const handleStartFromPicker = async (sel: StartChatSelection) => {
+    if (!selectedWorkspace) return
+    setCreating(true)
+    try {
+      const {
+        data: { user }
+      } = await supabase.auth.getUser()
+      if (!user) throw new Error("Not signed in")
+
+      const scopeIdEncoded =
+        sel.scopeIds.length > 0 ? sel.scopeIds.join(",") : null
+      const projectId =
+        sel.scope === "project" && sel.scopeIds.length > 0
+          ? sel.scopeIds[0]
+          : null
+
+      const chat = await createChat({
+        user_id: user.id,
+        workspace_id: selectedWorkspace.id,
+        name: sel.label,
+        scope: sel.scope,
+        scope_id: scopeIdEncoded,
+        project_id: projectId,
+        model: chatSettings?.model ?? selectedWorkspace.default_model,
+        prompt: chatSettings?.prompt ?? selectedWorkspace.default_prompt ?? "",
+        temperature:
+          chatSettings?.temperature ?? selectedWorkspace.default_temperature,
+        context_length:
+          chatSettings?.contextLength ??
+          selectedWorkspace.default_context_length,
+        embeddings_provider:
+          chatSettings?.embeddingsProvider ??
+          selectedWorkspace.embeddings_provider,
+        include_profile_context:
+          chatSettings?.includeProfileContext ??
+          selectedWorkspace.include_profile_context,
+        include_workspace_instructions:
+          chatSettings?.includeWorkspaceInstructions ??
+          selectedWorkspace.include_workspace_instructions,
+        sharing: "private"
+      })
+
+      if (sel.fileIds.length > 0) {
+        try {
+          await createChatFiles(
+            sel.fileIds.map(fileId => ({
+              user_id: user.id,
+              chat_id: chat.id,
+              file_id: fileId
+            }))
+          )
+        } catch (err) {
+          console.warn("[chat/page] chat_files insert failed:", err)
+        }
+      }
+
+      router.push(`/${params.locale}/${params.workspaceid}/chat/${chat.id}`)
+    } catch (err: any) {
+      toast({
+        title: "Couldn't start chat",
+        description: err?.message ?? "Try again.",
+        variant: "destructive"
+      })
+    } finally {
+      setCreating(false)
+      setModalOpen(false)
+    }
+  }
+
+  const openModalOnTab = (tab: ChatScope) => {
+    setInitialTab(tab)
+    setModalOpen(true)
+  }
 
   return (
     <>
       {chatMessages.length === 0 ? (
         <div className="flex h-full flex-col bg-slate-50">
-          {/* Top bar with model selector */}
-          <div className="flex items-center justify-between border-b border-slate-200 bg-white px-4 py-2">
-            <QuickSettings />
+          {/* Top bar — chat help only. Model picker (QuickSettings)
+              removed since model identity is hidden from users. */}
+          <div className="flex items-center justify-end border-b border-slate-200 bg-white px-4 py-2">
             <ChatHelp />
           </div>
 
-          {/* Centered welcome content */}
+          {/* Centered welcome + scope picker */}
           <div className="flex flex-1 flex-col items-center justify-center px-4">
             <Brand />
 
@@ -109,25 +218,25 @@ export default function ChatPage() {
               <p className="text-ink mt-0.5 text-[15px] font-medium sm:text-[16px]">
                 {greeting}
               </p>
+              <p className="text-ink-3 mt-2 text-[13px]">
+                Pick what you&apos;d like to chat with — answers cite the
+                source.
+              </p>
             </div>
 
-            {/* Suggestion cards */}
-            <div className="mt-6 grid w-full max-w-2xl grid-cols-2 gap-3 sm:grid-cols-4">
-              {cards.map(card => {
+            {/* Scope picker — each card opens the modal pre-set to that tab */}
+            <div className="mt-6 grid w-full max-w-3xl grid-cols-2 gap-3 sm:grid-cols-5">
+              {SCOPE_CARDS.map(card => {
                 const Icon = card.icon
-                const isLead = card.id === leadId
                 return (
                   <button
-                    key={card.title}
+                    key={card.id}
                     className={cn(
                       "flex flex-col items-start gap-2 rounded-2xl border p-4 text-left transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md",
-                      card.color,
-                      isLead && "ring-rust/40 shadow-sm ring-2"
+                      card.color
                     )}
-                    onClick={() => {
-                      setUserInput(card.title + ": ")
-                      handleFocusChatInput()
-                    }}
+                    onClick={() => openModalOnTab(card.id)}
+                    disabled={creating}
                   >
                     <Icon className="size-5" />
                     <div>
@@ -142,10 +251,20 @@ export default function ChatPage() {
             </div>
           </div>
 
-          {/* Chat input */}
+          {/* Free-form input still available below — workspace-scoped on
+              first send (matches the Workspace card). */}
           <div className="w-full max-w-3xl self-center px-4 pb-6 pt-2">
             <ChatInput />
           </div>
+
+          {/* Picker modal — shared with chat-history page */}
+          <StartChatModal
+            isOpen={modalOpen}
+            onOpenChange={setModalOpen}
+            onConfirm={handleStartFromPicker}
+            busy={creating}
+            initialTab={initialTab}
+          />
         </div>
       ) : (
         <ChatUI />

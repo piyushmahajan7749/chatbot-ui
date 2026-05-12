@@ -978,6 +978,22 @@ export default function DesignDetailPage() {
     })
   }
 
+  /**
+   * Inline edit on a hypothesis's text (#2). Lets the scientist tweak
+   * a generated hypothesis with their own phrasing before approval.
+   * Persists immediately so downstream agents see the edited text on
+   * the next phase.
+   */
+  const handleEditHypothesis = (id: string, nextText: string) => {
+    const trimmed = nextText.trim()
+    if (!trimmed) return
+    setHypotheses(prev => {
+      const next = prev.map(h => (h.id === id ? { ...h, text: trimmed } : h))
+      void persistContent({ hypotheses: next })
+      return next
+    })
+  }
+
   const selectedHypotheses = useMemo(
     () => hypotheses.filter(h => h.selected),
     [hypotheses]
@@ -1713,6 +1729,7 @@ export default function DesignDetailPage() {
                 hypotheses={hypotheses}
                 papers={papers}
                 onToggle={handleToggleHypothesis}
+                onEdit={handleEditHypothesis}
                 onApproveAndGenerate={handleApproveAndGenerateDesign}
                 onRegenerate={handleRegenerateHypotheses}
                 canGenerate={selectedHypotheses.length > 0}
@@ -2437,6 +2454,8 @@ function HypothesesTab(props: {
   hypotheses: Hypothesis[]
   papers: Paper[]
   onToggle: (id: string) => void
+  /** Persist scientist-edited hypothesis text (#2). */
+  onEdit: (id: string, nextText: string) => void
   onApproveAndGenerate: () => void
   onRegenerate: () => void
   canGenerate: boolean
@@ -2450,6 +2469,7 @@ function HypothesesTab(props: {
     hypotheses,
     papers,
     onToggle,
+    onEdit,
     onApproveAndGenerate,
     onRegenerate,
     canGenerate,
@@ -2530,7 +2550,11 @@ function HypothesesTab(props: {
                 disabled={isApproved}
               />
               <div className="min-w-0 flex-1">
-                <p className="text-ink-900 text-sm leading-relaxed">{h.text}</p>
+                <EditableHypothesis
+                  text={h.text}
+                  disabled={isApproved}
+                  onSave={next => onEdit(h.id, next)}
+                />
                 {/* Cited-from chips: surface paper titles inline so the user
                     sees the evidence chain without opening the popover. */}
                 {h.basedOnPaperIds.length > 0 && (
@@ -2668,6 +2692,84 @@ function HypothesesTab(props: {
         isBusy={isBusy}
         isApproved={isApproved}
       />
+    </div>
+  )
+}
+
+/**
+ * Inline editor for a single hypothesis text (#2). Click-to-edit; Save
+ * persists via the parent `onSave`. Disabled when the phase is already
+ * approved (text becomes plain read-only).
+ */
+function EditableHypothesis(props: {
+  text: string
+  disabled?: boolean
+  onSave: (nextText: string) => void
+}) {
+  const [editing, setEditing] = useState(false)
+  const [draft, setDraft] = useState(props.text)
+  useEffect(() => {
+    if (!editing) setDraft(props.text)
+  }, [props.text, editing])
+  if (!editing) {
+    return (
+      <div className="group flex items-start gap-1.5">
+        <p className="text-ink-900 flex-1 text-sm leading-relaxed">
+          {props.text}
+        </p>
+        {!props.disabled && (
+          <button
+            type="button"
+            onClick={e => {
+              e.stopPropagation()
+              setEditing(true)
+            }}
+            className="text-ink-3 hover:text-ink opacity-0 transition-opacity group-hover:opacity-100"
+            aria-label="Edit hypothesis"
+            title="Edit"
+          >
+            <IconPencil size={14} />
+          </button>
+        )}
+      </div>
+    )
+  }
+  const trimmed = draft.trim()
+  const dirty = trimmed.length > 0 && trimmed !== props.text.trim()
+  return (
+    <div className="flex flex-col gap-2">
+      <Textarea
+        value={draft}
+        onChange={e => setDraft(e.target.value)}
+        onClick={e => e.stopPropagation()}
+        autoFocus
+        rows={3}
+        className="text-ink-900 text-sm leading-relaxed"
+      />
+      <div className="flex justify-end gap-2">
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={e => {
+            e.stopPropagation()
+            setDraft(props.text)
+            setEditing(false)
+          }}
+        >
+          Cancel
+        </Button>
+        <Button
+          size="sm"
+          disabled={!dirty}
+          onClick={e => {
+            e.stopPropagation()
+            props.onSave(trimmed)
+            setEditing(false)
+          }}
+        >
+          Save
+        </Button>
+      </div>
     </div>
   )
 }

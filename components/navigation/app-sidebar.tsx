@@ -20,6 +20,13 @@ import { usePathname, useRouter } from "next/navigation"
 import { useContext, useEffect, useState } from "react"
 
 import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger
+} from "@/components/ui/dropdown-menu"
+import {
   Popover,
   PopoverContent,
   PopoverTrigger
@@ -29,9 +36,11 @@ import { Button } from "@/components/ui/button"
 import { ErrorBoundary } from "@/components/ui/error-boundary"
 import { Input } from "@/components/ui/input"
 import { Kbd } from "@/components/ui/kbd"
+import { ProfileSettings } from "@/components/utility/profile-settings"
 import { ChatbotUIContext } from "@/context/context"
 import { getProjectsByWorkspaceId } from "@/db/projects"
 import { createWorkspace } from "@/db/workspaces"
+import { supabase } from "@/lib/supabase/browser-client"
 import { cn } from "@/lib/utils"
 
 interface AppSidebarProps {
@@ -337,6 +346,19 @@ export const AppSidebar = ({ isCollapsed, onToggle }: AppSidebarProps) => {
   const [projects, setProjects] = useState<{ id: string; name: string }[]>([])
   const pathname = usePathname()
   const router = useRouter()
+  // Shared open state for ProfileSettings — wired to both the footer
+  // Settings button (#8) and the user-card 3-dot menu (#9), which were
+  // both inert before.
+  const [profileOpen, setProfileOpen] = useState(false)
+
+  const handleSignOut = async () => {
+    try {
+      await supabase.auth.signOut()
+    } finally {
+      router.push("/login")
+      router.refresh()
+    }
+  }
 
   useEffect(() => {
     if (!selectedWorkspace?.id) return
@@ -530,7 +552,7 @@ export const AppSidebar = ({ isCollapsed, onToggle }: AppSidebarProps) => {
         <div className="border-line flex flex-col gap-1.5 border-t p-3">
           <button
             type="button"
-            onClick={() => wsId && router.push(`/${wsId}`)}
+            onClick={() => setProfileOpen(true)}
             className={cn(
               "text-ink-2 hover:bg-paper-3 flex h-9 w-full items-center gap-2.5 rounded-md px-2.5 text-[13.5px]",
               isCollapsed && "justify-center"
@@ -554,17 +576,48 @@ export const AppSidebar = ({ isCollapsed, onToggle }: AppSidebarProps) => {
                   {selectedWorkspace?.name}
                 </div>
               </div>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="text-ink-3 size-6"
-                title="More"
-              >
-                <IconDotsVertical size={14} />
-              </Button>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="text-ink-3 size-6"
+                    title="More"
+                    aria-label="User menu"
+                  >
+                    <IconDotsVertical size={14} />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-44">
+                  <DropdownMenuItem
+                    onSelect={() => setProfileOpen(true)}
+                    className="cursor-pointer"
+                  >
+                    <IconSettings size={14} className="mr-2" />
+                    Profile &amp; settings
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onSelect={() => wsId && router.push(`/${wsId}`)}
+                    className="cursor-pointer"
+                  >
+                    <IconHome size={14} className="mr-2" />
+                    Workspace home
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    onSelect={handleSignOut}
+                    className="text-destructive focus:text-destructive cursor-pointer"
+                  >
+                    Sign out
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
           )}
         </div>
+
+        {/* Profile / settings sheet — controlled by sidebar buttons. */}
+        <ProfileSettings open={profileOpen} onOpenChange={setProfileOpen} />
       </aside>
     </ErrorBoundary>
   )

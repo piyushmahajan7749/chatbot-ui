@@ -62,13 +62,20 @@ interface StartChatModalProps {
   onOpenChange: (open: boolean) => void
   onConfirm: (sel: StartChatSelection) => void
   busy?: boolean
+  /**
+   * Optional tab to land on when the modal opens. Used by the
+   * workspace `/chat` landing's scope picker to deep-link to the
+   * matching tab (#18). Falls back to "workspace".
+   */
+  initialTab?: ChatScope
 }
 
 export const StartChatModal: FC<StartChatModalProps> = ({
   isOpen,
   onOpenChange,
   onConfirm,
-  busy
+  busy,
+  initialTab
 }) => {
   const {
     selectedWorkspace,
@@ -77,7 +84,17 @@ export const StartChatModal: FC<StartChatModalProps> = ({
     files: workspaceFiles
   } = useContext(ChatbotUIContext)
 
-  const [activeTab, setActiveTab] = useState<ChatScope>("workspace")
+  const [activeTab, setActiveTab] = useState<ChatScope>(
+    initialTab ?? "workspace"
+  )
+
+  // Sync activeTab when caller changes the initial tab while modal is
+  // closed (e.g. user clicks a different scope card on the workspace
+  // /chat landing). Only takes effect when re-opening to avoid yanking
+  // the active tab mid-pick.
+  useEffect(() => {
+    if (!isOpen && initialTab) setActiveTab(initialTab)
+  }, [initialTab, isOpen])
   const [search, setSearch] = useState("")
   const [pickedProjectIds, setPickedProjectIds] = useState<string[]>([])
   const [pickedDesignIds, setPickedDesignIds] = useState<string[]>([])
@@ -103,7 +120,10 @@ export const StartChatModal: FC<StartChatModalProps> = ({
   }, [isOpen, selectedWorkspace?.id])
 
   const reset = () => {
-    setActiveTab("workspace")
+    // Don't reset activeTab — the next-open's `initialTab` prop is the
+    // source of truth (see the useEffect that syncs it). Resetting
+    // here yanked the modal back to "workspace" before it could read
+    // the caller's intent.
     setSearch("")
     setPickedProjectIds([])
     setPickedDesignIds([])
