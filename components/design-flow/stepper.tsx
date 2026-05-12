@@ -123,7 +123,7 @@ export function Stepper({
                   {isDone ? <IconCheck size={14} stroke={2.4} /> : s.short}
                   {isActive && running && (
                     <span
-                      className="border-rust absolute -inset-[3px] animate-spin rounded-full border-2"
+                      className="border-rust absolute inset-[-3px] animate-spin rounded-full border-2"
                       style={{
                         borderTopColor: "transparent",
                         animationDuration: "1.4s"

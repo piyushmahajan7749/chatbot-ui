@@ -44,6 +44,11 @@ export const ChatSettings: FC<ChatSettingsProps> = ({}) => {
         CHAT_SETTING_LIMITS[chatSettings.model]?.MAX_CONTEXT_LENGTH || 4096
       )
     })
+    // Clamp temperature/contextLength when the user picks a model with a
+    // tighter cap. We intentionally exclude `chatSettings`/`setChatSettings`
+    // from deps: re-running on every settings change would create a feedback
+    // loop (effect writes chatSettings → triggers itself).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [chatSettings?.model])
 
   if (!chatSettings) return null

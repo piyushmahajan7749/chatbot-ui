@@ -71,6 +71,8 @@ export const GlobalSearch = () => {
     } else {
       setResults([])
     }
+    // `performSearch` is locally defined and closes over the values we list.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [query, selectedWorkspace?.id])
 
   const performSearch = async (searchQuery: string) => {

@@ -55,6 +55,9 @@ export function ELNSettings({ userId }: ELNSettingsProps) {
     if (userId) {
       loadConnections()
     }
+    // `loadConnections` is a stable component-local function; the only
+    // real trigger is the userId changing.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userId])
 
   const handleDelete = async (connectionId: string) => {

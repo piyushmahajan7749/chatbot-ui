@@ -80,6 +80,11 @@ export default function WorkspaceLayout({ children }: WorkspaceLayoutProps) {
     setNewMessageImages([])
     setReports([])
     setShowFilesDisplay(false)
+    // Workspace switch is the only real trigger here. The context setters
+    // and `fetchWorkspaceData` are stable references from useState /
+    // closure; including them would cause a re-run loop on every render
+    // without changing behavior.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [workspaceId])
 
   const fetchWorkspaceData = async (workspaceId: string) => {

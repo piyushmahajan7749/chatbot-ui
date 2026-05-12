@@ -93,12 +93,18 @@ export default function DesignsPage() {
   const filteredDesigns = useMemo(() => {
     const q = search.trim().toLowerCase()
     if (!q) return sortedDesigns
-    return sortedDesigns.filter(
-      d =>
+    // Resolve project names inline so the useMemo depends only on `projects`
+    // (the source of truth), not the `projectName` helper closure — which
+    // ESLint can't trace through.
+    const nameById = new Map(projects.map(p => [p.id, p.name]))
+    return sortedDesigns.filter(d => {
+      const pn = d.project_id ? nameById.get(d.project_id) : undefined
+      return (
         d.name?.toLowerCase().includes(q) ||
         d.description?.toLowerCase().includes(q) ||
-        projectName(d.project_id)?.toLowerCase().includes(q)
-    )
+        pn?.toLowerCase().includes(q)
+      )
+    })
   }, [sortedDesigns, search, projects])
 
   const handleNewDesign = () => {

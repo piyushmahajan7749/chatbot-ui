@@ -172,6 +172,10 @@ export const SidebarUpdateItem: FC<SidebarUpdateItemProps> = ({
 
       fetchData()
     }
+    // Fires once per modal open. Including the closed-over values
+    // (`item.id`, fetchers, workspaces.length) would re-fetch on every
+    // rename keystroke and could replace the user's edits mid-typing.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen])
 
   const renderState = {

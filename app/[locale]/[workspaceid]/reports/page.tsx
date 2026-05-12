@@ -44,6 +44,10 @@ export default function ReportsPage() {
 
   useEffect(() => {
     fetchReports()
+    // `fetchReports` is locally defined and only reads workspaceId via
+    // closure — including it would force a useCallback rewrite for no
+    // behavioral gain. workspaceId is the only real trigger.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [workspaceId])
 
   const fetchReports = async () => {

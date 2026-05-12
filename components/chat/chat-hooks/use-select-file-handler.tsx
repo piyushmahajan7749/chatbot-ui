@@ -30,6 +30,9 @@ export const useSelectFileHandler = () => {
 
   useEffect(() => {
     handleFilesToAccept()
+    // Recomputes the accept-list when the model changes. `handleFilesToAccept`
+    // closes over `chatSettings.model` already, so the dep array is correct.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [chatSettings?.model])
 
   const handleFilesToAccept = () => {

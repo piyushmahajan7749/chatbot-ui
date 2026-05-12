@@ -138,6 +138,10 @@ export const Message: FC<MessageProps> = ({
       input.focus()
       input.setSelectionRange(input.value.length, input.value.length)
     }
+    // Snapshots `message.content` on each toggle of `isEditing`. Including
+    // `message.content` in deps would overwrite the user's in-progress edit
+    // whenever the server-side message text streams in.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isEditing])
 
   const MODEL_DATA = [

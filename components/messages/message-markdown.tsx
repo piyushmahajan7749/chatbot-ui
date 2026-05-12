@@ -156,8 +156,13 @@ export const MessageMarkdown: FC<MessageMarkdownProps> = ({
           )
           return <li {...props}>{arr}</li>
         },
-        img({ node, ...props }) {
-          return <img className="max-w-[67%]" {...props} />
+        img({ node, alt, ...props }) {
+          // Markdown image — src is fully dynamic (could be a remote URL the
+          // model emitted or a data URI), so next/image isn't viable here:
+          // we'd have to register every remote domain in next.config.js, and
+          // data URIs aren't supported at all. Plain <img> is the right call.
+          // eslint-disable-next-line @next/next/no-img-element
+          return <img className="max-w-[67%]" alt={alt ?? ""} {...props} />
         },
         code({ node, className, children, ...props }) {
           const childArray = React.Children.toArray(children)

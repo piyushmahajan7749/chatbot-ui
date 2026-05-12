@@ -166,15 +166,13 @@ export default function WorkspacePage() {
 
   // In-progress heuristic: touched in the last 14 days (in lieu of loading
   // approvedPhases from Firestore for every design). Completed = total − active.
-  const FOURTEEN_DAYS_MS = 14 * 24 * 60 * 60 * 1000
-  const inProgressCount = useMemo(
-    () =>
-      designs.filter(d => {
-        const ts = d.updated_at || d.created_at
-        return ts && Date.now() - new Date(ts).getTime() < FOURTEEN_DAYS_MS
-      }).length,
-    [designs]
-  )
+  const inProgressCount = useMemo(() => {
+    const FOURTEEN_DAYS_MS = 14 * 24 * 60 * 60 * 1000
+    return designs.filter(d => {
+      const ts = d.updated_at || d.created_at
+      return ts && Date.now() - new Date(ts).getTime() < FOURTEEN_DAYS_MS
+    }).length
+  }, [designs])
   const completedCount = designs.length - inProgressCount
 
   const startDesign = (seed?: string) => {

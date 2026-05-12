@@ -77,6 +77,10 @@ export default function ProjectsPage() {
 
   useEffect(() => {
     fetchProjects()
+    // `fetchProjects` is a stable function defined in this component; adding
+    // it to the dep array would require wrapping in useCallback for marginal
+    // value. The real triggers are workspaceId and filters.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [workspaceId, filters])
 
   // When the sidebar's "+" button navigates here with ?create=1, auto-open

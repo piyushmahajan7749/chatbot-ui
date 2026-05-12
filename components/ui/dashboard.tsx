@@ -135,7 +135,7 @@ export const Dashboard: FC<DashboardProps> = ({ children }) => {
 
         <Button
           className={cn(
-            "absolute left-[4px] top-[50%] z-10 size-[32px] cursor-pointer"
+            "absolute left-[4px] top-1/2 z-10 size-[32px] cursor-pointer"
           )}
           style={{
             transform: showSidebar ? "rotate(180deg)" : "rotate(0deg)"

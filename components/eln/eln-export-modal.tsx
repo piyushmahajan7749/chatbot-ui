@@ -87,6 +87,9 @@ export function ELNExportModal({
     if (selectedConnection && selectedConnectionInfo) {
       loadProjects()
     }
+    // `loadProjects` / `selectedConnectionInfo` close over `selectedConnection`
+    // already — the trigger is the connection switch itself.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedConnection])
 
   // Load experiments when project changes
@@ -94,6 +97,7 @@ export function ELNExportModal({
     if (selectedProject && selectedConnectionInfo && !createNewExperiment) {
       loadExperiments()
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedProject, createNewExperiment])
 
   // Set default experiment name when switching to create new
@@ -103,6 +107,9 @@ export function ELNExportModal({
         `${reportTitle} - ${new Date().toLocaleDateString()}`
       )
     }
+    // We only want to set the *default* name once on toggle-on; including
+    // `newExperimentName` would prevent the user from clearing it.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [createNewExperiment, reportTitle])
 
   const createClient = (connection: ELNConnection) => {

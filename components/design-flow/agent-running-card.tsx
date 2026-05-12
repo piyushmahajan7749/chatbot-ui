@@ -47,7 +47,7 @@ export function AgentRunningCard({
         <div className="bg-ink relative flex size-9 items-center justify-center rounded-md">
           <ShadowAISVG scale={18 / 24} />
           <span
-            className="border-rust absolute -inset-[3px] animate-spin rounded-md border-[1.5px]"
+            className="border-rust absolute inset-[-3px] animate-spin rounded-md border-[1.5px]"
             style={{
               borderTopColor: "transparent",
               animationDuration: "1.4s"
@@ -79,7 +79,7 @@ export function AgentRunningCard({
             >
               <div
                 className={cn(
-                  "absolute -left-[23px] top-2 flex size-3 items-center justify-center rounded-full",
+                  "absolute left-[-23px] top-2 flex size-3 items-center justify-center rounded-full",
                   done && "bg-ink border-ink border-2",
                   active && "bg-paper border-rust border-2",
                   !done && !active && "bg-paper-2 border-line-strong border-2"

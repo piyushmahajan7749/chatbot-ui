@@ -80,6 +80,10 @@ export const ChatInput: FC<ChatInputProps> = ({}) => {
     setTimeout(() => {
       handleFocusChatInput()
     }, 200) // FIX: hacky
+    // Re-focuses the input when preset/assistant changes. `handleFocusChatInput`
+    // is a stable callback from useChatHistoryHandler; including it would
+    // cause an extra refocus on every render.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedPreset, selectedAssistant])
 
   const handleKeyDown = (event: React.KeyboardEvent) => {

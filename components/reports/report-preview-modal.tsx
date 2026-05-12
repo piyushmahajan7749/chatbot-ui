@@ -207,6 +207,11 @@ export const ReportPreviewModal: FC<ReportPreviewModalProps> = ({
                           <div className="text-ink-500 mb-2 text-[11px] font-bold uppercase tracking-widest">
                             Visualization
                           </div>
+                          {/* chartImage is a base64 data URI from the
+                              chart-generation backend — next/image doesn't
+                              support data URIs, and this is a transient
+                              one-off, so the plain <img> is the right call. */}
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
                           <img
                             src={chartImage}
                             alt="Report chart"

@@ -34,6 +34,42 @@ type ChartDataState = {
   data: Array<{ label: string; value: number }>
 }
 
+// Static outline metadata — hoisted to module scope so it has a stable
+// identity across renders. Previously these were component-local consts,
+// which fooled exhaustive-deps into demanding `defaultOutlineOrder` in
+// useCallback deps even though the array never actually changed.
+const OUTLINE_MAPPING: Record<string, string> = {
+  aim: "Aim",
+  introduction: "Introduction",
+  principle: "Principle",
+  material: "Materials Needed",
+  preparation: "Preparation",
+  procedure: "Procedure",
+  setup: "Setup and Layout",
+  dataAnalysis: "Data Analysis",
+  charts: "Charts",
+  results: "Results",
+  discussion: "Discussion",
+  conclusion: "Conclusion",
+  nextSteps: "Next Steps"
+}
+
+const DEFAULT_OUTLINE_ORDER = [
+  "aim",
+  "introduction",
+  "principle",
+  "material",
+  "preparation",
+  "procedure",
+  "setup",
+  "dataAnalysis",
+  "charts",
+  "results",
+  "discussion",
+  "conclusion",
+  "nextSteps"
+]
+
 /** Normalize chart data from DB (may be old array format) or API (new object format). */
 function normalizeChartData(raw: any): ChartDataState | null {
   if (!raw) return null
@@ -205,37 +241,9 @@ export function ReportReviewComponent({ onSave, reportId }: ReportReviewProps) {
     }
   }, [])
 
-  const outlineMapping: Record<string, string> = {
-    aim: "Aim",
-    introduction: "Introduction",
-    principle: "Principle",
-    material: "Materials Needed",
-    preparation: "Preparation",
-    procedure: "Procedure",
-    setup: "Setup and Layout",
-    dataAnalysis: "Data Analysis",
-    charts: "Charts",
-    results: "Results",
-    discussion: "Discussion",
-    conclusion: "Conclusion",
-    nextSteps: "Next Steps"
-  }
-
-  const defaultOutlineOrder = [
-    "aim",
-    "introduction",
-    "principle",
-    "material",
-    "preparation",
-    "procedure",
-    "setup",
-    "dataAnalysis",
-    "charts",
-    "results",
-    "discussion",
-    "conclusion",
-    "nextSteps"
-  ]
+  // outlineMapping / defaultOutlineOrder live at module scope as
+  // OUTLINE_MAPPING / DEFAULT_OUTLINE_ORDER — see top of file.
+  const outlineMapping = OUTLINE_MAPPING
 
   const hasSavedDraft = useMemo(() => {
     return (
@@ -290,7 +298,7 @@ export function ReportReviewComponent({ onSave, reportId }: ReportReviewProps) {
         // Order derived keys by our default ordering
         const ordered = derived.sort(
           (a, b) =>
-            defaultOutlineOrder.indexOf(a) - defaultOutlineOrder.indexOf(b)
+            DEFAULT_OUTLINE_ORDER.indexOf(a) - DEFAULT_OUTLINE_ORDER.indexOf(b)
         )
         setGeneratedOutline(ordered)
         setSectionContents(savedDraft)
@@ -321,7 +329,11 @@ export function ReportReviewComponent({ onSave, reportId }: ReportReviewProps) {
     } catch (error) {
       console.error("Error fetching report data:", error)
     }
-  }, [defaultOutlineOrder, generationStatus, reportId])
+    // generationStatus appears only in a `typeof` type assertion above
+    // (compile-time), not as a real runtime dependency — keeping it here
+    // tripped exhaustive-deps. DEFAULT_OUTLINE_ORDER is module-scope so
+    // it doesn't need to be listed.
+  }, [reportId])
 
   useEffect(() => {
     const loadReportData = async () => {
@@ -336,7 +348,7 @@ export function ReportReviewComponent({ onSave, reportId }: ReportReviewProps) {
     }
 
     loadReportData()
-  }, [reportId])
+  }, [reportId, refreshReportData])
 
   // Poll while background generation is running, so we swap from loader -> content as soon
   // as `report_draft` is persisted.
@@ -704,6 +716,10 @@ export function ReportReviewComponent({ onSave, reportId }: ReportReviewProps) {
                                 {chartData.chartTitle}
                               </h3>
                             )}
+                            {/* chartImage is a base64 data URI from the
+                                chart-generation backend — next/image doesn't
+                                support data URIs. */}
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
                             <img
                               src={chartImage}
                               alt="Data visualization chart"
