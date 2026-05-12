@@ -196,14 +196,46 @@ export async function POST(
             .filter(n => Number.isFinite(n) && n > 0)
           const maxScore = rawScores.length ? Math.max(...rawScores) : 0
           const newPapers: Paper[] = rawDetailed.map((c, i) => {
-            const summary: string =
+            // Try every plausible field upstream sources might use for
+            // the abstract. Fall back to a citation-style blurb so the
+            // user at least sees authors/journal/year if the backend
+            // didn't return abstract text (#1 complaint: "no summary").
+            const rawSummary =
               (typeof c.abstract === "string" && c.abstract.trim()) ||
               (typeof c.summary === "string" && c.summary.trim()) ||
               (typeof c.tldr === "string" && c.tldr.trim()) ||
+              (typeof c.snippet === "string" && c.snippet.trim()) ||
+              (typeof c.description === "string" && c.description.trim()) ||
               ""
+            const summaryIsRealAbstract =
+              rawSummary &&
+              rawSummary !== "Abstract not available." &&
+              rawSummary !== "No abstract"
+            const citationBlurb = [
+              Array.isArray(c.authors) && c.authors.length
+                ? `${c.authors.slice(0, 3).join(", ")}${c.authors.length > 3 ? " et al." : ""}`
+                : null,
+              c.journal,
+              c.year ? String(c.year) : null
+            ]
+              .filter(Boolean)
+              .join(" · ")
+            const summary = summaryIsRealAbstract
+              ? rawSummary
+              : citationBlurb || rawSummary || "Abstract not available."
+            // Resolve a clickable URL — prefer explicit url, else build
+            // a DOI link, else fall back to a Google Scholar search.
+            let sourceUrl: string | undefined =
+              (typeof c.url === "string" && c.url.trim()) || undefined
+            if (!sourceUrl && typeof c.doi === "string" && c.doi.trim()) {
+              sourceUrl = `https://doi.org/${c.doi.trim().replace(/^doi:/i, "")}`
+            }
+            if (!sourceUrl && typeof c.title === "string" && c.title.trim()) {
+              sourceUrl = `https://scholar.google.com/scholar?q=${encodeURIComponent(c.title.trim())}`
+            }
             let title = (c.title || "").trim()
-            if (!title && summary) {
-              const firstSentence = summary
+            if (!title && rawSummary) {
+              const firstSentence = rawSummary
                 .split(/(?<=[.!?])\s+/)[0]
                 ?.slice(0, 160)
               title = firstSentence || `Paper ${i + 1}`
@@ -220,7 +252,7 @@ export async function POST(
               id: `lit-${i}-${timestamp}`,
               title,
               summary,
-              sourceUrl: c.url || undefined,
+              sourceUrl,
               userAdded: false,
               selected: false,
               authors: c.authors?.length ? c.authors : undefined,

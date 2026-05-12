@@ -20,7 +20,12 @@ import {
   IconLayoutGrid,
   IconUpload
 } from "@tabler/icons-react"
-import { FlaskConical, FileText, Presentation } from "lucide-react"
+import {
+  FlaskConical,
+  FileText,
+  Presentation,
+  Save as SaveIcon
+} from "lucide-react"
 import {
   OverviewTab,
   type ReportTab
@@ -623,7 +628,7 @@ export default function ReportDetailPage() {
                   disabled={isSavingNow}
                   title="Flush any pending edits to the server"
                 >
-                  <FileText className="size-4" />
+                  <SaveIcon className="size-4" />
                   {isSavingNow ? "Saving…" : "Save"}
                 </Button>
                 <Button

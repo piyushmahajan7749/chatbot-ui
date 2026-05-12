@@ -2382,11 +2382,12 @@ function LiteratureTab(props: {
                         </p>
                       ) : null
                     })()}
-                    {paper.summary && (
-                      <p className="text-ink-2 mt-1.5 line-clamp-3 text-[12.5px] leading-relaxed">
-                        {paper.summary}
-                      </p>
-                    )}
+                    {/* Show summary, or a "no abstract available" hint
+                        so the row never collapses to title-only (#1). */}
+                    <p className="text-ink-2 mt-1.5 line-clamp-3 text-[12.5px] leading-relaxed">
+                      {paper.summary ||
+                        "Abstract not available — open the paper for details."}
+                    </p>
                     {paper.sourceUrl && (
                       <a
                         href={paper.sourceUrl}
