@@ -86,7 +86,7 @@ const MODE_COPY: Record<
   "from-scratch": {
     title: "New design",
     subtitle:
-      "We'll walk the 5-stage flow: Problem → Literature → Hypotheses → Design.",
+      "Give it a short title. You'll land on the Problem page next — fill the problem statement and constraints there.",
     icon: IconSparkles,
     cta: "Create"
   },
@@ -154,8 +154,19 @@ export const CreateDesign: FC<CreateDesignProps> = ({
     if (!isOpen) return
     // Seed fields on open. If the user composed a query on the dashboard,
     // prefill it into the primary text field for the current mode.
-    setName(initialQuery.slice(0, 80))
-    setProblem(mode === "from-hypothesis" ? initialQuery : initialQuery)
+    //
+    // For from-scratch we intentionally do NOT prefill the Name with the
+    // dashboard query — the query is usually a research-question / problem
+    // statement, not a title. Instead it seeds the Problem page after
+    // create (see handleCreate). The user types a short title in the
+    // dialog and lands on the Problem page with the problem pre-populated.
+    if (mode === "from-scratch") {
+      setName("")
+      setProblem("") // Problem field is hidden for from-scratch; seeded server-side from initialQuery.
+    } else {
+      setName(initialQuery.slice(0, 80))
+      setProblem(initialQuery)
+    }
     setHypothesis("")
     setPlanText("")
     setExternalDesignText("")
@@ -190,13 +201,21 @@ export const CreateDesign: FC<CreateDesignProps> = ({
 
     setCreating(true)
     try {
+      // For from-scratch, the Problem field is hidden in the dialog (user
+      // fills it on the Problem page) — but if they came in from a dashboard
+      // quick-start composer with `?q=...`, that text IS the problem
+      // statement and we seed it so the Problem page is pre-populated
+      // instead of asking the user to retype.
+      const seededProblem =
+        mode === "from-scratch" ? initialQuery.trim() : problem.trim()
+
       // 1) Create the base design row (Supabase).
       const created = await createDesign(
         {
           user_id: profile.user_id,
           name: trimmedName,
-          problem: problem.trim() || trimmedName,
-          description: (problem.trim() || trimmedName).slice(0, 240),
+          problem: seededProblem || trimmedName,
+          description: (seededProblem || trimmedName).slice(0, 240),
           sharing: "private" as const,
           objectives: [],
           variables: [],
@@ -221,27 +240,28 @@ export const CreateDesign: FC<CreateDesignProps> = ({
       // (avoiding the data.description fallback path which has historically
       // produced subtle prefill bugs).
       if (mode === "from-scratch" && created?.id) {
-        const problemText = problem.trim()
-        if (problemText) {
-          const seededContent = {
-            schemaVersion: 2,
-            approvedPhases: [],
-            problem: {
-              title: trimmedName,
-              problemStatement: problemText,
-              objective: "",
-              goal: ""
-            },
-            papers: [],
-            hypotheses: []
-          }
-          try {
-            await updateDesign(created.id, {
-              content: JSON.stringify(seededContent)
-            })
-          } catch (err) {
-            console.warn("Failed to seed from-scratch content:", err)
-          }
+        // Always seed `content.problem.title` from the Name input so the
+        // Problem page shows the dialog title verbatim instead of falling
+        // through to `data.description`. Seed `problemStatement` if we
+        // captured one from the dashboard quick-start (`?q=...`).
+        const seededContent = {
+          schemaVersion: 2,
+          approvedPhases: [],
+          problem: {
+            title: trimmedName,
+            problemStatement: seededProblem,
+            objective: "",
+            goal: ""
+          },
+          papers: [],
+          hypotheses: []
+        }
+        try {
+          await updateDesign(created.id, {
+            content: JSON.stringify(seededContent)
+          })
+        } catch (err) {
+          console.warn("Failed to seed from-scratch content:", err)
         }
       }
 
@@ -438,24 +458,22 @@ export const CreateDesign: FC<CreateDesignProps> = ({
             />
           </div>
 
-          {/* Problem is useful for every mode but optional for from-scratch. */}
-          <div className="space-y-1.5">
-            <Label htmlFor="design-problem">
-              Problem statement
-              {mode === "from-scratch" && (
-                <span className="text-ink-3 ml-1 text-[11px] font-normal">
-                  (optional — you can fill in later)
-                </span>
-              )}
-            </Label>
-            <Textarea
-              id="design-problem"
-              rows={2}
-              placeholder="What's the research problem or question?"
-              value={problem}
-              onChange={e => setProblem(e.target.value)}
-            />
-          </div>
+          {/* Problem statement field — hidden for from-scratch since the user
+              fills it on the Problem page right after this dialog closes
+              (avoids asking for the same thing twice). Shown for the other
+              modes where it acts as priming context for the agent. */}
+          {mode !== "from-scratch" && (
+            <div className="space-y-1.5">
+              <Label htmlFor="design-problem">Problem statement</Label>
+              <Textarea
+                id="design-problem"
+                rows={2}
+                placeholder="What's the research problem or question?"
+                value={problem}
+                onChange={e => setProblem(e.target.value)}
+              />
+            </div>
+          )}
 
           {mode === "from-hypothesis" && (
             <div className="space-y-1.5">

@@ -29,6 +29,8 @@ import {
 import { ScopedChatRail } from "@/components/canvas/scoped-chat-rail"
 import { SplitRailLayout } from "@/components/canvas/split-rail-layout"
 import { addPaperToLibrary } from "@/db/paper-library"
+import { createChat } from "@/db/chats"
+import { supabase } from "@/lib/supabase/browser-client"
 import { ChatbotUIContext } from "@/context/context"
 import { useToast } from "@/app/hooks/use-toast"
 import { cn } from "@/lib/utils"
@@ -62,6 +64,7 @@ import {
   IconFlask,
   IconInfoCircle,
   IconLayoutGrid,
+  IconMessageCircle,
   IconPencil,
   IconPlus,
   IconRefresh,
@@ -315,8 +318,13 @@ export default function DesignDetailPage() {
   const autoAction = searchParams.get("auto")
   const autoFiredRef = useRef(false)
   const { toast } = useToast()
-  const { profile, setUserInput } = useContext(ChatbotUIContext)
+  const { profile, setUserInput, selectedWorkspace, chatSettings } =
+    useContext(ChatbotUIContext)
   void profile
+
+  // Tracks "Open in chat" in-flight state — disables the button so a
+  // double-click doesn't create two chats.
+  const [openingFullChat, setOpeningFullChat] = useState(false)
 
   const designId = params.designId as string
   const workspaceId = params.workspaceid as string
@@ -1533,6 +1541,66 @@ export default function DesignDetailPage() {
     setActiveTab(key)
   }
 
+  /**
+   * Open an OPEN-ENDED, full-screen chat scoped to this design. The side rail
+   * (toggled by the "Chat" button) is task-shaped — short turns next to the
+   * design canvas. Some questions are bigger: "give me 5 alternative
+   * statistical plans", "summarise everything I have so far", "draft a
+   * methods section from this design". For those, the user needs the full
+   * chat UI, not a side panel. This handler creates a fresh chat with
+   * `scope='design'`, `scope_id=designId` so the retrieve pipeline pulls
+   * RAG chunks for this design only, then routes the user to it.
+   */
+  const handleOpenFullChat = async () => {
+    if (!selectedWorkspace || openingFullChat) return
+    setOpeningFullChat(true)
+    try {
+      const {
+        data: { user }
+      } = await supabase.auth.getUser()
+      if (!user) throw new Error("Not signed in")
+
+      const baseName = (title || design?.name || "Design").slice(0, 60)
+      const chat = await createChat({
+        user_id: user.id,
+        workspace_id: selectedWorkspace.id,
+        name: `${baseName} chat`,
+        scope: "design",
+        scope_id: designId,
+        // Designs may or may not belong to a project; preserve the linkage
+        // so workspace-level chat filters/aggregations still work.
+        project_id: design?.project_id ?? null,
+        model: chatSettings?.model ?? selectedWorkspace.default_model,
+        prompt: chatSettings?.prompt ?? selectedWorkspace.default_prompt ?? "",
+        temperature:
+          chatSettings?.temperature ?? selectedWorkspace.default_temperature,
+        context_length:
+          chatSettings?.contextLength ??
+          selectedWorkspace.default_context_length,
+        embeddings_provider:
+          chatSettings?.embeddingsProvider ??
+          selectedWorkspace.embeddings_provider,
+        include_profile_context:
+          chatSettings?.includeProfileContext ??
+          selectedWorkspace.include_profile_context,
+        include_workspace_instructions:
+          chatSettings?.includeWorkspaceInstructions ??
+          selectedWorkspace.include_workspace_instructions,
+        sharing: "private"
+      })
+      router.push(`/${locale}/${workspaceId}/chat/${chat.id}`)
+    } catch (err) {
+      console.error("Failed to open design in chat:", err)
+      toast({
+        title: "Couldn't open chat",
+        description:
+          err instanceof Error ? err.message : "Failed to start a new chat.",
+        variant: "destructive"
+      })
+      setOpeningFullChat(false)
+    }
+  }
+
   return (
     <SplitRailLayout
       rail={rail}
@@ -1596,19 +1664,33 @@ export default function DesignDetailPage() {
             </div>
 
             {/* ── Toolbar actions (right side) ───────────────── */}
-            <div className="flex items-center gap-3">
-              {/* Agent: toggles chat rail */}
+            <div className="flex items-center gap-2">
+              {/* Open-ended chat: creates a fresh design-scoped chat in the
+                  full chat UI. Useful for longer/wider questions that don't
+                  fit comfortably in the side rail. */}
+              <button
+                onClick={() => void handleOpenFullChat()}
+                disabled={openingFullChat}
+                className="border-ink-200 text-ink-700 hover:border-ink-300 hover:bg-ink-50 flex h-9 items-center gap-2 rounded-full border bg-white px-4 text-xs font-semibold uppercase tracking-wide shadow-sm transition-colors disabled:opacity-60"
+                title="Open this design in a full-screen chat"
+              >
+                <IconMessageCircle size={14} className="shrink-0" />
+                {openingFullChat ? "Opening…" : "Open in chat"}
+              </button>
+
+              {/* Side rail: short, task-shaped turns next to the canvas. */}
               <button
                 onClick={() => setShowRail(v => !v)}
                 className={
-                  "ml-2 flex h-9 items-center gap-2 rounded-full px-4 text-xs font-semibold uppercase tracking-wide text-white shadow-sm ring-1 ring-inset transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md active:translate-y-0 " +
+                  "flex h-9 items-center gap-2 rounded-full px-4 text-xs font-semibold uppercase tracking-wide text-white shadow-sm ring-1 ring-inset transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md active:translate-y-0 " +
                   (showRail
                     ? "bg-ink-700 hover:bg-ink-800 ring-white/10"
                     : "from-brick to-brick-hover bg-gradient-to-r ring-white/20")
                 }
+                title="Toggle side chat rail"
               >
                 <IconSparkles size={14} className="shrink-0" />
-                Chat
+                {showRail ? "Hide chat" : "Chat"}
               </button>
             </div>
           </div>
@@ -2587,97 +2669,78 @@ function HypothesesTab(props: {
                     )}
                   </div>
                 )}
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <button className="text-purple-persona hover:bg-purple-persona-tint mt-2 inline-flex items-center gap-1 rounded px-2 py-1 text-[11px] font-semibold">
-                      <IconInfoCircle size={13} />
-                      Why this hypothesis
-                    </button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-96 text-xs">
-                    <div className="space-y-3">
-                      <div>
-                        <div className="text-ink-400 text-[10px] font-bold uppercase tracking-wide">
-                          Reasoning
-                        </div>
-                        {/* Render multi-paragraph reasoning legibly. The
-                            model often emits a 3-paragraph structure
-                            (premise → mechanism → prediction) — splitting on
-                            blank lines keeps that intact. */}
-                        <div className="text-ink-700 mt-1 space-y-2 leading-relaxed">
-                          {(h.reasoning ?? "")
-                            .split(/\n{2,}|\r{2,}/)
-                            .map(s => s.trim())
+                {/* Reasoning rendered inline so the user sees the "why"
+                    without clicking. We split on blank lines so multi-
+                    paragraph reasoning (premise → mechanism → prediction)
+                    stays legible. Long reasoning is collapsed with a
+                    "Show more" toggle to keep the list scannable. */}
+                <ReasoningInline reasoning={h.reasoning ?? ""} />
+
+                {/* "Based on" papers — full citation block — stays behind
+                    a popover since the inline chips already surface the
+                    paper names. The popover gives authors / year / journal /
+                    source link without dominating the card. */}
+                {h.basedOnPaperIds.length > 0 && (
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <button className="text-purple-persona hover:bg-purple-persona-tint mt-2 inline-flex items-center gap-1 rounded px-2 py-1 text-[11px] font-semibold">
+                        <IconInfoCircle size={13} />
+                        Reference details
+                      </button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-96 text-xs">
+                      <div className="text-ink-400 text-[10px] font-bold uppercase tracking-wide">
+                        Based on
+                      </div>
+                      <ul className="mt-1 space-y-2">
+                        {h.basedOnPaperIds.map(pid => {
+                          const paper = paperById.get(pid)
+                          if (!paper) {
+                            return (
+                              <li key={pid} className="text-ink-400 italic">
+                                Reference {pid} (not available)
+                              </li>
+                            )
+                          }
+                          const authorLabel =
+                            paper.authors && paper.authors.length
+                              ? paper.authors.length <= 3
+                                ? paper.authors.join(", ")
+                                : `${paper.authors.slice(0, 3).join(", ")} et al.`
+                              : ""
+                          const meta = [authorLabel, paper.year, paper.journal]
                             .filter(Boolean)
-                            .map((para, i) => (
-                              <p key={i}>{para}</p>
-                            ))}
-                        </div>
-                      </div>
-                      <div>
-                        <div className="text-ink-400 text-[10px] font-bold uppercase tracking-wide">
-                          Based on
-                        </div>
-                        {h.basedOnPaperIds.length === 0 ? (
-                          <p className="text-ink-400 mt-1">
-                            No reference paper attached.
-                          </p>
-                        ) : (
-                          <ul className="mt-1 space-y-2">
-                            {h.basedOnPaperIds.map(pid => {
-                              const paper = paperById.get(pid)
-                              if (!paper) {
-                                return (
-                                  <li key={pid} className="text-ink-400 italic">
-                                    Reference {pid} (not available)
-                                  </li>
-                                )
-                              }
-                              const authorLabel =
-                                paper.authors && paper.authors.length
-                                  ? paper.authors.length <= 3
-                                    ? paper.authors.join(", ")
-                                    : `${paper.authors.slice(0, 3).join(", ")} et al.`
-                                  : ""
-                              const meta = [
-                                authorLabel,
-                                paper.year,
-                                paper.journal
-                              ]
-                                .filter(Boolean)
-                                .join(" · ")
-                              return (
-                                <li
-                                  key={pid}
-                                  className="border-ink-100 bg-ink-50 rounded-md border p-2"
+                            .join(" · ")
+                          return (
+                            <li
+                              key={pid}
+                              className="border-ink-100 bg-ink-50 rounded-md border p-2"
+                            >
+                              <div className="text-ink-900 font-semibold leading-snug">
+                                {paper.title}
+                              </div>
+                              {meta && (
+                                <div className="text-ink-500 mt-0.5 text-[10px]">
+                                  {meta}
+                                </div>
+                              )}
+                              {paper.sourceUrl && (
+                                <a
+                                  href={paper.sourceUrl}
+                                  target="_blank"
+                                  rel="noreferrer"
+                                  className="text-orange-product mt-1 inline-block text-[10px] underline"
                                 >
-                                  <div className="text-ink-900 font-semibold leading-snug">
-                                    {paper.title}
-                                  </div>
-                                  {meta && (
-                                    <div className="text-ink-500 mt-0.5 text-[10px]">
-                                      {meta}
-                                    </div>
-                                  )}
-                                  {paper.sourceUrl && (
-                                    <a
-                                      href={paper.sourceUrl}
-                                      target="_blank"
-                                      rel="noreferrer"
-                                      className="text-orange-product mt-1 inline-block text-[10px] underline"
-                                    >
-                                      Open source
-                                    </a>
-                                  )}
-                                </li>
-                              )
-                            })}
-                          </ul>
-                        )}
-                      </div>
-                    </div>
-                  </PopoverContent>
-                </Popover>
+                                  Open source
+                                </a>
+                              )}
+                            </li>
+                          )
+                        })}
+                      </ul>
+                    </PopoverContent>
+                  </Popover>
+                )}
               </div>
             </div>
           ))}
@@ -2771,6 +2834,51 @@ function EditableHypothesis(props: {
           Save
         </Button>
       </div>
+    </div>
+  )
+}
+
+/**
+ * Renders hypothesis reasoning inline (not behind a popover). Multi-paragraph
+ * reasoning (premise → mechanism → prediction) is split on blank lines. The
+ * first paragraph is always visible; the rest is collapsed with a Show-more
+ * toggle so the hypothesis list stays scannable.
+ */
+function ReasoningInline({ reasoning }: { reasoning: string }) {
+  const [expanded, setExpanded] = useState(false)
+  const paragraphs = useMemo(
+    () =>
+      reasoning
+        .split(/\n{2,}|\r{2,}/)
+        .map(s => s.trim())
+        .filter(Boolean),
+    [reasoning]
+  )
+
+  if (paragraphs.length === 0) return null
+
+  const visible = expanded ? paragraphs : paragraphs.slice(0, 1)
+  const hasMore = paragraphs.length > 1
+
+  return (
+    <div className="mt-2">
+      <div className="text-ink-400 text-[10px] font-bold uppercase tracking-wide">
+        Why this hypothesis
+      </div>
+      <div className="text-ink-700 mt-1 space-y-2 text-[12.5px] leading-relaxed">
+        {visible.map((para, i) => (
+          <p key={i}>{para}</p>
+        ))}
+      </div>
+      {hasMore && (
+        <button
+          type="button"
+          onClick={() => setExpanded(v => !v)}
+          className="text-purple-persona hover:text-purple-persona/80 mt-1 text-[11px] font-semibold"
+        >
+          {expanded ? "Show less" : `Show ${paragraphs.length - 1} more`}
+        </button>
+      )}
     </div>
   )
 }
