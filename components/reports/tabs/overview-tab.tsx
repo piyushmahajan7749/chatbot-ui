@@ -25,7 +25,7 @@ const STATUS_COPY: Record<
   { label: string; tone: string }
 > = {
   idle: {
-    label: "Not started — fill inputs to generate",
+    label: "Not started - fill inputs to generate",
     tone: "bg-ink-50 text-ink-600 border-ink-200"
   },
   generating: {

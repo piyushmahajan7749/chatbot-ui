@@ -1,7 +1,7 @@
 /**
  * Admin backfill trigger.
  *
- * POST { workspaceId } — fires `rag.backfill.workspace` Inngest event
+ * POST { workspaceId } - fires `rag.backfill.workspace` Inngest event
  * which iterates every Owned Resource source type in the locked order
  * (paper_library → data_collections → project_files → designs →
  * reports → chat_messages) and re-indexes each via `indexDoc`.

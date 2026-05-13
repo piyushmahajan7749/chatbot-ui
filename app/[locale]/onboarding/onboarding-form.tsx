@@ -72,7 +72,7 @@ export const OnboardingForm: FC<OnboardingFormProps> = ({
         return
       }
       // Full page navigation so GlobalState remounts with the freshly-saved
-      // profile (display_name, use_case) — a client-side router.replace would
+      // profile (display_name, use_case) - a client-side router.replace would
       // leave stale context behind and skip the personalization payoff.
       const target = result.homeWorkspaceId ? `/${result.homeWorkspaceId}` : "/"
       window.location.href = target
@@ -110,7 +110,7 @@ export const OnboardingForm: FC<OnboardingFormProps> = ({
       totalSteps={2}
       eyebrow="Step 2 of 2"
       title="What brings you here today?"
-      description="Pick what matters most right now — you can explore everything later."
+      description="Pick what matters most right now - you can explore everything later."
       onBack={() => setStep(1)}
       onContinue={handleFinish}
       continueLabel="Open my workspace"

@@ -54,7 +54,7 @@ export const validateChatSettings = (
  * Post-PR-6 the endpoint searches the unified `rag_items` corpus
  * filtered by chat scope (workspace / project / design / report).
  * `attachedFileIds` (from chat-attached files) restricts to file rows
- * only — preserves the legacy "chat with these specific PDFs" UX.
+ * only - preserves the legacy "chat with these specific PDFs" UX.
  */
 export const handleRetrieval = async (
   userInput: string,

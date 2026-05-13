@@ -38,7 +38,7 @@ interface RpcFilters {
   p_project_id: string | null
   p_source_types: SourceType[] | null
   p_only_source_ids: string[] | null
-  // Always present — PostgREST resolves RPC overloads by exact named-arg
+  // Always present - PostgREST resolves RPC overloads by exact named-arg
   // set, so we send every param the function declares (defaulting to
   // null) rather than relying on Postgres defaults.
   p_exclude_source_ids: string[] | null
@@ -69,17 +69,21 @@ function resolveScope(q: RetrieveQuery): RpcFilters {
 
   if (q.scope === "project" && scopeIdList.length > 0) {
     // For projects we filter by `project_id` column on rag_items, not
-    // by source_id. Multi-project means OR across project_ids — but
+    // by source_id. Multi-project means OR across project_ids - but
     // the RPC takes a single p_project_id; v1 limitation = first picked
     // project wins for filtering. Multi-project filter would need a new
     // RPC param; tracked as a follow-up.
     filters.p_project_id = scopeIdList[0]
-  } else if (q.scope === "design" && scopeIdList.length > 0) {
+  } else if (q.scope === "design") {
+    // scope='design' with NO scope_id means "all designs in workspace"
+    // (issue #2 - "Start chat" from /designs lands here). With ids,
+    // it restricts to the picked designs.
     filters.p_source_types = ["design"]
-    filters.p_only_source_ids = scopeIdList
-  } else if (q.scope === "report" && scopeIdList.length > 0) {
+    if (scopeIdList.length > 0) filters.p_only_source_ids = scopeIdList
+  } else if (q.scope === "report") {
+    // Same convention as design - empty scope_id = "all reports".
     filters.p_source_types = ["report"]
-    filters.p_only_source_ids = scopeIdList
+    if (scopeIdList.length > 0) filters.p_only_source_ids = scopeIdList
   }
 
   // Caller-restricted attached files take precedence over scope (when
@@ -94,7 +98,7 @@ function resolveScope(q: RetrieveQuery): RpcFilters {
 
 /**
  * Compute the post-fusion score for a single chunk given its dense + BM25
- * ranks (1-based; lower is better) and metadata. Pure function — exported
+ * ranks (1-based; lower is better) and metadata. Pure function - exported
  * for unit tests.
  */
 export function computeScore(opts: {
@@ -106,7 +110,7 @@ export function computeScore(opts: {
   const denseTerm = opts.denseRank == null ? 0 : 1 / (RRF_K + opts.denseRank)
   const sparseTerm = opts.bm25Rank == null ? 0 : 1 / (RRF_K + opts.bm25Rank)
   let score = denseTerm + sparseTerm
-  // exp(-age/half_life) — caps at 1 for age=0, 0.37 at one half-life, etc.
+  // exp(-age/half_life) - caps at 1 for age=0, 0.37 at one half-life, etc.
   score *= Math.exp(-Math.max(0, opts.ageDays) / RECENCY_HALF_LIFE_DAYS)
   if (opts.sourceType === "chat_message") {
     score *= CHAT_MESSAGE_MULTIPLIER

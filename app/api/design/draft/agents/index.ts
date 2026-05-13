@@ -208,7 +208,7 @@ export async function callLiteratureScoutAgent(
       .join("\n")
 
     // PaperFinder is best-effort: if it fails, we still run the pipeline
-    // with no citations. Target 10 unique papers per round — keeps the
+    // with no citations. Target 10 unique papers per round - keeps the
     // literature shortlist scannable while staying within the 8–10 band the
     // product asks for. Early-exit fires once we hit this threshold.
     const minPapers = searchOptions.minPapers ?? 10
@@ -309,7 +309,7 @@ export async function callLiteratureScoutAgent(
       )
       onProgress?.({
         step: "papers_found",
-        message: "No papers found — continuing with AI synthesis only.",
+        message: "No papers found - continuing with AI synthesis only.",
         totalPapers: 0,
         sourceCounts: {}
       })
@@ -403,7 +403,7 @@ export async function callLiteratureScoutAgent(
 
     onProgress?.({
       step: "done",
-      message: `Literature search complete — ${output.citationsDetailed?.length ?? 0} papers`,
+      message: `Literature search complete - ${output.citationsDetailed?.length ?? 0} papers`,
       papersCount: output.citationsDetailed?.length ?? 0
     })
 
@@ -984,9 +984,9 @@ const EMPTY_STAT_CHECK: StatCheckOutput = {
  *
  * It does NOT regenerate specialist agents' outputs. It makes a small LLM
  * call that ONLY produces the `researchObjective` (executive summary) and
- * `finalNotes` (closing reflection). Everything else — literature summary,
+ * `finalNotes` (closing reflection). Everything else - literature summary,
  * hypothesis, experiment design, statistical review, execution plan,
- * procedure — is passed through verbatim from `state`.
+ * procedure - is passed through verbatim from `state`.
  *
  * This guarantees specialist detail is preserved, the statistical review
  * cannot be silently dropped, and ordering is controlled by the assembler

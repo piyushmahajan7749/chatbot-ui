@@ -46,7 +46,7 @@ export const GlobalSearch = () => {
   const { selectedWorkspace, profile } = useContext(ChatbotUIContext)
   const router = useRouter()
 
-  // Global shortcut (Cmd+Shift+K — see lib/hooks/use-hotkey.tsx)
+  // Global shortcut (Cmd+Shift+K - see lib/hooks/use-hotkey.tsx)
   useHotkey("k", () => setIsOpen(true))
 
   // Listen for programmatic "open-global-search" events, dispatched by the

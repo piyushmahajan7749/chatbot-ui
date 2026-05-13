@@ -14,7 +14,7 @@ interface AgentDrawerProps {
   scope: ChatScope
   scopeId?: string
   scopeName?: string
-  /** Small hint shown below the title — e.g. current stage / selection. */
+  /** Small hint shown below the title - e.g. current stage / selection. */
   scopeDetail?: ReactNode
   contextPrompt?: string
   autoStart?: boolean
@@ -23,7 +23,7 @@ interface AgentDrawerProps {
 
 /**
  * 440px slide-over agent drawer. Wraps ScopedChatRail so the pinned-thread
- * logic (scope/scope_id) is preserved — the drawer is a presentation layer.
+ * logic (scope/scope_id) is preserved - the drawer is a presentation layer.
  */
 export function AgentDrawer({
   open,
@@ -118,7 +118,7 @@ export function AgentDrawer({
           )}
         </div>
 
-        {/* Chat body — uses existing ScopedChatRail so thread persistence works. */}
+        {/* Chat body - uses existing ScopedChatRail so thread persistence works. */}
         <div className="relative min-h-0 flex-1">
           <ScopedChatRail
             scope={scope}

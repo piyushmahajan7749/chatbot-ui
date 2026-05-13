@@ -82,7 +82,7 @@ export const ChatUI: FC<ChatUIProps> = ({ variant = "full", chatId }) => {
 
     if (effectiveChatId) {
       setLoading(true)
-      // Always clear the loading flag in `finally` — historically the
+      // Always clear the loading flag in `finally` - historically the
       // .then() chain meant any throw inside fetchData() (e.g. RAG
       // snapshot fetch failing if migration 20260507 isn't applied)
       // left the chat stuck on an infinite spinner ("keeps processing"
@@ -141,7 +141,7 @@ export const ChatUI: FC<ChatUIProps> = ({ variant = "full", chatId }) => {
 
     // Load BOTH legacy file-items AND rag-citation snapshots per message.
     // Legacy: join on file_items table (chunks of attached files).
-    // RAG: snapshot rows on message_file_items (post-PR-9a) — survive
+    // RAG: snapshot rows on message_file_items (post-PR-9a) - survive
     //      doc re-indexing because they carry the title/url/content
     //      copy that was true at message-write time.
     const messageFileItemPromises = fetchedMessages.map(
@@ -150,7 +150,7 @@ export const ChatUI: FC<ChatUIProps> = ({ variant = "full", chatId }) => {
     // RAG citation snapshots fail if migration 20260507 (which adds the
     // `rag_item_id` + `content_snapshot` cols on `message_file_items`)
     // hasn't been applied yet. Swallow the per-message failure so chat
-    // load isn't blocked — citations just fall back to live-only mode.
+    // load isn't blocked - citations just fall back to live-only mode.
     const ragCitationPromises = fetchedMessages.map(async message => {
       try {
         return await getRagCitationsByMessageId(message.id)
@@ -178,7 +178,7 @@ export const ChatUI: FC<ChatUIProps> = ({ variant = "full", chatId }) => {
       content: row.content_snapshot ?? "",
       source_title: row.source_title,
       source_url: row.source_url,
-      // Legacy fields the downstream renderer reads — set safe defaults.
+      // Legacy fields the downstream renderer reads - set safe defaults.
       file_id: null as any,
       tokens: 0,
       sharing: "private",
@@ -462,7 +462,7 @@ const ChatScopeBadge: FC = () => {
           )}
           title={d?.name}
         >
-          Design · {d?.name ?? "—"}
+          Design · {d?.name ?? "-"}
         </span>
       )
     }
@@ -491,7 +491,7 @@ const ChatScopeBadge: FC = () => {
           )}
           title={r?.name ?? undefined}
         >
-          Report · {r?.name ?? "—"}
+          Report · {r?.name ?? "-"}
         </span>
       )
     }

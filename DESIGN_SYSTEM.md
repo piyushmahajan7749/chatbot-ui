@@ -1,17 +1,17 @@
-# Shadow AI — Design System
+# Shadow AI - Design System
 
 The single source of truth for visual design across the marketing site (`shadowai.work`) and the product app (`app.shadowai.work`). If a UI surface deviates from this document, the document wins.
 
-This system was originally extracted from `landing.css`. Token values are framework-agnostic — copy them into Tailwind config, plain CSS variables, CSS-in-JS, or design tooling.
+This system was originally extracted from `landing.css`. Token values are framework-agnostic - copy them into Tailwind config, plain CSS variables, CSS-in-JS, or design tooling.
 
 ---
 
 ## 1. Brand voice
 
-Tone: **serious, scientific, modern.** Direct sentences. No marketing fluff. No exclamation marks. Lowercase punctuation cues like `// Section name` carry meaning — they signal "this is signposting, not the message."
+Tone: **serious, scientific, modern.** Direct sentences. No marketing fluff. No exclamation marks. Lowercase punctuation cues like `// Section name` carry meaning - they signal "this is signposting, not the message."
 
-- "Shadow" or "Shadow AI" — never "ShadowAI" (no space-collapse).
-- Em-dashes (`—`) are a brand voice marker. Use them where most marketing uses semicolons or "and."
+- "Shadow" or "Shadow AI" - never "ShadowAI" (no space-collapse).
+- Em-dashes (`-`) are a brand voice marker. Use them where most marketing uses semicolons or "and."
 - Numbers stay numbers (`30 experiments / month`, not "thirty experiments per month").
 - Avoid: "powerful," "seamless," "leverage," "unlock," "revolutionize," "next-generation," any AI buzzword.
 
@@ -19,14 +19,14 @@ Tone: **serious, scientific, modern.** Direct sentences. No marketing fluff. No 
 
 ## 2. Color tokens
 
-The system uses **two themes** — light (cream-warm) and dark (near-black) — sharing the same semantic token names. Always reference tokens, never raw hex/oklch values, in component code.
+The system uses **two themes** - light (cream-warm) and dark (near-black) - sharing the same semantic token names. Always reference tokens, never raw hex/oklch values, in component code.
 
 ### 2.1 Light theme (default)
 
 ```css
 :root {
   /* Surfaces */
-  --bg:        #F7F5F1;  /* page background — warm off-white */
+  --bg:        #F7F5F1;  /* page background - warm off-white */
   --bg-2:      #EFEBE3;  /* recessed/quiet sections */
   --paper:     #FFFFFF;  /* raised cards, inputs, modals */
 
@@ -40,7 +40,7 @@ The system uses **two themes** — light (cream-warm) and dark (near-black) — 
   --line:      #E4E0D8;  /* default borders, dividers */
   --line-2:    #D6D1C5;  /* hover borders, emphasis */
 
-  /* Brand — electric blue */
+  /* Brand - electric blue */
   --primary:       oklch(0.58 0.19 240);  /* CTA, accent, focus */
   --primary-ink:   oklch(0.46 0.19 240);  /* primary on hover */
   --primary-tint:  oklch(0.95 0.04 240);  /* subtle tinted backgrounds */
@@ -98,7 +98,7 @@ background: color-mix(in oklab, var(--primary) 8%, transparent);
 color: color-mix(in oklab, var(--bg) 70%, transparent);
 ```
 
-Avoid `rgba(0, 0, 0, 0.08)` and similar — they break in dark mode.
+Avoid `rgba(0, 0, 0, 0.08)` and similar - they break in dark mode.
 
 ---
 
@@ -133,7 +133,7 @@ Load via:
 
 ### 3.2 Type scale
 
-Headings use `--f-sans`, fluid sizing via `clamp()`, and **slightly heavier than typical scientific UI** (450–500) — never bold (700+).
+Headings use `--f-sans`, fluid sizing via `clamp()`, and **slightly heavier than typical scientific UI** (450–500) - never bold (700+).
 
 | Style | Font | Size (clamp) | Weight | Letter-spacing | Line-height |
 |---|---|---|---|---|---|
@@ -152,7 +152,7 @@ Headings always get `text-wrap: balance;`.
 
 ### 3.3 The eyebrow
 
-A signature element — `// Section name` styled as monospace label with a leading horizontal rule. Use sparingly: one per section, top of page heads, top of cards.
+A signature element - `// Section name` styled as monospace label with a leading horizontal rule. Use sparingly: one per section, top of page heads, top of cards.
 
 ```css
 .eyebrow {
@@ -206,12 +206,12 @@ Vertical rhythm for full-width sections:
 ```
 
 Variants:
-- `.section-quiet` — `background: var(--bg-2)`, no top border.
-- `.section-dark` — `background: var(--ink); color: var(--bg);` for inverted blocks.
+- `.section-quiet` - `background: var(--bg-2)`, no top border.
+- `.section-dark` - `background: var(--ink); color: var(--bg);` for inverted blocks.
 
 ### 4.3 Spacing scale
 
-No rigid 8px grid — the system uses **fluid `clamp()` for outer spacing** and **fixed pixel values for inner spacing**. Common values:
+No rigid 8px grid - the system uses **fluid `clamp()` for outer spacing** and **fixed pixel values for inner spacing**. Common values:
 
 | Use | Value |
 |---|---|
@@ -233,7 +233,7 @@ Mobile-first with **only three breakpoints**:
 | `lg` | `920px` | sidebar/showcase collapse |
 | `xl` | `1080px` | optional, rarely needed |
 
-Use `@media (max-width: 920px)` style — desktop-first overrides on the way down — to match existing CSS.
+Use `@media (max-width: 920px)` style - desktop-first overrides on the way down - to match existing CSS.
 
 ---
 
@@ -242,26 +242,26 @@ Use `@media (max-width: 920px)` style — desktop-first overrides on the way dow
 Three tiers. Never invent new shadows; pick the closest one.
 
 ```css
-/* Tier 1 — flat with hairline depth (cards at rest) */
+/* Tier 1 - flat with hairline depth (cards at rest) */
 box-shadow:
   0 1px 0 rgba(14, 15, 18, 0.02),
   0 12px 32px -16px rgba(14, 15, 18, 0.10),
   0 32px 64px -32px rgba(14, 15, 18, 0.12);
 
-/* Tier 2 — raised (hover, modals, product screenshots) */
+/* Tier 2 - raised (hover, modals, product screenshots) */
 box-shadow:
   0 1px 0 rgba(14, 15, 18, 0.02),
   0 20px 40px -20px rgba(14, 15, 18, 0.15),
   0 32px 64px -32px color-mix(in oklab, var(--primary) 22%, transparent);
 
-/* Tier 3 — featured (primary CTA glow, active state) */
+/* Tier 3 - featured (primary CTA glow, active state) */
 box-shadow:
   0 0 0 1px var(--primary),
   0 24px 48px -24px color-mix(in oklab, var(--primary) 40%, transparent),
   0 48px 96px -48px color-mix(in oklab, var(--primary) 30%, transparent);
 ```
 
-Shadows always tint with `--primary` at the deepest layer — gives the brand's electric-blue undertone in dark mode and a clean cool tone in light mode.
+Shadows always tint with `--primary` at the deepest layer - gives the brand's electric-blue undertone in dark mode and a clean cool tone in light mode.
 
 ---
 
@@ -285,11 +285,11 @@ Tight, scientific. Never pill except for tags/pills, never fully circular except
 
 ## 7. Components
 
-Each component below specifies its **anatomy**, **states**, and **drop-in CSS**. Components compose via class names — no nesting required, no preprocessor needed.
+Each component below specifies its **anatomy**, **states**, and **drop-in CSS**. Components compose via class names - no nesting required, no preprocessor needed.
 
 ### 7.1 Button
 
-Three variants. Always include `.arrow` on right-pointing CTAs — it animates on hover.
+Three variants. Always include `.arrow` on right-pointing CTAs - it animates on hover.
 
 ```css
 .btn {
@@ -364,7 +364,7 @@ Default card:
 .card:hover { border-color: var(--line-2); transform: translateY(-2px); }
 ```
 
-**Faux browser window** — used for product screenshots and mocks:
+**Faux browser window** - used for product screenshots and mocks:
 
 ```css
 .window {
@@ -434,7 +434,7 @@ The `★ Most Popular` badge sits at `top: -12px` with `transform: translateX(-5
 }
 ```
 
-Labels prefix with `// FIELD NAME` in uppercase mono — matches the eyebrow language.
+Labels prefix with `// FIELD NAME` in uppercase mono - matches the eyebrow language.
 
 ### 7.5 Pill / domain tag
 
@@ -633,7 +633,7 @@ For feature checkmarks in lists, use a circular 20px tile with the same tinted b
 
 ### 9.3 Asset library
 
-When the in-house SVG approach isn't enough, use **Lucide** (`lucide-react`) — already installed. Match the stroke width to 1.6px via CSS to keep visual consistency.
+When the in-house SVG approach isn't enough, use **Lucide** (`lucide-react`) - already installed. Match the stroke width to 1.6px via CSS to keep visual consistency.
 
 ---
 
@@ -641,9 +641,9 @@ When the in-house SVG approach isn't enough, use **Lucide** (`lucide-react`) —
 
 ### 10.1 What we use
 
-- **Real product UI** — actual app screenshots, framed in the `.window` chrome.
-- **Custom data viz** — charts, diagrams in brand colors only (`--ink`, `--muted`, `--primary`).
-- **Founder portraits** — neutral background, real photos, no Photoshop filters.
+- **Real product UI** - actual app screenshots, framed in the `.window` chrome.
+- **Custom data viz** - charts, diagrams in brand colors only (`--ink`, `--muted`, `--primary`).
+- **Founder portraits** - neutral background, real photos, no Photoshop filters.
 
 ### 10.2 What we never use
 
@@ -685,14 +685,14 @@ Always frame in `.window` chrome (see 7.2). Add an optional primary-tinted ambie
 --max, --pad                (layout)
 ```
 
-Never introduce a new top-level variable for a one-off color — derive from existing tokens via `color-mix()`.
+Never introduce a new top-level variable for a one-off color - derive from existing tokens via `color-mix()`.
 
 ### 11.2 Class names
 
 - BEM-lite: `.block`, `.block-modifier`, `.block__element` (use single hyphen when unambiguous).
 - Section components: noun-based (`.hero`, `.pricing-card`, `.comparison-table`).
 - Modifiers describe state or variant (`.section-quiet`, `.section-dark`, `.pricing-card-featured`).
-- Utility-style classes are rare — prefer composed component classes. If a true utility is needed, prefix `.u-` (`.u-text-center`).
+- Utility-style classes are rare - prefer composed component classes. If a true utility is needed, prefix `.u-` (`.u-text-center`).
 
 ### 11.3 React component organization (when reused)
 
@@ -707,7 +707,7 @@ Never introduce a new top-level variable for a one-off color — derive from exi
 
 - **Contrast:** all text/background pairs in this system meet WCAG AA. Don't introduce new pairs without re-checking.
 - **Focus rings:** every interactive element gets a visible focus state. Default: `box-shadow: 0 0 0 3px color-mix(in oklab, var(--primary) 20%, transparent);`.
-- **Motion:** reveal animations should be skipped under `@media (prefers-reduced-motion: reduce)` — set `.reveal { transition: none; opacity: 1; transform: none; }`.
+- **Motion:** reveal animations should be skipped under `@media (prefers-reduced-motion: reduce)` - set `.reveal { transition: none; opacity: 1; transform: none; }`.
 - **Icons:** every standalone icon button has `aria-label`. Decorative icons inside text have `aria-hidden="true"`.
 - **Headings:** one `<h1>` per page. Don't skip levels.
 
@@ -831,19 +831,19 @@ module.exports = {
 };
 ```
 
-Then use `bg-bg`, `text-ink`, `border-line`, `text-primary`, `font-mono` etc. — the dark-mode CSS variables flip automatically.
+Then use `bg-bg`, `text-ink`, `border-line`, `text-primary`, `font-mono` etc. - the dark-mode CSS variables flip automatically.
 
 ---
 
 ## 15. Open questions / future work
 
-These are intentionally undecided — flag in PRs when you hit them, don't invent answers.
+These are intentionally undecided - flag in PRs when you hit them, don't invent answers.
 
-- **Data viz palette** — beyond `--primary`, we need a 4–6 color sequential scale for charts. Pending real product needs.
-- **Empty states** — illustration approach (custom line art? typographic?) not yet defined.
-- **Pricing — billing toggle** — currently both monthly/annual prices show inline. If we move to a toggle, document its mechanics here.
-- **App-specific surfaces** — workspace chrome, sidebar, command palette, modal stacking. Add a `§ App surfaces` section once those exist.
-- **Logos used by customers** — the "Trusted by" treatment currently shows domain pills, not real logos. When we have customer logos, document height-normalization rules.
+- **Data viz palette** - beyond `--primary`, we need a 4–6 color sequential scale for charts. Pending real product needs.
+- **Empty states** - illustration approach (custom line art? typographic?) not yet defined.
+- **Pricing - billing toggle** - currently both monthly/annual prices show inline. If we move to a toggle, document its mechanics here.
+- **App-specific surfaces** - workspace chrome, sidebar, command palette, modal stacking. Add a `§ App surfaces` section once those exist.
+- **Logos used by customers** - the "Trusted by" treatment currently shows domain pills, not real logos. When we have customer logos, document height-normalization rules.
 
 ---
 

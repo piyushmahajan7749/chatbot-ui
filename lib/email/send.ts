@@ -3,7 +3,7 @@
  *
  * Uses Resend's HTTP API directly when RESEND_API_KEY is set so we don't need
  * to add a new npm dependency. When the key is not configured, this logs the
- * intended email and resolves — callers treat delivery as best-effort.
+ * intended email and resolves - callers treat delivery as best-effort.
  */
 
 interface SendEmailInput {
@@ -30,7 +30,7 @@ export async function sendEmail(
   const apiKey = process.env.RESEND_API_KEY
   if (!apiKey) {
     console.log(
-      "[EMAIL] RESEND_API_KEY not set — email not sent (logged only)",
+      "[EMAIL] RESEND_API_KEY not set - email not sent (logged only)",
       { to: input.to, subject: input.subject }
     )
     return { delivered: false, provider: "none" }
@@ -110,7 +110,7 @@ export async function sendDesignInviteEmail(
     : ""
 
   const pendingNote = input.isPending
-    ? `<p style="color:#555;">Use the email <strong>${escapeHtml(input.to)}</strong> when you sign up — the design will appear in your workspace automatically.</p>`
+    ? `<p style="color:#555;">Use the email <strong>${escapeHtml(input.to)}</strong> when you sign up - the design will appear in your workspace automatically.</p>`
     : ""
 
   const html = `
@@ -129,7 +129,7 @@ export async function sendDesignInviteEmail(
     `Access: ${roleLabel}`,
     ctaUrl ? `Open: ${ctaUrl}` : "",
     input.isPending
-      ? `Sign up with ${input.to} — the design will appear in your workspace automatically.`
+      ? `Sign up with ${input.to} - the design will appear in your workspace automatically.`
       : ""
   ]
     .filter(Boolean)

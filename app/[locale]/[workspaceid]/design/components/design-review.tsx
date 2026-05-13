@@ -1055,7 +1055,7 @@ export function DesignReview({
 
       const addMultiline = (text?: string) => {
         if (!text) {
-          docChildren.push(new Paragraph({ text: "—" }))
+          docChildren.push(new Paragraph({ text: "-" }))
           return
         }
         text.split(/\r?\n/).forEach(line => {
@@ -1262,7 +1262,7 @@ export function DesignReview({
           {generatedDesign.experimentDesign && (
             <SectionCard
               title="Experiment Blueprint"
-              description="Design parameters — domain- and phase-aware."
+              description="Design parameters - domain- and phase-aware."
             >
               {(() => {
                 const designer = generatedDesign.experimentDesign
@@ -1385,7 +1385,7 @@ export function DesignReview({
           {generatedDesign.statisticalReview?.correctedDesign && (
             <SectionCard
               title="Stat-Check Corrected Design"
-              description="The design after Stat Check's review — this is what Planner and Procedure build on."
+              description="The design after Stat Check's review - this is what Planner and Procedure build on."
               badge="Corrected"
             >
               <div className="space-y-3">
@@ -2507,43 +2507,9 @@ export function DesignReview({
                 </div>
               )}
 
-              {reasoningHypothesis.metadata && (
-                <div className="border-border rounded-lg border p-4">
-                  <h4 className="text-foreground mb-2 font-semibold">
-                    Quality Metrics
-                  </h4>
-                  <div className="grid gap-3 sm:grid-cols-2">
-                    {typeof reasoningHypothesis.metadata.feasibility_score ===
-                      "number" && (
-                      <div className="bg-muted/30 rounded-lg p-3">
-                        <p className="text-muted-foreground text-xs">
-                          Feasibility Score
-                        </p>
-                        <p className="text-foreground text-lg font-semibold">
-                          {(
-                            reasoningHypothesis.metadata.feasibility_score * 100
-                          ).toFixed(0)}
-                          %
-                        </p>
-                      </div>
-                    )}
-                    {typeof reasoningHypothesis.metadata.novelty_score ===
-                      "number" && (
-                      <div className="bg-muted/30 rounded-lg p-3">
-                        <p className="text-muted-foreground text-xs">
-                          Novelty Score
-                        </p>
-                        <p className="text-foreground text-lg font-semibold">
-                          {(
-                            reasoningHypothesis.metadata.novelty_score * 100
-                          ).toFixed(0)}
-                          %
-                        </p>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              )}
+              {/* Quality Metrics block removed (issue #21). Scientists asked
+                  for relevance-only scoring; feasibility + novelty introduced
+                  confusion when the ranking order didn't match relevance. */}
             </div>
           )}
         </DialogContent>

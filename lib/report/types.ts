@@ -76,7 +76,7 @@ export const ReportCreateInputSchema = z.object({
 })
 export type ReportCreateInput = z.infer<typeof ReportCreateInputSchema>
 
-/** PATCH /api/reports/[id] body — open shape, but trims server-managed fields. */
+/** PATCH /api/reports/[id] body - open shape, but trims server-managed fields. */
 export const ReportPatchInputSchema = z
   .object({
     name: z.string().optional(),

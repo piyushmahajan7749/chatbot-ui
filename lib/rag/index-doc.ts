@@ -9,7 +9,7 @@
  *   - Inngest `rag.backfill.workspace` worker
  *   - `app/api/rag/reindex/route.ts` admin endpoint
  *
- * Does NOT do auth — callers must already have verified the request can
+ * Does NOT do auth - callers must already have verified the request can
  * touch this source (admin route + Inngest events both run server-side).
  */
 import { adminDb } from "@/lib/firebase/admin"
@@ -49,7 +49,7 @@ export interface IndexDocInput {
   sourceType: SourceType
   sourceId: string
   /**
-   * Optional — when supplied skips the source-fetch step (used by file
+   * Optional - when supplied skips the source-fetch step (used by file
    * ingest where the text was just extracted in-process).
    */
   precomputed?: ExtractorResult
@@ -110,7 +110,7 @@ async function fetchAndExtract(
     case "project_file": {
       // Project files: metadata in Postgres `project_files` table; the
       // bytes live in Supabase storage. Text extraction (PDF/CSV) happens
-      // upstream in the per-file processor — this branch expects a
+      // upstream in the per-file processor - this branch expects a
       // precomputed ExtractorResult and shouldn't reach the fetch path
       // unless a future refactor adds inline extraction here.
       throw new Error(
@@ -119,7 +119,7 @@ async function fetchAndExtract(
     }
     case "file": {
       throw new Error(
-        "indexDoc(file) requires a precomputed ExtractorResult — call from /api/retrieval/process"
+        "indexDoc(file) requires a precomputed ExtractorResult - call from /api/retrieval/process"
       )
     }
     case "chat_message": {
@@ -186,7 +186,7 @@ export async function indexDoc(input: IndexDocInput): Promise<IndexDocResult> {
     )
   }
 
-  // Files have natural context (filename, page headers) — skip the Haiku
+  // Files have natural context (filename, page headers) - skip the Haiku
   // call per locked plan. Everything else gets contextualized.
   const skipContextualization = sourceType === "file"
   const contextualized = skipContextualization
@@ -218,7 +218,7 @@ export async function indexDoc(input: IndexDocInput): Promise<IndexDocResult> {
   }))
 
   // Replace-by-source. Two statements; service-role client bypasses RLS.
-  // Not wrapped in a SQL transaction — Supabase JS client lacks first-class
+  // Not wrapped in a SQL transaction - Supabase JS client lacks first-class
   // transactions. Race window: if a second indexDoc fires for the same
   // source between the DELETE and INSERT, we'd lose the second one's rows.
   // The Inngest debounce key (sourceType + sourceId) makes this collision
@@ -252,7 +252,7 @@ export async function indexDoc(input: IndexDocInput): Promise<IndexDocResult> {
 
 /**
  * Update per-doc index status. Postgres for files, Firestore for the rest.
- * Best-effort — failures here log but don't throw.
+ * Best-effort - failures here log but don't throw.
  */
 async function markStatus(
   ref: { sourceType: SourceType; sourceId: string },
@@ -275,7 +275,7 @@ async function markStatus(
         .update(updates as any)
         .eq("id", ref.sourceId)
     } else if (ref.sourceType === "chat_message") {
-      // chat_message rows have no per-doc status field — skip.
+      // chat_message rows have no per-doc status field - skip.
     } else {
       const collection = firestoreCollectionFor(ref.sourceType)
       if (!collection) return

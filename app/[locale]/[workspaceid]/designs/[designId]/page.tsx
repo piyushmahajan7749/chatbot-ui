@@ -26,8 +26,8 @@ import {
   Stepper,
   type StageId as DesignStageId
 } from "@/components/design-flow/stepper"
-import { ScopedChatRail } from "@/components/canvas/scoped-chat-rail"
-import { SplitRailLayout } from "@/components/canvas/split-rail-layout"
+// ScopedChatRail / SplitRailLayout imports removed - the side chat rail
+// was retired in favour of the full-screen "Chat" button (issue #11).
 import { addPaperToLibrary } from "@/db/paper-library"
 import { createChat } from "@/db/chats"
 import { supabase } from "@/lib/supabase/browser-client"
@@ -215,7 +215,7 @@ function buildDesignChatContext(input: {
 }): string {
   const lines: string[] = []
   lines.push(
-    "You are Shadow AI, the scientific design assistant for this experiment. The full experiment is provided below — refer to it directly without asking the user to re-supply which design they mean. Use numeric values from the design's procedure and materials when calculations are requested."
+    "You are Shadow AI, the scientific design assistant for this experiment. The full experiment is provided below - refer to it directly without asking the user to re-supply which design they mean. Use numeric values from the design's procedure and materials when calculations are requested."
   )
 
   const problemLines: string[] = []
@@ -229,7 +229,7 @@ function buildDesignChatContext(input: {
     lines.push("", "## Problem", ...problemLines)
   }
 
-  // All hypotheses (selected first, then the rest) — full reasoning, no
+  // All hypotheses (selected first, then the rest) - full reasoning, no
   // truncation. The model needs to know what was rejected to answer
   // "why didn't we test X" questions.
   const allHyp = [
@@ -260,7 +260,7 @@ function buildDesignChatContext(input: {
         .filter(Boolean)
         .join(" · ")
       lines.push(
-        `${i + 1}. ${p.title}${meta ? ` — ${meta}` : ""}${
+        `${i + 1}. ${p.title}${meta ? ` - ${meta}` : ""}${
           p.sourceUrl ? ` (${p.sourceUrl})` : ""
         }`
       )
@@ -268,7 +268,7 @@ function buildDesignChatContext(input: {
     })
   }
 
-  // All generated designs — the active one first, full body. Other
+  // All generated designs - the active one first, full body. Other
   // designs included as alternates so the model can compare/contrast.
   const ordered = input.activeDesign
     ? [
@@ -293,7 +293,7 @@ function buildDesignChatContext(input: {
   let context = lines.join("\n")
 
   // Hard cap. If we blow past, log so we know to wire tier-3 RAG
-  // fallback (PR-9-ish work — left as a known gap for now).
+  // fallback (PR-9-ish work - left as a known gap for now).
   if (context.length > TIER3_MAX_CHARS) {
     console.warn(
       `[design-chat-context] design content ${context.length} chars exceeds tier-3 cap ${TIER3_MAX_CHARS}; truncating. Consider RAG fallback.`
@@ -322,7 +322,7 @@ export default function DesignDetailPage() {
     useContext(ChatbotUIContext)
   void profile
 
-  // Tracks "Open in chat" in-flight state — disables the button so a
+  // Tracks "Open in chat" in-flight state - disables the button so a
   // double-click doesn't create two chats.
   const [openingFullChat, setOpeningFullChat] = useState(false)
 
@@ -332,7 +332,7 @@ export default function DesignDetailPage() {
 
   const [design, setDesign] = useState<any>(null)
   const [loading, setLoading] = useState(true)
-  // Default landing tab is "problem" — newly-created designs should drop the
+  // Default landing tab is "problem" - newly-created designs should drop the
   // user straight into editing instead of showing the Overview placeholder.
   // Once the loader sees an `approvedPhases` list with progress past Problem,
   // the resume effect below jumps to the first non-approved phase.
@@ -361,6 +361,16 @@ export default function DesignDetailPage() {
   const [constraintEquipment, setConstraintEquipment] = useState("")
   const [variablesKnown, setVariablesKnown] = useState("")
   const [variablesUnknown, setVariablesUnknown] = useState("")
+  // Issue #9 - non-mandatory free-text field. Captures the scientist's
+  // definition of "what would count as a successful experiment" so the
+  // hypothesis and design agents can target it directly.
+  const [successCriteria, setSuccessCriteria] = useState("")
+  // Issue #28 - explicit replicates toggle. "" = unset, "yes"/"no" otherwise.
+  // Defaults to "" so the field renders empty (same UX as Domain/Phase),
+  // and the Yes/No selection flows through to the design agent context.
+  const [includeReplicates, setIncludeReplicates] = useState<"" | "yes" | "no">(
+    ""
+  )
 
   // Literature tab state
   const [papers, setPapers] = useState<Paper[]>([])
@@ -492,6 +502,14 @@ export default function DesignDetailPage() {
             : "")
       )
       setVariablesUnknown(problem.variablesStructured?.unknown ?? "")
+      // New fields (issues #9 + #28). Optional; default to empty so legacy
+      // designs that don't have them stored render with blank inputs.
+      setSuccessCriteria(
+        ((problem as any).successCriteria as string | undefined) ?? ""
+      )
+      const repRaw =
+        ((problem as any).includeReplicates as string | undefined) ?? ""
+      setIncludeReplicates(repRaw === "yes" || repRaw === "no" ? repRaw : "")
 
       if (content?.papers) setPapers(content.papers)
       if (content?.hypotheses) setHypotheses(content.hypotheses)
@@ -520,7 +538,7 @@ export default function DesignDetailPage() {
     extra?: { name?: string }
   ) => {
     // Merge against the freshest content we know about (updated on every
-    // fetch and every phase run) — NOT the React `design` state, which can
+    // fetch and every phase run) - NOT the React `design` state, which can
     // be stale after an SSE phase run or a prior PATCH.
     const merged: DesignContentV2 = {
       ...latestContentRef.current,
@@ -538,23 +556,29 @@ export default function DesignDetailPage() {
     })
   }
 
-  const currentProblem = (): ProblemContext => ({
-    title,
-    problemStatement,
-    domain: domain || undefined,
-    phase: phase || undefined,
-    objective,
-    goal: objective, // mirror into legacy field so old consumers still read a value
-    constraintsStructured: {
-      material: constraintMaterial,
-      time: constraintTime,
-      equipment: constraintEquipment
-    },
-    variablesStructured: {
-      known: variablesKnown,
-      unknown: variablesUnknown
-    }
-  })
+  const currentProblem = (): ProblemContext =>
+    ({
+      title,
+      problemStatement,
+      domain: domain || undefined,
+      phase: phase || undefined,
+      objective,
+      goal: objective, // mirror into legacy field so old consumers still read a value
+      constraintsStructured: {
+        material: constraintMaterial,
+        time: constraintTime,
+        equipment: constraintEquipment
+      },
+      variablesStructured: {
+        known: variablesKnown,
+        unknown: variablesUnknown
+      },
+      // Issue #9 / #28 - both are optional so we only emit when set.
+      ...(successCriteria.trim()
+        ? { successCriteria: successCriteria.trim() }
+        : {}),
+      ...(includeReplicates ? { includeReplicates } : {})
+    }) as ProblemContext
 
   useEffect(() => {
     if (loading || !design) return
@@ -578,7 +602,9 @@ export default function DesignDetailPage() {
     constraintTime,
     constraintEquipment,
     variablesKnown,
-    variablesUnknown
+    variablesUnknown,
+    successCriteria,
+    includeReplicates
   ])
 
   const problemValid =
@@ -901,7 +927,7 @@ export default function DesignDetailPage() {
   /**
    * Save paper into the workspace paper library + open the source URL in a
    * new tab so the user can read / actually download. Library save is
-   * fire-and-forget — failures only log; the user-visible action (open
+   * fire-and-forget - failures only log; the user-visible action (open
    * URL) always runs.
    */
   const handleDownloadPaper = (paper: Paper) => {
@@ -924,7 +950,7 @@ export default function DesignDetailPage() {
     })
       .then((res: any) => {
         if (res?.deduplicated) {
-          // Already in library — keep the toast quiet to avoid noise on
+          // Already in library - keep the toast quiet to avoid noise on
           // repeat clicks. Just a console line for observability.
           console.log("[paper-library] paper already saved:", paper.title)
         } else {
@@ -936,7 +962,7 @@ export default function DesignDetailPage() {
       })
       .catch(err => {
         console.warn("[paper-library] save failed:", err)
-        // Don't block the user — the URL already opened. Surface a soft
+        // Don't block the user - the URL already opened. Surface a soft
         // toast so they know the library save didn't take.
         toast({
           title: "Couldn't save to library",
@@ -955,7 +981,7 @@ export default function DesignDetailPage() {
         id: `u-${Date.now()}-${i}`,
         title: f.name.replace(/\.pdf$/i, ""),
         summary:
-          "Summary pending — the agentic system will analyze this upload and return a structured abstract.",
+          "Summary pending - the agentic system will analyze this upload and return a structured abstract.",
         userAdded: true,
         selected: true
       }))
@@ -1076,7 +1102,7 @@ export default function DesignDetailPage() {
   }
 
   /**
-   * Upsert a section onto a specific generated design — adds if missing,
+   * Upsert a section onto a specific generated design - adds if missing,
    * edits if present. Shares the persist+rollback path with edits.
    */
   const handleUpsertSection = async (
@@ -1157,7 +1183,7 @@ export default function DesignDetailPage() {
 
   /**
    * Edit a single section's body inline. Writes the updated `designs` array
-   * to Firestore via the shared persist path. Optimistic — local state
+   * to Firestore via the shared persist path. Optimistic - local state
    * flips immediately; rolls back on persist failure.
    */
   const handleEditSection = async (
@@ -1178,7 +1204,7 @@ export default function DesignDetailPage() {
         : {
             ...d,
             // Clear `saved` so the user knows there are unsaved edits since
-            // the last "Save" action — keeps the Save button meaningful.
+            // the last "Save" action - keeps the Save button meaningful.
             saved: false,
             sections: d.sections.map((s, i) =>
               i === sectionIndex ? { ...s, body: nextBody } : s
@@ -1495,41 +1521,26 @@ export default function DesignDetailPage() {
     activeDesign
   })
 
-  const rail = (
-    <ScopedChatRail
-      scope="design"
-      scopeId={designId}
-      scopeName={design?.name ?? title}
-      autoStart
-      contextPrompt={chatContextPrompt}
-    />
-  )
+  // Side chat rail removed (issue #11) - the design page now only offers
+  // the full-screen Chat button in the header. `chatContextPrompt` and
+  // `showRail` are kept as dead values to minimise the surface of this
+  // change; if no future feature reintroduces a rail, we'll garbage-
+  // collect them on the next sweep.
+  void chatContextPrompt
 
   if (loading) {
     return (
-      <SplitRailLayout
-        rail={rail}
-        showRail={showRail}
-        onToggleRail={() => setShowRail(v => !v)}
-      >
-        <div className="bg-ink-50 flex h-full items-center justify-center">
-          <div className="border-ink-200 border-t-teal-journey size-8 animate-spin rounded-full border-2" />
-        </div>
-      </SplitRailLayout>
+      <div className="bg-ink-50 flex h-full items-center justify-center">
+        <div className="border-ink-200 border-t-teal-journey size-8 animate-spin rounded-full border-2" />
+      </div>
     )
   }
 
   if (!design) {
     return (
-      <SplitRailLayout
-        rail={rail}
-        showRail={showRail}
-        onToggleRail={() => setShowRail(v => !v)}
-      >
-        <div className="bg-ink-50 flex h-full items-center justify-center">
-          <p className="text-ink-400">Design not found</p>
-        </div>
-      </SplitRailLayout>
+      <div className="bg-ink-50 flex h-full items-center justify-center">
+        <p className="text-ink-400">Design not found</p>
+      </div>
     )
   }
 
@@ -1543,7 +1554,7 @@ export default function DesignDetailPage() {
 
   /**
    * Open an OPEN-ENDED, full-screen chat scoped to this design. The side rail
-   * (toggled by the "Chat" button) is task-shaped — short turns next to the
+   * (toggled by the "Chat" button) is task-shaped - short turns next to the
    * design canvas. Some questions are bigger: "give me 5 alternative
    * statistical plans", "summarise everything I have so far", "draft a
    * methods section from this design". For those, the user needs the full
@@ -1602,273 +1613,263 @@ export default function DesignDetailPage() {
   }
 
   return (
-    <SplitRailLayout
-      rail={rail}
-      showRail={showRail}
-      onToggleRail={() => setShowRail(v => !v)}
-    >
-      <div className="bg-ink-50 flex h-full flex-col overflow-hidden">
-        {/* Header */}
-        <div className="border-ink-200 shrink-0 border-b bg-white px-6 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => {
-                  // Honor browser history if we have any — takes the user
-                  // back to wherever they came from (dashboard, project,
-                  // designs list). Deep-linked entries fall back to the
-                  // workspace dashboard rather than the projects index.
-                  if (
-                    typeof window !== "undefined" &&
-                    window.history.length > 1
-                  ) {
-                    router.back()
-                  } else {
-                    router.push(`/${locale}/${workspaceId}`)
-                  }
-                }}
-                className="text-ink-500 gap-1"
-              >
-                <IconArrowLeft size={16} />
-                Back
-              </Button>
-              <div>
-                <div className="text-ink-400 flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.13em]">
-                  <span>Design</span>
-                  {busy && (
-                    <span className="bg-teal-journey-tint text-teal-journey border-teal-journey/30 rounded border px-2 py-0.5 normal-case tracking-normal">
-                      Running {busy}...
-                    </span>
-                  )}
-                </div>
-                <h1 className="text-ink-900 text-xl font-bold">
-                  {title || design.name || "Untitled Design"}
-                </h1>
-                {/* Persistent context strip — problem statement is the second
-                    most important piece of context after the title and stays
-                    visible across every stage of the timeline. */}
-                {problemStatement?.trim() && (
-                  <div
-                    className="text-ink-500 mt-0.5 line-clamp-1 max-w-screen-sm text-[12.5px]"
-                    title={problemStatement}
-                  >
-                    <span className="text-ink-400 mr-1.5 font-medium uppercase tracking-wider">
-                      Problem
-                    </span>
-                    {problemStatement}
-                  </div>
+    <div className="bg-ink-50 flex h-full flex-col overflow-hidden">
+      {/* Header */}
+      <div className="border-ink-200 shrink-0 border-b bg-white px-6 py-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => {
+                // Honor browser history if we have any - takes the user
+                // back to wherever they came from (dashboard, project,
+                // designs list). Deep-linked entries fall back to the
+                // workspace dashboard rather than the projects index.
+                if (
+                  typeof window !== "undefined" &&
+                  window.history.length > 1
+                ) {
+                  router.back()
+                } else {
+                  router.push(`/${locale}/${workspaceId}`)
+                }
+              }}
+              className="text-ink-500 gap-1"
+            >
+              <IconArrowLeft size={16} />
+              Back
+            </Button>
+            <div>
+              <div className="text-ink-400 flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.13em]">
+                <span>Design</span>
+                {busy && (
+                  <span className="bg-teal-journey-tint text-teal-journey border-teal-journey/30 rounded border px-2 py-0.5 normal-case tracking-normal">
+                    Running {busy}...
+                  </span>
                 )}
               </div>
-            </div>
-
-            {/* ── Toolbar actions (right side) ───────────────── */}
-            <div className="flex items-center gap-2">
-              {/* Open-ended chat: creates a fresh design-scoped chat in the
-                  full chat UI. Useful for longer/wider questions that don't
-                  fit comfortably in the side rail. */}
-              <button
-                onClick={() => void handleOpenFullChat()}
-                disabled={openingFullChat}
-                className="border-ink-200 text-ink-700 hover:border-ink-300 hover:bg-ink-50 flex h-9 items-center gap-2 rounded-full border bg-white px-4 text-xs font-semibold uppercase tracking-wide shadow-sm transition-colors disabled:opacity-60"
-                title="Open this design in a full-screen chat"
-              >
-                <IconMessageCircle size={14} className="shrink-0" />
-                {openingFullChat ? "Opening…" : "Open in chat"}
-              </button>
-
-              {/* Side rail: short, task-shaped turns next to the canvas. */}
-              <button
-                onClick={() => setShowRail(v => !v)}
-                className={
-                  "flex h-9 items-center gap-2 rounded-full px-4 text-xs font-semibold uppercase tracking-wide text-white shadow-sm ring-1 ring-inset transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md active:translate-y-0 " +
-                  (showRail
-                    ? "bg-ink-700 hover:bg-ink-800 ring-white/10"
-                    : "from-brick to-brick-hover bg-gradient-to-r ring-white/20")
-                }
-                title="Toggle side chat rail"
-              >
-                <IconSparkles size={14} className="shrink-0" />
-                {showRail ? "Hide chat" : "Chat"}
-              </button>
+              <h1 className="text-ink-900 text-xl font-bold">
+                {title || design.name || "Untitled Design"}
+              </h1>
+              {/* Persistent context strip - problem statement is the
+                    second most important piece of context after the title
+                    and stays visible across every stage of the timeline.
+                    During an agent run we expand it to the full statement
+                    (issue #10) so the scientist sees exactly what the agent
+                    is working on without flipping back to the Problem tab. */}
+              {problemStatement?.trim() && (
+                <div
+                  className={cn(
+                    "text-ink-500 mt-0.5 max-w-3xl text-[12.5px]",
+                    busy ? "" : "line-clamp-1"
+                  )}
+                  title={problemStatement}
+                >
+                  <span className="text-ink-400 mr-1.5 font-medium uppercase tracking-wider">
+                    Problem
+                  </span>
+                  {problemStatement}
+                </div>
+              )}
             </div>
           </div>
-        </div>
 
-        {/* Stage stepper — 5-stage editorial rail */}
-        {(() => {
-          const tabToStage: Record<string, DesignStageId> = {
-            overview: "overview",
-            problem: "problem",
-            literature: "lit",
-            hypotheses: "hyp",
-            design: "design"
-          }
-          const stageToTab: Record<DesignStageId, string> = {
-            overview: "overview",
-            problem: "problem",
-            lit: "literature",
-            hyp: "hypotheses",
-            design: "design"
-          }
-          const completedStages: DesignStageId[] = approvedPhases
-            .filter(p => p !== "simulation")
-            .map(p => {
-              if (p === "literature") return "lit"
-              if (p === "hypotheses") return "hyp"
-              return p as DesignStageId
-            })
-          const meta: Partial<Record<DesignStageId, string>> = {
-            overview:
-              title || design?.name
-                ? ((title || design?.name) as string)
-                : "untitled",
-            problem: title ? "defined" : "not defined",
-            lit:
-              papers.length > 0
-                ? `${papers.length} paper${papers.length === 1 ? "" : "s"}`
-                : "no papers",
-            hyp:
-              hypotheses.length > 0
-                ? `${hypotheses.length === 1 ? "1 hypothesis" : `${hypotheses.length} hypotheses`}`
-                : "no hypotheses",
-            design:
-              generatedDesigns.length > 0
-                ? `${generatedDesigns.length} design${generatedDesigns.length === 1 ? "" : "s"}`
-                : "no designs"
-          }
-          const currentStage = tabToStage[activeTab] || "overview"
-          return (
-            <Stepper
-              current={currentStage}
-              completed={completedStages}
-              meta={meta}
-              onGoto={id => handleTabChange(stageToTab[id] as any)}
-            />
-          )
-        })()}
-
-        {/* Tab content */}
-        <div className="min-h-0 flex-1 overflow-auto">
-          <div
-            className={
-              activeTab === "overview" || activeTab === "design"
-                ? "mx-auto max-w-6xl p-6"
-                : "mx-auto max-w-4xl p-6"
-            }
-          >
-            {activeTab === "problem" && (
-              <ProblemTab
-                title={title}
-                setTitle={setTitle}
-                problemStatement={problemStatement}
-                setProblemStatement={setProblemStatement}
-                domain={domain}
-                setDomain={setDomain}
-                phase={phase}
-                setPhase={setPhase}
-                objective={objective}
-                setObjective={setObjective}
-                constraintMaterial={constraintMaterial}
-                setConstraintMaterial={setConstraintMaterial}
-                constraintTime={constraintTime}
-                setConstraintTime={setConstraintTime}
-                constraintEquipment={constraintEquipment}
-                setConstraintEquipment={setConstraintEquipment}
-                variablesKnown={variablesKnown}
-                setVariablesKnown={setVariablesKnown}
-                variablesUnknown={variablesUnknown}
-                setVariablesUnknown={setVariablesUnknown}
-                onApproveAndGenerate={handleApproveAndGenerateLiterature}
-                canSubmit={problemValid}
-                isApproved={isPhaseApproved("problem")}
-                isBusy={busy === "literature"}
-                onRevise={() => handleRevisePhase("problem")}
-              />
-            )}
-
-            {activeTab === "literature" && (
-              <LiteratureTab
-                papers={papers}
-                onTogglePaper={handleTogglePaper}
-                onDeletePaper={handleDeletePaper}
-                onUploadPdfs={handleUploadPdfs}
-                onApproveAndGenerate={handleApproveAndGenerateHypotheses}
-                onRegenerate={handleGenerateMoreLiterature}
-                canGenerate={selectedPapers.length > 0}
-                isApproved={isPhaseApproved("literature")}
-                isBusy={busy === "hypotheses" || busy === "literature"}
-                isSearching={busy === "literature"}
-                progress={literatureProgress}
-                onRevise={() => handleRevisePhase("literature")}
-                onDownloadPaper={handleDownloadPaper}
-              />
-            )}
-
-            {activeTab === "hypotheses" && (
-              <HypothesesTab
-                hypotheses={hypotheses}
-                papers={papers}
-                onToggle={handleToggleHypothesis}
-                onEdit={handleEditHypothesis}
-                onApproveAndGenerate={handleApproveAndGenerateDesign}
-                onRegenerate={handleRegenerateHypotheses}
-                canGenerate={selectedHypotheses.length > 0}
-                isApproved={isPhaseApproved("hypotheses")}
-                isBusy={busy === "design" || busy === "hypotheses"}
-                isGenerating={busy === "hypotheses"}
-                progress={hypothesesProgress}
-                onRevise={() => handleRevisePhase("hypotheses")}
-              />
-            )}
-
-            {activeTab === "design" && (
-              <DesignTab
-                designs={generatedDesigns}
-                hypotheses={hypotheses}
-                activeId={activeDesignId}
-                onSelect={setActiveDesignId}
-                activeDesign={activeDesign}
-                onSave={handleSaveDesign}
-                onDownload={handleDownloadDesign}
-                onApproveAndContinue={handleApproveDesignAndContinue}
-                onRegenerate={handleRegenerateDesign}
-                isApproved={isPhaseApproved("design")}
-                isBusy={busy === "design"}
-                isGenerating={busy === "design"}
-                progress={designProgress}
-                onRevise={() => handleRevisePhase("design")}
-                designVersions={designVersions}
-                onRestoreVersion={handleRestoreDesignVersion}
-                onEditSection={handleEditSection}
-              />
-            )}
-
-            {activeTab === "overview" && (
-              <OverviewTab
-                title={title}
-                problemStatement={problemStatement}
-                domain={domain}
-                phase={phase}
-                objective={objective}
-                constraintMaterial={constraintMaterial}
-                constraintTime={constraintTime}
-                constraintEquipment={constraintEquipment}
-                variablesKnown={variablesKnown}
-                variablesUnknown={variablesUnknown}
-                papers={papers}
-                hypotheses={hypotheses}
-                designs={generatedDesigns}
-                approvedPhases={approvedPhases}
-                activeDesign={activeDesign}
-                onGoToTab={setActiveTab}
-              />
-            )}
+          {/* ── Toolbar actions (right side) ───────────────── */}
+          {/* Single "Chat" button opens a full-screen design-scoped chat
+                (issue #11). The old side-rail toggle was removed - users
+                preferred the full chat UI for longer questions, and having
+                two chat surfaces with subtly different scope was confusing. */}
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => void handleOpenFullChat()}
+              disabled={openingFullChat}
+              className="from-brick to-brick-hover flex h-9 items-center gap-2 rounded-full bg-gradient-to-r px-4 text-xs font-semibold uppercase tracking-wide text-white shadow-sm ring-1 ring-inset ring-white/20 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md active:translate-y-0 disabled:opacity-60"
+              title="Open this design in a full-screen chat"
+            >
+              <IconSparkles size={14} className="shrink-0" />
+              {openingFullChat ? "Opening..." : "Chat"}
+            </button>
           </div>
         </div>
       </div>
-    </SplitRailLayout>
+
+      {/* Stage stepper - 5-stage editorial rail */}
+      {(() => {
+        const tabToStage: Record<string, DesignStageId> = {
+          overview: "overview",
+          problem: "problem",
+          literature: "lit",
+          hypotheses: "hyp",
+          design: "design"
+        }
+        const stageToTab: Record<DesignStageId, string> = {
+          overview: "overview",
+          problem: "problem",
+          lit: "literature",
+          hyp: "hypotheses",
+          design: "design"
+        }
+        const completedStages: DesignStageId[] = approvedPhases
+          .filter(p => p !== "simulation")
+          .map(p => {
+            if (p === "literature") return "lit"
+            if (p === "hypotheses") return "hyp"
+            return p as DesignStageId
+          })
+        const meta: Partial<Record<DesignStageId, string>> = {
+          overview:
+            title || design?.name
+              ? ((title || design?.name) as string)
+              : "untitled",
+          problem: title ? "defined" : "not defined",
+          lit:
+            papers.length > 0
+              ? `${papers.length} paper${papers.length === 1 ? "" : "s"}`
+              : "no papers",
+          hyp:
+            hypotheses.length > 0
+              ? `${hypotheses.length === 1 ? "1 hypothesis" : `${hypotheses.length} hypotheses`}`
+              : "no hypotheses",
+          design:
+            generatedDesigns.length > 0
+              ? `${generatedDesigns.length} design${generatedDesigns.length === 1 ? "" : "s"}`
+              : "no designs"
+        }
+        const currentStage = tabToStage[activeTab] || "overview"
+        return (
+          <Stepper
+            current={currentStage}
+            completed={completedStages}
+            meta={meta}
+            onGoto={id => handleTabChange(stageToTab[id] as any)}
+          />
+        )
+      })()}
+
+      {/* Tab content */}
+      <div className="min-h-0 flex-1 overflow-auto">
+        <div
+          className={
+            activeTab === "overview" || activeTab === "design"
+              ? "mx-auto max-w-6xl p-6"
+              : "mx-auto max-w-4xl p-6"
+          }
+        >
+          {activeTab === "problem" && (
+            <ProblemTab
+              title={title}
+              setTitle={setTitle}
+              problemStatement={problemStatement}
+              setProblemStatement={setProblemStatement}
+              domain={domain}
+              setDomain={setDomain}
+              phase={phase}
+              setPhase={setPhase}
+              objective={objective}
+              setObjective={setObjective}
+              constraintMaterial={constraintMaterial}
+              setConstraintMaterial={setConstraintMaterial}
+              constraintTime={constraintTime}
+              setConstraintTime={setConstraintTime}
+              constraintEquipment={constraintEquipment}
+              setConstraintEquipment={setConstraintEquipment}
+              variablesKnown={variablesKnown}
+              setVariablesKnown={setVariablesKnown}
+              variablesUnknown={variablesUnknown}
+              setVariablesUnknown={setVariablesUnknown}
+              successCriteria={successCriteria}
+              setSuccessCriteria={setSuccessCriteria}
+              includeReplicates={includeReplicates}
+              setIncludeReplicates={setIncludeReplicates}
+              onApproveAndGenerate={handleApproveAndGenerateLiterature}
+              canSubmit={problemValid}
+              isApproved={isPhaseApproved("problem")}
+              isBusy={busy === "literature"}
+              onRevise={() => handleRevisePhase("problem")}
+            />
+          )}
+
+          {activeTab === "literature" && (
+            <LiteratureTab
+              papers={papers}
+              onTogglePaper={handleTogglePaper}
+              onDeletePaper={handleDeletePaper}
+              onUploadPdfs={handleUploadPdfs}
+              onApproveAndGenerate={handleApproveAndGenerateHypotheses}
+              onRegenerate={handleGenerateMoreLiterature}
+              canGenerate={selectedPapers.length > 0}
+              isApproved={isPhaseApproved("literature")}
+              isBusy={busy === "hypotheses" || busy === "literature"}
+              isSearching={busy === "literature"}
+              progress={literatureProgress}
+              onRevise={() => handleRevisePhase("literature")}
+              onDownloadPaper={handleDownloadPaper}
+            />
+          )}
+
+          {activeTab === "hypotheses" && (
+            <HypothesesTab
+              hypotheses={hypotheses}
+              papers={papers}
+              onToggle={handleToggleHypothesis}
+              onEdit={handleEditHypothesis}
+              onApproveAndGenerate={handleApproveAndGenerateDesign}
+              onRegenerate={handleRegenerateHypotheses}
+              canGenerate={selectedHypotheses.length > 0}
+              isApproved={isPhaseApproved("hypotheses")}
+              isBusy={busy === "design" || busy === "hypotheses"}
+              isGenerating={busy === "hypotheses"}
+              progress={hypothesesProgress}
+              onRevise={() => handleRevisePhase("hypotheses")}
+            />
+          )}
+
+          {activeTab === "design" && (
+            <DesignTab
+              designs={generatedDesigns}
+              hypotheses={hypotheses}
+              activeId={activeDesignId}
+              onSelect={setActiveDesignId}
+              activeDesign={activeDesign}
+              onSave={handleSaveDesign}
+              onDownload={handleDownloadDesign}
+              onApproveAndContinue={handleApproveDesignAndContinue}
+              onRegenerate={handleRegenerateDesign}
+              isApproved={isPhaseApproved("design")}
+              isBusy={busy === "design"}
+              isGenerating={busy === "design"}
+              progress={designProgress}
+              onRevise={() => handleRevisePhase("design")}
+              designVersions={designVersions}
+              onRestoreVersion={handleRestoreDesignVersion}
+              onEditSection={handleEditSection}
+            />
+          )}
+
+          {activeTab === "overview" && (
+            <OverviewTab
+              title={title}
+              problemStatement={problemStatement}
+              domain={domain}
+              phase={phase}
+              objective={objective}
+              constraintMaterial={constraintMaterial}
+              constraintTime={constraintTime}
+              constraintEquipment={constraintEquipment}
+              variablesKnown={variablesKnown}
+              variablesUnknown={variablesUnknown}
+              papers={papers}
+              hypotheses={hypotheses}
+              designs={generatedDesigns}
+              approvedPhases={approvedPhases}
+              activeDesign={activeDesign}
+              onGoToTab={setActiveTab}
+            />
+          )}
+        </div>
+      </div>
+    </div>
   )
 }
 
@@ -1969,6 +1970,10 @@ function ProblemTab(props: {
   setVariablesKnown: (v: string) => void
   variablesUnknown: string
   setVariablesUnknown: (v: string) => void
+  successCriteria: string
+  setSuccessCriteria: (v: string) => void
+  includeReplicates: "" | "yes" | "no"
+  setIncludeReplicates: (v: "" | "yes" | "no") => void
   onApproveAndGenerate: () => void
   canSubmit: boolean
   isApproved: boolean
@@ -1996,6 +2001,10 @@ function ProblemTab(props: {
     setVariablesKnown,
     variablesUnknown,
     setVariablesUnknown,
+    successCriteria,
+    setSuccessCriteria,
+    includeReplicates,
+    setIncludeReplicates,
     onApproveAndGenerate,
     canSubmit,
     isApproved,
@@ -2100,6 +2109,54 @@ function ProblemTab(props: {
             />
           </div>
 
+          {/* Success criteria - issue #9. Optional; gives the hypothesis +
+              design agents a concrete bar to aim for ("≥30% viscosity drop
+              at 50 mg/mL"). Kept distinct from Objective on purpose - the
+              objective is qualitative, success criteria are quantitative. */}
+          <div className="space-y-1.5">
+            <Label>
+              Success criteria
+              <span className="text-ink-3 ml-1 text-[11px] font-normal">
+                optional
+              </span>
+            </Label>
+            <Textarea
+              value={successCriteria}
+              onChange={e => setSuccessCriteria(e.target.value)}
+              placeholder="What would count as a successful experiment? e.g. viscosity below 20 cP at 100 mg/mL; recovery > 95%."
+              rows={2}
+              disabled={isApproved}
+            />
+          </div>
+
+          {/* Include replicates - issue #28. Yes/No dropdown so the design
+              agent knows whether to bake replicates into its sample-budget
+              math by default. Optional; the agent has a sensible default
+              when unset. */}
+          <div className="space-y-1.5 md:max-w-xs">
+            <Label>
+              Include replicates
+              <span className="text-ink-3 ml-1 text-[11px] font-normal">
+                optional
+              </span>
+            </Label>
+            <Select
+              value={includeReplicates || undefined}
+              onValueChange={value =>
+                setIncludeReplicates(value as "yes" | "no")
+              }
+              disabled={isApproved}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Select" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="yes">Yes</SelectItem>
+                <SelectItem value="no">No</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
           <div className="space-y-3">
             <Label className="text-sm font-semibold">Constraints</Label>
             <div className="space-y-3">
@@ -2115,7 +2172,7 @@ function ProblemTab(props: {
                   disabled={isApproved}
                 />
                 <p className="text-ink-3 text-[11.5px]">
-                  Include replicates in any run / condition budget you specify —
+                  Include replicates in any run / condition budget you specify -
                   the design agent treats this as the total including all
                   replicate conditions.
                 </p>
@@ -2153,7 +2210,7 @@ function ProblemTab(props: {
                 <Textarea
                   value={variablesKnown}
                   onChange={e => setVariablesKnown(e.target.value)}
-                  placeholder="Variables you want to vary or control — one per line (e.g. pH 5–7, polymer concentration 0.1–0.6%)"
+                  placeholder="Variables you want to vary or control - one per line (e.g. pH 5–7, polymer concentration 0.1–0.6%)"
                   rows={3}
                   disabled={isApproved}
                 />
@@ -2163,7 +2220,7 @@ function ProblemTab(props: {
                 <Textarea
                   value={variablesUnknown}
                   onChange={e => setVariablesUnknown(e.target.value)}
-                  placeholder="Variables you suspect matter but don't fully characterize yet — one per line"
+                  placeholder="Variables you suspect matter but don't fully characterize yet - one per line"
                   rows={3}
                   disabled={isApproved}
                 />
@@ -2315,6 +2372,11 @@ function LiteratureTab(props: {
     onDownloadPaper
   } = props
 
+  // Sort dropdown (issue #14). Default to relevance - that's what the
+  // literature agent's scoring is for - but let the user flip to recency
+  // when they need the latest work.
+  const [sortMode, setSortMode] = useState<"relevance" | "recency">("relevance")
+
   return (
     <div className="space-y-4">
       <PhaseBanner
@@ -2323,7 +2385,7 @@ function LiteratureTab(props: {
         onRevise={onRevise}
       />
 
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-3">
         <div>
           <h3 className="text-orange-product text-sm font-bold uppercase tracking-widest">
             Relevant Literature
@@ -2334,24 +2396,45 @@ function LiteratureTab(props: {
               : "Review the papers surfaced by the literature agent. Select the ones to build hypotheses from."}
           </p>
         </div>
-        {!isApproved && (
-          <label className="cursor-pointer">
-            <input
-              type="file"
-              accept="application/pdf"
-              multiple
-              className="hidden"
-              onChange={e => {
-                onUploadPdfs(e.target.files)
-                e.currentTarget.value = ""
-              }}
-            />
-            <span className="border-orange-product/40 text-orange-product hover:bg-orange-product-tint inline-flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-xs font-semibold">
-              <IconUpload size={14} />
-              Upload PDFs
-            </span>
-          </label>
-        )}
+        <div className="flex items-center gap-2">
+          {/* Sort dropdown (issue #14). Sits to the right of the header
+              row so the action is right where the user is scanning the
+              list. Hidden when there are no papers yet. */}
+          {papers.length > 0 && (
+            <Select
+              value={sortMode}
+              onValueChange={v => setSortMode(v as "relevance" | "recency")}
+            >
+              <SelectTrigger className="h-8 w-[180px] text-xs">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="relevance">Rank by relevance</SelectItem>
+                <SelectItem value="recency">
+                  Sort by latest published
+                </SelectItem>
+              </SelectContent>
+            </Select>
+          )}
+          {!isApproved && (
+            <label className="cursor-pointer">
+              <input
+                type="file"
+                accept="application/pdf"
+                multiple
+                className="hidden"
+                onChange={e => {
+                  onUploadPdfs(e.target.files)
+                  e.currentTarget.value = ""
+                }}
+              />
+              <span className="border-orange-product/40 text-orange-product hover:bg-orange-product-tint inline-flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-xs font-semibold">
+                <IconUpload size={14} />
+                Upload PDFs
+              </span>
+            </label>
+          )}
+        </div>
       </div>
 
       {papers.length === 0 ? (
@@ -2370,9 +2453,17 @@ function LiteratureTab(props: {
         )
       ) : (
         (() => {
-          // Rank papers by relevance (desc), then by selected/userAdded so
-          // user-added + selected items surface at the top in ties.
+          // Sort mode controlled by the dropdown above the list (issue #14).
+          // "relevance" matches the existing behaviour; "recency" sorts by
+          // year of publication descending - scientists want the most
+          // recent work at the top when literature moves fast.
           const ranked = [...papers].sort((a, b) => {
+            if (sortMode === "recency") {
+              const ya = Number(a.year) || 0
+              const yb = Number(b.year) || 0
+              if (yb !== ya) return yb - ya
+              // Fall through to relevance as the tiebreak.
+            }
             const ra = a.relevanceScore ?? 0
             const rb = b.relevanceScore ?? 0
             if (rb !== ra) return rb - ra
@@ -2419,6 +2510,10 @@ function LiteratureTab(props: {
                     disabled={isApproved}
                   />
                   <div className="min-w-0 flex-1">
+                    {/* Card layout per issue #15: an explicit, labelled
+                        sequence (Paper / Authors / Year / Summary / Source
+                        / Link) so the scientist can scan each field at a
+                        glance instead of decoding a meta-line of dots. */}
                     <div className="flex flex-wrap items-baseline gap-2">
                       <span className="text-rust font-mono text-[11px] font-semibold">
                         #{idx + 1}
@@ -2426,15 +2521,6 @@ function LiteratureTab(props: {
                       <h4 className="text-ink flex-1 text-[14px] font-semibold leading-snug">
                         {paper.title}
                       </h4>
-                      {paper.userAdded ? (
-                        <span className="bg-rust-soft text-rust-ink shrink-0 rounded px-2 py-0.5 font-mono text-[10px] uppercase tracking-wide">
-                          Uploaded
-                        </span>
-                      ) : paper.source ? (
-                        <span className="bg-paper-2 text-ink-3 border-line shrink-0 rounded border px-2 py-0.5 font-mono text-[10px] uppercase tracking-wide">
-                          {sourceLabel[paper.source] ?? paper.source}
-                        </span>
-                      ) : null}
                       {typeof paper.relevanceScore === "number" &&
                         paper.relevanceScore > 0 && (
                           <span
@@ -2450,39 +2536,62 @@ function LiteratureTab(props: {
                       const authorStr =
                         authorList.length === 0
                           ? ""
-                          : authorList.length <= 3
+                          : authorList.length <= 5
                             ? authorList.join(", ")
-                            : `${authorList.slice(0, 3).join(", ")} et al.`
-                      const metaParts = [
-                        authorStr,
-                        paper.year,
-                        paper.journal
-                      ].filter(Boolean)
-                      return metaParts.length ? (
-                        <p className="text-ink-3 mt-1 text-[11.5px]">
-                          {metaParts.join(" · ")}
+                            : `${authorList.slice(0, 5).join(", ")} et al.`
+                      return authorStr ? (
+                        <p className="text-ink-2 mt-1.5 text-[12px]">
+                          <span className="text-ink-3 mr-1.5 font-mono text-[10.5px] uppercase tracking-wide">
+                            Authors
+                          </span>
+                          {authorStr}
                         </p>
                       ) : null
                     })()}
-                    {/* Show summary, or a "no abstract available" hint
-                        so the row never collapses to title-only (#1). */}
-                    <p className="text-ink-2 mt-1.5 line-clamp-3 text-[12.5px] leading-relaxed">
+                    {paper.year && (
+                      <p className="text-ink-2 mt-1 text-[12px]">
+                        <span className="text-ink-3 mr-1.5 font-mono text-[10.5px] uppercase tracking-wide">
+                          Year
+                        </span>
+                        {paper.year}
+                        {paper.journal ? ` · ${paper.journal}` : ""}
+                      </p>
+                    )}
+                    <p className="text-ink-2 mt-2 text-[12.5px] leading-relaxed">
+                      <span className="text-ink-3 mr-1.5 font-mono text-[10.5px] uppercase tracking-wide">
+                        Summary
+                      </span>
                       {paper.summary ||
-                        "Abstract not available — open the paper for details."}
+                        "Abstract not available - open the paper for details."}
+                    </p>
+                    <p className="text-ink-2 mt-2 text-[12px]">
+                      <span className="text-ink-3 mr-1.5 font-mono text-[10.5px] uppercase tracking-wide">
+                        Source
+                      </span>
+                      {paper.userAdded
+                        ? "Uploaded by you"
+                        : paper.source
+                          ? (sourceLabel[paper.source] ?? paper.source)
+                          : "Unknown"}
                     </p>
                     {paper.sourceUrl && (
-                      <a
-                        href={paper.sourceUrl}
-                        target="_blank"
-                        rel="noreferrer"
-                        onClick={e => e.stopPropagation()}
-                        className="text-rust mt-2 inline-flex items-center gap-1 font-mono text-[11.5px] hover:underline"
-                      >
-                        {paper.sourceUrl
-                          .replace(/^https?:\/\//, "")
-                          .slice(0, 64)}
-                        {" ↗"}
-                      </a>
+                      <p className="mt-1 text-[12px]">
+                        <span className="text-ink-3 mr-1.5 font-mono text-[10.5px] uppercase tracking-wide">
+                          Link
+                        </span>
+                        <a
+                          href={paper.sourceUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                          onClick={e => e.stopPropagation()}
+                          className="text-rust inline-flex items-center gap-1 font-mono text-[11.5px] hover:underline"
+                        >
+                          {paper.sourceUrl
+                            .replace(/^https?:\/\//, "")
+                            .slice(0, 80)}
+                          {" ↗"}
+                        </a>
+                      </p>
                     )}
                   </div>
                   <div className="flex shrink-0 items-center gap-1">
@@ -2621,7 +2730,7 @@ function HypothesesTab(props: {
         )
       ) : (
         <div className="space-y-3">
-          {hypotheses.map(h => (
+          {hypotheses.map((h, hi) => (
             <div
               key={h.id}
               className="border-ink-200 flex items-start gap-3 rounded-xl border bg-white p-4"
@@ -2633,6 +2742,14 @@ function HypothesesTab(props: {
                 disabled={isApproved}
               />
               <div className="min-w-0 flex-1">
+                {/* Issue #27 - render an auto-generated short title above
+                    the full hypothesis text. `autoTitleFromHypothesis`
+                    picks the first ~6 words so the scientist can scan a
+                    list of hypotheses at a glance, then the full text
+                    follows in EditableHypothesis. */}
+                <div className="text-purple-persona mb-1 text-[12px] font-bold uppercase tracking-wide">
+                  Hypothesis #{hi + 1}: {autoTitleFromHypothesis(h.text)}
+                </div>
                 <EditableHypothesis
                   text={h.text}
                   disabled={isApproved}
@@ -2676,7 +2793,7 @@ function HypothesesTab(props: {
                     "Show more" toggle to keep the list scannable. */}
                 <ReasoningInline reasoning={h.reasoning ?? ""} />
 
-                {/* "Based on" papers — full citation block — stays behind
+                {/* "Based on" papers - full citation block - stays behind
                     a popover since the inline chips already surface the
                     paper names. The popover gives authors / year / journal /
                     source link without dominating the card. */}
@@ -3083,7 +3200,7 @@ function DesignSectionContent(props: {
               "border-line bg-surface text-ink focus-visible:border-rust focus-visible:ring-rust-soft w-full resize-y rounded-md border px-3 py-2.5 font-mono text-[13px] leading-relaxed transition-colors focus-visible:outline-none focus-visible:ring",
               saving && "cursor-not-allowed opacity-60"
             )}
-            placeholder="Markdown. Bold **like this**. Lists start with -, 1. — tables use | …"
+            placeholder="Markdown. Bold **like this**. Lists start with -, 1. - tables use | …"
             style={{ minHeight: 180 }}
           />
           <div className="text-ink-3 flex items-center gap-2 text-[12px]">
@@ -3148,7 +3265,7 @@ function DesignSectionContent(props: {
 
 /**
  * Synthesize a short tab label from the full hypothesis text. We don't ask
- * the model for a title — the user is browsing several hypotheses side by
+ * the model for a title - the user is browsing several hypotheses side by
  * side and wants something quick to scan. ~6 words is enough to recognize
  * the hypothesis without dominating the tab strip.
  */
@@ -3223,12 +3340,45 @@ function DesignTab(props: {
 
       {designs.length === 0 ? (
         isGenerating ? (
-          <PhaseProgressView
-            accentClass="border-sage-brand/30 bg-sage-brand-tint"
-            title="Generating experiment designs"
-            subtitle="Four phases per hypothesis: setup, materials, protocol, analysis."
-            events={progress ?? []}
-          />
+          <>
+            {/* Issue #25 - while the design is being generated, the user
+                should still see the hypotheses that drove it. We pull the
+                selected hypotheses from the parent and render them as a
+                pinned slab above the progress view so the scientist has
+                continuous context during the (often slow) generation. */}
+            {hypotheses.filter(h => h.selected).length > 0 && (
+              <div className="border-purple-persona/30 bg-purple-persona-tint space-y-2 rounded-xl border p-4">
+                <div className="text-purple-persona text-[10.5px] font-bold uppercase tracking-widest">
+                  Generating from {hypotheses.filter(h => h.selected).length}{" "}
+                  hypothes
+                  {hypotheses.filter(h => h.selected).length === 1
+                    ? "is"
+                    : "es"}
+                </div>
+                {hypotheses
+                  .filter(h => h.selected)
+                  .map((h, i) => (
+                    <div
+                      key={h.id}
+                      className="border-purple-persona/20 rounded-lg border bg-white p-3"
+                    >
+                      <div className="text-purple-persona mb-1 text-[11.5px] font-bold uppercase tracking-wide">
+                        Hypothesis #{i + 1}: {autoTitleFromHypothesis(h.text)}
+                      </div>
+                      <p className="text-ink-900 text-[13px] leading-relaxed">
+                        {h.text}
+                      </p>
+                    </div>
+                  ))}
+              </div>
+            )}
+            <PhaseProgressView
+              accentClass="border-sage-brand/30 bg-sage-brand-tint"
+              title="Generating experiment designs"
+              subtitle="Four phases per hypothesis: setup, materials, protocol, analysis."
+              events={progress ?? []}
+            />
+          </>
         ) : (
           <div className="border-sage-brand/30 bg-sage-brand-tint text-ink-500 rounded-xl border border-dashed p-8 text-center text-xs">
             {isBusy
@@ -3410,13 +3560,35 @@ function DesignActionsBar(props: {
 }) {
   const { design, onSave, onDownload } = props
 
-  const shareTo = (target: "reddit" | "researchgate") => {
-    const title = encodeURIComponent(design.title)
-    if (target === "reddit") {
-      const url = `https://www.reddit.com/submit?title=${title}`
-      window.open(url, "_blank", "noopener")
+  // Issue #30 - replaced the Reddit / ResearchGate share targets with
+  // surfaces scientists would actually use to send work to a teammate:
+  // a mailto: email draft prefilled with the design title + a snippet,
+  // and a Google Drive shortcut.
+  const shareTo = (target: "email" | "drive" | "copy-link") => {
+    const title = design.title || "Experiment design"
+    const firstBody = design.sections?.[0]?.body ?? ""
+    const snippet = firstBody.slice(0, 600)
+    const url = typeof window !== "undefined" ? window.location.href : ""
+    if (target === "email") {
+      // mailto: respects each user's default mail client (Gmail / Outlook /
+      // Apple Mail). Keep the body short - long bodies trip a "URI too
+      // long" failure in Outlook.
+      const subject = encodeURIComponent(`Experiment design: ${title}`)
+      const body = encodeURIComponent(
+        `Hi,\n\nSharing this experiment design with you:\n${url}\n\n${snippet}\n\n- Sent from Shadow AI`
+      )
+      window.location.href = `mailto:?subject=${subject}&body=${body}`
+    } else if (target === "drive") {
+      // Opens Google Drive at My Drive so the user can drop the downloaded
+      // export into the right folder. A native "Save to Drive" needs the
+      // Drive Picker SDK + an OAuth client id (see FOR_PIYUSH.md).
+      window.open(
+        "https://drive.google.com/drive/my-drive",
+        "_blank",
+        "noopener"
+      )
     } else {
-      window.open("https://www.researchgate.net/", "_blank", "noopener")
+      void navigator.clipboard?.writeText(url)
     }
   }
 
@@ -3438,18 +3610,24 @@ function DesignActionsBar(props: {
             Share
           </Button>
         </PopoverTrigger>
-        <PopoverContent className="w-44 p-2" align="end">
+        <PopoverContent className="w-52 p-2" align="end">
           <button
-            onClick={() => shareTo("reddit")}
+            onClick={() => shareTo("email")}
             className="hover:bg-ink-100 block w-full rounded-md px-2 py-1.5 text-left text-xs"
           >
-            Share on Reddit
+            Share via email
           </button>
           <button
-            onClick={() => shareTo("researchgate")}
+            onClick={() => shareTo("drive")}
             className="hover:bg-ink-100 block w-full rounded-md px-2 py-1.5 text-left text-xs"
           >
-            Share on ResearchGate
+            Open Google Drive
+          </button>
+          <button
+            onClick={() => shareTo("copy-link")}
+            className="hover:bg-ink-100 block w-full rounded-md px-2 py-1.5 text-left text-xs"
+          >
+            Copy link to clipboard
           </button>
         </PopoverContent>
       </Popover>
@@ -3649,7 +3827,7 @@ function OverviewTab(props: {
           </Card>
         </section>
 
-        {/* Variables & Constraints — structured */}
+        {/* Variables & Constraints - structured */}
         <section
           id="section-variables"
           data-section-id="section-variables"
@@ -3794,7 +3972,7 @@ function OverviewTab(props: {
                               </span>
                             ) : (
                               <span className="text-ink-400 text-[10px]">
-                                —
+                                -
                               </span>
                             )}
                           </td>

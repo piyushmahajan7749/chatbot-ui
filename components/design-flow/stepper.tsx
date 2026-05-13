@@ -165,7 +165,7 @@ export function Stepper({
                   >
                     {metaText ||
                       (isDone
-                        ? "—"
+                        ? "-"
                         : isActive
                           ? running
                             ? "in progress"

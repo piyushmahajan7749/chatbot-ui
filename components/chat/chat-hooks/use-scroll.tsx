@@ -27,7 +27,7 @@ export const useScroll = () => {
       setUserScrolled(false)
     }
     // Intentionally fires only when `isGenerating` flips. Reading
-    // `userScrolled` from the body is fine — we don't want the effect to
+    // `userScrolled` from the body is fine - we don't want the effect to
     // re-run when the user scrolls.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isGenerating])

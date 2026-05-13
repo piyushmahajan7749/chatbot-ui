@@ -39,7 +39,7 @@ export async function POST(
       return NextResponse.json({ error: "Invalid design ID" }, { status: 400 })
     }
 
-    // Auth — design belongs to the requesting user.
+    // Auth - design belongs to the requesting user.
     const cookieStore = cookies()
     const supabase = createClient(cookieStore)
     const {
@@ -91,7 +91,7 @@ export async function POST(
     ]
       .filter(Boolean)
       .join(
-        " — "
+        " - "
       )}\nGoal: ${problem.goal || problem.objective || "Not specified"}`
 
     const hypothesis = (content.hypotheses ?? []).find(
@@ -119,13 +119,13 @@ export async function POST(
           content: `You are a statistical reviewer. Given an experimental design that's already written out, produce ONLY a dedicated Statistical Analysis plan. Do not rewrite the rest of the protocol.
 
 Return JSON with a single field \`statisticalAnalysis\` (Markdown). Use bolded lead-in labels and bullets. Cover:
-- **Primary endpoint & test** — specific named test (e.g. two-way ANOVA + Tukey HSD, mixed-effects model, Mann–Whitney), justified vs the data type and replicate structure from the conditions table.
-- **Sample size / power** — assumed effect size, variance, target power (0.8), alpha (0.05), computed n per group. Show a short power calculation.
-- **Secondary endpoints** — list and their tests.
-- **Multiple comparisons** — correction method (Bonferroni / BH-FDR / Tukey).
-- **Outlier / missing-data handling** — named rule (e.g. Grubbs, ROUT, pre-registered exclusion).
-- **Software** — concrete tools / packages (GraphPad Prism, R + lme4, Python + scipy.stats / statsmodels).
-- **Pass/fail decision criteria** — what numeric result supports vs rejects the hypothesis.
+- **Primary endpoint & test** - specific named test (e.g. two-way ANOVA + Tukey HSD, mixed-effects model, Mann–Whitney), justified vs the data type and replicate structure from the conditions table.
+- **Sample size / power** - assumed effect size, variance, target power (0.8), alpha (0.05), computed n per group. Show a short power calculation.
+- **Secondary endpoints** - list and their tests.
+- **Multiple comparisons** - correction method (Bonferroni / BH-FDR / Tukey).
+- **Outlier / missing-data handling** - named rule (e.g. Grubbs, ROUT, pre-registered exclusion).
+- **Software** - concrete tools / packages (GraphPad Prism, R + lme4, Python + scipy.stats / statsmodels).
+- **Pass/fail decision criteria** - what numeric result supports vs rejects the hypothesis.
 
 Be concrete; refer back to specific groups and replicate counts visible in the provided sections.`
         },

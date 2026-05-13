@@ -69,7 +69,7 @@ module.exports = {
           2: "hsl(var(--ink-2-hsl) / <alpha-value>)",
           3: "hsl(var(--ink-3-hsl) / <alpha-value>)",
           4: "hsl(var(--ink-4-hsl) / <alpha-value>)",
-          /* Legacy numeric aliases — retained until PR 5 */
+          /* Legacy numeric aliases - retained until PR 5 */
           900: "hsl(var(--ink-hsl) / <alpha-value>)",
           700: "hsl(var(--ink-2-hsl) / <alpha-value>)",
           500: "hsl(var(--ink-3-hsl) / <alpha-value>)",
@@ -84,7 +84,7 @@ module.exports = {
           ink: "hsl(var(--rust-ink-hsl) / <alpha-value>)"
         },
 
-        /* Phase tints — used sparingly for stage identity */
+        /* Phase tints - used sparingly for stage identity */
         phase: {
           overview: "var(--p-overview)",
           problem: "var(--p-problem)",

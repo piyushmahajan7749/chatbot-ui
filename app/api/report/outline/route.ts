@@ -122,8 +122,8 @@ async function callDataVisualizationAgent(
 RULES:
 1. Pick ONE primary numeric metric from the data (e.g. mean viscosity, % recovery, absorbance, yield, concentration). Do NOT mix different metrics or units in the same chart.
 2. Choose chartType:
-   - "bar" — comparing a numeric metric across conditions / samples / formulations (DEFAULT).
-   - "pie" — showing proportion / share / composition of a whole (values should sum to ~100% or represent parts of one whole). Use pie ONLY when parts-of-a-whole is the actual meaning.
+   - "bar" - comparing a numeric metric across conditions / samples / formulations (DEFAULT).
+   - "pie" - showing proportion / share / composition of a whole (values should sum to ~100% or represent parts of one whole). Use pie ONLY when parts-of-a-whole is the actual meaning.
 3. Use SHORT labels (max 15 characters) for the categories. Abbreviate names (e.g. "C0 Control", "E1", "F2 Glycine").
 4. All values MUST be in the same unit. If the data has multiple metrics, choose the most scientifically relevant one.
 5. Provide a clear chartTitle (e.g. "Mean Viscosity by Formulation") and yAxisLabel WITH units for bar charts (e.g. "Viscosity (mPa·s)"). yAxisLabel can be empty for pie charts.
@@ -266,7 +266,7 @@ const renderPieChart = (
     ctx.fillStyle = "#1f2937"
     ctx.font = "13px Arial"
     const pct = ((Math.max(0, d.value) / total) * 100).toFixed(1)
-    ctx.fillText(`${d.label} — ${d.value} (${pct}%)`, legendX + 24, legendY)
+    ctx.fillText(`${d.label} - ${d.value} (${pct}%)`, legendX + 24, legendY)
     legendY += 26
   })
 
@@ -494,7 +494,7 @@ Your primary tasks: Aim, Introduction, Principle.
 Constraints:
 - Focus only on theory; no procedure, materials, or data analysis.
 - Maintain a scientific, objective tone.
-- Be concise — aim for scannability and accuracy, not verbosity.
+- Be concise - aim for scannability and accuracy, not verbosity.
 `
 
   const userPrompt = `Generate aim, introduction, and principle using the following:
@@ -530,7 +530,7 @@ async function callDataAnalystAgent(
 
 FORMATTING RULES (apply strictly):
 - Use GitHub-Flavored Markdown.
-- Favor pointwise structure — bullets, numbered lists, and tables — over long paragraphs.
+- Favor pointwise structure - bullets, numbered lists, and tables - over long paragraphs.
 - Every numeric value must carry its unit.
 - Use subheadings (####) to organize subsections.
 - Every section starts with one short 1–2 sentence intro, then switches to bullets / tables / numbered lists.
@@ -548,9 +548,9 @@ FORMATTING RULES (apply strictly):
 
 3. Discussion:
    - Subheadings with bullets under each:
-     #### Interpretation — what the results mean.
-     #### Implications — practical significance / downstream impact.
-     #### Limitations — specific caveats of this study.
+     #### Interpretation - what the results mean.
+     #### Implications - practical significance / downstream impact.
+     #### Limitations - specific caveats of this study.
 
 4. Conclusion:
    - 3–5 concise bullet points summarizing the key takeaways.
@@ -589,11 +589,11 @@ Protocol: ${state.protocol}`
 async function callExecutorAgent(
   state: ReportState
 ): Promise<ReportExecutorType> {
-  const systemPrompt = `You are a seasoned scientist documenting the practical aspects of a biopharma experiment: Materials, Preparation, Procedure, and Setup. Write in past tense — how things were done.
+  const systemPrompt = `You are a seasoned scientist documenting the practical aspects of a biopharma experiment: Materials, Preparation, Procedure, and Setup. Write in past tense - how things were done.
 
 FORMATTING RULES (apply strictly):
 - Use GitHub-Flavored Markdown.
-- Favor **pointwise structure** — bullet points and numbered lists — over long paragraphs.
+- Favor **pointwise structure** - bullet points and numbered lists - over long paragraphs.
 - Use **tables** for materials / reagents (columns like Item, Quantity, Specification, Catalog #).
 - Use **numbered lists** for step-by-step procedures.
 - Use subheadings (####) to organize subsections.

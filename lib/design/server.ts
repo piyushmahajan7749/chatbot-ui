@@ -2,7 +2,7 @@
  * Server-side callables for the Design Owned Resource (collection-level).
  *
  * Item-level routes (`app/api/design/[designid]/...`) intentionally bypass
- * this module — they use `lib/design/sharing` for collaborator-aware access
+ * this module - they use `lib/design/sharing` for collaborator-aware access
  * (designs are an Owned Resource with a sharing extension).
  */
 import type { QueryDocumentSnapshot } from "firebase-admin/firestore"
@@ -74,7 +74,7 @@ export async function createDesign(request: Request): Promise<Response> {
  *  - default: Owned Resources (user_id = caller). Optionally filtered by
  *    workspaceId or projectId.
  *  - scope=shared-with-me: docs where caller's user id appears in
- *    `shared_with`. NOT an Owned Resource query — bypasses the Owner gate
+ *    `shared_with`. NOT an Owned Resource query - bypasses the Owner gate
  *    intentionally (read-only collaborator view).
  *
  * `resolvePendingInvites` is called on every GET so any pending email-based

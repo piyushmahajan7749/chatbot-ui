@@ -39,7 +39,7 @@ export async function GET(
   if ("error" in auth) return auth.error
 
   // where + orderBy on a different field requires a composite Firestore
-  // index. Drop the orderBy and sort in-memory — collaborator lists are
+  // index. Drop the orderBy and sort in-memory - collaborator lists are
   // small enough that the cost is negligible.
   const snap = await adminDb
     .collection("design_permissions")
@@ -108,7 +108,7 @@ export async function POST(
     )
     if (match?.id) resolvedUserId = match.id
   } catch {
-    // admin lookup not available — invite stays pending until resolver runs
+    // admin lookup not available - invite stays pending until resolver runs
   }
 
   const now = new Date().toISOString()
@@ -143,7 +143,7 @@ export async function POST(
   }
 
   // Best-effort invite email. Delivery failures are logged but never block the
-  // API response — the permission row is the source of truth for access.
+  // API response - the permission row is the source of truth for access.
   try {
     const h = headers()
     const origin =

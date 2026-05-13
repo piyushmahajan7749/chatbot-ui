@@ -18,6 +18,7 @@ import { Eyebrow } from "@/components/ui/typography"
 import { ChatbotUIContext } from "@/context/context"
 import type { DesignContentV2, PhaseKey } from "@/lib/design-agent"
 import { PHASE_ORDER } from "@/lib/design-agent"
+import { formatCreatedModified } from "@/lib/format-date"
 import { cn } from "@/lib/utils"
 
 type PickerMode = "check-stats" | "make-plan"
@@ -36,7 +37,7 @@ const MODE_META: Record<
   "check-stats": {
     eyebrow: "Statistical review",
     title: "Pick a design to review",
-    desc: "Shadow AI will re-run only the statistical-analysis section on the design you pick — everything else stays put.",
+    desc: "Shadow AI will re-run only the statistical-analysis section on the design you pick - everything else stays put.",
     cta: "Check statistics",
     icon: IconChartBar,
     autoParam: "stats-review"
@@ -55,20 +56,9 @@ function isPickerMode(v: string | null): v is PickerMode {
   return v === "check-stats" || v === "make-plan"
 }
 
-function relativeTime(iso: string | null) {
-  if (!iso) return "—"
-  const then = new Date(iso).getTime()
-  const diff = Date.now() - then
-  const m = Math.floor(diff / 60000)
-  if (m < 1) return "just now"
-  if (m < 60) return `${m} min ago`
-  const h = Math.floor(m / 60)
-  if (h < 24) return `${h} hr ago`
-  const d = Math.floor(h / 24)
-  if (d < 7) return `${d} day${d > 1 ? "s" : ""} ago`
-  const w = Math.floor(d / 7)
-  return `${w} wk ago`
-}
+// Relative-time helper retired in favour of `formatCreatedModified` from
+// `lib/format-date.ts` - scientists asked for explicit "Created mm/dd/yy"
+// rows over fuzzy "3 days ago" strings (issue #4).
 
 /**
  * Design picker for actions that need an existing design. Reads `?mode=` to
@@ -202,7 +192,7 @@ export default function DesignPickerPage() {
                 No designs yet
               </div>
               <div className="text-ink-3 mb-5 text-[13px]">
-                Create a design first — then come back to run {meta.cta}.
+                Create a design first - then come back to run {meta.cta}.
               </div>
               <Button
                 variant="primary"
@@ -297,8 +287,8 @@ export default function DesignPickerPage() {
                         </div>
                       )}
                     </div>
-                    <div className="text-ink-3 min-w-[90px] text-right font-mono text-[12px]">
-                      {relativeTime(d.updated_at || d.created_at)}
+                    <div className="text-ink-3 min-w-[140px] text-right font-mono text-[11.5px]">
+                      {formatCreatedModified(d.created_at, d.updated_at)}
                     </div>
                     <div
                       className={cn(

@@ -85,7 +85,7 @@ export async function listDataCollections(request: Request): Promise<Response> {
     const where: Array<[string, FirebaseFirestore.WhereFilterOp, unknown]> = []
     if (workspaceId) where.push(["workspace_id", "==", workspaceId])
 
-    // No composite index on (user_id, workspace_id, created_at) — sort
+    // No composite index on (user_id, workspace_id, created_at) - sort
     // in-memory so fresh deployments work out of the box. Caller list sizes
     // are small (one workspace's data collections) so the cost is fine.
     const dataCollections = await listOwnedDocs<DataCollection>({

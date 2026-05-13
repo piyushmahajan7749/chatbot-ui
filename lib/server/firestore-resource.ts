@@ -49,9 +49,9 @@ export type OwnedAuth<T = unknown> = OwnedAuthOk<T> | OwnedAuthErr
 
 type WithOwnedResourceOpts = {
   collection: string
-  /** Item routes — fetch the doc and assert ownership. */
+  /** Item routes - fetch the doc and assert ownership. */
   docId?: string
-  /** Collection POST — read `workspaceId` from body, assert caller owns it. */
+  /** Collection POST - read `workspaceId` from body, assert caller owns it. */
   workspaceIdInBody?: boolean
   /** Body already-parsed (avoid double `await req.json()`). */
   body?: unknown
@@ -145,7 +145,7 @@ type ListOpts = {
   collection: string
   where?: Array<[string, WhereFilterOp, unknown]>
   /**
-   * Firestore-side ordering. `"in-memory"` sorts after fetch — useful when
+   * Firestore-side ordering. `"in-memory"` sorts after fetch - useful when
    * a composite index is unavailable.
    */
   orderBy?: { field: string; dir: "asc" | "desc" } | "in-memory"
@@ -154,7 +154,7 @@ type ListOpts = {
 
 /**
  * List Owned Resources for the calling user. Always pre-filters by
- * `user_id` — callers cannot widen past the Owner.
+ * `user_id` - callers cannot widen past the Owner.
  */
 export async function listOwnedDocs<T = DocumentData>(
   opts: ListOpts
@@ -184,7 +184,7 @@ export async function listOwnedDocs<T = DocumentData>(
       const av = a[field]
       const bv = b[field]
       // Date-like ISO timestamps sort lexicographically the same as
-      // numeric — use string comparison as the generic path so this
+      // numeric - use string comparison as the generic path so this
       // helper handles `name`, `created_at`, `updated_at` uniformly.
       // Nullish values sort last in either direction.
       if (av == null && bv == null) return 0

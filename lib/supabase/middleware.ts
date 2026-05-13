@@ -19,7 +19,7 @@ export const createClient = (request: NextRequest) => {
         set(name: string, value: string, options: CookieOptions) {
           // Write to the same response object the caller captured. Reassigning
           // `response` here would orphan the refreshed cookies on a copy that
-          // never reaches the caller — Supabase's token refresh would then
+          // never reaches the caller - Supabase's token refresh would then
           // silently fail to propagate to the browser.
           request.cookies.set({ name, value, ...options })
           response.cookies.set({ name, value, ...options })

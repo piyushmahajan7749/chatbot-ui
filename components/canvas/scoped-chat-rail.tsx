@@ -145,7 +145,7 @@ export function ScopedChatRail({
       const chat = await createChat({
         user_id: user.id,
         workspace_id: selectedWorkspace.id,
-        name: `${SCOPE_LABELS[scope]} — ${scopeName ?? scopeId.slice(0, 6)}`,
+        name: `${SCOPE_LABELS[scope]} - ${scopeName ?? scopeId.slice(0, 6)}`,
         scope,
         scope_id: scopeId,
         project_id: scope === "project" ? scopeId : null,

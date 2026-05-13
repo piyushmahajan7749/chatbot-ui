@@ -97,7 +97,7 @@ export function StudioCanvas({
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [search, setSearch] = useState("")
   // Allow callers to deep-link a tab via the URL hash (e.g. cancel from
-  // /reports/new sends users back to `#reports`). Hash-based — no
+  // /reports/new sends users back to `#reports`). Hash-based - no
   // useSearchParams hook needed; safe on first render via window check.
   const initialTab: TabKey =
     typeof window !== "undefined" &&
@@ -272,7 +272,7 @@ export function StudioCanvas({
 
   // Per-sub-item delete handlers (#13). Each removes the item from
   // its source-of-truth + drops it from the local list state. Confirm
-  // is handled inline in the kebab menu via window.confirm — cheaper
+  // is handled inline in the kebab menu via window.confirm - cheaper
   // than wiring per-row AlertDialog given how many items can render.
   const handleDeleteDesign = async (id: string) => {
     if (!window.confirm("Delete this design? This cannot be undone.")) return
@@ -664,7 +664,7 @@ export function StudioCanvas({
               </button>
 
               {/* Chat: launches a full-screen project-scoped chat. The
-                  previous side-rail toggle (#16) was confusing — the
+                  previous side-rail toggle (#16) was confusing - the
                   chat felt cramped and had inconsistent scope vs the
                   full-screen path. Now this button mirrors the in-grid
                   "Start a Chat" CTA: create-or-reuse a project chat,
@@ -1102,7 +1102,7 @@ function EmptyState(props: {
 }
 
 /**
- * Per-card kebab menu — Open + Delete actions. Edit is implicit via
+ * Per-card kebab menu - Open + Delete actions. Edit is implicit via
  * Open (each entity has its own edit-in-place affordances). Stops
  * propagation so the wrapping card's onClick doesn't also fire.
  */

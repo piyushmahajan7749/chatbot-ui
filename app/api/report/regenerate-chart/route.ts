@@ -178,7 +178,7 @@ export async function POST(req: Request) {
     }
 
     const openai = getAzureOpenAI()
-    const systemPrompt = `You revise bar chart configurations based on the user's feedback. You must return ONLY valid JSON matching the provided schema. Preserve scientific accuracy — do not invent data values. Apply the user's changes (re-sort, relabel, change title/axis, filter, recompute when they explicitly request a transformation).`
+    const systemPrompt = `You revise bar chart configurations based on the user's feedback. You must return ONLY valid JSON matching the provided schema. Preserve scientific accuracy - do not invent data values. Apply the user's changes (re-sort, relabel, change title/axis, filter, recompute when they explicitly request a transformation).`
 
     const userPrompt = `Current chart configuration (JSON):\n\n${JSON.stringify(
       currentChartData ?? { chartTitle: "", yAxisLabel: "", data: [] },

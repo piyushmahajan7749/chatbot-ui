@@ -13,7 +13,7 @@ interface SidebarSwitcherProps {
 }
 
 /**
- * v2 sidebar: two entries only — Projects and Chat History.
+ * v2 sidebar: two entries only - Projects and Chat History.
  * Everything Project-local lives inside the Project canvas; reusable workspace
  * items (files, assistants, prompts, etc.) are no longer surfaced in primary
  * nav. Profile stays at the bottom.

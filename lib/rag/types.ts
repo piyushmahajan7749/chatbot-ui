@@ -54,7 +54,7 @@ export interface SourceMeta {
 
 export interface ExtractorResult {
   /**
-   * Full document text — used by the contextualizer as the prompt-cached
+   * Full document text - used by the contextualizer as the prompt-cached
    * prefix ("Here is the document …"). Keep this concatenated, ungated by
    * chunk boundaries.
    */
@@ -94,7 +94,7 @@ export interface RagItem extends MatchRagItemRow {
 /**
  * Minimal shape consumed downstream of retrieval (build-prompt + chat
  * persistence). Both legacy `Tables<"file_items">` rows AND new
- * `RagItem`s satisfy this — the build-prompt path only ever reads the
+ * `RagItem`s satisfy this - the build-prompt path only ever reads the
  * fields below, so widening to a structural type lets the chat handler
  * stop caring about the underlying corpus shape.
  */
@@ -117,7 +117,7 @@ export interface RetrieveQuery {
   sourceCount?: number
   /**
    * When present, restricts retrieval to file-type rows whose source_id is
-   * in this list — preserves chat-attached-files behavior post-cutover.
+   * in this list - preserves chat-attached-files behavior post-cutover.
    */
   fileIds?: string[]
 }

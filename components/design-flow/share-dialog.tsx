@@ -239,7 +239,7 @@ export default function ShareDialog({
       toast.success(
         data.collaborator.user_id
           ? `Invited ${email}`
-          : `Invite sent — ${email} will get access after signing up`
+          : `Invite sent - ${email} will get access after signing up`
       )
     } catch (err: any) {
       toast.error(err?.message || "Failed to invite")
@@ -321,19 +321,19 @@ export default function ShareDialog({
                 <SelectContent>
                   <SelectItem value="private">
                     <span className="flex items-center gap-2">
-                      <Lock className="size-4" /> Private — only you & invited
+                      <Lock className="size-4" /> Private - only you & invited
                       collaborators
                     </span>
                   </SelectItem>
                   <SelectItem value="unlisted">
                     <span className="flex items-center gap-2">
-                      <LinkIcon className="size-4" /> Unlisted — anyone with the
+                      <LinkIcon className="size-4" /> Unlisted - anyone with the
                       link
                     </span>
                   </SelectItem>
                   <SelectItem value="public">
                     <span className="flex items-center gap-2">
-                      <Globe className="size-4" /> Public — anyone with the link
+                      <Globe className="size-4" /> Public - anyone with the link
                     </span>
                   </SelectItem>
                 </SelectContent>

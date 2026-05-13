@@ -46,7 +46,7 @@ import { ThemeSwitcher } from "./theme-switcher"
 interface ProfileSettingsProps {
   /**
    * When supplied, makes the sheet a controlled component. The default
-   * built-in trigger (user avatar) is hidden — caller renders their own
+   * built-in trigger (user avatar) is hidden - caller renders their own
    * trigger and calls `onOpenChange(true)`. Used by the sidebar
    * Settings + 3-dot-menu buttons in the new app-sidebar.
    */
@@ -261,7 +261,7 @@ export const ProfileSettings: FC<ProfileSettingsProps> = ({
 
   // We need a STABLE debounced function so successive keystrokes coalesce
   // into a single API call. Previously this was `useCallback(debounce(...))`
-  // which ESLint flagged as "dependencies unknown" — `debounce()` returns
+  // which ESLint flagged as "dependencies unknown" - `debounce()` returns
   // an anonymous closure whose deps it can't see. Using `useMemo` to
   // construct the debounced function once on mount gives us the same
   // stability and lets us reference the inline async body directly so the
@@ -309,7 +309,7 @@ export const ProfileSettings: FC<ProfileSettingsProps> = ({
         setLoadingUsername(false)
       }, 500),
     // Built once for the lifetime of the component. `profile?.username` is
-    // read from latest closure on each call — including it would rebuild
+    // read from latest closure on each call - including it would rebuild
     // the debounced function on every render, defeating the debounce.
     // eslint-disable-next-line react-hooks/exhaustive-deps
     []

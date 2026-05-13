@@ -12,6 +12,18 @@ const SingleHypothesisSchema = z.object({
   hypothesis: z.string(),
   explanation: z.string(),
   provenance: z.array(z.string()).optional(),
+  /**
+   * Sole ranking signal (issues #20-22). 0-1 where 1 = highly relevant to
+   * the user's problem statement, objective, and selected papers.
+   *
+   * Feasibility / novelty scores were intentionally dropped: novelty was
+   * actively pushing well-established (and therefore relevant) approaches
+   * to the bottom of the list, which surprised scientists who expected
+   * the most-prevalent approach to lead. Kept feasibility_score /
+   * novelty_score as optional+deprecated so old persisted rows still
+   * parse; they are no longer used for ranking.
+   */
+  relevance_score: z.number().min(0).max(1).optional(),
   feasibility_score: z.number().min(0).max(1).optional(),
   novelty_score: z.number().min(0).max(1).optional()
 })
@@ -89,7 +101,7 @@ export async function generationAdapter(task: AgentTask): Promise<AgentResult> {
     const deduped = dedupeAndRankHypotheses(output.hypotheses)
 
     console.debug(
-      `[GENERATION] Completed task ${task.taskId} in ${Date.now() - startTime}ms — ${deduped.length}/${output.hypotheses.length} hypotheses after dedup`
+      `[GENERATION] Completed task ${task.taskId} in ${Date.now() - startTime}ms - ${deduped.length}/${output.hypotheses.length} hypotheses after dedup`
     )
 
     return {
@@ -169,7 +181,11 @@ function jaccard(a: Set<string>, b: Set<string>): number {
 }
 
 // Filter near-duplicates by token-set Jaccard (>= 0.7 = paraphrase) and then
-// rank by novelty_score (desc) with feasibility_score (desc) as tiebreaker.
+// rank by relevance_score (desc). Previously ranked by novelty (desc) with
+// feasibility as tiebreaker, which inverted what scientists expected: the
+// most commonly used / established approach was pushed to the bottom of
+// the list because it was "less novel". Issue #22 - the well-supported
+// approach should lead.
 function dedupeAndRankHypotheses(
   hypotheses: ParsedHypothesis[]
 ): ParsedHypothesis[] {
@@ -187,12 +203,9 @@ function dedupeAndRankHypotheses(
     if (!isDup) kept.push(candidate)
   }
 
-  // Stable sort by novelty desc, then feasibility desc.
+  // Stable sort by relevance desc. Hypotheses with no score sink to the
+  // bottom (treated as relevance = 0).
   return kept
     .map(k => k.h)
-    .sort((a, b) => {
-      const noveltyDiff = (b.novelty_score ?? 0) - (a.novelty_score ?? 0)
-      if (Math.abs(noveltyDiff) > 0.001) return noveltyDiff
-      return (b.feasibility_score ?? 0) - (a.feasibility_score ?? 0)
-    })
+    .sort((a, b) => (b.relevance_score ?? 0) - (a.relevance_score ?? 0))
 }

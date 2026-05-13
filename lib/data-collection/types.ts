@@ -56,7 +56,7 @@ export type DataCollectionPatchInput = z.infer<
   typeof DataCollectionPatchInputSchema
 >
 
-/** Default template seeding — protocol-aware columns. */
+/** Default template seeding - protocol-aware columns. */
 export function defaultTemplate(opts: { hasProtocol: boolean }): {
   columns: string[]
   rows: string[][]

@@ -2,7 +2,7 @@ import * as React from "react"
 
 import { cn } from "@/lib/utils"
 
-/* Eyebrow — small mono label above headings.
+/* Eyebrow - small mono label above headings.
    Mono, uppercase, wide tracking, ink-3 by default. */
 const Eyebrow = React.forwardRef<
   HTMLSpanElement,
@@ -19,7 +19,7 @@ const Eyebrow = React.forwardRef<
 ))
 Eyebrow.displayName = "Eyebrow"
 
-/* DisplayHeading — Instrument Serif, editorial display titles. */
+/* DisplayHeading - Instrument Serif, editorial display titles. */
 type DisplayHeadingProps = React.HTMLAttributes<HTMLHeadingElement> & {
   as?: "h1" | "h2" | "h3" | "h4"
 }
@@ -42,7 +42,7 @@ const DisplayHeading = React.forwardRef<
 })
 DisplayHeading.displayName = "DisplayHeading"
 
-/* MonoText — inline monospace (for numerics, code-ish data). */
+/* MonoText - inline monospace (for numerics, code-ish data). */
 const MonoText = React.forwardRef<
   HTMLSpanElement,
   React.HTMLAttributes<HTMLSpanElement>

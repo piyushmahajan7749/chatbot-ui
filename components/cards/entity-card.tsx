@@ -111,7 +111,7 @@ export function EntityCard({
               {chips.map(chip => (
                 <span
                   key={chip.label}
-                  title={`${chip.label}${chip.filled ? " — present" : " — none yet"}`}
+                  title={`${chip.label}${chip.filled ? " - present" : " - none yet"}`}
                   className={cn(
                     "size-2.5 rounded-full border",
                     chip.filled

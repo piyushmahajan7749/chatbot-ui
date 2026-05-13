@@ -6,7 +6,7 @@
  * uniform "log on failure but never block the user response" behavior.
  *
  * Returns immediately; no await needed at call sites. The Inngest
- * dispatch happens via fire-and-forget Promise — if dispatch fails the
+ * dispatch happens via fire-and-forget Promise - if dispatch fails the
  * cron sweep (rag.cron.sweep) will catch the doc next time around.
  */
 import { inngest } from "@/lib/inngest/client"
@@ -20,12 +20,12 @@ export interface EmitDocChanged {
 }
 
 export function emitRagDocChanged(payload: EmitDocChanged): void {
-  // Skip when caller can't tell us which workspace this lives in — the
+  // Skip when caller can't tell us which workspace this lives in - the
   // worker can still run via the cron-sweep fallback.
   if (!payload?.sourceType || !payload?.sourceId) return
 
-  // Wrap the entire dispatch — including the synchronous portion of
-  // `inngest.send()` — so a missing INNGEST_EVENT_KEY or a transport
+  // Wrap the entire dispatch - including the synchronous portion of
+  // `inngest.send()` - so a missing INNGEST_EVENT_KEY or a transport
   // glitch can never bubble out and crash the calling user-facing
   // handler. Cron-sweep is the ultimate fallback.
   try {

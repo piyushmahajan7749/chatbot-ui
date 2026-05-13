@@ -18,7 +18,7 @@ if (!process.env.INNGEST_SIGNING_KEY) {
     )
   } else {
     console.warn(
-      "[inngest] INNGEST_SIGNING_KEY not set — signature verification disabled (dev only)"
+      "[inngest] INNGEST_SIGNING_KEY not set - signature verification disabled (dev only)"
     )
   }
 }

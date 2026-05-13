@@ -32,7 +32,7 @@ function renderCitations(
     const src = sources?.[n - 1]
     const title = src?.source_title ?? `Source ${n}`
     const section = src?.source_section
-    const tooltip = section ? `${title} — ${section}` : title
+    const tooltip = section ? `${title} - ${section}` : title
     if (src?.source_url) {
       out.push(
         <a
@@ -157,7 +157,7 @@ export const MessageMarkdown: FC<MessageMarkdownProps> = ({
           return <li {...props}>{arr}</li>
         },
         img({ node, alt, ...props }) {
-          // Markdown image — src is fully dynamic (could be a remote URL the
+          // Markdown image - src is fully dynamic (could be a remote URL the
           // model emitted or a data URI), so next/image isn't viable here:
           // we'd have to register every remote domain in next.config.js, and
           // data URIs aren't supported at all. Plain <img> is the right call.

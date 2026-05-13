@@ -114,7 +114,7 @@ export function EmptyChats({
     <EmptyState
       icon={MessageSquare}
       title="No conversations yet"
-      description="Start your first conversation with the AI assistant. Chat about anything — get answers, analyze data, or brainstorm ideas."
+      description="Start your first conversation with the AI assistant. Chat about anything - get answers, analyze data, or brainstorm ideas."
       action={{
         label: "Start First Chat",
         onClick: onNewChat

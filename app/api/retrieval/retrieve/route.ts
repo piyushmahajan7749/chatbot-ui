@@ -45,7 +45,7 @@ export async function POST(request: Request) {
 
     // workspaceId is required for any scope-driven query. The legacy
     // fileIds-only path can run without one (the RPC just filters by
-    // source_id) but RLS demands the row's user_id matches caller — and
+    // source_id) but RLS demands the row's user_id matches caller - and
     // the new retrieve module uses the service-role client. We require a
     // workspaceId to keep tenancy explicit.
     if (!workspaceId) {

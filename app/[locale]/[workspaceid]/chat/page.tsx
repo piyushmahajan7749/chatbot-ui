@@ -8,9 +8,9 @@
  * Reports / Files. Each card opens StartChatModal on the matching tab.
  *
  * Previous version had:
- *   - QuickSettings (model picker) at the top — model identity is
+ *   - QuickSettings (model picker) at the top - model identity is
  *     intentionally hidden from users now (Shadow AI is the product)
- *   - 4 "suggestion task" cards (Analyze data, Summarize a paper, …) —
+ *   - 4 "suggestion task" cards (Analyze data, Summarize a paper, …) -
  *     replaced by the scope picker so users select their context
  *     instead of a generic intent
  */
@@ -38,8 +38,8 @@ import {
   IconFolder,
   IconReport
 } from "@tabler/icons-react"
-import { useParams, useRouter } from "next/navigation"
-import { useContext, useState } from "react"
+import { useParams, useRouter, useSearchParams } from "next/navigation"
+import { useContext, useEffect, useRef, useState } from "react"
 
 type UseCase = "design" | "validate" | "explore" | "browse"
 
@@ -104,6 +104,7 @@ export default function ChatPage() {
 
   const router = useRouter()
   const params = useParams() as { locale: string; workspaceid: string }
+  const searchParams = useSearchParams()
   const { chatMessages, profile, selectedWorkspace, chatSettings } =
     useContext(ChatbotUIContext)
   const { toast } = useToast()
@@ -197,11 +198,82 @@ export default function ChatPage() {
     setModalOpen(true)
   }
 
+  // Issues #2 + #3 - "Start chat" buttons on /designs and /reports route
+  // here with `?defaultScope=designs|reports`. We auto-create a chat
+  // scoped to ALL designs / ALL reports in the workspace (empty scope_id
+  // -> retrieve.ts treats as "everything of this type"), and route the
+  // user straight in. They can still narrow to a specific design from
+  // the chat header. The autoStartedRef guards against double-firing in
+  // dev React strict mode.
+  const autoStartedRef = useRef(false)
+  useEffect(() => {
+    if (autoStartedRef.current) return
+    const defaultScope = searchParams.get("defaultScope")
+    if (!defaultScope) return
+    if (!selectedWorkspace || !profile) return
+    if (defaultScope !== "designs" && defaultScope !== "reports") return
+    autoStartedRef.current = true
+
+    const scope: ChatScope = defaultScope === "designs" ? "design" : "report"
+    const label =
+      defaultScope === "designs" ? "All designs chat" : "All reports chat"
+
+    void (async () => {
+      try {
+        const {
+          data: { user }
+        } = await supabase.auth.getUser()
+        if (!user) throw new Error("Not signed in")
+        const chat = await createChat({
+          user_id: user.id,
+          workspace_id: selectedWorkspace.id,
+          name: label,
+          scope,
+          // Empty scope_id - retrieve.ts interprets this as "every
+          // design/report in the workspace" for these two scopes.
+          scope_id: null,
+          project_id: null,
+          model: chatSettings?.model ?? selectedWorkspace.default_model,
+          prompt:
+            chatSettings?.prompt ?? selectedWorkspace.default_prompt ?? "",
+          temperature:
+            chatSettings?.temperature ?? selectedWorkspace.default_temperature,
+          context_length:
+            chatSettings?.contextLength ??
+            selectedWorkspace.default_context_length,
+          embeddings_provider:
+            chatSettings?.embeddingsProvider ??
+            selectedWorkspace.embeddings_provider,
+          include_profile_context:
+            chatSettings?.includeProfileContext ??
+            selectedWorkspace.include_profile_context,
+          include_workspace_instructions:
+            chatSettings?.includeWorkspaceInstructions ??
+            selectedWorkspace.include_workspace_instructions,
+          sharing: "private"
+        })
+        router.replace(
+          `/${params.locale}/${params.workspaceid}/chat/${chat.id}`
+        )
+      } catch (err: any) {
+        toast({
+          title: "Couldn't start chat",
+          description: err?.message ?? "Try again.",
+          variant: "destructive"
+        })
+        autoStartedRef.current = false
+      }
+    })()
+    // selectedWorkspace and profile may load asynchronously - re-run
+    // until they're both available.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams, selectedWorkspace?.id, profile?.user_id])
+
   return (
     <>
       {chatMessages.length === 0 ? (
         <div className="flex h-full flex-col bg-slate-50">
-          {/* Top bar — chat help only. Model picker (QuickSettings)
+          {/* Top bar - chat help only. Model picker (QuickSettings)
               removed since model identity is hidden from users. */}
           <div className="flex items-center justify-end border-b border-slate-200 bg-white px-4 py-2">
             <ChatHelp />
@@ -219,12 +291,12 @@ export default function ChatPage() {
                 {greeting}
               </p>
               <p className="text-ink-3 mt-2 text-[13px]">
-                Pick what you&apos;d like to chat with — answers cite the
+                Pick what you&apos;d like to chat with - answers cite the
                 source.
               </p>
             </div>
 
-            {/* Scope picker — each card opens the modal pre-set to that tab */}
+            {/* Scope picker - each card opens the modal pre-set to that tab */}
             <div className="mt-6 grid w-full max-w-3xl grid-cols-2 gap-3 sm:grid-cols-5">
               {SCOPE_CARDS.map(card => {
                 const Icon = card.icon
@@ -251,13 +323,13 @@ export default function ChatPage() {
             </div>
           </div>
 
-          {/* Free-form input still available below — workspace-scoped on
+          {/* Free-form input still available below - workspace-scoped on
               first send (matches the Workspace card). */}
           <div className="w-full max-w-3xl self-center px-4 pb-6 pt-2">
             <ChatInput />
           </div>
 
-          {/* Picker modal — shared with chat-history page */}
+          {/* Picker modal - shared with chat-history page */}
           <StartChatModal
             isOpen={modalOpen}
             onOpenChange={setModalOpen}

@@ -215,7 +215,7 @@ export async function PATCH(
 
     const updates = await request.json()
 
-    // Editors cannot change sharing/ownership fields — owner-only via /share
+    // Editors cannot change sharing/ownership fields - owner-only via /share
     // and /collaborators endpoints.
     if (!auth.access.isOwner) {
       delete updates.sharing

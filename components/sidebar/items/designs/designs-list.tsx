@@ -20,7 +20,7 @@ export const DesignsList: FC = () => {
         const data = await res.json()
         if (!cancelled) setSharedDesigns(data.designs ?? [])
       } catch {
-        // non-fatal — sidebar section stays hidden
+        // non-fatal - sidebar section stays hidden
       }
     }
     load()

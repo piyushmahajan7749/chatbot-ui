@@ -234,7 +234,7 @@ export const useChatHandler = () => {
       // Post-PR-6: retrieval no longer requires attached files. Workspace-
       // wide RAG fires for any chat with `useRetrieval=true`. Tier 3
       // (design/report) chats still get the doc as a long-context dump
-      // via ScopedChatRail's chat.prompt — RAG is the fallback for those
+      // via ScopedChatRail's chat.prompt - RAG is the fallback for those
       // (PR-8 wires the >150k-token gate).
       let retrievedFileItems: any[] = []
 

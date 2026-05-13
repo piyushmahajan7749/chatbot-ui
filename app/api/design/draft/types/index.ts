@@ -232,7 +232,7 @@ export interface StatCheckOutput {
   overallAssessment: string
   finalAssessment: string
   /**
-   * Explicit statistical analysis plan — which tests to run on the collected
+   * Explicit statistical analysis plan - which tests to run on the collected
    * data, with power, threshold, effect-size metric, and multiple-comparisons
    * correction. This is what the scientist actually applies after data
    * collection, not "what to do during execution".
@@ -292,7 +292,7 @@ export const HypothesisBuilderSchema = z.object({
   explanation: z.string()
 })
 
-// Design/draft "GENERATION" agent output — each agent returns an array of hypotheses.
+// Design/draft "GENERATION" agent output - each agent returns an array of hypotheses.
 const SingleHypothesisGenerationSchema = z.object({
   hypothesis: z.string(),
   explanation: z.string(),

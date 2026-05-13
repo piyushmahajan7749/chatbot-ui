@@ -60,7 +60,7 @@ const ChartBlock: FC<{
           {showFeedback ? "Cancel" : "Edit chart with AI"}
         </Button>
       </div>
-      {/* chartImage is a base64 data URI from the chart backend —
+      {/* chartImage is a base64 data URI from the chart backend -
           next/image doesn't support data URIs. */}
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img

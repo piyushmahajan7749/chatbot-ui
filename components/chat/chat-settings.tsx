@@ -67,7 +67,7 @@ export const ChatSettings: FC<ChatSettingsProps> = ({}) => {
     ...availableOpenRouterModels
   ]
 
-  // Model identity intentionally not shown in the chat header — users
+  // Model identity intentionally not shown in the chat header - users
   // shouldn't have to think about which LLM they're talking to. The
   // model is still chosen via the settings popover (gear icon) but the
   // name no longer occupies the chat header. `allModels` lookup left in

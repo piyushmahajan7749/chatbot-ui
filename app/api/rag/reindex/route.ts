@@ -39,7 +39,7 @@ export async function POST(request: Request) {
     }
 
     // Auth scope: any authenticated user can request reindex of THEIR
-    // own docs — `indexDoc` doesn't expose anything cross-tenant. We
+    // own docs - `indexDoc` doesn't expose anything cross-tenant. We
     // don't currently have a "workspace admin" role to gate on; service-
     // role is the only superuser path, used by Inngest itself.
 

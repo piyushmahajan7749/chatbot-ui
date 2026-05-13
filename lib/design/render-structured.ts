@@ -9,13 +9,13 @@ import type {
 } from "@/app/api/design/draft/types"
 
 const asCell = (value: string | number | undefined | null) => {
-  if (value === undefined || value === null) return "—"
+  if (value === undefined || value === null) return "-"
   const str = String(value).trim()
-  return str.length > 0 ? str : "—"
+  return str.length > 0 ? str : "-"
 }
 
 export const reagentToMarkdown = (reagent: ReagentPreparation): string => {
-  const header = `### ${reagent.name} — ${reagent.role}`
+  const header = `### ${reagent.name} - ${reagent.role}`
   const rows: string[] = []
   if (reagent.molecularWeightGPerMol !== undefined) {
     rows.push(`- MW: ${reagent.molecularWeightGPerMol} g/mol`)

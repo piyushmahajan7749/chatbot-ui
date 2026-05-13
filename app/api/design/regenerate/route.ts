@@ -1046,7 +1046,7 @@ Generate a comprehensive improved experimental design that transforms the feedba
     console.error("❌ [REGENERATE] Enhanced regeneration error:", error)
 
     // The previous implementation tried to re-read the request body for a
-    // fallback pass, but Next.js consumes request bodies once — the retry
+    // fallback pass, but Next.js consumes request bodies once - the retry
     // always threw. Surface the failure so the client can retry cleanly.
     return NextResponse.json(
       {

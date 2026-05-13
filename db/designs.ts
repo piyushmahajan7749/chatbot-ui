@@ -27,7 +27,7 @@ export const getDesignsByProject = async (
 ): Promise<Tables<"designs">[]> => {
   // cache: "no-store" prevents the Next.js data-cache from serving a stale
   // list when the user creates or saves a second design and returns to the
-  // project overview — otherwise only the first design appears until reload.
+  // project overview - otherwise only the first design appears until reload.
   const res = await fetch(
     `/api/designs?projectId=${encodeURIComponent(projectId)}`,
     { cache: "no-store" }

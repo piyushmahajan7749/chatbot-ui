@@ -127,7 +127,7 @@ export async function extractDesign(
       const body = (sec.body ?? "").trim()
       if (!body) continue
       const heading = sec.heading?.trim() || "Untitled section"
-      const fullHeading = `${d.title ?? "Generated design"} — ${heading}`
+      const fullHeading = `${d.title ?? "Generated design"} - ${heading}`
       fullDocLines.push(`## ${fullHeading}\n${body}`)
       chunks.push(...(await splitWithSection(body, fullHeading)))
     }
@@ -208,7 +208,7 @@ export async function extractReport(
     chunks.push(...(await splitWithSection(text, heading)))
   }
 
-  // File attachments — filenames + descriptions only (the file CONTENT is
+  // File attachments - filenames + descriptions only (the file CONTENT is
   // embedded separately under source_type='file' or 'project_file').
   const fileSnapshot = report.files ?? {}
   const fileLines: string[] = []
@@ -216,7 +216,7 @@ export async function extractReport(
     for (const f of (fileSnapshot as any)?.[group] ?? []) {
       const name = f?.name ?? f?.title ?? "(untitled)"
       const desc = f?.description ?? ""
-      fileLines.push(`- [${group}] ${name}${desc ? ` — ${desc}` : ""}`)
+      fileLines.push(`- [${group}] ${name}${desc ? ` - ${desc}` : ""}`)
     }
   }
   if (fileLines.length > 0) {
@@ -366,7 +366,7 @@ export async function extractDataCollection(
   }
 }
 
-// ── Files (Supabase) — wraps the legacy processors ───────────────────────
+// ── Files (Supabase) - wraps the legacy processors ───────────────────────
 
 export interface FileDoc {
   id: string
@@ -380,7 +380,7 @@ export interface FileDoc {
 
 /**
  * Wrap pre-extracted text from the legacy PDF/CSV/etc. processors. We
- * don't re-parse here — `app/api/retrieval/process/route.ts` already
+ * don't re-parse here - `app/api/retrieval/process/route.ts` already
  * extracts text and passes it on.
  */
 export async function extractFile(

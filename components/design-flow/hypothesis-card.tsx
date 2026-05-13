@@ -6,13 +6,24 @@ import { Chip } from "@/components/ui/chip"
 import { MonoText } from "@/components/ui/typography"
 import { cn } from "@/lib/utils"
 
+/**
+ * Legacy standalone hypothesis card.
+ *
+ * This component is **not currently rendered anywhere** - the inline
+ * HypothesesTab in `app/[locale]/[workspaceid]/designs/[designId]/page.tsx`
+ * has fully replaced it. Kept here so that any future feature that needs
+ * a portable hypothesis chip has a starting point.
+ *
+ * Per issue #21, the legacy `rigor` / `feasibility` / `novelty` score bars
+ * were dropped; the only ranking signal is `relevanceScore` (0-1).
+ */
+
 interface HypothesisCardProps {
   n: number
   title: string
   rationale: string
-  rigor: number
-  feasibility: number
-  novelty: number
+  /** 0-1 - "how directly this hypothesis attacks the user's problem". */
+  relevanceScore?: number
   refs?: string[]
   selected?: boolean
   onToggle?: () => void
@@ -44,17 +55,11 @@ function ScoreLabel({ children }: { children: string }) {
   )
 }
 
-/**
- * Hypothesis row with selection, rigor/feasibility/novelty score bars, and
- * an optional Shadow critique in a footer.
- */
 export function HypothesisCard({
   n,
   title,
   rationale,
-  rigor,
-  feasibility,
-  novelty,
+  relevanceScore,
   refs,
   selected,
   onToggle,
@@ -98,18 +103,15 @@ export function HypothesisCard({
             {rationale}
           </p>
           <div className="flex flex-wrap items-center gap-[18px]">
-            <div>
-              <ScoreLabel>Rigor</ScoreLabel>
-              <ScoreBar value={rigor} color="hsl(var(--ink-hsl))" />
-            </div>
-            <div>
-              <ScoreLabel>Feasibility</ScoreLabel>
-              <ScoreBar value={feasibility} color="var(--p-problem)" />
-            </div>
-            <div>
-              <ScoreLabel>Novelty</ScoreLabel>
-              <ScoreBar value={novelty} color="hsl(var(--rust-hsl))" />
-            </div>
+            {typeof relevanceScore === "number" && (
+              <div>
+                <ScoreLabel>Relevance</ScoreLabel>
+                <ScoreBar
+                  value={relevanceScore * 10}
+                  color="hsl(var(--ink-hsl))"
+                />
+              </div>
+            )}
             <div className="flex-1" />
             {refs && refs.length > 0 && (
               <div className="flex gap-1">

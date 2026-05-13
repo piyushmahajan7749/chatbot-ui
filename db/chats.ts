@@ -26,7 +26,7 @@ export const getChatsByWorkspaceId = async (workspaceId: string) => {
 }
 
 /**
- * Returns the single pinned thread for a (scope, scope_id) pair — used by the
+ * Returns the single pinned thread for a (scope, scope_id) pair - used by the
  * right-rail chat. Picks the most recently updated match so legacy rows with
  * duplicate scopes resolve deterministically.
  */

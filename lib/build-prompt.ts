@@ -178,7 +178,7 @@ export async function buildFinalMessages(
 /**
  * Format retrieved items as numbered citations the model can reference
  * with `[N]` markers. The accompanying answer instruction tells the
- * model HOW to cite — frontend will then convert `[1]` etc. into
+ * model HOW to cite - frontend will then convert `[1]` etc. into
  * clickable chips that resolve to source_url (PR-8).
  *
  * Accepts both legacy `Tables<"file_items">` rows (no source_title /
@@ -198,7 +198,7 @@ function buildRetrievalText(
     const n = i + 1
     const title = item.source_title?.trim() || "Untitled source"
     const section = item.source_section?.trim()
-    const heading = section ? `${title} — ${section}` : title
+    const heading = section ? `${title} - ${section}` : title
     return `[${n}] ${heading}\n${item.content ?? ""}`
   })
 

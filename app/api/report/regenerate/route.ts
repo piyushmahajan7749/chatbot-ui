@@ -10,7 +10,7 @@ const MODEL_NAME = () => getDesignDeployment()
 
 export async function POST(req: Request) {
   try {
-    // Auth — the previous version had no gate, so unauthenticated noise
+    // Auth - the previous version had no gate, so unauthenticated noise
     // was hitting the model directly. Cheap fix and unblocks the more
     // useful error case below.
     const auth = await requireUser()
@@ -22,7 +22,7 @@ export async function POST(req: Request) {
     const currentContent =
       typeof body?.currentContent === "string" ? body.currentContent : ""
 
-    // Empty sections are valid — user might use "Edit with AI" to seed a
+    // Empty sections are valid - user might use "Edit with AI" to seed a
     // section that's not generated yet. Only sectionName + userFeedback are
     // truly required.
     if (!sectionName || !userFeedback) {
@@ -36,12 +36,12 @@ export async function POST(req: Request) {
 
     const currentBlock = currentContent.trim()
       ? `Current Content:\n\n${currentContent}`
-      : "Current Content:\n\n(empty — please draft this section based on the feedback)"
+      : "Current Content:\n\n(empty - please draft this section based on the feedback)"
 
     const userPrompt = `Section: ${sectionName}\n\n${currentBlock}\n\nUser Feedback:\n${userFeedback}\n\nRewrite the section to incorporate the feedback while preserving accuracy.`
 
     // Switched from `getAzureOpenAI()` (the generic chat deployment) to
-    // `getAzureOpenAIForDesign()` (the design deployment) — the generic
+    // `getAzureOpenAIForDesign()` (the design deployment) - the generic
     // path can hit a model that lacks chat.completions in some Azure
     // resource configs, surfacing as opaque 500s ("commands not taken").
     // The design deployment is the same one used by stats-review /
@@ -59,7 +59,7 @@ export async function POST(req: Request) {
     const newContent = completion.choices[0]?.message?.content?.trim()
 
     // If the model returned nothing, signal an explicit failure instead
-    // of silently echoing the old content — the previous behavior made
+    // of silently echoing the old content - the previous behavior made
     // "Edit with AI" appear to do nothing.
     if (!newContent) {
       console.warn(
@@ -69,7 +69,7 @@ export async function POST(req: Request) {
       return NextResponse.json(
         {
           error:
-            "AI returned empty content — try a more specific instruction or retry."
+            "AI returned empty content - try a more specific instruction or retry."
         },
         { status: 502 }
       )

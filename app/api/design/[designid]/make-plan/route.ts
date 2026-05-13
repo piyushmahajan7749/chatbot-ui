@@ -93,7 +93,7 @@ export async function POST(
     ]
       .filter(Boolean)
       .join(
-        " — "
+        " - "
       )}\nGoal: ${problem.goal || problem.objective || "Not specified"}`
     const hypBlock = hypothesis
       ? `Hypothesis: ${hypothesis.text}\nExplanation: ${hypothesis.reasoning ?? ""}`
@@ -116,19 +116,19 @@ export async function POST(
 
 Return JSON with a single field \`executionPlan\` (Markdown). The plan MUST include:
 
-1. **Kick-off checklist** — bulleted pre-flight items (materials procurement lead time, instrument booking, training confirmations, ethics / biosafety approvals). Each item: \`**Item** — owner — lead time — status gate\`.
+1. **Kick-off checklist** - bulleted pre-flight items (materials procurement lead time, instrument booking, training confirmations, ethics / biosafety approvals). Each item: \`**Item** - owner - lead time - status gate\`.
 
-2. **Daily schedule table** — Markdown table:
+2. **Daily schedule table** - Markdown table:
    \`| Day | Phase | Activity | Owner role | Est. hours | Dependencies | Checkpoint |\`
-   One row per working day (or half-day when useful). Days are numbered from Day 0 = kick-off. Owner role is a role title ("Formulation scientist", "QC analyst", "Biosafety officer") — do NOT invent people names. The Checkpoint column states the verifiable pass/fail signal the operator must record before continuing.
+   One row per working day (or half-day when useful). Days are numbered from Day 0 = kick-off. Owner role is a role title ("Formulation scientist", "QC analyst", "Biosafety officer") - do NOT invent people names. The Checkpoint column states the verifiable pass/fail signal the operator must record before continuing.
 
-3. **Critical path** — a short numbered list naming the 3–5 bottleneck items that, if slipped by a day, slip the whole study. For each: why it's critical, a mitigation, and the fallback.
+3. **Critical path** - a short numbered list naming the 3–5 bottleneck items that, if slipped by a day, slip the whole study. For each: why it's critical, a mitigation, and the fallback.
 
-4. **Risk register** — Markdown table:
+4. **Risk register** - Markdown table:
    \`| Risk | Likelihood (L/M/H) | Impact (L/M/H) | Trigger signal | Mitigation / contingency |\`
    Cover technical (instrument downtime, contamination, reagent lot drift), operational (staff absence, scheduling), regulatory (approval delays). 5–8 rows.
 
-5. **Deliverables checklist** — end-of-study artifacts the owner will ship (raw data dump, notebook entries, processed datasets, the stats-ready CSV, the report draft). Bullet list with \`**Deliverable** — format — recipient — due day\`.
+5. **Deliverables checklist** - end-of-study artifacts the owner will ship (raw data dump, notebook entries, processed datasets, the stats-ready CSV, the report draft). Bullet list with \`**Deliverable** - format - recipient - due day\`.
 
 Be concrete: quote specific activity names, checkpoints, and read-outs from the provided sections (e.g. SEC-HPLC, DLS, pH readings). Pull dates from the existing Timeline section when present; otherwise build a plausible schedule consistent with the Step-by-Step Procedure.`
         },

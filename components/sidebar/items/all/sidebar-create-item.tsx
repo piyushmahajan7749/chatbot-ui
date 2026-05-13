@@ -303,7 +303,7 @@ export const SidebarCreateItem: FC<SidebarCreateItemProps> = ({
             (files?.protocol?.length || 0) > 0
 
           // If the caller didn't provide inputs, land the user on the detail
-          // page in an "empty" state — the Inputs tab will trigger generation.
+          // page in an "empty" state - the Inputs tab will trigger generation.
           if (!hasInputs) {
             setCreating(false)
             return
@@ -548,7 +548,7 @@ export const SidebarCreateItem: FC<SidebarCreateItemProps> = ({
         }
       }
 
-      // Special handling for data collections — navigate to detail page and
+      // Special handling for data collections - navigate to detail page and
       // generate template from protocol file in the background
       if (contentType === "data-collections") {
         try {

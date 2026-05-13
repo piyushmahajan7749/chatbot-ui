@@ -101,7 +101,7 @@ export async function listReports(request: Request): Promise<Response> {
     if (projectId) where.push(["project_id", "==", projectId])
     else if (workspaceId) where.push(["workspace_id", "==", workspaceId])
 
-    // No composite index on (user_id, workspace_id, updated_at) — sort in memory.
+    // No composite index on (user_id, workspace_id, updated_at) - sort in memory.
     const reports = await listOwnedDocs<Report>({
       user: auth.user,
       collection: COLLECTION,

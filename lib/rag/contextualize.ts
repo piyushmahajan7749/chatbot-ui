@@ -1,5 +1,5 @@
 /**
- * Anthropic Contextual Retrieval — generate a 50-100 token context blurb
+ * Anthropic Contextual Retrieval - generate a 50-100 token context blurb
  * per chunk, prepended before embedding. Uses Haiku 4.5 with prompt
  * caching on the full-document prefix so an N-chunk doc costs roughly
  * 1 full-doc read + N short chunk reads.
@@ -10,7 +10,7 @@ import Anthropic from "@anthropic-ai/sdk"
 
 const HAIKU_MODEL = "claude-haiku-4-5-20251001"
 const MAX_CONTEXT_TOKENS = 120
-const SYSTEM_PROMPT = `You are a retrieval-augmented-generation indexer. Given a document and one chunk of it, write a short (50-100 token) plain-text context blurb that orients the chunk inside the document. Mention the document type, the relevant section, and any entities the chunk references that are NOT in its own text. Output ONLY the blurb — no preamble, no quotes.`
+const SYSTEM_PROMPT = `You are a retrieval-augmented-generation indexer. Given a document and one chunk of it, write a short (50-100 token) plain-text context blurb that orients the chunk inside the document. Mention the document type, the relevant section, and any entities the chunk references that are NOT in its own text. Output ONLY the blurb - no preamble, no quotes.`
 
 let _client: Anthropic | null = null
 
@@ -19,7 +19,7 @@ function getClient(): Anthropic {
   const key = process.env.ANTHROPIC_API_KEY
   if (!key) {
     throw new Error(
-      "Missing ANTHROPIC_API_KEY — required for contextual retrieval (lib/rag/contextualize.ts)"
+      "Missing ANTHROPIC_API_KEY - required for contextual retrieval (lib/rag/contextualize.ts)"
     )
   }
   _client = new Anthropic({ apiKey: key })

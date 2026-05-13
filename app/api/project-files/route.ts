@@ -31,7 +31,7 @@ export async function GET(request: Request) {
     // index on (user_id, project_id, created_at). Fresh Firestore
     // projects don't have it, and a missing index returns
     // FAILED_PRECONDITION which surfaced as opaque 500s on the project
-    // dashboard. Drop the orderBy and sort in-memory — workspace-sized
+    // dashboard. Drop the orderBy and sort in-memory - workspace-sized
     // file lists are small enough that the cost is irrelevant.
     const snapshot = await adminDb
       .collection("project_files")
@@ -54,7 +54,7 @@ export async function GET(request: Request) {
   } catch (error: any) {
     console.error("❌ [PROJECT_FILES] Error fetching files:", error)
     // Surface the underlying message (Firestore errors are descriptive
-    // — index hints, permission detail) so the chrome console shows
+    // - index hints, permission detail) so the chrome console shows
     // something actionable instead of just "Failed to fetch".
     return NextResponse.json(
       {

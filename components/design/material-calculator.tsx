@@ -276,7 +276,7 @@ export function MaterialCalculator({
       return [
         req.materialName,
         req.unit,
-        mat ? mat.quantityPerRun.toString() : "—",
+        mat ? mat.quantityPerRun.toString() : "-",
         formatQuantity(req.totalQuantity)
       ]
     })

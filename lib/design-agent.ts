@@ -42,7 +42,7 @@ export interface Hypothesis {
   /**
    * True if the user typed this hypothesis directly (via the
    * "Design from a hypothesis" entry-point). The design agent should
-   * not re-critique or re-word a user-supplied hypothesis — it should
+   * not re-critique or re-word a user-supplied hypothesis - it should
    * treat it as a fixed input and design around it.
    */
   userSupplied?: boolean
@@ -112,9 +112,9 @@ export interface ProblemContext {
   domain?: DesignDomain
   phase?: DesignPhase
   objective?: string
-  /** Structured v3 constraints — Material/Time/Equipment. */
+  /** Structured v3 constraints - Material/Time/Equipment. */
   constraintsStructured?: ProblemContextConstraints
-  /** Structured v3 variables — known vs unknown open text. */
+  /** Structured v3 variables - known vs unknown open text. */
   variablesStructured?: ProblemContextVariables
   /**
    * When the user enters via the "Structure an existing plan" mode, the
@@ -258,7 +258,7 @@ export function runSimulation(
 }
 
 // ─────────────────────────────────────────────────────────────────────────
-// Phase tracking — controls the step-by-step gated flow
+// Phase tracking - controls the step-by-step gated flow
 // ─────────────────────────────────────────────────────────────────────────
 
 export type PhaseKey =
@@ -277,7 +277,7 @@ export const PHASE_ORDER: PhaseKey[] = [
 ]
 
 // ─────────────────────────────────────────────────────────────────────────
-// Persisted content shape — what we store in designs.content
+// Persisted content shape - what we store in designs.content
 // ─────────────────────────────────────────────────────────────────────────
 
 /** Literature context stored from the real Literature Scout agent for use by downstream phases. */

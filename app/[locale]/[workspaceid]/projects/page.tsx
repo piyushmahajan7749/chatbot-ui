@@ -5,7 +5,7 @@ import { useParams, useRouter, useSearchParams } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { EntityCard } from "@/components/cards/entity-card"
-// Card primitives no longer used — replaced by EntityCard
+// Card primitives no longer used - replaced by EntityCard
 import { ChatbotUIContext } from "@/context/context"
 import {
   getProjectsByWorkspaceId,
@@ -281,7 +281,7 @@ export default function ProjectsPage() {
             variant="outline"
             className="gap-2"
             // From the Projects page, "New Chat" means "chat with every
-            // project in the workspace" — i.e. workspace-scoped RAG.
+            // project in the workspace" - i.e. workspace-scoped RAG.
             // Skip the picker modal and route straight to the fresh
             // chat surface (which creates a NULL-scoped chat on first
             // message, matching workspace-wide retrieval).

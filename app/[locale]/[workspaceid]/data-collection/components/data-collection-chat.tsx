@@ -357,7 +357,7 @@ export const DataCollectionChat: FC<DataCollectionChatProps> = ({
                           onChange={e =>
                             handleCellChange(rowIdx, colIdx, e.target.value)
                           }
-                          placeholder="—"
+                          placeholder="-"
                         />
                       </td>
                     ))}

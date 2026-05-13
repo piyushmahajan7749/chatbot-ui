@@ -33,7 +33,7 @@ export const AnalysisTab: FC<AnalysisTabProps> = ({
             <CardTitle className="text-sage-brand text-lg">Chart</CardTitle>
           </CardHeader>
           <CardContent>
-            {/* chartImage is a base64 data URI from the chart backend —
+            {/* chartImage is a base64 data URI from the chart backend -
                 next/image doesn't support data URIs. */}
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img

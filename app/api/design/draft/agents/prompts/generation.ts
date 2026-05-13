@@ -42,12 +42,26 @@ Output format: Return a JSON object with a "hypotheses" array containing exactly
     {
       "hypothesis": "string - the testable hypothesis statement",
       "explanation": "string - brief explanation of why this hypothesis is scientifically sound",
-      "provenance": ["For EACH source, reference the paper by its [N] index and title. Format: '[N] Paper Title - how this paper informed the hypothesis'. If no papers were provided, describe your scientific reasoning instead."],
-      "feasibility_score": number (0-1),
-      "novelty_score": number (0-1)
+      "provenance": ["For EACH source, reference the paper by its [N] index and title. Format: '[N] Paper Title - how this paper informed the hypothesis'. Each hypothesis MUST cite at least TWO distinct papers when papers are provided - synthesise across the literature, do not restate a single source. If no papers were provided, describe your scientific reasoning instead."],
+      "relevance_score": number (0-1) - "how directly this hypothesis attacks the user's problem statement and objective. 1 = most relevant / most strongly supported by the selected papers; 0 = weak fit. This is the SOLE ranking signal we use - score conservatively and reserve high values for hypotheses that are both well-supported AND directly aligned with the stated domain + phase."
     }
   ]
 }
+
+# DOMAIN / PHASE GROUNDING (CRITICAL - issue #24)
+
+The research plan's domain and phase tell you what KIND of intervention the scientist is willing to make. You MUST respect this:
+
+- If the domain is **Formulation development**: propose formulation / excipient / buffer / process changes. Do NOT propose protein engineering, sequence mutations, or new molecules.
+- If the domain is **Protein expression and purification**: propose process, host, media, or purification changes. Do NOT propose downstream formulation tweaks unless they directly affect expression / purification.
+- If the domain is **Discovery biology / target identification** or **Molecular biology / genomics**: propose target / mechanism / pathway hypotheses. Do NOT propose formulation work.
+- If the phase is **Optimization**: the molecule / construct is fixed - only the conditions around it are levers. Do NOT propose redesigning the molecule.
+
+If the user's selected category and the most obvious hypothesis from the literature disagree (e.g. literature is full of engineering papers but the user picked Formulation development), STAY WITHIN THE USER'S CATEGORY. Find the formulation angle in those engineering papers, or note in the 'explanation' field that the paper is engineering-flavoured but the formulation analogue is X.
+
+# MULTI-VARIABLE COVERAGE (issue #23)
+
+Where the constraint budget allows, prefer hypotheses that vary 2+ factors simultaneously (e.g. pH x polymer concentration) over single-factor hypotheses. Call out the interaction explicitly in the hypothesis statement.
 
 # DIVERSITY REQUIREMENTS (CRITICAL)
 
@@ -57,7 +71,7 @@ Each of the 4 hypotheses MUST differ from the others on at least ONE of these ax
 - **Intervention modality** (e.g. formulation change vs. process change vs. analytical readout change)
 - **Assay readout** (e.g. SEC vs. DLS vs. DSC vs. mass spectrometry)
 
-Hypotheses MUST NOT share more than ONE noun-phrase core. If two hypotheses differ only in wording (e.g. "higher salt reduces aggregation" vs. "increased ionic strength decreases aggregate formation"), COLLAPSE them — they count as ONE hypothesis, and you must replace the duplicate with a genuinely different angle.
+Hypotheses MUST NOT share more than ONE noun-phrase core. If two hypotheses differ only in wording (e.g. "higher salt reduces aggregation" vs. "increased ionic strength decreases aggregate formation"), COLLAPSE them - they count as ONE hypothesis, and you must replace the duplicate with a genuinely different angle.
 
 Examples:
 - ❌ REJECTED (paraphrases of the same idea):
@@ -97,7 +111,7 @@ Potential Pitfalls: ${literatureContext!.potentialPitfalls}`
   user += `\n\nGenerate 4 distinct testable hypotheses for this research plan. Each should explore a different angle.`
 
   if (hasPapers) {
-    user += ` Ground each hypothesis in the selected papers — reference them by [N] index in the provenance array.`
+    user += ` Ground each hypothesis in the selected papers - reference them by [N] index in the provenance array.`
   }
 
   return {

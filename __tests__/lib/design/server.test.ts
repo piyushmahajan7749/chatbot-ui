@@ -2,7 +2,7 @@
  * @jest-environment node
  *
  * Only collection-level callables (createDesign, listDesigns) are covered
- * here. Item-level routes intentionally bypass the Owned Resource seam — see
+ * here. Item-level routes intentionally bypass the Owned Resource seam - see
  * `lib/design/server.ts` notes.
  */
 import { NextResponse } from "next/server"

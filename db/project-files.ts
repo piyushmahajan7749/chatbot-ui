@@ -13,7 +13,7 @@ export interface ProjectFileMeta {
 }
 
 // File types accepted by the project Files tab. Mirrors the input's
-// `accept` attribute (studio-canvas.tsx) — keep these two in sync.
+// `accept` attribute (studio-canvas.tsx) - keep these two in sync.
 //   PDF, JPG/JPEG/PNG/WebP/GIF images, CSV, and Word .docx (#15).
 const ACCEPTED_MIME = [
   "application/pdf",
@@ -25,7 +25,7 @@ const ACCEPTED_MIME = [
   "text/csv",
   "application/vnd.ms-excel", // some browsers tag csv as this
   "application/vnd.openxmlformats-officedocument.wordprocessingml.document", // .docx
-  "application/msword" // legacy .doc — accept upload, content extraction tbd
+  "application/msword" // legacy .doc - accept upload, content extraction tbd
 ]
 
 const ACCEPTED_EXT = [
@@ -101,7 +101,7 @@ export const uploadProjectFile = async (params: {
 
   if (uploadError) {
     console.error("[uploadProjectFile] storage.upload failed", uploadError)
-    // Surface the specific Supabase error message — common ones:
+    // Surface the specific Supabase error message - common ones:
     //  • "Bucket not found"  → `files` bucket doesn't exist
     //  • "new row violates row-level security policy" → storage RLS
     //    policies on storage.objects don't allow the user's path

@@ -71,7 +71,7 @@ export default function ChatHistoryPage() {
   useEffect(() => {
     let cancelled = false
     setLoading(true)
-    // Fan out — chats are the primary feed but reports + files share the
+    // Fan out - chats are the primary feed but reports + files share the
     // same surface as adjacent chat targets. Each promise is best-effort:
     // a failed report/file fetch shouldn't blank the whole page.
     Promise.allSettled([
@@ -105,7 +105,7 @@ export default function ChatHistoryPage() {
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase()
-    if (filter === "reports" || filter === "files") return chats // unused — feeds below
+    if (filter === "reports" || filter === "files") return chats // unused - feeds below
     return chats.filter(c => {
       const scopeMatch =
         filter === "all"
@@ -148,7 +148,7 @@ export default function ChatHistoryPage() {
   }
 
   const handleStartNew = () => {
-    // Open the picker modal — actual chat creation happens in
+    // Open the picker modal - actual chat creation happens in
     // `handleStartFromModal` once the user picks workspace / project /
     // design / report / files.
     setStartModalOpen(true)

@@ -204,7 +204,7 @@ export async function supervisorEnqueue(plan: ResearchPlan): Promise<{
       DEFAULT_CONCURRENCY
     )
 
-    // Process generation results — each result now contains an array of hypotheses
+    // Process generation results - each result now contains an array of hypotheses
     const hypotheses: Hypothesis[] = []
     const failureSummaries: Array<{
       taskId: string

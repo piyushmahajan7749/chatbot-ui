@@ -26,9 +26,9 @@ function parseMode(raw: string | null): CreateDesignMode {
 /**
  * /designs/new is a lightweight shell that opens the Create Design modal.
  * Query params:
- *   ?projectId=… — optional; scopes the new design to a project
- *   ?mode=…      — from-scratch | from-hypothesis | from-plan
- *   ?q=…         — seed text from the dashboard quick-start composer
+ *   ?projectId=… - optional; scopes the new design to a project
+ *   ?mode=…      - from-scratch | from-hypothesis | from-plan
+ *   ?q=…         - seed text from the dashboard quick-start composer
  *
  * Cancel routes to:
  *   • the owning project if `projectId` is present,

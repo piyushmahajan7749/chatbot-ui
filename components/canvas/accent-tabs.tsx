@@ -32,7 +32,7 @@ interface AccentTabsProps {
 }
 
 // All phase accents collapse to editorial ink + rust in the new design
-// system — the stage identity is now carried by the Stepper/phase tints,
+// system - the stage identity is now carried by the Stepper/phase tints,
 // not by tab chrome color. Kept `AccentKey` in the signature so legacy
 // callsites compile without ripping; the rendered look is unified.
 const ACCENT_CLASSES: Record<

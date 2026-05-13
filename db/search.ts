@@ -44,7 +44,7 @@ export const searchGlobalContent = async (
           metadata: {
             // updated_at can be null on freshly-created projects;
             // created_at is also typed nullable in the generated
-            // Database types — fall back to current time as last resort
+            // Database types - fall back to current time as last resort
             // so the search row always renders a date.
             date: new Date(
               project.updated_at ?? project.created_at ?? Date.now()
@@ -132,7 +132,7 @@ export const searchGlobalContent = async (
 
     // Search Reports.
     //
-    // Pre-PR-9a this query selected `summary` — a column that doesn't
+    // Pre-PR-9a this query selected `summary` - a column that doesn't
     // exist on the Supabase `reports` table (the equivalent field is
     // `description`). The regenerated Database types caught it.
     //
@@ -140,7 +140,7 @@ export const searchGlobalContent = async (
     // db/reports-firestore.ts). This Supabase row is now metadata-only;
     // the Firestore doc holds the real `report_draft` + `report_outline`.
     // A future cleanup should query Firestore for full-text search of
-    // report bodies — for now we match against the metadata columns.
+    // report bodies - for now we match against the metadata columns.
     const { data: reports } = await supabase
       .from("reports")
       .select(

@@ -1,7 +1,7 @@
 /**
  * Azure OpenAI embeddings batcher.
  *
- * Single provider for the new RAG corpus (decision locked during planning —
+ * Single provider for the new RAG corpus (decision locked during planning -
  * legacy `file_items.local_embedding` stays put for back-compat until the
  * `file_items` table is dropped in PR-9). 1536-dim, batch size 100.
  */

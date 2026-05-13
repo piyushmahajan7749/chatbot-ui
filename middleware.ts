@@ -33,7 +33,7 @@ function redirectWith(
 export async function middleware(request: NextRequest) {
   try {
     // Auth gate runs FIRST. i18nRouter always returns a response (a rewrite
-    // for the default locale, a redirect for others) — letting it run first
+    // for the default locale, a redirect for others) - letting it run first
     // would short-circuit middleware before we ever read the session cookie,
     // so logged-in users get stuck on the marketing page at /.
     const { supabase, response } = createClient(request)
@@ -64,27 +64,27 @@ export async function middleware(request: NextRequest) {
         redirectResponse = redirectWith(request, "/login", response)
       }
     } else if (target.kind === "profile_pending") {
-      // Signup trigger hasn't completed — only onboarding may render.
+      // Signup trigger hasn't completed - only onboarding may render.
       if (!isOnboarding) {
         redirectResponse = redirectWith(request, "/onboarding", response)
       }
     } else if (target.kind === "path") {
       const targetPath = target.path
       if (isLogin || isRoot) {
-        // Logged-in user on marketing/login pages — send to their destination.
+        // Logged-in user on marketing/login pages - send to their destination.
         redirectResponse = redirectWith(request, targetPath, response)
       } else if (targetPath === "/onboarding" && !isOnboarding) {
-        // Not onboarded — must be on /onboarding.
+        // Not onboarded - must be on /onboarding.
         redirectResponse = redirectWith(request, "/onboarding", response)
       } else if (isOnboarding) {
-        // Already onboarded — bounce away from /onboarding to home.
+        // Already onboarded - bounce away from /onboarding to home.
         redirectResponse = redirectWith(request, targetPath, response)
       }
     }
 
     if (redirectResponse) return redirectResponse
 
-    // No auth redirect needed — hand off to i18nRouter for the locale rewrite.
+    // No auth redirect needed - hand off to i18nRouter for the locale rewrite.
     // Propagate any refreshed Supabase cookies onto its response so the browser
     // sees them on the way back.
     const i18nResult = i18nRouter(request, i18nConfig)

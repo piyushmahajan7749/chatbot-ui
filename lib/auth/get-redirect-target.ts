@@ -39,7 +39,7 @@ export async function getRedirectTarget(
     .maybeSingle()
 
   if (!homeWorkspace) {
-    // Onboarded but no home workspace — re-run onboarding to recreate it.
+    // Onboarded but no home workspace - re-run onboarding to recreate it.
     return { kind: "path", path: "/onboarding" }
   }
 

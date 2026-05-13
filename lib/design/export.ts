@@ -50,7 +50,7 @@ function renderLiterature(lit: any): string {
     citations.forEach((c: any, i: number) => {
       const idx = c.index ?? i + 1
       const title = c.title ?? "Untitled"
-      const url = c.url ? ` — ${c.url}` : ""
+      const url = c.url ? ` - ${c.url}` : ""
       const year = c.year ? ` (${c.year})` : ""
       lines.push(`${idx}. ${title}${year}${url}`)
     })

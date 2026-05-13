@@ -37,7 +37,7 @@ export async function GET(
     // Get hypotheses
     const allHypotheses = await getHypothesesByPlanId(planId)
 
-    // Include all hypotheses — flagged ones are shown too since this is a biopharma
+    // Include all hypotheses - flagged ones are shown too since this is a biopharma
     // tool where common terms like "synthesize" and "drug" can trigger flags legitimately
     const approvedHypotheses = allHypotheses
 

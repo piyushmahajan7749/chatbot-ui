@@ -123,7 +123,7 @@ export const GlobalState: FC<GlobalStateProps> = ({ children }) => {
   // RETIEVAL STORE
   const [useRetrieval, setUseRetrieval] = useState<boolean>(true)
   // Default to 8 retrieved chunks. The previous default (4) routinely missed
-  // relevant context for longer documents — RAG quality complaints traced
+  // relevant context for longer documents - RAG quality complaints traced
   // back to under-retrieval. Users can tune this in Chat → Retrieval.
   const [sourceCount, setSourceCount] = useState<number>(8)
 

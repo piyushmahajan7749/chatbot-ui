@@ -1,7 +1,7 @@
 "use client"
 
 /**
- * StartChatModal — picker for the new-thread flow.
+ * StartChatModal - picker for the new-thread flow.
  *
  * The user chooses what they want to chat with: the whole workspace, one
  * or more projects, designs, reports, or hand-picked files. Selection
@@ -100,7 +100,7 @@ export const StartChatModal: FC<StartChatModalProps> = ({
   const [pickedDesignIds, setPickedDesignIds] = useState<string[]>([])
   const [pickedReportIds, setPickedReportIds] = useState<string[]>([])
   const [pickedFileIds, setPickedFileIds] = useState<string[]>([])
-  // Projects aren't carried in ChatbotUIContext today — fetch on modal
+  // Projects aren't carried in ChatbotUIContext today - fetch on modal
   // open so the Projects tab populates without a context refactor.
   const [projects, setProjects] = useState<any[]>([])
 
@@ -120,7 +120,7 @@ export const StartChatModal: FC<StartChatModalProps> = ({
   }, [isOpen, selectedWorkspace?.id])
 
   const reset = () => {
-    // Don't reset activeTab — the next-open's `initialTab` prop is the
+    // Don't reset activeTab - the next-open's `initialTab` prop is the
     // source of truth (see the useEffect that syncs it). Resetting
     // here yanked the modal back to "workspace" before it could read
     // the caller's intent.
@@ -269,7 +269,7 @@ export const StartChatModal: FC<StartChatModalProps> = ({
             </TabsTrigger>
           </TabsList>
 
-          {/* Search bar — hidden for the workspace tab (single choice). */}
+          {/* Search bar - hidden for the workspace tab (single choice). */}
           {activeTab !== "workspace" && (
             <div className="border-line bg-paper mt-3 flex items-center gap-2 rounded-md border px-3">
               <IconSearch size={14} className="text-ink-400 shrink-0" />
@@ -477,7 +477,7 @@ const MultiPickList: FC<{
   return (
     // `w-full` + `min-w-0` here are load-bearing: without an explicit
     // width on the scroll container, the parent (TabsContent) sizes to
-    // its widest child — and the widest child is the button row, which
+    // its widest child - and the widest child is the button row, which
     // takes its width from the title text (long unbroken design names
     // pushed the dialog off-screen). Setting w-full forces the scroll
     // container to track the dialog width, which lets the row's
@@ -511,7 +511,7 @@ const MultiPickList: FC<{
               // `min-w-0 flex-1 truncate` chain is what actually clips long
               // unbroken titles. Without `min-w-0` on the button itself,
               // flex items default to `min-width: auto` and refuse to
-              // shrink below their content's intrinsic width — which is
+              // shrink below their content's intrinsic width - which is
               // why long report names were blowing past the dialog edge.
               "border-line bg-surface hover:border-line-strong hover:bg-paper-2 flex w-full min-w-0 max-w-full items-center gap-3 overflow-hidden rounded-md border px-3 py-2.5 text-left transition-colors",
               isPicked && "border-rust bg-rust-soft"

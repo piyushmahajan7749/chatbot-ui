@@ -109,7 +109,7 @@ Important:
 - Include standard lab data columns (Sample ID, Date, etc.)
 - Put units in parentheses in the column header
 - The rows should be empty strings to serve as a template
-- Keep columns focused and relevant — typically 5-12 columns`
+- Keep columns focused and relevant - typically 5-12 columns`
         },
         {
           role: "user",

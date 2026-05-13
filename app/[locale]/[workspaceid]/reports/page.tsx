@@ -6,7 +6,13 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { ChatbotUIContext } from "@/context/context"
 import { getReportsByWorkspaceId, deleteReport } from "@/db/reports-firestore"
-import { IconPlus, IconReport, IconClock, IconTrash } from "@tabler/icons-react"
+import {
+  IconClock,
+  IconMessage,
+  IconPlus,
+  IconReport,
+  IconTrash
+} from "@tabler/icons-react"
 import {
   AlertDialog,
   AlertDialogAction,
@@ -20,6 +26,7 @@ import {
 } from "@/components/ui/alert-dialog"
 import { useToast } from "@/app/hooks/use-toast"
 import { DisplayHeading, Eyebrow } from "@/components/ui/typography"
+import { formatCreatedModified } from "@/lib/format-date"
 
 interface Report {
   id: string
@@ -45,7 +52,7 @@ export default function ReportsPage() {
   useEffect(() => {
     fetchReports()
     // `fetchReports` is locally defined and only reads workspaceId via
-    // closure — including it would force a useCallback rewrite for no
+    // closure - including it would force a useCallback rewrite for no
     // behavioral gain. workspaceId is the only real trigger.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [workspaceId])
@@ -79,17 +86,9 @@ export default function ReportsPage() {
     }
   }
 
-  const getTimeAgo = (date: string): string => {
-    const diff = Date.now() - new Date(date).getTime()
-    const minutes = Math.floor(diff / 60000)
-    if (minutes < 1) return "Just now"
-    if (minutes < 60) return `${minutes}m ago`
-    const hours = Math.floor(minutes / 60)
-    if (hours < 24) return `${hours}h ago`
-    const days = Math.floor(hours / 24)
-    if (days < 30) return `${days}d ago`
-    return new Date(date).toLocaleDateString()
-  }
+  // Date format helpers live in lib/format-date.ts - replaces the
+  // legacy "Xm ago" rendering with explicit "Created mm/dd/yy · Modified
+  // mm/dd/yy" per the scientist's ask (#4).
 
   return (
     <div className="bg-paper h-full space-y-6 overflow-auto p-8">
@@ -104,14 +103,28 @@ export default function ReportsPage() {
             Generate and manage research reports
           </p>
         </div>
-        <Button
-          variant="primary"
-          size="lg"
-          onClick={() => router.push(`/${locale}/${workspaceId}/reports/new`)}
-        >
-          <IconPlus size={14} stroke={2.4} />
-          New Report
-        </Button>
+        <div className="flex items-center gap-2">
+          {/* Issue #3 - mirror Designs: a "Start chat" button that opens
+              the chat scoped across every report in the workspace, with
+              the option to narrow to one from the chat creation modal. */}
+          <Button
+            variant="secondary"
+            size="lg"
+            onClick={() =>
+              router.push(`/${locale}/${workspaceId}/chat?defaultScope=reports`)
+            }
+          >
+            <IconMessage size={14} stroke={2.4} /> Start chat
+          </Button>
+          <Button
+            variant="primary"
+            size="lg"
+            onClick={() => router.push(`/${locale}/${workspaceId}/reports/new`)}
+          >
+            <IconPlus size={14} stroke={2.4} />
+            New Report
+          </Button>
+        </div>
       </div>
 
       {/* Reports List */}
@@ -168,7 +181,10 @@ export default function ReportsPage() {
                       <div className="text-ink-3 flex items-center gap-3 text-[11.5px]">
                         <span className="flex items-center gap-1 font-mono">
                           <IconClock size={12} />
-                          {getTimeAgo(report.updated_at || report.created_at)}
+                          {formatCreatedModified(
+                            report.created_at,
+                            report.updated_at
+                          )}
                         </span>
                         {report.report_draft && (
                           <span className="rounded-full bg-[#DDE9DF] px-2 py-0.5 text-[#1F4A2C]">

@@ -188,7 +188,7 @@ export const Message: FC<MessageProps> = ({
     })()
   }, [isLoadingThisMessage, azureDeploymentName])
 
-  // Model name intentionally not surfaced anywhere user-visible —
+  // Model name intentionally not surfaced anywhere user-visible -
   // Shadow AI is the product, the underlying LLM (or Azure deployment)
   // is implementation detail. `displayedModelName` retained as an
   // unused local so future debug overlays can still toggle it on
@@ -205,7 +205,7 @@ export const Message: FC<MessageProps> = ({
 
   // Default assistant label across all chat scopes (was design-only).
   // Only an explicitly-attached assistant or selectedAssistant overrides
-  // this — never the raw model name.
+  // this - never the raw model name.
   const senderName = isAssistant
     ? message.assistant_id
       ? assistants.find(a => a.id === message.assistant_id)?.name
@@ -369,7 +369,7 @@ export const Message: FC<MessageProps> = ({
               // (source_title, source_url, source_section). The legacy
               // `fileSummary` path joins to `files` table and only finds
               // anything for chats that attached actual file_items rows
-              // — RAG citations have file_id=null so file count came out
+              // - RAG citations have file_id=null so file count came out
               // as zero ("4 Sources from 0 File"). Render the panel
               // directly off `fileItems` instead.
               const items = fileItems as Array<any>
@@ -416,7 +416,7 @@ export const Message: FC<MessageProps> = ({
                                   {title}
                                   {section && (
                                     <span className="text-slate-400">
-                                      {" — "}
+                                      {" - "}
                                       {section}
                                     </span>
                                   )}

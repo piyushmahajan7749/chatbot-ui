@@ -92,7 +92,7 @@ export interface DesignPlanConstraints {
   material?: string
   time?: string
   equipment?: string
-  /** Legacy fields — kept so older persisted plans still type-check. */
+  /** Legacy fields - kept so older persisted plans still type-check. */
   variables?: string[]
   specialConsiderations?: string[]
 }

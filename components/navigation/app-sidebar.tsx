@@ -120,7 +120,7 @@ function NavSection({ label, action, children, collapsed }: NavSectionProps) {
 }
 
 /* ------------------------------------------------------------------
-   Workspace picker — Popover with workspace list + "New workspace".
+   Workspace picker - Popover with workspace list + "New workspace".
    ------------------------------------------------------------------ */
 interface WorkspacePickerProps {
   collapsed?: boolean
@@ -346,7 +346,7 @@ export const AppSidebar = ({ isCollapsed, onToggle }: AppSidebarProps) => {
   const [projects, setProjects] = useState<{ id: string; name: string }[]>([])
   const pathname = usePathname()
   const router = useRouter()
-  // Shared open state for ProfileSettings — wired to both the footer
+  // Shared open state for ProfileSettings - wired to both the footer
   // Settings button (#8) and the user-card 3-dot menu (#9), which were
   // both inert before.
   const [profileOpen, setProfileOpen] = useState(false)
@@ -616,7 +616,7 @@ export const AppSidebar = ({ isCollapsed, onToggle }: AppSidebarProps) => {
           )}
         </div>
 
-        {/* Profile / settings sheet — controlled by sidebar buttons. */}
+        {/* Profile / settings sheet - controlled by sidebar buttons. */}
         <ProfileSettings open={profileOpen} onOpenChange={setProfileOpen} />
       </aside>
     </ErrorBoundary>

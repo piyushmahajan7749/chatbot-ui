@@ -1,5 +1,5 @@
 /**
- * Workspace-scoped paper library — every time a user clicks "Download" on a
+ * Workspace-scoped paper library - every time a user clicks "Download" on a
  * paper from a design's literature tab, the paper metadata is persisted
  * here. Owned Resource pattern: user_id is the access oracle, workspace_id
  * scopes membership.
@@ -43,7 +43,7 @@ export const PaperLibraryAddInputSchema = z.object({
     journal: z.string().optional().or(z.literal("")),
     source: z.string().optional()
   }),
-  /** Optional — if the paper was added from a specific design, record the trail. */
+  /** Optional - if the paper was added from a specific design, record the trail. */
   sourceDesignId: z.string().optional()
 })
 export type PaperLibraryAddInput = z.infer<typeof PaperLibraryAddInputSchema>

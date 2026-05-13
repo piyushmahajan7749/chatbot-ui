@@ -2,9 +2,9 @@ import { fileTypeFromBuffer } from "file-type"
 import { NextResponse } from "next/server"
 
 export const UPLOAD_SIZE_LIMITS = {
-  document: 25 * 1024 * 1024, // 25 MB — PDF/DOCX/CSV/TXT/MD/JSON
-  audio: 50 * 1024 * 1024, // 50 MB — transcription
-  text: 2 * 1024 * 1024 // 2 MB — pre-extracted text bodies (extract-materials etc.)
+  document: 25 * 1024 * 1024, // 25 MB - PDF/DOCX/CSV/TXT/MD/JSON
+  audio: 50 * 1024 * 1024, // 50 MB - transcription
+  text: 2 * 1024 * 1024 // 2 MB - pre-extracted text bodies (extract-materials etc.)
 } as const
 
 export type UploadKind = keyof typeof UPLOAD_SIZE_LIMITS

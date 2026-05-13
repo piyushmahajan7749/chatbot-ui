@@ -1,15 +1,15 @@
 /**
  * Inngest workers for the unified RAG corpus.
  *
- *   rag.doc.changed       — debounced 60s per (sourceType, sourceId).
+ *   rag.doc.changed       - debounced 60s per (sourceType, sourceId).
  *                           Re-indexes the affected doc.
- *   rag.cron.sweep        — hourly. Finds docs whose source updated_at
+ *   rag.cron.sweep        - hourly. Finds docs whose source updated_at
  *                           moved past last_indexed_at and refires
  *                           rag.doc.changed.
- *   rag.backfill.workspace — one-shot per workspace. Iterates every
+ *   rag.backfill.workspace - one-shot per workspace. Iterates every
  *                           source type in the locked order.
  *
- * Event payload typing kept loose — Inngest doesn't propagate types
+ * Event payload typing kept loose - Inngest doesn't propagate types
  * automatically and we want one less hand-written `events` type to
  * maintain.
  */

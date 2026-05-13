@@ -12,7 +12,7 @@ export default function NewReportPage() {
   const [isOpen, setIsOpen] = useState(true)
 
   // Cancel returns the user to wherever the report was being created
-  // from — explicit routing, NOT `history.back()`. The history-back
+  // from - explicit routing, NOT `history.back()`. The history-back
   // path bounced into the previous design page when the user navigated
   // there before opening the create-report flow (#12 in the May ask).
   const handleOpenChange = (open: boolean) => {

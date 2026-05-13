@@ -88,7 +88,7 @@ export function ELNExportModal({
       loadProjects()
     }
     // `loadProjects` / `selectedConnectionInfo` close over `selectedConnection`
-    // already — the trigger is the connection switch itself.
+    // already - the trigger is the connection switch itself.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedConnection])
 

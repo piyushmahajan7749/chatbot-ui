@@ -29,7 +29,7 @@ export default async function OnboardingPage() {
     .maybeSingle()
 
   if (profile?.has_onboarded) {
-    // Already done — get them out.
+    // Already done - get them out.
     const { data: homeWorkspace } = await supabase
       .from("workspaces")
       .select("id")

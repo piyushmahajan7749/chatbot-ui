@@ -147,7 +147,7 @@ Generate multiple independent, testable scientific hypotheses for the research p
 
 ### How It Works
 
-The system runs **5 agents in parallel**, each producing **4 distinct hypotheses** (20 total). Each agent receives the same inputs but produces different hypotheses due to controlled randomness (temperature = 0.7) and an explicit instruction to explore different angles. This "generate broadly, then filter" strategy maximizes diversity — only the **top 5** survive ranking to be shown to the user.
+The system runs **5 agents in parallel**, each producing **4 distinct hypotheses** (20 total). Each agent receives the same inputs but produces different hypotheses due to controlled randomness (temperature = 0.7) and an explicit instruction to explore different angles. This "generate broadly, then filter" strategy maximizes diversity - only the **top 5** survive ranking to be shown to the user.
 
 ### Agent Instructions (Prompt)
 
@@ -163,11 +163,11 @@ The AI agent receives the following instructions:
 > - Leverage insights from the provided literature context
 >
 > **For each hypothesis, provide:**
-> - **hypothesis** — the testable hypothesis statement
-> - **explanation** — brief explanation of why this hypothesis is scientifically sound
-> - **provenance** — for EACH source, include the citation index [N] and the paper title from the Literature Insights. Format each entry as: "[N] Paper Title - brief explanation of how this paper informed the hypothesis"
-> - **feasibility_score** — 0 to 1 rating of how feasible this is to test in a lab
-> - **novelty_score** — 0 to 1 rating of how novel this hypothesis is vs. existing work
+> - **hypothesis** - the testable hypothesis statement
+> - **explanation** - brief explanation of why this hypothesis is scientifically sound
+> - **provenance** - for EACH source, include the citation index [N] and the paper title from the Literature Insights. Format each entry as: "[N] Paper Title - brief explanation of how this paper informed the hypothesis"
+> - **feasibility_score** - 0 to 1 rating of how feasible this is to test in a lab
+> - **novelty_score** - 0 to 1 rating of how novel this hypothesis is vs. existing work
 
 ### What the Agent Receives
 
@@ -204,9 +204,9 @@ Literature Insights using the format "[N] Paper Title - explanation".
 
 Every generated hypothesis passes through a safety gate before being accepted:
 
-- **Allow** — hypothesis is clean, proceeds to ranking
-- **Flag** — hypothesis contains potentially sensitive terms but proceeds with a "needs review" marker (common in biopharma where terms like "synthesize" and "drug" trigger false positives)
-- **Block** — hypothesis is discarded entirely (e.g., contains genuinely harmful content)
+- **Allow** - hypothesis is clean, proceeds to ranking
+- **Flag** - hypothesis contains potentially sensitive terms but proceeds with a "needs review" marker (common in biopharma where terms like "synthesize" and "drug" trigger false positives)
+- **Block** - hypothesis is discarded entirely (e.g., contains genuinely harmful content)
 
 ---
 
@@ -231,10 +231,10 @@ Every pair of hypotheses is compared head-to-head. With 20 hypotheses, this crea
 > - Clarity and specificity
 >
 > **For each comparison, provide:**
-> - **winner** — "A" or "B"
-> - **reasoning** — explanation of why this hypothesis is better
-> - **confidence** — 0 to 1
-> - **criteria_scores** — per-criterion scores for both A and B:
+> - **winner** - "A" or "B"
+> - **reasoning** - explanation of why this hypothesis is better
+> - **confidence** - 0 to 1
+> - **criteria_scores** - per-criterion scores for both A and B:
 >   - rigor (A vs B)
 >   - feasibility (A vs B)
 >   - novelty (A vs B)
@@ -281,11 +281,11 @@ Critically evaluate the top-ranked hypotheses to identify strengths, weaknesses,
 > - Alternative perspectives
 >
 > **For each hypothesis, provide:**
-> - **strengths** — what makes this hypothesis strong
-> - **weaknesses** — potential issues or gaps
-> - **improvements** — specific suggestions for improvement
-> - **risks** — potential risks or limitations
-> - **alternatives** — alternative approaches to consider
+> - **strengths** - what makes this hypothesis strong
+> - **weaknesses** - potential issues or gaps
+> - **improvements** - specific suggestions for improvement
+> - **risks** - potential risks or limitations
+> - **alternatives** - alternative approaches to consider
 
 ### What the Agent Receives
 
@@ -318,9 +318,9 @@ Generate improved variants of the top hypotheses by refining language, adjusting
 > - Exploring alternative formulations
 >
 > **For each variant, provide:**
-> - **hypothesis** — the evolved hypothesis statement
-> - **explanation** — what changed and why
-> - **improvement_type** — e.g., "clarity", "scope", "specificity"
+> - **hypothesis** - the evolved hypothesis statement
+> - **explanation** - what changed and why
+> - **improvement_type** - e.g., "clarity", "scope", "specificity"
 
 ### What the Agent Receives
 
@@ -340,7 +340,7 @@ Each evolved variant is saved as a new hypothesis (tagged with its parent) and a
 
 ### Purpose
 
-Step back and assess the overall research process — identify patterns across all hypotheses, find gaps in coverage, and suggest improvements for future iterations.
+Step back and assess the overall research process - identify patterns across all hypotheses, find gaps in coverage, and suggest improvements for future iterations.
 
 ### Agent Instructions (Prompt)
 
@@ -353,11 +353,11 @@ Step back and assess the overall research process — identify patterns across a
 > - Generate prompt patches for future iterations
 >
 > **Provide:**
-> - **overall_assessment** — summary of the research quality
-> - **patterns** — observed patterns across hypotheses
-> - **gaps** — identified gaps or missing elements
-> - **prompt_patches** — specific improvement suggestions for the generation process, each with type, suggestion, and rationale
-> - **recommendations** — actionable next steps
+> - **overall_assessment** - summary of the research quality
+> - **patterns** - observed patterns across hypotheses
+> - **gaps** - identified gaps or missing elements
+> - **prompt_patches** - specific improvement suggestions for the generation process, each with type, suggestion, and rationale
+> - **recommendations** - actionable next steps
 
 ### What the Agent Receives
 
@@ -441,10 +441,10 @@ Synthesizes everything into a final cohesive report:
 |--------|----------|
 | **Literature grounding** | Every hypothesis is required to cite specific papers and explain how they informed the hypothesis |
 | **Diversity by design** | 5 parallel agents each produce 4 distinct hypotheses (20 total); only the top 5 survive ranking |
-| **Competitive ranking** | Elo tournament ranking is more robust than simple scoring — it captures relative quality across the full set |
+| **Competitive ranking** | Elo tournament ranking is more robust than simple scoring - it captures relative quality across the full set |
 | **Safety gating** | Every hypothesis and plan is screened before it enters the pipeline |
 | **Iterative refinement** | Reflection + Evolution phases improve hypotheses before they reach experiment design |
-| **Self-improving** | Meta-review generates "prompt patches" — suggestions for how to improve the generation process itself in future runs |
+| **Self-improving** | Meta-review generates "prompt patches" - suggestions for how to improve the generation process itself in future runs |
 | **End-to-end traceability** | Every hypothesis carries provenance back to specific papers; every design decision is traceable to a hypothesis |
 
 ---

@@ -9,7 +9,7 @@ interface ShadowAISVGProps {
 
 /**
  * Editorial monogram: a solid ink disc with a rust half-crescent on the
- * right half — a "shadow" cast across the moon. Theme-agnostic.
+ * right half - a "shadow" cast across the moon. Theme-agnostic.
  */
 export const ShadowAISVG: FC<ShadowAISVGProps> = ({ scale = 1 }) => {
   const size = 24 * scale

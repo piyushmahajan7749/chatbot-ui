@@ -4,7 +4,7 @@
  * NOTE: Designs are an Owned Resource (user_id = Owner) but ALSO have a
  * sharing extension (shared_with array, sharing visibility, share_token).
  * Read access via /api/design/[designid] uses the sharing module
- * (lib/design/sharing) — not the strict Owner gate. Only collection-level
+ * (lib/design/sharing) - not the strict Owner gate. Only collection-level
  * POST/GET (this file) and DELETE go through the Owner pattern.
  */
 import { z } from "zod"

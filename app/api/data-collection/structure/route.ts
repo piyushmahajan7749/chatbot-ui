@@ -41,7 +41,7 @@ Rules:
 2. Create consistent column headers
 3. Parse each entry into rows matching those columns
 4. Use empty strings for missing values
-5. Keep numeric values as numbers (no units in the value column — put units in the column header if applicable)
+5. Keep numeric values as numbers (no units in the value column - put units in the column header if applicable)
 6. Return ONLY a valid JSON object with this exact structure:
 {
   "format": "csv",

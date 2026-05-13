@@ -116,7 +116,7 @@ export async function* iterateWorkspaceSources(workspaceId: string) {
  * Backfill one workspace. Caller should run from an Inngest worker so
  * concurrency is throttled at the queue level.
  *
- * NOTE: file_items → rag_items migration is NOT done here — that's a
+ * NOTE: file_items → rag_items migration is NOT done here - that's a
  * one-shot SQL backfill in PR-5 (preserves existing OpenAI embeddings).
  */
 export async function backfillWorkspace(
@@ -150,7 +150,7 @@ export async function backfillWorkspace(
  * never indexed) and refire `rag.doc.changed`. Caller is the hourly cron
  * Inngest function.
  *
- * Returns the list of refire intents — the caller is responsible for
+ * Returns the list of refire intents - the caller is responsible for
  * sending them to Inngest (we don't import the inngest client here to
  * keep this module dependency-free for testing).
  */
@@ -203,7 +203,7 @@ export async function findStaleDocs(): Promise<StaleDocRef[]> {
     .or("last_indexed_at.is.null,index_status.eq.stale,index_status.eq.failed")
   if (error) throw error
   for (const f of staleFiles ?? []) {
-    // workspace_id isn't a direct column on `files` — caller resolves
+    // workspace_id isn't a direct column on `files` - caller resolves
     // through file_workspaces if needed. Stale sweep emits sourceId only;
     // indexDoc is called via /api/retrieval/process or admin route which
     // already has the precomputed text.

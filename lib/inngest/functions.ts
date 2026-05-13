@@ -319,7 +319,7 @@ export const processDesignDraft = inngest.createFunction(
         DEFAULT_CONCURRENCY
       )
 
-      // Update Elo scores — skip failed pairs instead of aborting the whole pipeline
+      // Update Elo scores - skip failed pairs instead of aborting the whole pipeline
       let matchIndex = 0
       let skippedMatches = 0
       for (let i = 0; i < topHypotheses.length; i++) {

@@ -86,7 +86,7 @@ export async function listProjects(request: Request): Promise<Response> {
       inMemorySort: { field: sortBy, dir: sortOrder }
     })
 
-    // Firestore doesn't support `ilike` — filter in memory.
+    // Firestore doesn't support `ilike` - filter in memory.
     if (searchTerm) {
       const term = searchTerm.toLowerCase()
       projects = projects.filter(

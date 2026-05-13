@@ -26,7 +26,7 @@ export async function POST(req: Request) {
     if (limited) return limited
 
     const requestData = await req.json()
-    // Log only metadata — user research problem bodies can contain sensitive
+    // Log only metadata - user research problem bodies can contain sensitive
     // objectives/constraints we do not want persisted in server logs.
     console.log("📥 [DESIGN_DRAFT_REQUEST] Received", {
       userId: user.id,
@@ -50,7 +50,7 @@ export async function POST(req: Request) {
       constraints = requestData.constraints || {}
       preferences = requestData.preferences || {}
     } else {
-      // Old format (backward compatibility) — maps legacy freeform arrays
+      // Old format (backward compatibility) - maps legacy freeform arrays
       // into the new constraints shape as best we can.
       planId = uuidv4()
       title = requestData.problem || "Untitled Research Plan"
@@ -154,7 +154,7 @@ export async function POST(req: Request) {
 
       // In local dev, the most common failure is simply that the Inngest dev server
       // isn't running (default UI: http://localhost:8288). Don't fail design creation
-      // in this case—return 202 so the UI can proceed and show status polling.
+      // in this case-return 202 so the UI can proceed and show status polling.
       if (process.env.NODE_ENV !== "production") {
         const isAuthError =
           typeof error?.message === "string" &&

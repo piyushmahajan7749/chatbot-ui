@@ -341,7 +341,7 @@ export default function ReportDetailPage() {
   }
 
   /**
-   * Explicit "Save now" — flushes any pending autosave timer and writes the
+   * Explicit "Save now" - flushes any pending autosave timer and writes the
    * latest draft + objective immediately. Useful before navigating away or
    * exporting, when the 800ms debounce hasn't fired yet.
    */

@@ -102,7 +102,7 @@ describe("fuseAndScore", () => {
     ]
     const top2 = fuseAndScore(rows, 2)
     expect(top2.length).toBe(2)
-    // b should win — has both signals (rank-1 sparse, rank-2 dense)
+    // b should win - has both signals (rank-1 sparse, rank-2 dense)
     expect(top2[0].id).toBe("b")
   })
 

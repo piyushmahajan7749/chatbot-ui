@@ -34,7 +34,7 @@ type ChartDataState = {
   data: Array<{ label: string; value: number }>
 }
 
-// Static outline metadata — hoisted to module scope so it has a stable
+// Static outline metadata - hoisted to module scope so it has a stable
 // identity across renders. Previously these were component-local consts,
 // which fooled exhaustive-deps into demanding `defaultOutlineOrder` in
 // useCallback deps even though the array never actually changed.
@@ -242,7 +242,7 @@ export function ReportReviewComponent({ onSave, reportId }: ReportReviewProps) {
   }, [])
 
   // outlineMapping / defaultOutlineOrder live at module scope as
-  // OUTLINE_MAPPING / DEFAULT_OUTLINE_ORDER — see top of file.
+  // OUTLINE_MAPPING / DEFAULT_OUTLINE_ORDER - see top of file.
   const outlineMapping = OUTLINE_MAPPING
 
   const hasSavedDraft = useMemo(() => {
@@ -330,7 +330,7 @@ export function ReportReviewComponent({ onSave, reportId }: ReportReviewProps) {
       console.error("Error fetching report data:", error)
     }
     // generationStatus appears only in a `typeof` type assertion above
-    // (compile-time), not as a real runtime dependency — keeping it here
+    // (compile-time), not as a real runtime dependency - keeping it here
     // tripped exhaustive-deps. DEFAULT_OUTLINE_ORDER is module-scope so
     // it doesn't need to be listed.
   }, [reportId])
@@ -633,7 +633,7 @@ export function ReportReviewComponent({ onSave, reportId }: ReportReviewProps) {
                     variant="outline"
                     className="ml-2"
                     onClick={() => {
-                      // ELN upload — not yet functional
+                      // ELN upload - not yet functional
                     }}
                   >
                     <Upload className="mr-2 size-4" />
@@ -717,7 +717,7 @@ export function ReportReviewComponent({ onSave, reportId }: ReportReviewProps) {
                               </h3>
                             )}
                             {/* chartImage is a base64 data URI from the
-                                chart-generation backend — next/image doesn't
+                                chart-generation backend - next/image doesn't
                                 support data URIs. */}
                             {/* eslint-disable-next-line @next/next/no-img-element */}
                             <img

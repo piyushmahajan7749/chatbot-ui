@@ -122,7 +122,7 @@ export async function POST(
       litCtx?: StoredLiteratureContext
     ): ExperimentDesignState => ({
       problem:
-        [ctx.title, ctx.problemStatement].filter(Boolean).join(" — ") ||
+        [ctx.title, ctx.problemStatement].filter(Boolean).join(" - ") ||
         "Untitled",
       objectives: ctx.goal ? [ctx.goal] : [],
       variables: {
@@ -169,6 +169,10 @@ export async function POST(
             `[GENERATE] Running Literature Scout agent (mode=${appendMode ? "append" : "replace"}, existing=${existingPapers.length})...`
           )
           const agentState = toAgentState()
+          // Initial run: target 10 unique papers (issue #13).
+          // "Generate more" (append mode): target 5 new papers on top of
+          // whatever the user already has (issue #19) so the additional
+          // rounds aren't blocked waiting to hit the full 10 again.
           const result = await callLiteratureScoutAgent(
             agentState,
             undefined,
@@ -177,12 +181,13 @@ export async function POST(
               ? {
                   bypassCache: true,
                   shuffleQueries: true,
+                  minPapers: 5,
                   excludeUrls: existingPapers
                     .map(p => p.sourceUrl || "")
                     .filter(Boolean),
                   excludeTitles: existingPapers.map(p => p.title)
                 }
-              : {}
+              : { minPapers: 10 }
           )
           const litOutput = result.output
 
@@ -223,7 +228,7 @@ export async function POST(
             const summary = summaryIsRealAbstract
               ? rawSummary
               : citationBlurb || rawSummary || "Abstract not available."
-            // Resolve a clickable URL — prefer explicit url, else build
+            // Resolve a clickable URL - prefer explicit url, else build
             // a DOI link, else fall back to a Google Scholar search.
             let sourceUrl: string | undefined =
               (typeof c.url === "string" && c.url.trim()) || undefined
@@ -299,12 +304,12 @@ export async function POST(
             })
             papers = [...existingPapers, ...appended]
             console.log(
-              `[GENERATE] Literature Scout append — ${appended.length} new papers added (total ${papers.length})`
+              `[GENERATE] Literature Scout append - ${appended.length} new papers added (total ${papers.length})`
             )
           } else {
             papers = newPapers
             console.log(
-              `[GENERATE] Literature Scout done — ${papers.length} papers found`
+              `[GENERATE] Literature Scout done - ${papers.length} papers found`
             )
           }
 
@@ -315,7 +320,7 @@ export async function POST(
             citations: litOutput.citations
           }
 
-          // In append mode, don't wipe downstream work — we're only adding
+          // In append mode, don't wipe downstream work - we're only adding
           // more sources to an existing list.
           const downstreamClear = appendMode
             ? {}
@@ -483,7 +488,7 @@ Return every hypothesis with its original index number, a score, and a one-sente
           pool.sort((a, b) => b.rank - a.rank)
           const topHypotheses = pool.slice(0, FINAL_TOP_N)
           console.log(
-            `[GENERATE] Ranking done — top ${FINAL_TOP_N} selected (scores: ${topHypotheses.map(h => h.rank).join(", ")})`
+            `[GENERATE] Ranking done - top ${FINAL_TOP_N} selected (scores: ${topHypotheses.map(h => h.rank).join(", ")})`
           )
           sendProgress({
             step: "ranked",
@@ -497,7 +502,7 @@ Return every hypothesis with its original index number, a score, and a one-sente
           )
           sendProgress({
             step: "reflecting",
-            message: `Critiquing top ${FINAL_TOP_N} — strengths, weaknesses, improvements...`
+            message: `Critiquing top ${FINAL_TOP_N} - strengths, weaknesses, improvements...`
           })
           const reflectionTasks: AgentTask[] = topHypotheses.map(h => ({
             taskId: uuidv4(),
@@ -543,7 +548,7 @@ Return every hypothesis with its original index number, a score, and a one-sente
           )
           sendProgress({
             step: "evolving",
-            message: `Evolving hypotheses — generating improved variants...`
+            message: `Evolving hypotheses - generating improved variants...`
           })
           const evolutionTasks: AgentTask[] = topHypotheses.map(h => ({
             taskId: uuidv4(),
@@ -577,7 +582,7 @@ Return every hypothesis with its original index number, a score, and a one-sente
             }
           }
           console.log(
-            `[GENERATE] Evolution done — ${evolvedCount} variants produced`
+            `[GENERATE] Evolution done - ${evolvedCount} variants produced`
           )
 
           // ── Step 5: Meta-review ──────────────────────────────────────
@@ -601,7 +606,7 @@ Return every hypothesis with its original index number, a score, and a one-sente
           const [metaResult] = await runTasksWithConcurrency([metaTask], 1)
           if (metaResult?.status === "success" && metaResult.output) {
             console.log(
-              `[GENERATE] Meta-review done — ${metaResult.output.prompt_patches?.length ?? 0} patches suggested`
+              `[GENERATE] Meta-review done - ${metaResult.output.prompt_patches?.length ?? 0} patches suggested`
             )
           }
 
@@ -623,11 +628,11 @@ Return every hypothesis with its original index number, a score, and a one-sente
             ...downstreamClear
           }
           console.log(
-            `[GENERATE] Full hypothesis pipeline done — returning top ${hypotheses.length}`
+            `[GENERATE] Full hypothesis pipeline done - returning top ${hypotheses.length}`
           )
           sendProgress({
             step: "done",
-            message: `Hypothesis generation complete — ${hypotheses.length} top hypotheses`,
+            message: `Hypothesis generation complete - ${hypotheses.length} top hypotheses`,
             count: hypotheses.length
           })
           break
@@ -667,7 +672,7 @@ Return every hypothesis with its original index number, a score, and a one-sente
           )
           const papersBlock =
             selectedPapersForDesign.length > 0
-              ? `\nSelected papers (chosen by the researcher as most relevant):\n${selectedPapersForDesign.map((p, i) => `[${i + 1}] ${p.title}${p.summary ? ` — ${p.summary}` : ""}`).join("\n")}`
+              ? `\nSelected papers (chosen by the researcher as most relevant):\n${selectedPapersForDesign.map((p, i) => `[${i + 1}] ${p.title}${p.summary ? ` - ${p.summary}` : ""}`).join("\n")}`
               : ""
 
           // ── Schemas for each sub-phase ──────────────────────────────
@@ -721,13 +726,13 @@ Return every hypothesis with its original index number, a score, and a one-sente
               // a hypothesis"), pin it so the agent doesn't rewrite or
               // re-critique it.
               const userSuppliedNote = hyp.userSupplied
-                ? `\nNOTE: This hypothesis was provided directly by the researcher. Treat it as a fixed input — do NOT rewrite, soften, or re-scope it. Design the experiment around it exactly as written.`
+                ? `\nNOTE: This hypothesis was provided directly by the researcher. Treat it as a fixed input - do NOT rewrite, soften, or re-scope it. Design the experiment around it exactly as written.`
                 : ""
               const hypBlock =
                 `Hypothesis: ${hyp.text}\nExplanation: ${hyp.reasoning}` +
                 userSuppliedNote
               const problemBlock =
-                `Research problem: ${[ctx.title, ctx.problemStatement].filter(Boolean).join(" — ")}\nGoal: ${ctx.goal || "Not specified"}\nVariables: ${(ctx.variables ?? []).join(", ") || "Not specified"}\nConstraints: ${(ctx.constraints ?? []).join(", ") || "Not specified"}` +
+                `Research problem: ${[ctx.title, ctx.problemStatement].filter(Boolean).join(" - ")}\nGoal: ${ctx.goal || "Not specified"}\nVariables: ${(ctx.variables ?? []).join(", ") || "Not specified"}\nConstraints: ${(ctx.constraints ?? []).join(", ") || "Not specified"}` +
                 userPlanBlock
 
               // ── Phase 1: Experimental Setup ────────────────────────
@@ -747,17 +752,17 @@ Return every hypothesis with its original index number, a score, and a one-sente
                 messages: [
                   {
                     role: "system",
-                    content: `You are an expert experiment design scientist writing SOP-grade output. Every field is Markdown. Each section must use bolded lead-in labels and bullet / numbered lists — never walls of prose. Be specific: concentrations with units, temperatures in °C, volumes in mL/µL, durations in h/min, replicate counts, equipment grades.
+                    content: `You are an expert experiment design scientist writing SOP-grade output. Every field is Markdown. Each section must use bolded lead-in labels and bullet / numbered lists - never walls of prose. Be specific: concentrations with units, temperatures in °C, volumes in mL/µL, durations in h/min, replicate counts, equipment grades.
 
 Fields to produce:
 
-- **whatWillBeTested** — one short paragraph stating the concrete test objective, then a bulleted list of the 2–4 specific variables / factors being manipulated.
-- **whatWillBeMeasured** — bullet list. Each bullet: \`**Readout** — method — unit — expected range\`.
-- **controlGroups** — bullet list. Each bullet: \`**Control name** — composition / condition — what it isolates\`.
-- **experimentalGroups** — bullet list. Each bullet: \`**Group name** — condition — expected effect\`.
-- **sampleTypes** — bulleted. Describe sample matrix, concentration, container (material, volume, cap type), aliquot strategy.
-- **replicatesAndConditions** — bullet list. Give n per group (biological / technical), total vial count math, and any blocking / randomization scheme. Example line: \`n = 3 biological × 5 formulation × 2 temperatures = 30 vials\`.
-- **specificRequirements** — anything out-of-ordinary: BSL level, cold-chain, light-sensitive handling, certified reference standards, specific instrument calibration. Bullet list with bold hazard / requirement class.
+- **whatWillBeTested** - one short paragraph stating the concrete test objective, then a bulleted list of the 2–4 specific variables / factors being manipulated.
+- **whatWillBeMeasured** - bullet list. Each bullet: \`**Readout** - method - unit - expected range\`.
+- **controlGroups** - bullet list. Each bullet: \`**Control name** - composition / condition - what it isolates\`.
+- **experimentalGroups** - bullet list. Each bullet: \`**Group name** - condition - expected effect\`.
+- **sampleTypes** - bulleted. Describe sample matrix, concentration, container (material, volume, cap type), aliquot strategy.
+- **replicatesAndConditions** - bullet list. Give n per group (biological / technical), total vial count math, and any blocking / randomization scheme. Example line: \`n = 3 biological × 5 formulation × 2 temperatures = 30 vials\`.
+- **specificRequirements** - anything out-of-ordinary: BSL level, cold-chain, light-sensitive handling, certified reference standards, specific instrument calibration. Bullet list with bold hazard / requirement class.
 
 Do not output plain paragraphs. Every field uses bullets and/or bolded labels.`
                   },
@@ -793,18 +798,18 @@ Do not output plain paragraphs. Every field uses bullets and/or bolded labels.`
                 messages: [
                   {
                     role: "system",
-                    content: `You are a lab materials planner writing SOP-grade output. All five fields are Markdown. Be concrete: numbers, units, vendors, catalog numbers, grades — not prose.
+                    content: `You are a lab materials planner writing SOP-grade output. All five fields are Markdown. Be concrete: numbers, units, vendors, catalog numbers, grades - not prose.
 
-1. **toolsNeeded** — Markdown bullet list. Each bullet: **Tool** — model / spec — example vendor (e.g. *Thermo Fisher*) — quantity needed.
+1. **toolsNeeded** - Markdown bullet list. Each bullet: **Tool** - model / spec - example vendor (e.g. *Thermo Fisher*) - quantity needed.
 
-2. **materialsList** — Return a Markdown TABLE with columns:
+2. **materialsList** - Return a Markdown TABLE with columns:
    \`| Material | Grade / Spec | Example Vendor | Cat. # (example) | Amount per condition | Total needed | Calculation |\`
    Rules:
    - Compute **Total needed** for every row from the experimental plan's conditions × replicates × volume-per-replicate (plus a 10–15% dead-volume buffer). Show the math in the **Calculation** column (e.g. *30 vials × 1.0 mL × 1.15 = 34.5 mL*).
    - Include every buffer, excipient, consumable, and sample-handling item needed end-to-end.
    - After the table, add a bullet list **"Raw-material totals"** consolidating bulk-ordered items (e.g. *L-arginine·HCl powder: ~12 g covering all formulation prep + 2× overage*).
 
-3. **materialPreparation** — For EACH buffer, stock solution, or reagent that must be prepared, write a Markdown sub-section like:
+3. **materialPreparation** - For EACH buffer, stock solution, or reagent that must be prepared, write a Markdown sub-section like:
    \`### Buffer name (e.g. 20 mM Histidine, pH 6.0)\`
    - **Volume needed:** 250 mL (covers X mL × Y conditions × 1.2 dead-volume)
    - **Target concentration / pH:** 20 mM, pH 6.0 at 25 °C
@@ -820,11 +825,11 @@ Do not output plain paragraphs. Every field uses bullets and/or bolded labels.`
      5. Filter through 0.22 µm PES. Label with date + initials + lot. Store 2–8 °C, use within 14 days.
    Do one subsection per buffer/reagent. Be quantitative.
 
-4. **setupInstructions** — Numbered Markdown list describing workstation / equipment setup (balance calibration, pH-meter cal, biosafety cabinet setup, vial labeling scheme, temperature blocks). Each step has a bolded lead-in verb.
+4. **setupInstructions** - Numbered Markdown list describing workstation / equipment setup (balance calibration, pH-meter cal, biosafety cabinet setup, vial labeling scheme, temperature blocks). Each step has a bolded lead-in verb.
 
-5. **storageDisposal** — Markdown bullets. For each material class: storage condition, container type, disposal stream (e.g. *Aqueous biowaste — 10% bleach, 30-min soak, rinse down sink; log in biohazard register*). Use bold labels.
+5. **storageDisposal** - Markdown bullets. For each material class: storage condition, container type, disposal stream (e.g. *Aqueous biowaste - 10% bleach, 30-min soak, rinse down sink; log in biohazard register*). Use bold labels.
 
-Never use placeholder text like "TBD" — if a spec is reasonable to infer, infer it and mark the assumption.`
+Never use placeholder text like "TBD" - if a spec is reasonable to infer, infer it and mark the assumption.`
                   },
                   {
                     role: "user",
@@ -857,13 +862,13 @@ Never use placeholder text like "TBD" — if a spec is reasonable to infer, infe
                     role: "system",
                     content: `You are an experimental protocol writer producing SOP-grade Markdown. All three fields must be scannable and copy-exec ready.
 
-- **stepByStepProcedure** — A single numbered Markdown list. Each step begins with a **bold imperative verb** ("**Weigh**", "**Dissolve**", "**Filter**", "**Incubate**", "**Aliquot**") followed by concrete quantities + times + temperatures + equipment. Group steps under Markdown sub-headings like \`### Day 1 — Buffer prep\`, \`### Day 2 — Formulation\`, \`### Day 3–28 — Stress incubation\`, \`### Day 28 — Readouts\`. Use sub-steps (3a, 3b) for branching. Include a short **"Checkpoint"** bold callout after each major phase listing what the operator should verify before continuing (e.g. *Checkpoint: pH reads 6.00 ± 0.05 on calibrated meter; monomer content by SEC ≥ 99% pre-stress*).
+- **stepByStepProcedure** - A single numbered Markdown list. Each step begins with a **bold imperative verb** ("**Weigh**", "**Dissolve**", "**Filter**", "**Incubate**", "**Aliquot**") followed by concrete quantities + times + temperatures + equipment. Group steps under Markdown sub-headings like \`### Day 1 - Buffer prep\`, \`### Day 2 - Formulation\`, \`### Day 3–28 - Stress incubation\`, \`### Day 28 - Readouts\`. Use sub-steps (3a, 3b) for branching. Include a short **"Checkpoint"** bold callout after each major phase listing what the operator should verify before continuing (e.g. *Checkpoint: pH reads 6.00 ± 0.05 on calibrated meter; monomer content by SEC ≥ 99% pre-stress*).
 
-- **timeline** — Markdown table:
+- **timeline** - Markdown table:
   \`| Day | Activity | Duration | Notes |\`
   One row per scheduled day / phase. Notes column carries dependencies, decision points, and who performs the step.
 
-- **conditionsTable** — Markdown table describing every experimental arm. At minimum:
+- **conditionsTable** - Markdown table describing every experimental arm. At minimum:
   \`| Group | Condition / composition | Variable 1 | Variable 2 | T (°C) | Time | n | Read-outs |\`
   Include baseline and stressed controls explicitly as their own rows. All numbers must have units. Add a short paragraph above the table summarizing the factorial structure (e.g. "5 arginine levels × 2 temperatures × 3 biological replicates = 30 vials"). Do not return prose in place of a table.`
                   },
@@ -896,21 +901,21 @@ Never use placeholder text like "TBD" — if a spec is reasonable to infer, infe
                 messages: [
                   {
                     role: "system",
-                    content: `You are a data analysis and safety review specialist. Given a complete experimental plan, produce four SEPARATE sections as Markdown. Each section must start with a bolded lead-in sentence and use clear bullet lists — do not return walls of prose.
+                    content: `You are a data analysis and safety review specialist. Given a complete experimental plan, produce four SEPARATE sections as Markdown. Each section must start with a bolded lead-in sentence and use clear bullet lists - do not return walls of prose.
 
-1. **dataCollectionPlan** — capture mechanics ONLY. What measurements are recorded, when (timepoints), how (instrument / method / file format), by whom, and how they're stored. Do NOT talk about statistics here.
+1. **dataCollectionPlan** - capture mechanics ONLY. What measurements are recorded, when (timepoints), how (instrument / method / file format), by whom, and how they're stored. Do NOT talk about statistics here.
 
-2. **statisticalAnalysis** — the dedicated stats plan. Structure it with these labeled sub-bullets:
-   - **Primary endpoint & test** — name the specific test (e.g. two-way ANOVA with Tukey HSD; mixed-effects model; Mann–Whitney). Justify the choice vs the data type and replicate structure.
-   - **Sample size / power** — state assumed effect size and variance, target power (e.g. 0.8), alpha (usually 0.05), and the computed n per group. Show a short power calculation.
-   - **Secondary endpoints** — list and their tests.
-   - **Multiple comparisons** — correction method (Bonferroni / BH-FDR / Tukey).
-   - **Outlier / missing-data handling** — rule (e.g. Grubbs, ROUT, or pre-registered exclusion).
-   - **Software** — concrete tools / packages (GraphPad Prism, R + lme4, Python + scipy.stats / statsmodels).
+2. **statisticalAnalysis** - the dedicated stats plan. Structure it with these labeled sub-bullets:
+   - **Primary endpoint & test** - name the specific test (e.g. two-way ANOVA with Tukey HSD; mixed-effects model; Mann–Whitney). Justify the choice vs the data type and replicate structure.
+   - **Sample size / power** - state assumed effect size and variance, target power (e.g. 0.8), alpha (usually 0.05), and the computed n per group. Show a short power calculation.
+   - **Secondary endpoints** - list and their tests.
+   - **Multiple comparisons** - correction method (Bonferroni / BH-FDR / Tukey).
+   - **Outlier / missing-data handling** - rule (e.g. Grubbs, ROUT, or pre-registered exclusion).
+   - **Software** - concrete tools / packages (GraphPad Prism, R + lme4, Python + scipy.stats / statsmodels).
 
-3. **safetyNotes** — bulleted. Cover PPE, chemical hazards, biosafety level, waste stream, spill response. Start each bullet with a **bold hazard class** then the mitigation.
+3. **safetyNotes** - bulleted. Cover PPE, chemical hazards, biosafety level, waste stream, spill response. Start each bullet with a **bold hazard class** then the mitigation.
 
-4. **rationale** — 3–5 short paragraphs explaining why this design answers the hypothesis, what confounders it controls, and what the pass/fail decision criteria are.`
+4. **rationale** - 3–5 short paragraphs explaining why this design answers the hypothesis, what confounders it controls, and what the pass/fail decision criteria are.`
                   },
                   {
                     role: "user",
@@ -952,7 +957,7 @@ Never use placeholder text like "TBD" — if a spec is reasonable to infer, infe
                     heading: "Replicates & Conditions",
                     body: setup.replicatesAndConditions
                   },
-                  // Conditions Table moved up — it's the concrete factorial
+                  // Conditions Table moved up - it's the concrete factorial
                   // the rest of the SOP references.
                   {
                     heading: "Conditions Table",
@@ -1032,11 +1037,11 @@ Never use placeholder text like "TBD" — if a spec is reasonable to infer, infe
             ...downstreamClear
           }
           console.log(
-            `[GENERATE] Experiment Design done — ${designs.length} designs (${designs.length * 4} LLM calls)`
+            `[GENERATE] Experiment Design done - ${designs.length} designs (${designs.length * 4} LLM calls)`
           )
           sendProgress({
             step: "done",
-            message: `Design generation complete — ${designs.length} design${designs.length === 1 ? "" : "s"}`,
+            message: `Design generation complete - ${designs.length} design${designs.length === 1 ? "" : "s"}`,
             count: designs.length
           })
           break

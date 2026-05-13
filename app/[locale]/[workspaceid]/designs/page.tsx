@@ -6,12 +6,13 @@
  * Pulls every design in the workspace (from ChatbotUIContext, which is
  * already populated by the workspace layout) and renders them in a flat
  * list with project-name attribution. Replaces the earlier stub that
- * redirected to /projects — clicking "All Designs" in the sidebar
+ * redirected to /projects - clicking "All Designs" in the sidebar
  * shouldn't bounce the user back to project nav (#17 in the May ask).
  */
 import {
   IconFlask,
   IconFolder,
+  IconMessage,
   IconPlus,
   IconSearch
 } from "@tabler/icons-react"
@@ -24,26 +25,13 @@ import { Chip } from "@/components/ui/chip"
 import { DisplayHeading, Eyebrow } from "@/components/ui/typography"
 import { ChatbotUIContext } from "@/context/context"
 import { getProjectsByWorkspaceId } from "@/db/projects"
+import { getDesignProgress } from "@/lib/design-status"
+import { formatCreatedModified } from "@/lib/format-date"
 import { cn } from "@/lib/utils"
 
 interface ProjectLite {
   id: string
   name: string
-}
-
-function relativeTime(iso: string | null) {
-  if (!iso) return "—"
-  const then = new Date(iso).getTime()
-  const diff = Date.now() - then
-  const m = Math.floor(diff / 60000)
-  if (m < 1) return "just now"
-  if (m < 60) return `${m} min ago`
-  const h = Math.floor(m / 60)
-  if (h < 24) return `${h} hr ago`
-  const d = Math.floor(h / 24)
-  if (d < 7) return `${d} day${d > 1 ? "s" : ""} ago`
-  const w = Math.floor(d / 7)
-  return `${w} wk ago`
 }
 
 export default function DesignsPage() {
@@ -53,7 +41,7 @@ export default function DesignsPage() {
   const locale = params.locale as string
   const workspaceId = params.workspaceid as string
 
-  // Projects aren't carried in ChatbotUIContext — fetch on mount so
+  // Projects aren't carried in ChatbotUIContext - fetch on mount so
   // each design row can show its project_id resolved to a name.
   const [projects, setProjects] = useState<ProjectLite[]>([])
   const [search, setSearch] = useState("")
@@ -94,7 +82,7 @@ export default function DesignsPage() {
     const q = search.trim().toLowerCase()
     if (!q) return sortedDesigns
     // Resolve project names inline so the useMemo depends only on `projects`
-    // (the source of truth), not the `projectName` helper closure — which
+    // (the source of truth), not the `projectName` helper closure - which
     // ESLint can't trace through.
     const nameById = new Map(projects.map(p => [p.id, p.name]))
     return sortedDesigns.filter(d => {
@@ -126,9 +114,26 @@ export default function DesignsPage() {
               {projects.length} project{projects.length === 1 ? "" : "s"}
             </div>
           </div>
-          <Button variant="primary" size="lg" onClick={handleNewDesign}>
-            <IconPlus size={14} stroke={2.4} /> New design
-          </Button>
+          <div className="flex items-center gap-2">
+            {/* Issue #2 - "Start chat" jumps straight into a chat scoped
+                across all designs in the workspace. The chat page lets
+                the user narrow to one design from there, but the default
+                is the whole collection so they aren't forced to pick. */}
+            <Button
+              variant="secondary"
+              size="lg"
+              onClick={() =>
+                router.push(
+                  `/${locale}/${workspaceId}/chat?defaultScope=designs`
+                )
+              }
+            >
+              <IconMessage size={14} stroke={2.4} /> Start chat
+            </Button>
+            <Button variant="primary" size="lg" onClick={handleNewDesign}>
+              <IconPlus size={14} stroke={2.4} /> New design
+            </Button>
+          </div>
         </div>
 
         {/* Search */}
@@ -178,6 +183,8 @@ interface DesignsListProps {
     project_id?: string | null
     updated_at?: string | null
     created_at: string
+    /** Raw Firestore content blob - used to derive status. */
+    content?: string | Record<string, unknown> | null
   }>
   projectNameOf: (id: string | null | undefined) => string | null
   workspaceId: string
@@ -195,6 +202,7 @@ const DesignsList: FC<DesignsListProps> = ({
     <div className="flex flex-col gap-2.5">
       {items.map(d => {
         const pname = projectNameOf(d.project_id)
+        const progress = getDesignProgress(d)
         return (
           <button
             key={d.id}
@@ -208,13 +216,25 @@ const DesignsList: FC<DesignsListProps> = ({
           >
             <div className="min-w-0">
               <div className="mb-1 flex items-center gap-2">
-                <Chip variant="default" className="h-[18px] text-[10px]">
-                  Design
-                </Chip>
+                {/* "Design" chip removed (issue #5) - the list itself is
+                    already labelled "Designs". Project / status / stage
+                    chips give the user the information that actually
+                    differentiates rows. */}
                 {pname && (
                   <Chip variant="accent" className="h-[18px] text-[10px]">
                     <IconFolder size={10} className="mr-0.5" />
                     {pname}
+                  </Chip>
+                )}
+                <Chip
+                  variant={progress.isCompleted ? "default" : "accent"}
+                  className="h-[18px] text-[10px]"
+                >
+                  {progress.isCompleted ? "Completed" : "In progress"}
+                </Chip>
+                {!progress.isCompleted && progress.currentStageLabel && (
+                  <Chip variant="accent" className="h-[18px] text-[10px]">
+                    Stage: {progress.currentStageLabel}
                   </Chip>
                 )}
                 {d.updated_at &&
@@ -234,8 +254,8 @@ const DesignsList: FC<DesignsListProps> = ({
                 </div>
               )}
             </div>
-            <div className="text-ink-3 min-w-[90px] text-right font-mono text-[12px]">
-              {relativeTime(d.updated_at || d.created_at)}
+            <div className="text-ink-3 min-w-[140px] text-right font-mono text-[11.5px]">
+              {formatCreatedModified(d.created_at, d.updated_at)}
             </div>
             <div className="w-1" />
           </button>

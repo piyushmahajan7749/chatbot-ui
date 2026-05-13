@@ -32,6 +32,8 @@ import {
 import { DisplayHeading, Eyebrow } from "@/components/ui/typography"
 import { STAGES, type StageId } from "@/components/design-flow/stepper"
 import { ChatbotUIContext } from "@/context/context"
+import { getDesignProgress } from "@/lib/design-status"
+import { formatCreatedModified } from "@/lib/format-date"
 import { cn } from "@/lib/utils"
 
 function greeting(now = new Date()) {
@@ -47,21 +49,6 @@ function formatDay(d: Date) {
     day: "numeric",
     month: "short"
   })
-}
-
-function relativeTime(iso: string | null) {
-  if (!iso) return "—"
-  const then = new Date(iso).getTime()
-  const diff = Date.now() - then
-  const m = Math.floor(diff / 60000)
-  if (m < 1) return "just now"
-  if (m < 60) return `${m} min ago`
-  const h = Math.floor(m / 60)
-  if (h < 24) return `${h} hr ago`
-  const d = Math.floor(h / 24)
-  if (d < 7) return `${d} day${d > 1 ? "s" : ""} ago`
-  const w = Math.floor(d / 7)
-  return `${w} wk ago`
 }
 
 interface StatProps {
@@ -324,7 +311,7 @@ export default function WorkspacePage() {
           </form>
         </Card>
 
-        {/* Stats — clicking switches the list shown below */}
+        {/* Stats - clicking switches the list shown below */}
         <div className="mb-7 grid grid-cols-3 gap-3.5">
           <Stat
             label="Total designs"
@@ -404,6 +391,9 @@ interface DesignsListProps {
     created_at: string
     current_stage?: StageId | null
     approved_phases?: StageId[] | null
+    /** Raw Firestore JSON; we parse it for progress when the column-style
+        fields aren't present (the API only denormalises some rows). */
+    content?: string | Record<string, unknown> | null
   }>
   wsId?: string
   onNew: () => void
@@ -437,10 +427,14 @@ function DesignsList({ items, wsId, onNew, projectNameOf }: DesignsListProps) {
       <div className="flex flex-col gap-2.5">
         {items.map(d => {
           const pname = projectNameOf(d.project_id)
-          // Status derived from approved phases — Completed when all 5
-          // stages signed off; otherwise In progress (#14). PhaseBar
-          // beside the row still shows the visual breakdown.
-          const isCompleted = (d.approved_phases ?? []).length >= 5
+          // Status is derived from `content.approvedPhases` (the source of
+          // truth) when present, falling back to the denormalised column
+          // for older rows. Completed = user has approved-and-finalised
+          // the Design phase (issue #31 - the row was previously stuck
+          // on "In progress" forever).
+          const progress = getDesignProgress(d)
+          const isCompleted =
+            progress.isCompleted || (d.approved_phases ?? []).includes("design")
           return (
             <button
               key={d.id}
@@ -450,9 +444,9 @@ function DesignsList({ items, wsId, onNew, projectNameOf }: DesignsListProps) {
             >
               <div className="min-w-0">
                 <div className="mb-1 flex items-center gap-2">
-                  <Chip variant="default" className="h-[18px] text-[10px]">
-                    Design
-                  </Chip>
+                  {/* "Design" chip removed (issue #5) - the list itself
+                      tells the user these are designs; the chip was just
+                      visual noise. Project / status / stage chips remain. */}
                   {pname && (
                     <Chip variant="accent" className="h-[18px] text-[10px]">
                       {pname}
@@ -464,6 +458,11 @@ function DesignsList({ items, wsId, onNew, projectNameOf }: DesignsListProps) {
                   >
                     {isCompleted ? "Completed" : "In progress"}
                   </Chip>
+                  {!isCompleted && progress.currentStageLabel && (
+                    <Chip variant="accent" className="h-[18px] text-[10px]">
+                      Stage: {progress.currentStageLabel}
+                    </Chip>
+                  )}
                   {d.updated_at &&
                     new Date(d.updated_at).getTime() >
                       Date.now() - 1000 * 60 * 60 * 24 && (
@@ -485,8 +484,8 @@ function DesignsList({ items, wsId, onNew, projectNameOf }: DesignsListProps) {
                 currentStage={d.current_stage ?? null}
                 approvedPhases={d.approved_phases ?? null}
               />
-              <div className="text-ink-3 min-w-[90px] text-right font-mono text-[12px]">
-                {relativeTime(d.updated_at || d.created_at)}
+              <div className="text-ink-3 min-w-[140px] text-right font-mono text-[11.5px]">
+                {formatCreatedModified(d.created_at, d.updated_at)}
               </div>
             </button>
           )
@@ -499,7 +498,7 @@ function DesignsList({ items, wsId, onNew, projectNameOf }: DesignsListProps) {
 /**
  * Five-segment stage bar. Each segment carries a `title` tooltip naming its
  * phase + status. When `currentStage` / `approvedPhases` are unknown we
- * still render labels so hover explains the bar — phase 1 is shown as the
+ * still render labels so hover explains the bar - phase 1 is shown as the
  * placeholder active step.
  */
 function PhaseBar({
@@ -518,7 +517,7 @@ function PhaseBar({
         const isActive = i === curIdx && knownStatus
         const status = isDone ? "done" : isActive ? "active" : "pending"
         const title = `Phase ${i + 1} of 5 · ${stage.label}${
-          knownStatus ? ` (${status})` : " — status not loaded"
+          knownStatus ? ` (${status})` : " - status not loaded"
         }`
         return (
           <div
@@ -544,7 +543,7 @@ interface ReportsListProps {
     name?: string | null
     description?: string | null
     project_id?: string | null
-    /** Generated report body — when non-empty we mark the report Completed. */
+    /** Generated report body - when non-empty we mark the report Completed. */
     report_draft?: unknown
     updated_at?: string | null
     created_at: string
@@ -619,8 +618,8 @@ function ReportsList({ items, wsId, projectNameOf }: ReportsListProps) {
                   </div>
                 )}
               </div>
-              <div className="text-ink-3 min-w-[90px] text-right font-mono text-[12px]">
-                {relativeTime(r.updated_at || r.created_at)}
+              <div className="text-ink-3 min-w-[140px] text-right font-mono text-[11.5px]">
+                {formatCreatedModified(r.created_at, r.updated_at)}
               </div>
             </button>
           )
@@ -726,8 +725,8 @@ function ChatsList({
                   {c.name || "Untitled chat"}
                 </div>
               </div>
-              <div className="text-ink-3 min-w-[90px] text-right font-mono text-[12px]">
-                {relativeTime(c.updated_at || c.created_at)}
+              <div className="text-ink-3 min-w-[140px] text-right font-mono text-[11.5px]">
+                {formatCreatedModified(c.created_at, c.updated_at)}
               </div>
             </button>
           )
