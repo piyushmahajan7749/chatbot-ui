@@ -9,7 +9,7 @@ export default function HomePage() {
   return (
     <div className="bg-paper flex size-full flex-col items-center justify-center px-6">
       <div className="flex max-w-[720px] flex-col items-center gap-7">
-        <ShadowAISVG scale={2.5} />
+        <ShadowAISVG scale={1.1} />
         <div className="flex flex-col items-center gap-4">
           <h1 className="font-display text-ink text-balance text-center text-[36px] font-normal leading-[1.05] tracking-[-0.02em] sm:text-[44px] md:text-[56px]">
             <span className="text-rust">Shadow AI</span>, your AI co-scientist

@@ -6,17 +6,12 @@ import { ShadowAISVG } from "@/components/icons/chatbotui-svg"
 import { cn } from "@/lib/utils"
 
 interface BrandProps {
-  /** Retained for API compatibility; the editorial brand is theme-agnostic. */
   theme?: "dark" | "light"
   size?: number
   collapsed?: boolean
   className?: string
 }
 
-/**
- * Editorial brand lockup: half-moon monogram + "Shadow." wordmark in
- * Instrument Serif, with a rust period.
- */
 export const Brand: FC<BrandProps> = ({
   size = 22,
   collapsed = false,
@@ -24,10 +19,13 @@ export const Brand: FC<BrandProps> = ({
 }) => {
   return (
     <div className={cn("flex items-center gap-2.5", className)}>
-      <ShadowAISVG scale={size / 24} />
+      <ShadowAISVG scale={size / 64} />
       {!collapsed && (
-        <span className="font-display text-ink pt-0.5 text-[22px] leading-none tracking-[-0.01em]">
-          Shadow <span className="text-rust">AI</span>
+        <span className="pt-0.5 text-[22px] font-semibold leading-none tracking-[-0.02em] text-foreground">
+          <span className="text-primary">Shadow</span>{" "}
+          <span className="bg-[linear-gradient(90deg,#3AA8FF_0%,#C98BFF_100%)] bg-clip-text text-transparent">
+            AI
+          </span>
         </span>
       )}
     </div>

@@ -3,50 +3,50 @@
 @tailwind utilities;
 
 /* ============================================================
-   Shadow AI — Scientific-editorial design tokens
-   Palette: warm paper neutrals + rust accent
+   Shadow AI — Neon biotech design tokens
+   Palette: deep indigo + cyan/blue glow + violet accent
    Type: Inter Tight (UI) · Instrument Serif (display) · JetBrains Mono
    ============================================================ */
 
 @layer base {
   :root {
-    /* ----- Editorial raw tokens (direct use) ----- */
-    --paper: #faf8f5;
-    --paper-2: #f3efe9;
-    --paper-3: #e9e3db;
-    --line: #e3ddd3;
-    --line-strong: #cfc6b8;
-    --ink: #1a1714;
-    --ink-2: #3d3732;
-    --ink-3: #6b635a;
-    --ink-4: #938a7e;
+    /* ----- Brand raw tokens (direct use) ----- */
+    --paper: #f3f7ff;
+    --paper-2: #dce5ff;
+    --paper-3: #c0cdf8;
+    --line: #c7d4ff;
+    --line-strong: #96a8e8;
+    --ink: #08122f;
+    --ink-2: #19305d;
+    --ink-3: #546898;
+    --ink-4: #7c86b6;
     --surface: #ffffff;
 
-    --rust: #b25139;
-    --rust-hover: #9f4530;
-    --rust-soft: #f6e8e1;
-    --rust-ink: #5c2b1c;
+    --rust: #12e3f0;
+    --rust-hover: #09c9dc;
+    --rust-soft: #dffcff;
+    --rust-ink: #063744;
 
-    /* Phase tints — used sparingly, only on stage identity */
-    --p-overview: #7a8471;
-    --p-problem: #2f6b6b;
-    --p-lit: #b25139;
-    --p-hyp: #6b5ba8;
-    --p-design: #8b6f2b;
+    /* Phase tints — tuned to the logo palette */
+    --p-overview: #3aa8ff;
+    --p-problem: #12e3f0;
+    --p-lit: #5c7dff;
+    --p-hyp: #c98bff;
+    --p-design: #7b5dff;
 
-    --success: #3f7a4e;
-    --warn: #b8831f;
-    --danger: #a1422e;
-    --info: #2f6b6b;
+    --success: #22c55e;
+    --warn: #f59e0b;
+    --danger: #ef4444;
+    --info: #3aa8ff;
 
     /* Shadows */
-    --shadow-sm: 0 1px 2px rgba(26, 23, 20, 0.04),
-      0 1px 3px rgba(26, 23, 20, 0.03);
-    --shadow-md: 0 2px 4px rgba(26, 23, 20, 0.04),
-      0 8px 24px rgba(26, 23, 20, 0.06);
-    --shadow-lg: 0 8px 16px rgba(26, 23, 20, 0.06),
-      0 24px 56px rgba(26, 23, 20, 0.1);
-    --shadow-drawer: -24px 0 56px rgba(26, 23, 20, 0.12);
+    --shadow-sm: 0 1px 2px rgba(11, 2, 64, 0.10),
+      0 1px 3px rgba(11, 2, 64, 0.08);
+    --shadow-md: 0 6px 18px rgba(11, 2, 64, 0.12),
+      0 10px 28px rgba(17, 14, 83, 0.10);
+    --shadow-lg: 0 14px 36px rgba(11, 2, 64, 0.16),
+      0 24px 56px rgba(17, 14, 83, 0.16);
+    --shadow-drawer: -24px 0 56px rgba(11, 2, 64, 0.18);
 
     /* Radii */
     --r-sm: 6px;
@@ -64,136 +64,134 @@
     --f-display: var(--font-instrument-serif), Georgia, serif;
     --f-mono: var(--font-jetbrains-mono), ui-monospace, "SF Mono", monospace;
 
-    /* ----- shadcn HSL tokens (remapped to editorial palette) ----- */
+    /* ----- shadcn HSL tokens remapped to the logo palette ----- */
     /* Values are "H S% L%" triplets, consumed via hsl(var(--xxx)) */
-    --background: 36 33% 97%; /* paper */
-    --foreground: 25 12% 9%; /* ink */
+    --background: 225 100% 98%;
+    --foreground: 223 71% 11%;
 
-    --surface-hsl: 0 0% 100%; /* surface */
-    --paper-hsl: 36 33% 97%;
-    --paper-2-hsl: 34 29% 93%;
-    --paper-3-hsl: 33 25% 89%;
-    --line-hsl: 35 27% 86%;
-    --line-strong-hsl: 37 20% 77%;
-    --ink-hsl: 25 12% 9%;
-    --ink-2-hsl: 27 9% 22%;
-    --ink-3-hsl: 30 9% 39%;
-    --ink-4-hsl: 29 10% 54%;
-    --rust-hsl: 13 53% 46%;
-    --rust-soft-hsl: 20 57% 93%;
-    --rust-ink-hsl: 15 53% 24%;
+    --surface-hsl: 0 0% 100%;
+    --paper-hsl: 225 100% 98%;
+    --paper-2-hsl: 222 100% 93%;
+    --paper-3-hsl: 226 78% 87%;
+    --line-hsl: 223 100% 89%;
+    --line-strong-hsl: 227 64% 75%;
+    --ink-hsl: 223 71% 11%;
+    --ink-2-hsl: 220 58% 23%;
+    --ink-3-hsl: 224 29% 46%;
+    --ink-4-hsl: 231 29% 60%;
+    --rust-hsl: 184 89% 51%;
+    --rust-soft-hsl: 185 100% 94%;
+    --rust-ink-hsl: 193 84% 15%;
 
-    --muted: 34 29% 93%; /* paper-2 */
-    --muted-foreground: 30 9% 39%; /* ink-3 */
+    --muted: 222 100% 93%;
+    --muted-foreground: 224 29% 46%;
 
-    --popover: 0 0% 100%; /* surface */
-    --popover-foreground: 25 12% 9%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 223 71% 11%;
 
-    --card: 0 0% 100%; /* surface */
-    --card-foreground: 25 12% 9%;
+    --card: 0 0% 100%;
+    --card-foreground: 223 71% 11%;
 
-    --border: 35 27% 86%; /* line */
-    --input: 35 27% 86%;
+    --border: 223 100% 89%;
+    --input: 223 100% 89%;
 
-    /* Primary (neutral ink on paper) — used by default shadcn buttons */
-    --primary: 25 12% 9%;
-    --primary-foreground: 36 33% 97%;
+    /* Primary follows the bright cyan logo highlight */
+    --primary: 184 89% 51%;
+    --primary-foreground: 223 71% 11%;
 
-    /* Secondary (muted paper bg) */
-    --secondary: 34 29% 93%;
-    --secondary-foreground: 25 12% 9%;
+    /* Secondary uses the electric blue from the wordmark */
+    --secondary: 207 100% 61%;
+    --secondary-foreground: 0 0% 100%;
 
-    /* shadcn "accent" is a subtle hover surface, NOT the brand rust.
-       Use --rust / bg-rust utilities for brand accent. */
-    --accent: 34 29% 93%;
-    --accent-foreground: 25 12% 9%;
+    /* Accent uses the violet highlight from the helix */
+    --accent: 275 100% 77%;
+    --accent-foreground: 223 71% 11%;
 
-    --destructive: 12 56% 40%;
-    --destructive-foreground: 36 33% 97%;
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
 
-    --ring: 13 53% 46%; /* rust focus ring */
+    --ring: 184 89% 51%;
 
     --radius: 0.625rem; /* 10px — editorial r-md */
   }
 
   .dark {
-    /* Dark mode: warm near-black paper + warm ink-on-dark text.
-       Rust accent is kept but softened. */
-    --paper: #17140f;
-    --paper-2: #1f1b16;
-    --paper-3: #2a251f;
-    --line: #33302a;
-    --line-strong: #4a4540;
-    --ink: #f3efe9;
-    --ink-2: #cfc6b8;
-    --ink-3: #938a7e;
-    --ink-4: #6b635a;
-    --surface: #1a1714;
+    /* Dark mode is the primary brand surface for this logo. */
+    --paper: #0b0240;
+    --paper-2: #120a52;
+    --paper-3: #1b1468;
+    --line: #24306b;
+    --line-strong: #3a4f99;
+    --ink: #f3f7ff;
+    --ink-2: #dce5ff;
+    --ink-3: #aebcf3;
+    --ink-4: #7c86b6;
+    --surface: #120a52;
 
-    --rust: #c5694f;
-    --rust-hover: #d37d64;
-    --rust-soft: #3a1c13;
-    --rust-ink: #f6e8e1;
+    --rust: #12e3f0;
+    --rust-hover: #5deef6;
+    --rust-soft: #112a58;
+    --rust-ink: #dffcff;
 
-    /* Phase tints — brightened for legibility on dark ink. */
-    --p-overview: #9cab93;
-    --p-problem: #4fa0a0;
-    --p-lit: #c5694f;
-    --p-hyp: #9285c6;
-    --p-design: #c09a4f;
+    /* Phase tints — bright neon variants for dark UI. */
+    --p-overview: #3aa8ff;
+    --p-problem: #12e3f0;
+    --p-lit: #6d7cff;
+    --p-hyp: #c98bff;
+    --p-design: #8c63ff;
 
-    --success: #5fa06d;
-    --warn: #d6a333;
-    --danger: #c05a44;
-    --info: #4fa0a0;
+    --success: #4ade80;
+    --warn: #fbbf24;
+    --danger: #f87171;
+    --info: #38bdf8;
 
-    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4), 0 1px 3px rgba(0, 0, 0, 0.3);
-    --shadow-md: 0 2px 4px rgba(0, 0, 0, 0.4), 0 8px 24px rgba(0, 0, 0, 0.5);
-    --shadow-lg: 0 8px 16px rgba(0, 0, 0, 0.5), 0 24px 56px rgba(0, 0, 0, 0.6);
-    --shadow-drawer: -24px 0 56px rgba(0, 0, 0, 0.5);
+    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.45), 0 1px 3px rgba(0, 0, 0, 0.3);
+    --shadow-md: 0 10px 28px rgba(0, 0, 0, 0.36), 0 14px 36px rgba(11, 2, 64, 0.32);
+    --shadow-lg: 0 18px 48px rgba(0, 0, 0, 0.42), 0 24px 64px rgba(11, 2, 64, 0.36);
+    --shadow-drawer: -24px 0 56px rgba(0, 0, 0, 0.45);
 
-    --background: 30 21% 8%;
-    --foreground: 34 29% 93%;
+    --background: 248 88% 13%;
+    --foreground: 225 100% 98%;
 
-    --surface-hsl: 25 12% 9%;
-    --paper-hsl: 30 21% 8%;
-    --paper-2-hsl: 30 17% 11%;
-    --paper-3-hsl: 29 15% 15%;
-    --line-hsl: 30 9% 18%;
-    --line-strong-hsl: 28 7% 27%;
-    --ink-hsl: 34 29% 93%;
-    --ink-2-hsl: 37 20% 77%;
-    --ink-3-hsl: 29 10% 54%;
-    --ink-4-hsl: 30 9% 39%;
-    --rust-hsl: 13 50% 54%;
-    --rust-soft-hsl: 15 53% 16%;
-    --rust-ink-hsl: 20 57% 93%;
+    --surface-hsl: 248 78% 18%;
+    --paper-hsl: 248 88% 13%;
+    --paper-2-hsl: 248 78% 18%;
+    --paper-3-hsl: 246 68% 24%;
+    --line-hsl: 228 48% 28%;
+    --line-strong-hsl: 227 45% 41%;
+    --ink-hsl: 225 100% 98%;
+    --ink-2-hsl: 222 100% 93%;
+    --ink-3-hsl: 225 71% 81%;
+    --ink-4-hsl: 231 29% 60%;
+    --rust-hsl: 184 89% 51%;
+    --rust-soft-hsl: 221 67% 21%;
+    --rust-ink-hsl: 185 100% 94%;
 
-    --muted: 30 17% 11%;
-    --muted-foreground: 29 10% 54%;
+    --muted: 248 58% 20%;
+    --muted-foreground: 225 40% 74%;
 
-    --popover: 25 12% 9%;
-    --popover-foreground: 34 29% 93%;
+    --popover: 248 78% 18%;
+    --popover-foreground: 225 100% 98%;
 
-    --card: 25 12% 9%;
-    --card-foreground: 34 29% 93%;
+    --card: 248 78% 18%;
+    --card-foreground: 225 100% 98%;
 
-    --border: 30 9% 18%;
-    --input: 30 9% 18%;
+    --border: 228 48% 28%;
+    --input: 228 48% 28%;
 
-    --primary: 34 29% 93%;
-    --primary-foreground: 25 12% 9%;
+    --primary: 184 89% 51%;
+    --primary-foreground: 223 71% 11%;
 
-    --secondary: 30 17% 11%;
-    --secondary-foreground: 34 29% 93%;
+    --secondary: 207 100% 61%;
+    --secondary-foreground: 0 0% 100%;
 
-    --accent: 30 17% 11%;
-    --accent-foreground: 34 29% 93%;
+    --accent: 275 100% 77%;
+    --accent-foreground: 223 71% 11%;
 
-    --destructive: 12 56% 50%;
-    --destructive-foreground: 34 29% 93%;
+    --destructive: 0 84% 65%;
+    --destructive-foreground: 0 0% 100%;
 
-    --ring: 13 50% 54%;
+    --ring: 184 89% 51%;
   }
 }
 
@@ -216,7 +214,7 @@
 
   ::selection {
     background: var(--rust);
-    color: var(--paper);
+    color: var(--ink);
   }
 
   :focus-visible {

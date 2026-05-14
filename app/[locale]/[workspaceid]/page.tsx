@@ -197,7 +197,7 @@ export default function WorkspacePage() {
         {/* Quick start */}
         <Card className="mb-7 grid grid-cols-[auto_1fr_auto] items-center gap-[18px] p-5">
           <div className="bg-ink flex size-11 items-center justify-center rounded-xl">
-            <ShadowAISVG scale={22 / 24} />
+            <ShadowAISVG scale={22 / 64} />
           </div>
           <div>
             <div className="text-ink mb-0.5 text-[14px] font-semibold">

@@ -45,7 +45,7 @@ export function AgentRunningCard({
     >
       <div className="mb-3.5 flex items-center gap-3">
         <div className="bg-ink relative flex size-9 items-center justify-center rounded-md">
-          <ShadowAISVG scale={18 / 24} />
+          <ShadowAISVG scale={18 / 64} />
           <span
             className="border-rust absolute -inset-[3px] animate-spin rounded-md border-[1.5px]"
             style={{

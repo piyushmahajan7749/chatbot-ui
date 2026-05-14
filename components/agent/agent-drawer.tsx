@@ -72,7 +72,7 @@ export function AgentDrawer({
         <div className="border-line flex flex-col gap-2 border-b p-4 pb-3">
           <div className="flex items-center gap-2.5">
             <div className="bg-ink flex size-7 items-center justify-center rounded-md">
-              <ShadowAISVG scale={16 / 24} />
+              <ShadowAISVG scale={16 / 64} />
             </div>
             <div className="min-w-0 flex-1">
               <div className="text-ink text-[13px] font-semibold">

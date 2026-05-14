@@ -76,7 +76,7 @@ export const metadata: Metadata = {
 }
 
 export const viewport: Viewport = {
-  themeColor: "#000000"
+  themeColor: "#0b0240"
 }
 
 const i18nNamespaces = ["translation"]
@@ -116,7 +116,7 @@ export default async function RootLayout({
       className={`${interTight.variable} ${instrumentSerif.variable} ${jetbrainsMono.variable}`}
     >
       <body className="font-sans">
-        <Providers attribute="class" defaultTheme="light">
+        <Providers attribute="class" defaultTheme="dark">
           <TranslationsProvider
             namespaces={i18nNamespaces}
             locale={locale}
