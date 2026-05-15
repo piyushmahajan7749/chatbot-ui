@@ -19,6 +19,32 @@ interface ReportSectionProps {
   afterContent?: ReactNode
 }
 
+/**
+ * Strip a duplicate leading heading off generated section content.
+ *
+ * The LLM frequently emits `# Aim\n\n…` (or `## Aim`) at the top of
+ * each section, and the section card already renders the title in its
+ * `CardHeader`. Without this fix the user sees "Aim" twice - the chip
+ * the scientist flagged. We only strip when the leading heading text
+ * matches the surrounding title (case-insensitive, ignoring trailing
+ * punctuation), so legitimate sub-headings inside a section are kept.
+ */
+function stripDuplicateHeading(content: string, title: string): string {
+  if (!content) return content
+  // Skip leading whitespace/blank lines before the heading.
+  const match = content.match(/^\s*(#{1,3})\s+([^\n]+)\n+/)
+  if (!match) return content
+  const heading = match[2]
+    .trim()
+    .replace(/[.:]+$/, "")
+    .toLowerCase()
+  const normalisedTitle = title.trim().toLowerCase()
+  if (heading === normalisedTitle) {
+    return content.slice(match[0].length).replace(/^\s+/, "")
+  }
+  return content
+}
+
 export const ReportSection: FC<ReportSectionProps> = ({
   sectionKey,
   title,
@@ -32,6 +58,11 @@ export const ReportSection: FC<ReportSectionProps> = ({
   const [mode, setMode] = useState<"view" | "edit" | "ai">("view")
   const [draftText, setDraftText] = useState(content)
   const [feedback, setFeedback] = useState("")
+
+  // Content rendered in view mode has any duplicate leading heading
+  // stripped. Edit mode keeps the raw text so the user can still see /
+  // re-instate it if they want.
+  const displayContent = stripDuplicateHeading(content, title)
 
   useEffect(() => {
     if (mode !== "edit") setDraftText(content)
@@ -100,9 +131,11 @@ export const ReportSection: FC<ReportSectionProps> = ({
             rows={Math.max(6, Math.min(24, draftText.split("\n").length + 1))}
             className="font-mono text-sm"
           />
-        ) : content ? (
+        ) : displayContent ? (
           <div className="prose prose-sm text-ink-800 max-w-none leading-relaxed">
-            <ReactMarkdown remarkPlugins={[remarkGfm]}>{content}</ReactMarkdown>
+            <ReactMarkdown remarkPlugins={[remarkGfm]}>
+              {displayContent}
+            </ReactMarkdown>
           </div>
         ) : (
           <p className="text-ink-400 text-sm italic">

@@ -346,19 +346,16 @@ export const ChatUI: FC<ChatUIProps> = ({ variant = "full", chatId }) => {
 }
 
 /**
- * Back arrow in the chat header. Routes context-aware:
- *   • project-scoped chat → that project's canvas
- *   • design-scoped chat  → that design page
- *   • report-scoped chat  → that report page
- *   • workspace chat      → /projects (the "all projects" view, since
- *                            that's where users typically launched
- *                            "chat with all projects")
- * Falls back to history.back() if scope info is unavailable.
+ * Back arrow in the chat header. The scientist's mental model is "I
+ * was on the chats list, I opened a chat, now I want to go back to
+ * the chats list" - so the back button always returns to
+ * `/[ws]/chat-history` regardless of scope (#24, #31). Previously it
+ * routed to /projects or to the scoped parent (design / report /
+ * project canvas), which is what was bouncing the user off-trail.
  */
 const ChatBackNav: FC = () => {
   const router = useRouter()
   const params = useParams() as { locale?: string; workspaceid?: string }
-  const { selectedChat } = useContext(ChatbotUIContext)
 
   const handleBack = () => {
     const ws = params.workspaceid
@@ -367,22 +364,7 @@ const ChatBackNav: FC = () => {
       router.back()
       return
     }
-    const firstScopeId = (selectedChat?.scope_id ?? "")
-      .split(",")
-      .map(s => s.trim())
-      .filter(Boolean)[0]
-
-    if (selectedChat?.scope === "project" && firstScopeId) {
-      router.push(`/${locale}/${ws}/projects/${firstScopeId}`)
-    } else if (selectedChat?.scope === "design" && firstScopeId) {
-      router.push(`/${locale}/${ws}/designs/${firstScopeId}`)
-    } else if (selectedChat?.scope === "report" && firstScopeId) {
-      router.push(`/${locale}/${ws}/reports/${firstScopeId}`)
-    } else {
-      // Workspace / NULL scope → "all projects" (the natural parent for
-      // a workspace-wide chat, per the user's mental model).
-      router.push(`/${locale}/${ws}/projects`)
-    }
+    router.push(`/${locale}/${ws}/chat-history`)
   }
 
   return (

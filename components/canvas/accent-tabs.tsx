@@ -87,23 +87,30 @@ export function AccentTabs({
         const status = tab.status
         const isPrimary = tab.primary === true
 
+        // Issue #8 - the new-report page had the Overview tab visibly
+        // narrower than Inputs/Report because `primary` got `flex-[1.5]`
+        // and the others `flex-[0.8]`, while the heights were 56 vs 50.
+        // Now every tab takes flex-1 (equal share) and the same height,
+        // so a 3-tab row reads as three balanced cells. Primary keeps
+        // its left-anchored sublabel and the bottom accent stripe.
         const baseBtnClasses = cn(
-          "user-select-none relative flex items-center rounded-lg border-2 transition-all duration-200",
+          "user-select-none relative flex h-[56px] min-w-0 flex-1 items-center rounded-lg border-2 px-3 py-2 transition-all duration-200",
           isPrimary
-            ? "h-[56px] min-w-0 flex-[1.5] justify-start gap-2 border-b-[5px] px-4 py-2"
-            : "h-[50px] min-w-0 flex-[0.8] justify-center gap-2 px-3 py-2",
+            ? "justify-start gap-2 border-b-[5px]"
+            : "justify-center gap-2",
           isDisabled
             ? "bg-paper-3 text-ink-4 cursor-not-allowed border-transparent opacity-60"
             : isActive
               ? cn(
                   c.active,
-                  isPrimary
-                    ? "-translate-y-0.5 scale-[1.04] shadow-lg"
-                    : "z-[2] -translate-y-0.5"
+                  // Subtle lift, no scale - scaling made the primary tab
+                  // wider than its inactive neighbours and broke the
+                  // 3-cell alignment the scientist flagged.
+                  "z-[2] -translate-y-0.5 shadow-md"
                 )
               : cn(
                   c.inactive,
-                  "border-black/10 hover:-translate-y-0.5 hover:scale-[1.03]",
+                  "border-black/10 hover:-translate-y-0.5",
                   isPrimary && "border-b-[5px] border-b-black/20"
                 )
         )

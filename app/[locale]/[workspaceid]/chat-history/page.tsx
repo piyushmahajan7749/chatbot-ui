@@ -12,11 +12,13 @@ import {
   StartChatModal,
   type StartChatSelection
 } from "@/components/chat/start-chat-modal"
-import { createChatFiles } from "@/db/chat-files"
+import { createChatFiles, getChatFilesByChatId } from "@/db/chat-files"
 import { createChat, getChatsByWorkspaceId } from "@/db/chats"
+import { getFirstUserMessagePreviewsByChatIds } from "@/db/messages"
 import { getReportsByWorkspaceId } from "@/db/reports-firestore"
 import { getFileWorkspacesByWorkspaceId } from "@/db/files"
 import { supabase } from "@/lib/supabase/browser-client"
+import { formatShortDateEU } from "@/lib/format-date"
 import type { Tables } from "@/supabase/types"
 import {
   IconFile,
@@ -67,6 +69,18 @@ export default function ChatHistoryPage() {
   const [startModalOpen, setStartModalOpen] = useState(false)
   const [search, setSearch] = useState("")
   const [creating, setCreating] = useState(false)
+  // chatId → first user message ("the question asked") - rendered as
+  // the slab subtitle so the row shows what the user actually asked
+  // instead of just the auto-generated short title (#26).
+  const [questionByChat, setQuestionByChat] = useState<Record<string, string>>(
+    {}
+  )
+  // chatId → file count for chat_files-scoped chats. Powers the
+  // "Files · N" pill in the slab without making an extra request per
+  // chat at render time (#27).
+  const [fileCountByChat, setFileCountByChat] = useState<
+    Record<string, number>
+  >({})
 
   useEffect(() => {
     let cancelled = false
@@ -84,7 +98,34 @@ export default function ChatHistoryPage() {
       .then(([chatRes, reportRes, fileRes]) => {
         if (cancelled) return
         if (chatRes.status === "fulfilled") {
-          setChats(chatRes.value as Tables<"chats">[])
+          const rows = chatRes.value as Tables<"chats">[]
+          setChats(rows)
+          // Fan out two follow-up queries: first user message per chat
+          // (subtitle) + chat_files counts (Files · N pill). Both are
+          // best-effort so a failure just falls back to no preview.
+          const ids = rows.map(c => c.id)
+          void getFirstUserMessagePreviewsByChatIds(ids)
+            .then(map => {
+              if (!cancelled) setQuestionByChat(map)
+            })
+            .catch(err =>
+              console.warn("[chat-history] question previews failed:", err)
+            )
+          void Promise.all(
+            ids.map(async id => {
+              try {
+                const res = await getChatFilesByChatId(id)
+                return [id, res.files?.length ?? 0] as const
+              } catch {
+                return [id, 0] as const
+              }
+            })
+          ).then(pairs => {
+            if (cancelled) return
+            const map: Record<string, number> = {}
+            for (const [id, n] of pairs) if (n > 0) map[id] = n
+            setFileCountByChat(map)
+          })
         } else {
           console.error("Failed to load chats:", chatRes.reason)
         }
@@ -134,17 +175,25 @@ export default function ChatHistoryPage() {
     )
   }, [files, search])
 
-  const getTimeAgo = (date: string | null): string => {
-    if (!date) return ""
-    const diff = Date.now() - new Date(date).getTime()
-    const minutes = Math.floor(diff / 60000)
-    if (minutes < 1) return "Just now"
-    if (minutes < 60) return `${minutes}m ago`
-    const hours = Math.floor(minutes / 60)
-    if (hours < 24) return `${hours}h ago`
-    const days = Math.floor(hours / 24)
-    if (days < 30) return `${days}d ago`
-    return new Date(date).toLocaleDateString()
+  // Slabs now show explicit dd/mm/yy (the scientist's ask in #25). Keep
+  // the helper local so we can swap to dd-mm-yy or relative without
+  // hunting through the page later.
+  const shortDate = (date: string | null): string =>
+    date ? formatShortDateEU(date) : "-"
+
+  /**
+   * Compress the chat name into a 1-3 word "auto-title". Chats created
+   * by the scope picker already carry a labelled name (e.g. "Workspace
+   * · Foo") - we keep those as-is. Free-form chats use
+   * `messageContent.substring(0,100)` as the name, so we trim to the
+   * first 3 words for the title and let the subtitle carry the full
+   * question.
+   */
+  const shortChatTitle = (name: string): string => {
+    if (!name) return "Untitled"
+    if (name.includes("·")) return name // labelled chat
+    const words = name.trim().split(/\s+/)
+    return words.slice(0, 3).join(" ") + (words.length > 3 ? "…" : "")
   }
 
   const handleStartNew = () => {
@@ -320,7 +369,7 @@ export default function ChatHistoryPage() {
                   { label: "report", filled: true, accent: "orange-product" }
                 ]}
                 timestampLabel="Updated"
-                timestamp={getTimeAgo(r.updated_at || r.created_at)}
+                timestamp={shortDate(r.updated_at || r.created_at)}
                 onClick={() =>
                   router.push(`/${locale}/${workspaceId}/reports/${r.id}`)
                 }
@@ -349,7 +398,7 @@ export default function ChatHistoryPage() {
                   { label: f.type ?? "file", filled: true, accent: "neutral" }
                 ]}
                 timestampLabel="Updated"
-                timestamp={getTimeAgo(f.updated_at || f.created_at)}
+                timestamp={shortDate(f.updated_at || f.created_at)}
                 onClick={() => undefined}
               />
             ))}
@@ -379,14 +428,37 @@ export default function ChatHistoryPage() {
           {filtered.map(chat => {
             const scopeLabel = chat.scope ?? "workspace"
             const accent = SCOPE_ACCENT[scopeLabel] ?? "neutral"
+            const fileCount = fileCountByChat[chat.id]
+            const question = questionByChat[chat.id] ?? ""
+            // Scope tag is only meaningful on the "All" tab - when the
+            // user is already filtered to e.g. "Project" chats, the
+            // per-row scope chip is redundant noise. Hide it then (#23).
+            const showScopeChip = filter === "all"
+            const chips = showScopeChip
+              ? fileCount
+                ? [
+                    {
+                      label: `files · ${fileCount}`,
+                      filled: true,
+                      accent: "neutral" as const
+                    }
+                  ]
+                : [{ label: scopeLabel, filled: true, accent }]
+              : []
+            const badges = showScopeChip
+              ? fileCount
+                ? [`files · ${fileCount}`]
+                : [scopeLabel]
+              : []
             return (
               <EntityCard
                 key={chat.id}
-                title={chat.name || "Untitled thread"}
-                badges={[scopeLabel]}
-                chips={[{ label: scopeLabel, filled: true, accent }]}
-                timestampLabel="Updated"
-                timestamp={getTimeAgo(chat.updated_at || chat.created_at)}
+                title={shortChatTitle(chat.name)}
+                description={question || undefined}
+                badges={badges}
+                chips={chips}
+                timestampLabel=""
+                timestamp={shortDate(chat.updated_at || chat.created_at)}
                 onClick={() =>
                   router.push(`/${locale}/${workspaceId}/chat/${chat.id}`)
                 }

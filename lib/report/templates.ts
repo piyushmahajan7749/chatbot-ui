@@ -9,6 +9,12 @@ export type ReportTemplate = {
   id: string
   name: string
   description: string
+  /**
+   * Short use-case caption shown below the section/visualization summary
+   * on the template card. Scientist-facing: "use this when…". Kept to
+   * 3-5 words by convention.
+   */
+  useCase: string
   sections: ReportSectionDef[]
   includeChart: boolean
 }
@@ -104,6 +110,7 @@ export const REPORT_TEMPLATES: ReportTemplate[] = [
     name: "Scientific Report",
     description:
       "Full lab-style report with Theory, Method, and Data Analysis sections.",
+    useCase: "Documentation / record keeping",
     sections: fullSections,
     includeChart: true
   },
@@ -111,6 +118,7 @@ export const REPORT_TEMPLATES: ReportTemplate[] = [
     id: "data-analysis",
     name: "Data Analysis Report",
     description: "Focused on results, charts, discussion, and next steps.",
+    useCase: "Sharing findings with PI",
     sections: [
       {
         key: "aim",
@@ -155,6 +163,7 @@ export const REPORT_TEMPLATES: ReportTemplate[] = [
     id: "executive-summary",
     name: "Executive Summary",
     description: "A short overview with aim, key results, and conclusion.",
+    useCase: "Group meeting / presentation update",
     sections: [
       {
         key: "aim",

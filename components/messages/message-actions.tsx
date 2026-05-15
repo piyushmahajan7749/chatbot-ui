@@ -56,8 +56,14 @@ export const MessageActions: FC<MessageActionsProps> = ({
     }
   }, [showCheckmark])
 
+  // `gap-2` (vs the older `space-x-2`) plays nicer with `shrink-0`
+  // on each icon so the row keeps a stable height even when the
+  // message above wraps onto multiple lines (#29 - copy/regenerate
+  // icons were drifting). Adding `min-h-[24px]` reserves the line so
+  // messages with no actions still leave space, preventing the layout
+  // jump the scientist flagged.
   return (isLast && isGenerating) || isEditing ? null : (
-    <div className="text-muted-foreground flex items-center space-x-2">
+    <div className="text-muted-foreground flex min-h-[24px] items-center gap-2">
       {/* {((isAssistant && isHovering) || isLast) && (
         <WithTooltip
           delayDuration={1000}
@@ -65,7 +71,7 @@ export const MessageActions: FC<MessageActionsProps> = ({
           display={<div>Fork Chat</div>}
           trigger={
             <IconGitFork
-              className="cursor-pointer hover:opacity-50"
+              className="shrink-0 cursor-pointer hover:opacity-50"
               size={MESSAGE_ICON_SIZE}
               onClick={handleForkChat}
             />
@@ -80,7 +86,7 @@ export const MessageActions: FC<MessageActionsProps> = ({
           display={<div>Edit</div>}
           trigger={
             <IconEdit
-              className="cursor-pointer hover:opacity-50"
+              className="shrink-0 cursor-pointer hover:opacity-50"
               size={MESSAGE_ICON_SIZE}
               onClick={onEdit}
             />
@@ -96,13 +102,13 @@ export const MessageActions: FC<MessageActionsProps> = ({
           trigger={
             isBookmarked ? (
               <IconBookmarkFilled
-                className="cursor-pointer text-blue-500 hover:opacity-50"
+                className="shrink-0 cursor-pointer text-blue-500 hover:opacity-50"
                 size={MESSAGE_ICON_SIZE}
                 onClick={onBookmark}
               />
             ) : (
               <IconBookmark
-                className="cursor-pointer hover:opacity-50"
+                className="shrink-0 cursor-pointer hover:opacity-50"
                 size={MESSAGE_ICON_SIZE}
                 onClick={onBookmark}
               />
@@ -121,7 +127,7 @@ export const MessageActions: FC<MessageActionsProps> = ({
               <IconCheck size={MESSAGE_ICON_SIZE} />
             ) : (
               <IconCopy
-                className="cursor-pointer hover:opacity-50"
+                className="shrink-0 cursor-pointer hover:opacity-50"
                 size={MESSAGE_ICON_SIZE}
                 onClick={handleCopy}
               />
@@ -137,7 +143,7 @@ export const MessageActions: FC<MessageActionsProps> = ({
           display={<div>Regenerate</div>}
           trigger={
             <IconRepeat
-              className="cursor-pointer hover:opacity-50"
+              className="shrink-0 cursor-pointer hover:opacity-50"
               size={MESSAGE_ICON_SIZE}
               onClick={onRegenerate}
             />

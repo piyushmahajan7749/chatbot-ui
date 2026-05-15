@@ -21,12 +21,14 @@ import { FC, useContext, useEffect, useMemo, useState } from "react"
 
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
-import { Chip } from "@/components/ui/chip"
 import { DisplayHeading, Eyebrow } from "@/components/ui/typography"
 import { ChatbotUIContext } from "@/context/context"
 import { getProjectsByWorkspaceId } from "@/db/projects"
-import { getDesignProgress } from "@/lib/design-status"
-import { formatCreatedModified } from "@/lib/format-date"
+import {
+  getDesignProblemStatement,
+  getDesignProgress
+} from "@/lib/design-status"
+import { formatCreatedModifiedStacked } from "@/lib/format-date"
 import { cn } from "@/lib/utils"
 
 interface ProjectLite {
@@ -203,6 +205,11 @@ const DesignsList: FC<DesignsListProps> = ({
       {items.map(d => {
         const pname = projectNameOf(d.project_id)
         const progress = getDesignProgress(d)
+        const problemStatement = getDesignProblemStatement(d)
+        const dateLines = formatCreatedModifiedStacked(
+          d.created_at,
+          d.updated_at
+        )
         return (
           <button
             key={d.id}
@@ -211,53 +218,62 @@ const DesignsList: FC<DesignsListProps> = ({
               router.push(`/${locale}/${workspaceId}/designs/${d.id}`)
             }
             className={cn(
-              "border-line bg-surface hover:border-line-strong hover:bg-paper grid grid-cols-[1fr_auto_auto] items-center gap-5 rounded-lg border px-5 py-4 text-left transition-colors"
+              "border-line bg-surface hover:border-line-strong hover:bg-paper grid grid-cols-[1fr_auto] items-start gap-5 rounded-lg border px-5 py-4 text-left transition-colors"
             )}
           >
             <div className="min-w-0">
-              <div className="mb-1 flex items-center gap-2">
-                {/* "Design" chip removed (issue #5) - the list itself is
-                    already labelled "Designs". Project / status / stage
-                    chips give the user the information that actually
-                    differentiates rows. */}
-                {pname && (
-                  <Chip variant="accent" className="h-[18px] text-[10px]">
-                    <IconFolder size={10} className="mr-0.5" />
-                    {pname}
-                  </Chip>
-                )}
-                <Chip
-                  variant={progress.isCompleted ? "default" : "accent"}
-                  className="h-[18px] text-[10px]"
-                >
-                  {progress.isCompleted ? "Completed" : "In progress"}
-                </Chip>
-                {!progress.isCompleted && progress.currentStageLabel && (
-                  <Chip variant="accent" className="h-[18px] text-[10px]">
-                    Stage: {progress.currentStageLabel}
-                  </Chip>
-                )}
-                {d.updated_at &&
-                  new Date(d.updated_at).getTime() >
-                    Date.now() - 1000 * 60 * 60 * 24 && (
-                    <Chip variant="accent" className="h-[18px] text-[10px]">
-                      Updated recently
-                    </Chip>
-                  )}
-              </div>
               <div className="text-ink truncate text-[15px] font-semibold">
                 {d.name}
               </div>
-              {d.description && (
-                <div className="text-ink-3 mt-1 line-clamp-1 text-[12.5px]">
+              {/* Secondary line: user-typed problem statement from
+                  `content.problem.problemStatement`. Falls back to
+                  legacy `description` ONLY when it isn't the same
+                  string as `name` (legacy rows duplicated name into
+                  description, which made the slab show the title
+                  twice - the bug the scientist flagged). */}
+              {problemStatement ? (
+                <div className="text-ink-3 mt-1 line-clamp-2 text-[12.5px]">
+                  {problemStatement}
+                </div>
+              ) : d.description && d.description !== d.name ? (
+                <div className="text-ink-3 mt-1 line-clamp-2 text-[12.5px]">
                   {d.description}
                 </div>
-              )}
+              ) : null}
+              {/* Color-coded tag row. Each chip uses its own tint so the
+                  three pieces of info (project / status / stage) are
+                  distinguishable at a glance instead of being one big
+                  rust-soft blob. */}
+              <div className="mt-2 flex flex-wrap items-center gap-2">
+                {pname && (
+                  <span className="border-teal-journey/30 bg-teal-journey-tint text-teal-journey inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10.5px] font-medium">
+                    <IconFolder size={10} />
+                    {pname}
+                  </span>
+                )}
+                <span
+                  className={cn(
+                    "rounded-full border px-2 py-0.5 text-[10.5px] font-medium",
+                    progress.isCompleted
+                      ? "border-transparent bg-[#DDE9DF] text-[#1F4A2C]"
+                      : "border-amber-300/40 bg-amber-100/70 text-amber-800"
+                  )}
+                >
+                  {progress.isCompleted ? "Completed" : "In progress"}
+                </span>
+                {!progress.isCompleted && progress.currentStageLabel && (
+                  <span className="border-purple-persona/30 bg-purple-persona-tint text-purple-persona rounded-full border px-2 py-0.5 text-[10.5px] font-medium">
+                    Stage: {progress.currentStageLabel}
+                  </span>
+                )}
+              </div>
             </div>
-            <div className="text-ink-3 min-w-[140px] text-right font-mono text-[11.5px]">
-              {formatCreatedModified(d.created_at, d.updated_at)}
+            {/* Stacked vertical dates on the right corner. */}
+            <div className="text-ink-3 flex min-w-[120px] flex-col items-end gap-0.5 text-right font-mono text-[11px] leading-tight">
+              {dateLines.map(line => (
+                <div key={line}>{line}</div>
+              ))}
             </div>
-            <div className="w-1" />
           </button>
         )
       })}

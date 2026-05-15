@@ -3,11 +3,19 @@ import { z } from "zod"
 import { zodResponseFormat } from "openai/helpers/zod"
 import * as d3 from "d3"
 import { createCanvas } from "@napi-rs/canvas"
-import { getAzureOpenAI, getAzureOpenAIModel } from "@/lib/azure-openai"
+import {
+  getAzureOpenAIForDesign,
+  getDesignDeployment
+} from "@/lib/azure-openai"
 
+// chartType added so the user's "switch to pie chart" / "switch to line
+// chart" feedback can actually mutate the type, not just the labels.
+// The client-side ReportChart renders recharts off this schema, so
+// adding "line" + "pie" here is enough - no other downstream change.
 const ChartDataSchema = z.object({
   chartTitle: z.string(),
   yAxisLabel: z.string(),
+  chartType: z.enum(["bar", "line", "pie"]).default("bar"),
   data: z.array(
     z.object({
       label: z.string(),
@@ -177,17 +185,32 @@ export async function POST(req: Request) {
       return new NextResponse("Missing userFeedback", { status: 400 })
     }
 
-    const openai = getAzureOpenAI()
-    const systemPrompt = `You revise bar chart configurations based on the user's feedback. You must return ONLY valid JSON matching the provided schema. Preserve scientific accuracy - do not invent data values. Apply the user's changes (re-sort, relabel, change title/axis, filter, recompute when they explicitly request a transformation).`
+    // Use the design Azure client - same deployment the rest of the
+    // report pipeline runs on. `getAzureOpenAI()` historically pointed
+    // at a different deployment that was failing structured-output
+    // requests in prod, which is why "Edit with AI" returned 500s.
+    const openai = getAzureOpenAIForDesign()
+    const systemPrompt = `You revise chart configurations based on the user's feedback. You must return ONLY valid JSON matching the provided schema. Preserve scientific accuracy - do not invent data values. Apply the user's changes (re-sort, relabel, change title/axis, filter, switch chart type to bar/line/pie when explicitly asked). When the user says "switch to a line chart" set chartType="line"; "pie chart" => "pie"; default to "bar". Recompute values only when the user explicitly requests a transformation.`
 
     const userPrompt = `Current chart configuration (JSON):\n\n${JSON.stringify(
-      currentChartData ?? { chartTitle: "", yAxisLabel: "", data: [] },
+      currentChartData ?? {
+        chartTitle: "",
+        yAxisLabel: "",
+        chartType: "bar",
+        data: []
+      },
       null,
       2
     )}\n\nUser feedback:\n${userFeedback}\n\nReturn the revised chart configuration.`
 
-    const completion = await openai.chat.completions.create({
-      model: getAzureOpenAIModel(),
+    // beta.chat.completions.parse handles the zod schema + retry path
+    // for us, so a non-conforming response surfaces as a structured
+    // error instead of throwing inside JSON.parse. The previous .create
+    // + manual JSON.parse path was the other reason "Edit with AI"
+    // failed - the model occasionally wrapped its JSON in a markdown
+    // code fence which JSON.parse rejected.
+    const completion = await openai.beta.chat.completions.parse({
+      model: getDesignDeployment(),
       temperature: 0.2,
       messages: [
         { role: "system", content: systemPrompt },
@@ -196,12 +219,15 @@ export async function POST(req: Request) {
       response_format: zodResponseFormat(ChartDataSchema, "chart")
     })
 
-    const raw = completion.choices[0]?.message?.content
-    if (!raw) {
+    const parsed = completion.choices[0]?.message?.parsed
+    if (!parsed) {
       return new NextResponse("No chart output from model", { status: 500 })
     }
 
-    const parsed = ChartDataSchema.parse(JSON.parse(raw))
+    // Server-rendered preview still uses the bar-chart D3 renderer for
+    // backwards compat (the PDF/PPT exports embed this PNG). The client
+    // now also renders an interactive recharts surface off the same
+    // `chartData` payload so the user sees the chosen chartType live.
     const chartImage = renderChart(parsed)
 
     return NextResponse.json({

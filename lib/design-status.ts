@@ -53,6 +53,54 @@ export interface DesignProgress {
 }
 
 /**
+ * Internal parser - returns the parsed `content` object or null on any
+ * error. Used by both the status helper and the problem-statement helper
+ * below.
+ */
+function parseDesignContent(
+  raw: { content?: string | Record<string, unknown> | null } | null | undefined
+): Record<string, unknown> | null {
+  const content = raw?.content
+  if (typeof content === "string") {
+    try {
+      return JSON.parse(content) as Record<string, unknown>
+    } catch {
+      return null
+    }
+  }
+  if (content && typeof content === "object") {
+    return content as Record<string, unknown>
+  }
+  return null
+}
+
+/**
+ * Returns the user-typed problem statement (or null if not set yet).
+ *
+ * The Designs list slab shows this as the secondary line below the
+ * title - previously we were rendering `description`, which on legacy
+ * rows defaulted to the same string as `name`, so the title showed
+ * twice. Pull from `content.problem.problemStatement` instead.
+ */
+export function getDesignProblemStatement(raw: {
+  content?: string | Record<string, unknown> | null
+  description?: string | null
+}): string | null {
+  const parsed = parseDesignContent(raw)
+  const problem = (parsed?.problem ?? null) as {
+    problemStatement?: unknown
+  } | null
+  const ps =
+    typeof problem?.problemStatement === "string"
+      ? problem.problemStatement.trim()
+      : ""
+  if (ps) return ps
+  // Fallback to the legacy `description` column, but only when it's
+  // distinct from `name` - otherwise we'd render the title twice.
+  return null
+}
+
+/**
  * Tolerantly parse `content` (string | object | null) and return the
  * status snapshot. We never throw - a row with broken JSON should still
  * render as "In progress" rather than blowing up the whole list.
@@ -60,17 +108,7 @@ export interface DesignProgress {
 export function getDesignProgress(raw: {
   content?: string | Record<string, unknown> | null
 }): DesignProgress {
-  let parsed: Record<string, unknown> | null = null
-  const content = raw?.content
-  if (typeof content === "string") {
-    try {
-      parsed = JSON.parse(content)
-    } catch {
-      parsed = null
-    }
-  } else if (content && typeof content === "object") {
-    parsed = content as Record<string, unknown>
-  }
+  const parsed = parseDesignContent(raw)
 
   const rawApproved = (parsed?.approvedPhases ?? []) as unknown[]
   const approvedPhases = Array.isArray(rawApproved)

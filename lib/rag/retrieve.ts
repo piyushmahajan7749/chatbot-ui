@@ -25,6 +25,25 @@ const RRF_K = 60
 const RECENCY_HALF_LIFE_DAYS = 90
 const CHAT_MESSAGE_MULTIPLIER = 0.7
 const RPC_MATCH_COUNT_MULTIPLIER = 5 // pull a wider pool than we return
+/**
+ * When the caller hands us an explicit set of attached files (the
+ * "Files" chat scope), we know the user has already picked the
+ * universe to search - the only thing that matters is topical match
+ * inside that pool. Two adjustments fall out:
+ *
+ *  1. Skip the recency decay entirely. The reason the scientist saw
+ *     "it looks in non-relevant files more, finally lands in the one
+ *     with the info" was a 2-year-old PDF (the actually-relevant one)
+ *     getting hammered by exp(-ageDays/90) ≈ 0.0003 while a 2-week
+ *     irrelevant scratch note kept its full weight.
+ *
+ *  2. Add a direct dense-similarity bonus so the chunk whose embedding
+ *     is closest to the query wins, instead of the chunk that merely
+ *     ranks high on BM25 keyword density. RRF on ranks alone treats a
+ *     near-perfect semantic hit identically to a barely-matching one
+ *     when they're rank-adjacent.
+ */
+const FILE_SCOPE_SIMILARITY_BONUS = 1.5
 
 function getSupabaseAdmin() {
   return createClient<Database>(
@@ -106,12 +125,26 @@ export function computeScore(opts: {
   bm25Rank: number | null
   ageDays: number
   sourceType: SourceType
+  /** Raw cosine similarity 0..1 from the dense ANN. */
+  similarity?: number
+  /** Set when the caller restricted retrieval to attached files. */
+  fileScope?: boolean
 }): number {
   const denseTerm = opts.denseRank == null ? 0 : 1 / (RRF_K + opts.denseRank)
   const sparseTerm = opts.bm25Rank == null ? 0 : 1 / (RRF_K + opts.bm25Rank)
   let score = denseTerm + sparseTerm
-  // exp(-age/half_life) - caps at 1 for age=0, 0.37 at one half-life, etc.
-  score *= Math.exp(-Math.max(0, opts.ageDays) / RECENCY_HALF_LIFE_DAYS)
+
+  if (opts.fileScope) {
+    // Direct similarity bonus when the user has explicitly attached
+    // files - relevance matters far more than recency or BM25 here, so
+    // the embedding distance is the right tiebreaker.
+    score += (opts.similarity ?? 0) * FILE_SCOPE_SIMILARITY_BONUS
+  } else {
+    // Recency decay only applies for workspace / project / scoped
+    // retrieval. Skipping it in file-scope mode was the fix for the
+    // "wrong file ranked first" regression scientist flagged (#30).
+    score *= Math.exp(-Math.max(0, opts.ageDays) / RECENCY_HALF_LIFE_DAYS)
+  }
   if (opts.sourceType === "chat_message") {
     score *= CHAT_MESSAGE_MULTIPLIER
   }
@@ -124,7 +157,8 @@ export function computeScore(opts: {
  */
 export function fuseAndScore(
   rows: MatchRagItemRow[],
-  sourceCount: number
+  sourceCount: number,
+  opts?: { fileScope?: boolean }
 ): RagItem[] {
   // Build dense + sparse rank tables. Lower rank = better. Rank only
   // considers rows that actually scored on that signal.
@@ -146,7 +180,9 @@ export function fuseAndScore(
       denseRank: denseRank.get(row.id) ?? null,
       bm25Rank: sparseRank.get(row.id) ?? null,
       ageDays: row.age_days,
-      sourceType: row.source_type
+      sourceType: row.source_type,
+      similarity: row.similarity,
+      fileScope: opts?.fileScope
     })
   }))
 
@@ -177,5 +213,6 @@ export async function retrieve(q: RetrieveQuery): Promise<RagItem[]> {
   const rows = (data ?? []) as unknown as MatchRagItemRow[]
   if (rows.length === 0) return []
 
-  return fuseAndScore(rows, sourceCount)
+  const fileScope = !!(q.fileIds && q.fileIds.length > 0)
+  return fuseAndScore(rows, sourceCount, { fileScope })
 }

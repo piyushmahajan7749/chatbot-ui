@@ -269,6 +269,29 @@ export default function ChatPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams, selectedWorkspace?.id, profile?.user_id])
 
+  // When the page was opened from a Reports/Designs "Start chat" button
+  // we auto-create a scoped chat and redirect - in that window the user
+  // shouldn't see the generic "pick what to chat with" picker because
+  // the scope is already implied. Render a short spinner instead.
+  const isAutoStarting =
+    !!searchParams.get("defaultScope") && chatMessages.length === 0
+
+  if (isAutoStarting) {
+    const scope = searchParams.get("defaultScope")
+    const label =
+      scope === "reports"
+        ? "Starting chat with all reports in this workspace…"
+        : scope === "designs"
+          ? "Starting chat with all designs in this workspace…"
+          : "Starting chat…"
+    return (
+      <div className="flex h-full flex-col items-center justify-center gap-3 bg-slate-50 text-center">
+        <div className="border-line border-t-rust size-8 animate-spin rounded-full border-2" />
+        <p className="text-ink-3 text-[13px]">{label}</p>
+      </div>
+    )
+  }
+
   return (
     <>
       {chatMessages.length === 0 ? (

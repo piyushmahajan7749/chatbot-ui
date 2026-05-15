@@ -1,15 +1,15 @@
 "use client"
 
-import { useEffect, useMemo, useRef, useState, useContext } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import { useParams, useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { AccentTabs, type TabStatus } from "@/components/canvas/accent-tabs"
-import { ChatbotUIContext } from "@/context/context"
+// ChatbotUIContext was used for the ELN profile lookup - removed in
+// favour of pure prop drilling now that ELN export is gone.
 import { useToast } from "@/app/hooks/use-toast"
-import { ELNExportModal } from "@/components/eln/eln-export-modal"
-import { ELNConnectModal } from "@/components/eln/eln-connect-modal"
-import { ELNConnection } from "@/types/eln"
-import { getELNConnections } from "@/db/eln-connections"
+// ELN export removed for the B2C launch (#21). The lib/eln/* clients +
+// modals are kept in the repo so we can flip the surface back on for an
+// enterprise SKU without rewriting the integration.
 import { getReportById, updateReport } from "@/db/reports-firestore"
 import { Tables } from "@/supabase/types"
 import { toast as sonnerToast } from "sonner"
@@ -20,12 +20,7 @@ import {
   IconLayoutGrid,
   IconUpload
 } from "@tabler/icons-react"
-import {
-  FlaskConical,
-  FileText,
-  Presentation,
-  Save as SaveIcon
-} from "lucide-react"
+import { FileText, Presentation, Save as SaveIcon } from "lucide-react"
 import {
   OverviewTab,
   type ReportTab
@@ -68,7 +63,7 @@ export default function ReportDetailPage() {
   const params = useParams()
   const router = useRouter()
   const { toast } = useToast()
-  const { profile } = useContext(ChatbotUIContext)
+  // profile context dropped along with ELN export.
   const reportId = params.reportId as string
   const workspaceId = params.workspaceid as string
   const locale = params.locale as string
@@ -90,11 +85,6 @@ export default function ReportDetailPage() {
   const [isSavingNow, setIsSavingNow] = useState(false)
   const sectionSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  const [elnConnections, setElnConnections] = useState<ELNConnection[]>([])
-  const [showELNExportModal, setShowELNExportModal] = useState(false)
-  const [showELNConnectModal, setShowELNConnectModal] = useState(false)
-  const [loadingConnections, setLoadingConnections] = useState(false)
-
   const objectiveSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useEffect(() => {
@@ -102,21 +92,9 @@ export default function ReportDetailPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [reportId])
 
-  useEffect(() => {
-    const load = async () => {
-      if (!profile?.user_id) return
-      setLoadingConnections(true)
-      try {
-        const connections = await getELNConnections(profile.user_id)
-        setElnConnections(connections)
-      } catch (error) {
-        console.error("Failed to load ELN connections:", error)
-      } finally {
-        setLoadingConnections(false)
-      }
-    }
-    void load()
-  }, [profile?.user_id])
+  // ELN connection loader removed (#21) - "Export to ELN" is hidden
+  // for the B2C launch. The connections code stays under db/eln-* so we
+  // can flip the surface back on without re-implementing it.
 
   // Poll while generation is running so sublabels / tab content update.
   useEffect(() => {
@@ -382,6 +360,23 @@ export default function ReportDetailPage() {
     }, 600)
   }
 
+  /**
+   * Optimistic chart-type toggle - flips `chart_data.chartType` locally
+   * so the recharts surface re-renders immediately, then persists. The
+   * static `chart_image` (used for PDF/PPT export) is left as-is until
+   * the user explicitly hits "Edit chart with AI", which regenerates
+   * the PNG to match.
+   */
+  const handleChartTypeChange = (chartType: "bar" | "line" | "pie") => {
+    const current = report?.chart_data
+    if (!current) return
+    const nextChartData = { ...current, chartType }
+    setReport((prev: any) => ({ ...prev, chart_data: nextChartData }))
+    updateReport(reportId, { chart_data: nextChartData }).catch(err => {
+      console.warn("Failed to persist chart type:", err)
+    })
+  }
+
   const handleChartRegenerate = async (feedback: string) => {
     const trimmed = feedback.trim()
     if (!trimmed) return
@@ -419,17 +414,12 @@ export default function ReportDetailPage() {
     }
   }
 
-  const handleELNExport = () => {
-    if (elnConnections.length === 0) setShowELNConnectModal(true)
-    else setShowELNExportModal(true)
-  }
-
-  const handleConnectionCreated = (connection: ELNConnection) => {
-    setElnConnections(prev => [...prev, connection])
-    setShowELNExportModal(true)
-  }
-
+  // ELN export handlers removed (#21).
   const draftText = draftToText(draft)
+  // `draftText` is still computed for parity with the old surface;
+  // unused now that ELN export is gone, but cheap to keep so we don't
+  // ship a partial rip while the lib/eln integration is still around.
+  void draftText
 
   const template = getTemplate(templateId ?? DEFAULT_TEMPLATE_ID)
 
@@ -649,15 +639,7 @@ export default function ReportDetailPage() {
                   <Presentation className="size-4" />
                   Download as PPT
                 </Button>
-                <Button
-                  size="sm"
-                  className="gap-2 bg-emerald-600 hover:bg-emerald-700"
-                  onClick={handleELNExport}
-                  disabled={loadingConnections}
-                >
-                  <FlaskConical className="size-4" />
-                  Export to ELN
-                </Button>
+                {/* "Export to ELN" hidden for the B2C launch (#21). */}
               </>
             )}
           </div>
@@ -707,10 +689,12 @@ export default function ReportDetailPage() {
             <ReportTabView
               draft={draft}
               chartImage={report?.chart_image ?? null}
+              chartData={report?.chart_data ?? null}
               regenerating={regeneratingKey}
               onRegenerate={handleRegenerateSection}
               onEditContent={handleSectionContentChange}
               onRegenerateChart={handleChartRegenerate}
+              onChartTypeChange={handleChartTypeChange}
               regeneratingChart={regeneratingChart}
               onOpenPreview={() => setShowPreview(true)}
               templateId={templateId}
@@ -730,28 +714,7 @@ export default function ReportDetailPage() {
         templateId={templateId}
       />
 
-      <ELNExportModal
-        isOpen={showELNExportModal}
-        onOpenChange={setShowELNExportModal}
-        connections={elnConnections}
-        reportContent={draftText}
-        reportTitle={report?.name || "Shadow AI Report"}
-        onExportSuccess={(result: any) => {
-          if (result.success) {
-            toast({
-              title: "Success",
-              description: "Report exported to ELN successfully!"
-            })
-          }
-        }}
-      />
-
-      <ELNConnectModal
-        isOpen={showELNConnectModal}
-        onOpenChange={setShowELNConnectModal}
-        userId={profile?.user_id || ""}
-        onConnectionCreated={handleConnectionCreated}
-      />
+      {/* ELN export modals removed for the B2C launch (#21). */}
     </div>
   )
 }

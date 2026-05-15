@@ -11,14 +11,44 @@ import {
   getTemplate,
   ReportTemplate
 } from "@/lib/report/templates"
+import {
+  ReportChart,
+  type ChartType
+} from "@/app/[locale]/[workspaceid]/report/components/report-chart"
+import { cn } from "@/lib/utils"
+
+// Chart-type tabs surfaced above the visualization. The set is locked
+// to bar/line/pie because those are the formats the regenerate-chart
+// route's zod schema supports - and they cover the bulk of the
+// scientific reporting cases the scientist showed me.
+const CHART_TYPE_OPTIONS: { key: ChartType; label: string }[] = [
+  { key: "bar", label: "Bar" },
+  { key: "line", label: "Line" },
+  { key: "pie", label: "Pie" }
+]
+
+interface ChartDataShape {
+  chartTitle?: string
+  yAxisLabel?: string
+  chartType?: ChartType
+  data?: Array<{ label: string; value: number }>
+}
 
 interface ReportTabProps {
   draft: Record<string, any> | null
   chartImage: string | null
+  /** Raw chart payload - shown as an interactive recharts surface. */
+  chartData?: ChartDataShape | null
   regenerating: string | null
   onRegenerate: (sectionKey: string, feedback: string) => Promise<void>
   onEditContent: (sectionKey: string, value: string) => void
   onRegenerateChart: (feedback: string) => Promise<void>
+  /**
+   * Called when the user clicks one of the chart-type tabs. The host
+   * updates `chart_data.chartType` + persists, so a refresh keeps the
+   * picked type.
+   */
+  onChartTypeChange?: (chartType: ChartType) => void
   regeneratingChart: boolean
   onOpenPreview: () => void
   templateId?: string | null
@@ -28,10 +58,18 @@ interface ReportTabProps {
 const sectionAnchor = (key: string) => `section-${key}`
 
 const ChartBlock: FC<{
-  chartImage: string
+  chartImage: string | null
+  chartData: ChartDataShape | null
   regeneratingChart: boolean
   onRegenerateChart: (feedback: string) => Promise<void>
-}> = ({ chartImage, regeneratingChart, onRegenerateChart }) => {
+  onChartTypeChange?: (chartType: ChartType) => void
+}> = ({
+  chartImage,
+  chartData,
+  regeneratingChart,
+  onRegenerateChart,
+  onChartTypeChange
+}) => {
   const [showFeedback, setShowFeedback] = useState(false)
   const [feedback, setFeedback] = useState("")
 
@@ -43,31 +81,75 @@ const ChartBlock: FC<{
     setShowFeedback(false)
   }
 
+  const currentType: ChartType = (chartData?.chartType as ChartType) ?? "bar"
+  const hasData = (chartData?.data?.length ?? 0) > 0
+
   return (
     <div className="border-ink-100 space-y-3 rounded-xl border bg-white/70 p-4">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="text-ink-500 text-[11px] font-bold uppercase tracking-widest">
           Visualization
         </div>
-        <Button
-          variant="outline"
-          size="sm"
-          className="gap-1.5"
-          onClick={() => setShowFeedback(v => !v)}
-          disabled={regeneratingChart}
-        >
-          <IconRefresh size={14} />
-          {showFeedback ? "Cancel" : "Edit chart with AI"}
-        </Button>
+        <div className="flex items-center gap-2">
+          {/* Chart-type tabs (#17/#18) - only render when we have raw
+              data; without it the recharts surface can't draw, so the
+              tabs would do nothing. */}
+          {hasData && onChartTypeChange && (
+            <div className="border-ink-200 inline-flex overflow-hidden rounded-md border bg-white">
+              {CHART_TYPE_OPTIONS.map(opt => (
+                <button
+                  key={opt.key}
+                  type="button"
+                  onClick={() => onChartTypeChange(opt.key)}
+                  disabled={regeneratingChart}
+                  className={cn(
+                    "px-2.5 py-1 text-[11px] font-semibold transition-colors",
+                    currentType === opt.key
+                      ? "bg-teal-journey text-white"
+                      : "text-ink-700 hover:bg-ink-50"
+                  )}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+          )}
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-1.5"
+            onClick={() => setShowFeedback(v => !v)}
+            disabled={regeneratingChart}
+          >
+            <IconRefresh size={14} />
+            {showFeedback ? "Cancel" : "Edit chart with AI"}
+          </Button>
+        </div>
       </div>
-      {/* chartImage is a base64 data URI from the chart backend -
-          next/image doesn't support data URIs. */}
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img
-        src={chartImage}
-        alt="Report chart"
-        className="border-ink-100 max-w-full rounded-lg border"
-      />
+      {/* Prefer the interactive recharts surface (data labels, hover
+          tooltips, switchable type) when we have raw `chart_data`. We
+          fall back to the legacy static PNG for older reports that
+          only persisted `chart_image` - those won't be interactive
+          but at least keep rendering. */}
+      {hasData ? (
+        <ReportChart
+          data={chartData!.data!}
+          chartTitle={chartData?.chartTitle}
+          yAxisLabel={chartData?.yAxisLabel}
+          chartType={currentType}
+        />
+      ) : chartImage ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={chartImage}
+          alt="Report chart"
+          className="border-ink-100 max-w-full rounded-lg border"
+        />
+      ) : (
+        <p className="text-ink-400 text-sm italic">
+          Visualization not available.
+        </p>
+      )}
       {showFeedback && (
         <div className="border-ink-100 space-y-2 border-t pt-3">
           <Textarea
@@ -96,10 +178,12 @@ const ChartBlock: FC<{
 export const ReportTab: FC<ReportTabProps> = ({
   draft,
   chartImage,
+  chartData,
   regenerating,
   onRegenerate,
   onEditContent,
   onRegenerateChart,
+  onChartTypeChange,
   regeneratingChart,
   onOpenPreview,
   templateId,
@@ -150,7 +234,9 @@ export const ReportTab: FC<ReportTabProps> = ({
     return () => container.removeEventListener("scroll", handleScroll)
   }, [chartImage, draft, templateId])
 
-  const chartCapable = template.includeChart && !!chartImage
+  const chartCapable =
+    template.includeChart &&
+    (!!chartImage || (chartData?.data?.length ?? 0) > 0)
 
   return (
     <div className="flex gap-6">
@@ -247,9 +333,11 @@ export const ReportTab: FC<ReportTabProps> = ({
                   afterContent={
                     isDataAnalysis && chartCapable ? (
                       <ChartBlock
-                        chartImage={chartImage as string}
+                        chartImage={chartImage}
+                        chartData={chartData ?? null}
                         regeneratingChart={regeneratingChart}
                         onRegenerateChart={onRegenerateChart}
+                        onChartTypeChange={onChartTypeChange}
                       />
                     ) : null
                   }

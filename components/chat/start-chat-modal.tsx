@@ -251,21 +251,27 @@ export const StartChatModal: FC<StartChatModalProps> = ({
           }}
           className="w-full"
         >
+          {/* `justify-center` on every trigger keeps the icon+label
+              cluster centred inside each grid cell - without it the
+              Designs trigger looked nudged off-axis vs Workspace /
+              Projects because IconFlask is taller than the other
+              tabler glyphs (#28). The shrink-0 on the icon keeps it
+              from collapsing when the cell is tight. */}
           <TabsList className="grid w-full grid-cols-5">
-            <TabsTrigger value="workspace" className="gap-1.5">
-              <IconBriefcase size={14} /> Workspace
+            <TabsTrigger value="workspace" className="justify-center gap-1.5">
+              <IconBriefcase size={14} className="shrink-0" /> Workspace
             </TabsTrigger>
-            <TabsTrigger value="project" className="gap-1.5">
-              <IconFolder size={14} /> Projects
+            <TabsTrigger value="project" className="justify-center gap-1.5">
+              <IconFolder size={14} className="shrink-0" /> Projects
             </TabsTrigger>
-            <TabsTrigger value="design" className="gap-1.5">
-              <IconFlask size={14} /> Designs
+            <TabsTrigger value="design" className="justify-center gap-1.5">
+              <IconFlask size={14} className="shrink-0" /> Designs
             </TabsTrigger>
-            <TabsTrigger value="report" className="gap-1.5">
-              <IconReport size={14} /> Reports
+            <TabsTrigger value="report" className="justify-center gap-1.5">
+              <IconReport size={14} className="shrink-0" /> Reports
             </TabsTrigger>
-            <TabsTrigger value="files" className="gap-1.5">
-              <IconFile size={14} /> Files
+            <TabsTrigger value="files" className="justify-center gap-1.5">
+              <IconFile size={14} className="shrink-0" /> Files
             </TabsTrigger>
           </TabsList>
 
