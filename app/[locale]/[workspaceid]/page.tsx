@@ -1,7 +1,6 @@
 "use client"
 
 import {
-  IconArrowRight,
   IconBulb,
   IconChartBar,
   IconChevronDown,
@@ -10,7 +9,6 @@ import {
   IconFlask,
   IconMessage,
   IconPlus,
-  IconSearch,
   IconSparkles,
   type Icon as TablerIconType
 } from "@tabler/icons-react"
@@ -19,7 +17,10 @@ import { FC, useContext, useEffect, useMemo, useState } from "react"
 
 import { getProjectsByWorkspaceId } from "@/db/projects"
 
-import { ShadowAISVG } from "@/components/icons/chatbotui-svg"
+// ShadowAISVG was used by the legacy "Quick start" card. Now that the
+// Jarvis hero owns that surface, the SVG is only used elsewhere on the
+// page (sidebar tile chrome), so it's pulled in lazily where needed.
+import { JarvisHero } from "@/components/jarvis/jarvis-hero"
 import { Walkthrough } from "@/components/onboarding/walkthrough"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
@@ -90,7 +91,9 @@ export default function WorkspacePage() {
   const router = useRouter()
   const { selectedWorkspace, profile, designs, reports, chats } =
     useContext(ChatbotUIContext)
-  const [query, setQuery] = useState("")
+  // Legacy `query` state from the removed Quick-start input - the
+  // Jarvis hero owns the prompt textarea now, so this state is no
+  // longer wired to any input. Left out entirely.
   const [activeList, setActiveList] = useState<ListKind>("designs")
   // Projects aren't on the global context; fetch once so list rows can
   // resolve project_id → name for cross-project attribution chips.
@@ -282,44 +285,13 @@ export default function WorkspacePage() {
           </div>
         </div>
 
-        {/* Quick start */}
-        <Card className="mb-7 grid grid-cols-[auto_1fr_auto] items-center gap-[18px] p-5">
-          <div className="bg-ink flex size-11 items-center justify-center rounded-xl">
-            <ShadowAISVG scale={22 / 24} />
-          </div>
-          <div>
-            <div className="text-ink mb-0.5 text-[14px] font-semibold">
-              Start a design by describing your research question
-            </div>
-            <div className="text-ink-3 text-[13px]">
-              Shadow will ask follow-ups, scope the problem, and run literature
-              for you.
-            </div>
-          </div>
-          <form
-            onSubmit={e => {
-              e.preventDefault()
-              startDesign(query)
-            }}
-            className="border-line bg-paper flex min-w-[360px] items-center gap-2 rounded-full border py-2 pl-3.5 pr-2"
-          >
-            <IconSearch size={14} className="text-ink-3" />
-            <input
-              value={query}
-              onChange={e => setQuery(e.target.value)}
-              placeholder="e.g. why is my mAb aggregating at high pH?"
-              className="text-ink placeholder:text-ink-3 flex-1 border-none bg-transparent text-[13px] outline-none"
-            />
-            <Button
-              type="submit"
-              variant="primary"
-              size="sm"
-              className="rounded-full"
-            >
-              Start <IconArrowRight size={12} />
-            </Button>
-          </form>
-        </Card>
+        {/* Jarvis hero - the home assistant with memory + brief.
+            Replaces the legacy "Quick start" input card. Streams chat
+            via /api/jarvis/chat, beacons /api/jarvis/compress on
+            unload to persist the arc into the user's vault. */}
+        <div className="mb-7">
+          <JarvisHero displayName={firstName} />
+        </div>
 
         {/* Stats - clicking switches the list shown below */}
         <div className="mb-7 grid grid-cols-3 gap-3.5">
