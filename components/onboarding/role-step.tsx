@@ -15,14 +15,21 @@ const ROLE_OPTIONS: { value: Role; label: string }[] = [
   { value: "other", label: "Other" }
 ]
 
+// Suggestions are scoped to life-sciences / biotech only - Shadow AI's
+// target B2C audience is wet-lab scientists, not CS / ML / physics
+// researchers. Keeping the chip row biotech-flavoured signals product
+// fit on first run instead of inviting off-target signups.
 const FIELD_SUGGESTIONS = [
-  "Biology",
-  "Chemistry",
+  "Molecular Biology",
+  "Biochemistry",
+  "Cell Biology",
+  "Genetics",
+  "Microbiology",
+  "Immunology",
+  "Pharmacology",
+  "Biotechnology",
   "Neuroscience",
-  "Physics",
-  "CS / ML",
-  "Social sciences",
-  "Clinical"
+  "Clinical / Translational"
 ]
 
 interface RoleStepProps {
@@ -100,7 +107,7 @@ export const RoleStep: FC<RoleStepProps> = ({
           id="research_field"
           value={researchField}
           onChange={e => onResearchFieldChange(e.target.value)}
-          placeholder="e.g. Neuroscience"
+          placeholder="e.g. Molecular biology"
           maxLength={100}
         />
         <div className="mt-1 flex flex-wrap gap-1.5">
