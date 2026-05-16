@@ -12,6 +12,17 @@ import {
   getTemplate,
   ReportTemplate
 } from "@/lib/report/templates"
+import {
+  ReportChart,
+  type ChartType
+} from "@/app/[locale]/[workspaceid]/report/components/report-chart"
+
+interface ChartDataShape {
+  chartTitle?: string
+  yAxisLabel?: string
+  chartType?: ChartType
+  data?: Array<{ label: string; value: number }>
+}
 
 interface ReportPreviewModalProps {
   isOpen: boolean
@@ -19,8 +30,13 @@ interface ReportPreviewModalProps {
   title: string
   draft: Record<string, any> | null
   chartImage: string | null
+  /** Live chart-data payload so the preview reflects whichever viz
+   * the user is looking at in the editor (#22 in the bug list). */
+  chartData?: ChartDataShape | null
   onEditContent: (sectionKey: string, value: string) => void
   templateId?: string | null
+  /** When true, the preview is read-only - no Edit button per section. */
+  isLocked?: boolean
 }
 
 const sectionAnchor = (key: string) => `preview-${key}`
@@ -31,8 +47,10 @@ export const ReportPreviewModal: FC<ReportPreviewModalProps> = ({
   title,
   draft,
   chartImage,
+  chartData,
   onEditContent,
-  templateId
+  templateId,
+  isLocked = false
 }) => {
   const template: ReportTemplate = getTemplate(templateId)
   const sectionGroups = getSectionGroups(template)
@@ -148,33 +166,37 @@ export const ReportPreviewModal: FC<ReportPreviewModalProps> = ({
                       >
                         {section.title}
                       </h3>
-                      {isEditing ? (
-                        <div className="flex gap-2">
+                      {/* Edit controls disappear when the report is
+                          locked - preview becomes a read-only render
+                          of the saved structure. */}
+                      {!isLocked &&
+                        (isEditing ? (
+                          <div className="flex gap-2">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => {
+                                setEditingKey(null)
+                                setEditValue("")
+                              }}
+                            >
+                              Cancel
+                            </Button>
+                            <Button size="sm" onClick={handleSaveEdit}>
+                              Save
+                            </Button>
+                          </div>
+                        ) : (
                           <Button
-                            variant="outline"
+                            variant="ghost"
                             size="sm"
-                            onClick={() => {
-                              setEditingKey(null)
-                              setEditValue("")
-                            }}
+                            className="gap-1.5"
+                            onClick={() => handleStartEdit(section.key)}
                           >
-                            Cancel
+                            <IconEdit size={14} />
+                            Edit
                           </Button>
-                          <Button size="sm" onClick={handleSaveEdit}>
-                            Save
-                          </Button>
-                        </div>
-                      ) : (
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="gap-1.5"
-                          onClick={() => handleStartEdit(section.key)}
-                        >
-                          <IconEdit size={14} />
-                          Edit
-                        </Button>
-                      )}
+                        ))}
                     </div>
 
                     {isEditing ? (
@@ -199,26 +221,39 @@ export const ReportPreviewModal: FC<ReportPreviewModalProps> = ({
                       </p>
                     )}
 
-                    {isDataAnalysis &&
-                      template.includeChart &&
-                      chartImage &&
-                      !isEditing && (
-                        <div className="border-ink-100 mt-4 rounded-xl border bg-white/80 p-4">
-                          <div className="text-ink-500 mb-2 text-[11px] font-bold uppercase tracking-widest">
-                            Visualization
-                          </div>
-                          {/* chartImage is a base64 data URI from the
-                              chart-generation backend - next/image doesn't
-                              support data URIs, and this is a transient
-                              one-off, so the plain <img> is the right call. */}
-                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                    {isDataAnalysis && template.includeChart && !isEditing && (
+                      <div className="border-ink-100 mt-4 rounded-xl border bg-white/80 p-4">
+                        <div className="text-ink-500 mb-2 text-[11px] font-bold uppercase tracking-widest">
+                          Visualization
+                        </div>
+                        {/* Preview reflects the live chartType the
+                              user selected in the editor (bar / line /
+                              pie). Falls back to the static
+                              chart_image only when raw chartData isn't
+                              available (legacy reports). */}
+                        {chartData?.data && chartData.data.length > 0 ? (
+                          <ReportChart
+                            data={chartData.data}
+                            chartTitle={chartData.chartTitle}
+                            yAxisLabel={chartData.yAxisLabel}
+                            chartType={
+                              (chartData.chartType as ChartType) ?? "bar"
+                            }
+                          />
+                        ) : chartImage ? (
+                          // eslint-disable-next-line @next/next/no-img-element
                           <img
                             src={chartImage}
                             alt="Report chart"
                             className="border-ink-100 max-w-full rounded-lg border"
                           />
-                        </div>
-                      )}
+                        ) : (
+                          <p className="text-ink-400 text-sm italic">
+                            No chart yet.
+                          </p>
+                        )}
+                      </div>
+                    )}
                   </section>
                 )
               })}

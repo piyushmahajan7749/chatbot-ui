@@ -1588,35 +1588,55 @@ export default function DesignDetailPage() {
       } = await supabase.auth.getUser()
       if (!user) throw new Error("Not signed in")
 
-      const baseName = (title || design?.name || "Design").slice(0, 60)
-      const chat = await createChat({
-        user_id: user.id,
-        workspace_id: selectedWorkspace.id,
-        name: `${baseName} chat`,
-        scope: "design",
-        scope_id: designId,
-        // Designs may or may not belong to a project; preserve the linkage
-        // so workspace-level chat filters/aggregations still work.
-        project_id: design?.project_id ?? null,
-        model: chatSettings?.model ?? selectedWorkspace.default_model,
-        prompt: chatSettings?.prompt ?? selectedWorkspace.default_prompt ?? "",
-        temperature:
-          chatSettings?.temperature ?? selectedWorkspace.default_temperature,
-        context_length:
-          chatSettings?.contextLength ??
-          selectedWorkspace.default_context_length,
-        embeddings_provider:
-          chatSettings?.embeddingsProvider ??
-          selectedWorkspace.embeddings_provider,
-        include_profile_context:
-          chatSettings?.includeProfileContext ??
-          selectedWorkspace.include_profile_context,
-        include_workspace_instructions:
-          chatSettings?.includeWorkspaceInstructions ??
-          selectedWorkspace.include_workspace_instructions,
-        sharing: "private"
-      })
-      router.push(`/${locale}/${workspaceId}/chat/${chat.id}`)
+      // Reuse an existing design-scoped chat if one exists instead of
+      // accumulating a fresh chat on every click. Two bugs were hiding
+      // here:
+      //   1. First open showed the LAST workspace chat because
+      //      selectedChat lagged in context; reusing the existing
+      //      design chat makes the navigation deterministic.
+      //   2. The "second click did nothing" symptom was the
+      //      `openingFullChat` flag never being reset on success - if
+      //      the user navigated back and clicked again, the guard at
+      //      the top of this fn short-circuited. The `finally` block
+      //      below now always clears the flag.
+      const { getChatByScope } = await import("@/db/chats")
+      const existing = await getChatByScope("design", designId).catch(
+        () => null
+      )
+
+      let chatId = existing?.id
+      if (!chatId) {
+        const baseName = (title || design?.name || "Design").slice(0, 60)
+        const created = await createChat({
+          user_id: user.id,
+          workspace_id: selectedWorkspace.id,
+          name: `${baseName} chat`,
+          scope: "design",
+          scope_id: designId,
+          project_id: design?.project_id ?? null,
+          model: chatSettings?.model ?? selectedWorkspace.default_model,
+          prompt:
+            chatSettings?.prompt ?? selectedWorkspace.default_prompt ?? "",
+          temperature:
+            chatSettings?.temperature ?? selectedWorkspace.default_temperature,
+          context_length:
+            chatSettings?.contextLength ??
+            selectedWorkspace.default_context_length,
+          embeddings_provider:
+            chatSettings?.embeddingsProvider ??
+            selectedWorkspace.embeddings_provider,
+          include_profile_context:
+            chatSettings?.includeProfileContext ??
+            selectedWorkspace.include_profile_context,
+          include_workspace_instructions:
+            chatSettings?.includeWorkspaceInstructions ??
+            selectedWorkspace.include_workspace_instructions,
+          sharing: "private"
+        })
+        chatId = created.id
+      }
+
+      router.push(`/${locale}/${workspaceId}/chat/${chatId}`)
     } catch (err) {
       console.error("Failed to open design in chat:", err)
       toast({
@@ -1625,6 +1645,8 @@ export default function DesignDetailPage() {
           err instanceof Error ? err.message : "Failed to start a new chat.",
         variant: "destructive"
       })
+    } finally {
+      // Always reset so the user can retry without a hard refresh.
       setOpeningFullChat(false)
     }
   }

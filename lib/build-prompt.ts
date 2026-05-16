@@ -3,11 +3,26 @@ import { ChatPayload, MessageImage } from "@/types"
 import { encode } from "gpt-tokenizer"
 import { getBase64FromDataURL, getMediaTypeFromDataURL } from "@/lib/utils"
 
+/**
+ * Append the active answer-style instruction. Kept out of the user-
+ * facing prompt so the scientist can flip the toggle without
+ * rewriting their assistant brief. The string deliberately sits in
+ * the system prompt's tail so it overrides any earlier "be helpful
+ * and thorough" framing from the workspace instructions.
+ */
+const ANSWER_STYLE_INSTRUCTIONS: Record<"concise" | "elaborate", string> = {
+  concise:
+    "Answer style: CONCISE. Default to 1-2 sentence answers. No preamble, no recap, no closing 'let me know if…'. Expand only when the user explicitly asks for more.",
+  elaborate:
+    "Answer style: ELABORATE. Take the time to explain your reasoning, list relevant considerations, and walk the user through the answer. Multi-paragraph responses are welcome when the topic warrants it; bullet lists when listing ≥3 distinct items."
+}
+
 const buildBasePrompt = (
   prompt: string,
   profileContext: string,
   workspaceInstructions: string,
-  assistant: Tables<"assistants"> | null
+  assistant: Tables<"assistants"> | null,
+  answerStyle?: "concise" | "elaborate"
 ) => {
   let fullPrompt = ""
 
@@ -26,6 +41,12 @@ const buildBasePrompt = (
   }
 
   fullPrompt += `User Instructions:\n${prompt}`
+
+  // Answer-style suffix - last thing in the system prompt so it wins
+  // when earlier instructions push the model toward thorough answers
+  // and the user has selected Concise (or vice versa).
+  const style = answerStyle ?? "concise"
+  fullPrompt += `\n\n${ANSWER_STYLE_INSTRUCTIONS[style]}`
 
   return fullPrompt
 }
@@ -48,7 +69,8 @@ export async function buildFinalMessages(
     chatSettings.prompt,
     chatSettings.includeProfileContext ? profile.profile_context || "" : "",
     chatSettings.includeWorkspaceInstructions ? workspaceInstructions : "",
-    assistant
+    assistant,
+    payload.answerStyle
   )
 
   const CHUNK_SIZE = chatSettings.contextLength

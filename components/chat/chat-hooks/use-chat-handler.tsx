@@ -275,7 +275,15 @@ export const useChatHandler = () => {
           : [...chatMessages, tempUserChatMessage],
         assistant: selectedChat?.assistant_id ? selectedAssistant : null,
         messageFileItems: retrievedFileItems,
-        chatFileItems: chatFileItems
+        chatFileItems: chatFileItems,
+        // Carries the Concise/Elaborate toggle into the system
+        // prompt. Falls back to "concise" when the column isn't
+        // populated (legacy chats before migration 20260512).
+        answerStyle:
+          ((selectedChat as any)?.answer_style as
+            | "concise"
+            | "elaborate"
+            | undefined) ?? "concise"
       }
 
       let generatedText = ""

@@ -30,6 +30,19 @@ import { ReportTab as ReportTabView } from "@/components/reports/tabs/report-tab
 import { ReportPreviewModal } from "@/components/reports/report-preview-modal"
 import { exportReportToPDF, exportReportToPPTX } from "@/lib/report/export"
 import { getTemplate, DEFAULT_TEMPLATE_ID } from "@/lib/report/templates"
+import { createReportTemplate } from "@/db/report-templates-firestore"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle
+} from "@/components/ui/dialog"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Textarea } from "@/components/ui/textarea"
+import { cn } from "@/lib/utils"
 
 type Draft = Record<string, any>
 
@@ -92,6 +105,18 @@ export default function ReportDetailPage() {
   const sectionSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const objectiveSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  // Save-as-template + add-section dialogs. Both share the simple
+  // {name, description} payload shape - we render them as separate
+  // <Dialog>s for clarity.
+  const [templateDialogOpen, setTemplateDialogOpen] = useState(false)
+  const [templateName, setTemplateName] = useState("")
+  const [templateDescription, setTemplateDescription] = useState("")
+  const [savingTemplate, setSavingTemplate] = useState(false)
+
+  const [addSectionDialogOpen, setAddSectionDialogOpen] = useState(false)
+  const [newSectionName, setNewSectionName] = useState("")
+  const [newSectionDescription, setNewSectionDescription] = useState("")
 
   useEffect(() => {
     if (reportId) void fetchReport()
@@ -162,6 +187,11 @@ export default function ReportDetailPage() {
       ? (report.report_draft as Draft)
       : null
   const hasDraft = !!draft
+  // A report becomes "saved" once the user explicitly saves it as a
+  // template (the Save-as-Template dialog flips this). Drives the
+  // ReportTab + ReportSection lockdown so locked reports can't be
+  // re-edited.
+  const isReportSaved = !!report?.is_saved
   const fileCount = protocolFiles.length + paperFiles.length + dataFiles.length
 
   const handleObjectiveChange = (value: string) => {
@@ -455,6 +485,83 @@ export default function ReportDetailPage() {
   }
 
   // ELN export handlers removed (#21).
+  const handleOpenAddSection = () => {
+    setNewSectionName("")
+    setNewSectionDescription("")
+    setAddSectionDialogOpen(true)
+  }
+
+  const handleConfirmAddSection = () => {
+    const name = newSectionName.trim()
+    if (!name) {
+      sonnerToast.error("Section name is required.")
+      return
+    }
+    handleCustomSectionsChange([
+      ...customSections,
+      {
+        id: `cs-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
+        name,
+        description: newSectionDescription.trim()
+      }
+    ])
+    setAddSectionDialogOpen(false)
+  }
+
+  const handleOpenSaveAsTemplate = () => {
+    setTemplateName(report?.name ?? "")
+    setTemplateDescription(report?.description ?? "")
+    setTemplateDialogOpen(true)
+  }
+
+  const handleConfirmSaveAsTemplate = async () => {
+    const trimmed = templateName.trim()
+    if (!trimmed) {
+      sonnerToast.error("Template name is required.")
+      return
+    }
+    setSavingTemplate(true)
+    try {
+      // Combine the active template's built-in sections with the
+      // user's custom additions so the persisted template captures
+      // both the structure and the scientist's bespoke pieces.
+      const tpl = getTemplate(templateId)
+      const sections = [
+        ...tpl.sections.map(s => ({
+          key: s.key,
+          title: s.title,
+          group: s.group
+        })),
+        ...customSections.map(cs => ({
+          key: cs.id,
+          title: cs.name || "Untitled section",
+          description: cs.description,
+          group: "Custom",
+          custom: true
+        }))
+      ]
+      await createReportTemplate(workspaceId, {
+        name: trimmed,
+        description: templateDescription.trim(),
+        sections,
+        chart_type:
+          ((report?.chart_data as Record<string, unknown> | undefined)
+            ?.chartType as "bar" | "line" | "pie" | undefined) ?? null
+      })
+      // Flip the report into the "saved" state so the chrome locks.
+      await updateReport(reportId, { is_saved: true })
+      setReport((prev: any) => ({ ...prev, is_saved: true }))
+      sonnerToast.success("Saved as template")
+      setTemplateDialogOpen(false)
+    } catch (e: any) {
+      sonnerToast.error(
+        `Couldn't save template: ${e?.message ?? "unknown error"}`
+      )
+    } finally {
+      setSavingTemplate(false)
+    }
+  }
+
   const draftText = draftToText(draft)
   // `draftText` is still computed for parity with the old surface;
   // unused now that ELN export is gone, but cheap to keep so we don't
@@ -650,17 +757,22 @@ export default function ReportDetailPage() {
           <div className="flex items-center gap-2">
             {hasDraft && (
               <>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="gap-2"
-                  onClick={handleSaveNow}
-                  disabled={isSavingNow}
-                  title="Flush any pending edits to the server"
-                >
-                  <SaveIcon className="size-4" />
-                  {isSavingNow ? "Saving…" : "Save"}
-                </Button>
+                {/* Save button hides once the report is locked - at
+                    that point Save-as-Template (inside the Report
+                    tab) is the only mutation that makes sense. */}
+                {!isReportSaved && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="gap-2"
+                    onClick={handleSaveNow}
+                    disabled={isSavingNow}
+                    title="Flush any pending edits to the server"
+                  >
+                    <SaveIcon className="size-4" />
+                    {isSavingNow ? "Saving…" : "Save"}
+                  </Button>
+                )}
                 <Button
                   variant="outline"
                   size="sm"
@@ -693,9 +805,18 @@ export default function ReportDetailPage() {
         tabs={tabDefs}
       />
 
-      {/* Tab content */}
+      {/* Tab content. Inputs + Overview keep a comfortable
+          max-width; the Report tab gets the full 6xl so the index +
+          body grid has more room to breathe (scientist asked for the
+          main content to widen so the chart and tables don't need so
+          much horizontal scrolling). */}
       <div className="min-h-0 flex-1 overflow-auto">
-        <div className="mx-auto max-w-4xl p-6">
+        <div
+          className={cn(
+            "mx-auto p-6",
+            activeTab === "report" ? "max-w-6xl" : "max-w-4xl"
+          )}
+        >
           {activeTab === "overview" && (
             <OverviewTab
               report={report}
@@ -741,6 +862,10 @@ export default function ReportDetailPage() {
               onOpenPreview={() => setShowPreview(true)}
               templateId={templateId}
               reportTitle={report?.name || "Untitled Report"}
+              isSaved={isReportSaved}
+              onSaveAsTemplate={handleOpenSaveAsTemplate}
+              customSections={customSections}
+              onAddCustomSection={handleOpenAddSection}
             />
           )}
         </div>
@@ -752,11 +877,121 @@ export default function ReportDetailPage() {
         title={report?.name || "Untitled Report"}
         draft={draft}
         chartImage={report?.chart_image ?? null}
+        chartData={report?.chart_data ?? null}
         onEditContent={handleSectionContentChange}
         templateId={templateId}
+        isLocked={isReportSaved}
       />
 
-      {/* ELN export modals removed for the B2C launch (#21). */}
+      {/* Add-section dialog. Asks for a name + brief description; the
+          generation agent fills the body once the user re-runs the
+          report (or types into the section themselves). */}
+      <Dialog
+        open={addSectionDialogOpen}
+        onOpenChange={setAddSectionDialogOpen}
+      >
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Add a section</DialogTitle>
+            <DialogDescription>
+              Name the section and write 1-2 sentences telling the generation
+              agent what to put in it.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 py-2">
+            <div className="space-y-1.5">
+              <Label htmlFor="add-section-name">Section name</Label>
+              <Input
+                id="add-section-name"
+                value={newSectionName}
+                onChange={e => setNewSectionName(e.target.value)}
+                placeholder="e.g. Open questions for PI"
+                maxLength={120}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="add-section-desc">What goes here</Label>
+              <Textarea
+                id="add-section-desc"
+                value={newSectionDescription}
+                onChange={e => setNewSectionDescription(e.target.value)}
+                placeholder="Briefly describe what this section should contain."
+                rows={3}
+                maxLength={600}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setAddSectionDialogOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button onClick={handleConfirmAddSection}>Add section</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Save-as-template dialog. Persists the active section list +
+          chart type to report_templates so the user can spawn future
+          reports from the same skeleton. Flips the current report to
+          is_saved=true on success, which locks the editor. */}
+      <Dialog open={templateDialogOpen} onOpenChange={setTemplateDialogOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Save report as template</DialogTitle>
+            <DialogDescription>
+              Captures the structure of this report (sections + chart type) so a
+              future report can reuse it. Also locks this report from further
+              edits.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 py-2">
+            <div className="space-y-1.5">
+              <Label htmlFor="tpl-name">Template name</Label>
+              <Input
+                id="tpl-name"
+                value={templateName}
+                onChange={e => setTemplateName(e.target.value)}
+                placeholder="e.g. PI weekly update"
+                maxLength={120}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="tpl-desc">
+                Description{" "}
+                <span className="text-ink-3 text-[11px] font-normal">
+                  optional
+                </span>
+              </Label>
+              <Textarea
+                id="tpl-desc"
+                value={templateDescription}
+                onChange={e => setTemplateDescription(e.target.value)}
+                placeholder="When should someone reach for this template?"
+                rows={3}
+                maxLength={600}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setTemplateDialogOpen(false)}
+              disabled={savingTemplate}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleConfirmSaveAsTemplate}
+              disabled={savingTemplate || !templateName.trim()}
+            >
+              {savingTemplate ? "Saving…" : "Save template"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

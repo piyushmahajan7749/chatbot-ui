@@ -333,6 +333,11 @@ export const ChatUI: FC<ChatUIProps> = ({ variant = "full", chatId }) => {
             {selectedChat?.name || "Chat"}
           </div>
           <ChatScopeBadge />
+          {/* Answer-style toggle pinned to the right. Persists to
+              chats.answer_style; the chat send pipeline reads this
+              and injects a "Be concise" / "Be elaborate" line into
+              the system prompt. */}
+          {selectedChat?.id && <ChatAnswerStyleToggle />}
         </div>
       )}
 
@@ -364,6 +369,67 @@ export const ChatUI: FC<ChatUIProps> = ({ variant = "full", chatId }) => {
           <ChatHelp />
         </div>
       )}
+    </div>
+  )
+}
+
+/**
+ * Pill-shaped toggle in the chat header that lets the scientist pick
+ * between Concise (1-2 sentence answers) and Elaborate (longer
+ * explanations). Mutates `chats.answer_style` so the server-side
+ * prompt builder injects the corresponding instruction. Defaults to
+ * "concise" - scientists hated the auto-generated wall of text.
+ */
+const ChatAnswerStyleToggle: FC = () => {
+  const { selectedChat, setSelectedChat } = useContext(ChatbotUIContext)
+  const style =
+    (selectedChat as any)?.answer_style === "elaborate"
+      ? "elaborate"
+      : "concise"
+
+  const apply = async (next: "concise" | "elaborate") => {
+    if (!selectedChat?.id || style === next) return
+    // Optimistic update so the toggle feels instant; rollback on
+    // failure. Server is the source of truth.
+    const prev = selectedChat
+    setSelectedChat({ ...selectedChat, answer_style: next } as any)
+    try {
+      const { updateChat } = await import("@/db/chats")
+      await updateChat(selectedChat.id, { answer_style: next } as any)
+    } catch (e: any) {
+      console.warn("[chat] answer_style update failed:", e?.message ?? e)
+      setSelectedChat(prev)
+    }
+  }
+
+  return (
+    <div className="border-line bg-paper absolute right-3 inline-flex overflow-hidden rounded-md border">
+      <button
+        type="button"
+        onClick={() => void apply("concise")}
+        className={cn(
+          "px-2.5 py-1 text-[11px] font-semibold transition-colors",
+          style === "concise"
+            ? "bg-ink text-paper"
+            : "text-ink-3 hover:bg-paper-2 hover:text-ink"
+        )}
+        title="Short, 1-2 sentence answers"
+      >
+        Concise
+      </button>
+      <button
+        type="button"
+        onClick={() => void apply("elaborate")}
+        className={cn(
+          "border-line border-l px-2.5 py-1 text-[11px] font-semibold transition-colors",
+          style === "elaborate"
+            ? "bg-ink text-paper"
+            : "text-ink-3 hover:bg-paper-2 hover:text-ink"
+        )}
+        title="Longer, fuller explanations"
+      >
+        Elaborate
+      </button>
     </div>
   )
 }

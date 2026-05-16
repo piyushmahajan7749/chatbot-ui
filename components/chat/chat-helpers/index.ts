@@ -366,6 +366,40 @@ export const processResponse = async (
   }
 }
 
+/**
+ * Best-effort LLM call that turns the user's first message into a
+ * 1-3 word noun phrase the chat-history list can show as the slab
+ * title (#26 in the May ask). Cheap server-side call - we hit
+ * `/api/chat/title` which proxies into gpt-4o-mini. On any failure
+ * we fall back to the legacy "first 100 chars" so the chat is never
+ * untitled.
+ *
+ * The proxy lives at `/api/chat/title` because the OpenAI call needs
+ * the workspace's server key, which is not available from the
+ * browser bundle.
+ */
+async function deriveChatTitle(messageContent: string): Promise<string> {
+  const trimmed = messageContent.trim()
+  if (!trimmed) return "Chat"
+  try {
+    const res = await fetch("/api/chat/title", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ message: trimmed.slice(0, 600) })
+    })
+    if (!res.ok) throw new Error(`title route ${res.status}`)
+    const data = (await res.json()) as { title?: string }
+    const title = (data.title ?? "").trim()
+    if (title) return title.slice(0, 80)
+  } catch (e: any) {
+    console.warn("[chat] auto-title fallback:", e?.message ?? e)
+  }
+  // Fallback: first 3 words, capitalised. Avoids dumping a 100-char
+  // chunk of message into the slab title.
+  const words = trimmed.split(/\s+/).slice(0, 3).join(" ")
+  return words.length > 0 ? words.slice(0, 80) : "Chat"
+}
+
 export const handleCreateChat = async (
   chatSettings: ChatSettings,
   profile: Tables<"profiles">,
@@ -377,6 +411,10 @@ export const handleCreateChat = async (
   setChats: React.Dispatch<React.SetStateAction<Tables<"chats">[]>>,
   setChatFiles: React.Dispatch<React.SetStateAction<ChatFile[]>>
 ) => {
+  // Generate a context-aware title before the chat row lands. If the
+  // LLM proxy fails the helper falls back to first-three-words so we
+  // never insert with an empty name.
+  const title = await deriveChatTitle(messageContent)
   const createdChat = await createChat({
     user_id: profile.user_id,
     workspace_id: selectedWorkspace.id,
@@ -385,7 +423,7 @@ export const handleCreateChat = async (
     include_profile_context: chatSettings.includeProfileContext,
     include_workspace_instructions: chatSettings.includeWorkspaceInstructions,
     model: chatSettings.model,
-    name: messageContent.substring(0, 100),
+    name: title,
     prompt: chatSettings.prompt,
     temperature: chatSettings.temperature,
     embeddings_provider: chatSettings.embeddingsProvider

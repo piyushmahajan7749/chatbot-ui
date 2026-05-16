@@ -2,7 +2,7 @@
 
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
-import { IconRefresh, IconSparkles } from "@tabler/icons-react"
+import { IconPlus, IconRefresh, IconSparkles } from "@tabler/icons-react"
 import { Maximize2 } from "lucide-react"
 import { FC, useCallback, useEffect, useRef, useState } from "react"
 import { ReportSection } from "./report-section"
@@ -53,6 +53,27 @@ interface ReportTabProps {
   onOpenPreview: () => void
   templateId?: string | null
   reportTitle?: string
+  /**
+   * `true` once the user has explicitly saved the report. Locks the
+   * UI: hides Edit / Edit-with-AI / chart-variant tabs / save button.
+   * The selected chart type stays in place and renders read-only.
+   */
+  isSaved?: boolean
+  /** Opens the Save-as-Template dialog. Rendered next to Preview. */
+  onSaveAsTemplate?: () => void
+  /**
+   * Custom-section additions sourced from the inputs tab + any
+   * scientist additions made from the index sidebar's "+ Add
+   * section" button. Each entry renders a ReportSection alongside
+   * the template's built-in sections.
+   */
+  customSections?: Array<{
+    id: string
+    name: string
+    description?: string
+  }>
+  /** Opens the dialog that asks for a name + description, then prepends a new section. */
+  onAddCustomSection?: () => void
 }
 
 const sectionAnchor = (key: string) => `section-${key}`
@@ -63,12 +84,15 @@ const ChartBlock: FC<{
   regeneratingChart: boolean
   onRegenerateChart: (feedback: string) => Promise<void>
   onChartTypeChange?: (chartType: ChartType) => void
+  /** Saved-report lockdown - hides type tabs + Edit-with-AI button. */
+  isLocked?: boolean
 }> = ({
   chartImage,
   chartData,
   regeneratingChart,
   onRegenerateChart,
-  onChartTypeChange
+  onChartTypeChange,
+  isLocked = false
 }) => {
   const [showFeedback, setShowFeedback] = useState(false)
   const [feedback, setFeedback] = useState("")
@@ -90,41 +114,44 @@ const ChartBlock: FC<{
         <div className="text-ink-500 text-[11px] font-bold uppercase tracking-widest">
           Visualization
         </div>
-        <div className="flex items-center gap-2">
-          {/* Chart-type tabs (#17/#18) - only render when we have raw
-              data; without it the recharts surface can't draw, so the
-              tabs would do nothing. */}
-          {hasData && onChartTypeChange && (
-            <div className="border-ink-200 inline-flex overflow-hidden rounded-md border bg-white">
-              {CHART_TYPE_OPTIONS.map(opt => (
-                <button
-                  key={opt.key}
-                  type="button"
-                  onClick={() => onChartTypeChange(opt.key)}
-                  disabled={regeneratingChart}
-                  className={cn(
-                    "px-2.5 py-1 text-[11px] font-semibold transition-colors",
-                    currentType === opt.key
-                      ? "bg-teal-journey text-white"
-                      : "text-ink-700 hover:bg-ink-50"
-                  )}
-                >
-                  {opt.label}
-                </button>
-              ))}
-            </div>
-          )}
-          <Button
-            variant="outline"
-            size="sm"
-            className="gap-1.5"
-            onClick={() => setShowFeedback(v => !v)}
-            disabled={regeneratingChart}
-          >
-            <IconRefresh size={14} />
-            {showFeedback ? "Cancel" : "Edit chart with AI"}
-          </Button>
-        </div>
+        {!isLocked && (
+          <div className="flex items-center gap-2">
+            {/* Chart-type tabs (#17/#18) - only render when we have raw
+                data AND the report is still editable. Saved reports
+                lock the user into whatever variant was current at save
+                time. */}
+            {hasData && onChartTypeChange && (
+              <div className="border-ink-200 inline-flex overflow-hidden rounded-md border bg-white">
+                {CHART_TYPE_OPTIONS.map(opt => (
+                  <button
+                    key={opt.key}
+                    type="button"
+                    onClick={() => onChartTypeChange(opt.key)}
+                    disabled={regeneratingChart}
+                    className={cn(
+                      "px-2.5 py-1 text-[11px] font-semibold transition-colors",
+                      currentType === opt.key
+                        ? "bg-teal-journey text-white"
+                        : "text-ink-700 hover:bg-ink-50"
+                    )}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+            )}
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-1.5"
+              onClick={() => setShowFeedback(v => !v)}
+              disabled={regeneratingChart}
+            >
+              <IconRefresh size={14} />
+              {showFeedback ? "Cancel" : "Edit chart with AI"}
+            </Button>
+          </div>
+        )}
       </div>
       {/* Prefer the interactive recharts surface (data labels, hover
           tooltips, switchable type) when we have raw `chart_data`. We
@@ -150,7 +177,7 @@ const ChartBlock: FC<{
           Visualization not available.
         </p>
       )}
-      {showFeedback && (
+      {!isLocked && showFeedback && (
         <div className="border-ink-100 space-y-2 border-t pt-3">
           <Textarea
             value={feedback}
@@ -187,7 +214,11 @@ export const ReportTab: FC<ReportTabProps> = ({
   regeneratingChart,
   onOpenPreview,
   templateId,
-  reportTitle
+  reportTitle,
+  isSaved = false,
+  onSaveAsTemplate,
+  customSections,
+  onAddCustomSection
 }) => {
   const template: ReportTemplate = getTemplate(templateId)
   const sectionGroups = getSectionGroups(template)
@@ -276,6 +307,47 @@ export const ReportTab: FC<ReportTabProps> = ({
               })}
             </div>
           ))}
+          {/* Custom sections appear under a dedicated group at the
+              bottom of the index so the scientist can scan their
+              additions separately from the template defaults. */}
+          {customSections && customSections.length > 0 && (
+            <div className="mb-2">
+              <div className="text-ink-400 px-2 pb-1 pt-2 text-[11px] font-bold uppercase tracking-widest">
+                Custom
+              </div>
+              {customSections.map(cs => {
+                const anchor = sectionAnchor(cs.id)
+                const isActive = activeAnchor === anchor
+                return (
+                  <button
+                    key={cs.id}
+                    type="button"
+                    onClick={() => handleJump(anchor)}
+                    className={
+                      "block w-full truncate rounded-lg px-2 py-1.5 text-left transition-colors " +
+                      (isActive
+                        ? "bg-teal-journey-tint/50 text-teal-journey font-semibold"
+                        : "text-ink-700 hover:bg-ink-50")
+                    }
+                  >
+                    {cs.name || "Untitled section"}
+                  </button>
+                )
+              })}
+            </div>
+          )}
+          {/* + Add section CTA below the last item. Saved reports
+              hide it - the structure is locked once saved. */}
+          {!isSaved && onAddCustomSection && (
+            <button
+              type="button"
+              onClick={onAddCustomSection}
+              className="border-line text-ink-2 hover:bg-paper-2 mx-1 mt-2 flex w-[calc(100%-0.5rem)] items-center justify-center gap-1 rounded-md border border-dashed px-2 py-1.5 text-[12px] font-medium transition-colors"
+            >
+              <IconPlus size={12} />
+              Add section
+            </button>
+          )}
         </nav>
       </aside>
 
@@ -295,15 +367,31 @@ export const ReportTab: FC<ReportTabProps> = ({
               <span className="text-ink-700 font-medium">{template.name}</span>
             </div>
           </div>
-          <Button
-            variant="outline"
-            size="sm"
-            className="gap-2"
-            onClick={onOpenPreview}
-          >
-            <Maximize2 className="size-4" />
-            Preview
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-2"
+              onClick={onOpenPreview}
+            >
+              <Maximize2 className="size-4" />
+              Preview
+            </Button>
+            {/* Save-as-Template surfaces on saved reports - this is
+                the only action we want a locked report to retain so
+                the scientist can capture the structure for reuse. */}
+            {isSaved && onSaveAsTemplate && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-2"
+                onClick={onSaveAsTemplate}
+              >
+                <IconSparkles size={14} />
+                Save as template
+              </Button>
+            )}
+          </div>
         </div>
 
         {sectionGroups.map(group =>
@@ -330,6 +418,12 @@ export const ReportTab: FC<ReportTabProps> = ({
                   onEditContent={onEditContent}
                   isBusy={regenerating === section.key}
                   accentClassName={group.accentClassName}
+                  // When the report is saved, lock every section -
+                  // hides the inline Edit and Edit-with-AI buttons.
+                  // The selected chart variant still shows but its
+                  // tab strip + "Edit chart with AI" disappear via
+                  // the ChartBlock's `isSaved` branch.
+                  isLocked={isSaved}
                   afterContent={
                     isDataAnalysis && chartCapable ? (
                       <ChartBlock
@@ -338,6 +432,7 @@ export const ReportTab: FC<ReportTabProps> = ({
                         regeneratingChart={regeneratingChart}
                         onRegenerateChart={onRegenerateChart}
                         onChartTypeChange={onChartTypeChange}
+                        isLocked={isSaved}
                       />
                     ) : null
                   }
@@ -346,6 +441,31 @@ export const ReportTab: FC<ReportTabProps> = ({
             )
           })
         )}
+        {/* Render scientist-added custom sections after the
+            template's built-in ones so they don't fight for top-of-
+            page real estate. Each carries its description in italics
+            below the heading until the generation agent fills the
+            body. */}
+        {(customSections ?? []).map(cs => (
+          <div
+            key={cs.id}
+            data-anchor={sectionAnchor(cs.id)}
+            className="scroll-mt-4"
+          >
+            <ReportSection
+              sectionKey={cs.id}
+              title={cs.name || "Custom section"}
+              content={
+                (draft?.[cs.id] as string | undefined) ??
+                (cs.description ? `_${cs.description}_` : "")
+              }
+              onRegenerate={onRegenerate}
+              onEditContent={onEditContent}
+              isBusy={regenerating === cs.id}
+              isLocked={isSaved}
+            />
+          </div>
+        ))}
       </div>
     </div>
   )

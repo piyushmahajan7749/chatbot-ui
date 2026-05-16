@@ -17,6 +17,12 @@ interface ReportSectionProps {
   isBusy: boolean
   accentClassName?: string
   afterContent?: ReactNode
+  /**
+   * When `true`, the section is read-only: Edit + Edit-with-AI
+   * buttons are hidden, mode forced to "view". Used by saved
+   * reports so the body locks alongside the rest of the report.
+   */
+  isLocked?: boolean
 }
 
 /**
@@ -53,7 +59,8 @@ export const ReportSection: FC<ReportSectionProps> = ({
   onEditContent,
   isBusy,
   accentClassName,
-  afterContent
+  afterContent,
+  isLocked = false
 }) => {
   const [mode, setMode] = useState<"view" | "edit" | "ai">("view")
   const [draftText, setDraftText] = useState(content)
@@ -89,39 +96,44 @@ export const ReportSection: FC<ReportSectionProps> = ({
         <CardTitle className={"text-lg " + (accentClassName ?? "text-ink-900")}>
           {title}
         </CardTitle>
-        <div className="flex gap-2">
-          {onEditContent && mode !== "ai" && (
-            <Button
-              variant="outline"
-              size="sm"
-              className="gap-1.5"
-              onClick={() => {
-                if (mode === "edit") {
-                  handleSaveEdit()
-                } else {
-                  setDraftText(content)
-                  setMode("edit")
-                }
-              }}
-              disabled={isBusy}
-            >
-              <IconEdit size={14} />
-              {mode === "edit" ? "Save" : "Edit"}
-            </Button>
-          )}
-          {mode !== "edit" && (
-            <Button
-              variant="outline"
-              size="sm"
-              className="gap-1.5"
-              onClick={() => setMode(mode === "ai" ? "view" : "ai")}
-              disabled={isBusy || !content}
-            >
-              <IconRefresh size={14} />
-              {mode === "ai" ? "Cancel" : "Edit with AI"}
-            </Button>
-          )}
-        </div>
+        {/* Edit / Edit-with-AI controls disappear once the report is
+            locked - "save" intent surfaces as Save-as-Template on the
+            parent toolbar instead. */}
+        {!isLocked && (
+          <div className="flex gap-2">
+            {onEditContent && mode !== "ai" && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-1.5"
+                onClick={() => {
+                  if (mode === "edit") {
+                    handleSaveEdit()
+                  } else {
+                    setDraftText(content)
+                    setMode("edit")
+                  }
+                }}
+                disabled={isBusy}
+              >
+                <IconEdit size={14} />
+                {mode === "edit" ? "Save" : "Edit"}
+              </Button>
+            )}
+            {mode !== "edit" && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-1.5"
+                onClick={() => setMode(mode === "ai" ? "view" : "ai")}
+                disabled={isBusy || !content}
+              >
+                <IconRefresh size={14} />
+                {mode === "ai" ? "Cancel" : "Edit with AI"}
+              </Button>
+            )}
+          </div>
+        )}
       </CardHeader>
       <CardContent className="space-y-4">
         {mode === "edit" ? (

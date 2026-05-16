@@ -18,6 +18,13 @@ export interface ChatPayload {
   chatMessages: ChatMessage[]
   assistant: Tables<"assistants"> | null
   /**
+   * "concise" → assistant answers in 1-2 short sentences.
+   * "elaborate" → longer, fuller explanations. Maps onto a system-
+   * prompt suffix in `buildBasePrompt`. Defaults to "concise" when
+   * absent so legacy chat rows behave sanely.
+   */
+  answerStyle?: "concise" | "elaborate"
+  /**
    * Items just retrieved for THIS message turn. Post-RAG-cutover (PR-6)
    * these are RagItems carrying source_title / source_url for inline
    * citations; pre-cutover they were Tables<"file_items"> rows.
