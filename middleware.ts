@@ -84,8 +84,12 @@ export async function middleware(request: NextRequest) {
       } else if (targetPath === "/onboarding" && !isOnboarding) {
         // Not onboarded - must be on /onboarding.
         redirectResponse = redirectWith(request, "/onboarding", response)
-      } else if (isOnboarding) {
+      } else if (isOnboarding && targetPath !== "/onboarding") {
         // Already onboarded - bounce away from /onboarding to home.
+        // The `targetPath !== "/onboarding"` guard stops the loop where
+        // a not-yet-onboarded user already sits on /onboarding: without
+        // it we'd redirect /onboarding -> /onboarding (ERR_TOO_MANY_
+        // REDIRECTS).
         redirectResponse = redirectWith(request, targetPath, response)
       }
     }
