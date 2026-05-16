@@ -3,11 +3,15 @@
 @tailwind utilities;
 
 /* ============================================================
-   Shadow AI — Scientific design tokens (aligned with shadowai.work)
-   Palette: cream-warm neutrals + electric blue accent
-   Type: Inter Tight (display) · IBM Plex Sans (body) · IBM Plex Mono
-   Token names retained (--rust, --paper, --ink-*) so component
-   code remains unchanged across the rebrand.
+   Shadow AI — Scientific design tokens
+   Palette: cream-warm neutrals + cyan/magenta brand accents
+            sampled from the helix logo (public/shadowai-logo.png).
+            Logo hues: navy bg #0E0B40, cyan #22D3EE (Shadow text +
+            helix top), magenta #E879F9 (helix bottom), deep blue
+            #3B82F6 (AI text), soft cyan glow #7DD3FC.
+   Type:    Inter Tight (display) · IBM Plex Sans (body) · IBM Plex Mono
+   Token names retained (--rust, --paper, --ink-*) so component code
+   remains unchanged across the rebrand.
    ============================================================ */
 
 @layer base {
@@ -24,17 +28,26 @@
     --ink-4: #9a9ca3; /* placeholders */
     --surface: #ffffff; /* raised cards, inputs, modals */
 
-    /* ----- Brand: electric blue (token still named --rust for callsite stability) ----- */
-    --rust: oklch(0.58 0.19 240); /* CTA, accent, focus */
-    --rust-hover: oklch(0.46 0.19 240); /* primary on hover */
-    --rust-soft: oklch(0.95 0.04 240); /* subtle tinted backgrounds */
-    --rust-ink: oklch(0.36 0.18 240); /* legible blue ink */
+    /* ----- Brand: helix cyan (token still named --rust for callsite stability)
+       sampled from the logo's "Shadow" text + helix top.            ----- */
+    --rust: #22d3ee; /* CTA, accent, focus */
+    --rust-hover: #0891b2; /* darker cyan on hover */
+    --rust-soft: #cffafe; /* subtle tinted backgrounds */
+    --rust-ink: #155e75; /* legible cyan ink */
+    /* Secondary brand accent — magenta from the helix bottom; used by
+       chips / highlights that need a second hue. */
+    --brand-magenta: #e879f9;
+    --brand-magenta-soft: #fae8ff;
+    --brand-magenta-ink: #86198f;
+    --brand-navy: #0e0b40; /* logo background, used for splash + theme-color */
 
-    /* Phase tints — re-tuned cool/neutral to harmonize with brand blue */
+    /* Phase tints — re-tuned to the logo's hue sweep:
+       cyan (problem) → deep blue (lit) → magenta (hyp), with the
+       neutral overview/design slabs flanking them. */
     --p-overview: #5b6b7a;
-    --p-problem: #2a6a8a;
-    --p-lit: #2962ff;
-    --p-hyp: #6b5ba8;
+    --p-problem: #22d3ee; /* logo cyan */
+    --p-lit: #3b82f6; /* logo "AI" deep blue */
+    --p-hyp: #e879f9; /* logo magenta */
     --p-design: #6f6a52;
 
     --success: oklch(0.55 0.1 155);
@@ -88,9 +101,9 @@
     --ink-2-hsl: 222 8% 18%;
     --ink-3-hsl: 222 5% 44%;
     --ink-4-hsl: 222 5% 62%;
-    --rust-hsl: 220 90% 55%; /* electric blue */
-    --rust-soft-hsl: 220 75% 95%;
-    --rust-ink-hsl: 220 85% 36%;
+    --rust-hsl: 188 85% 53%; /* logo cyan #22D3EE */
+    --rust-soft-hsl: 187 80% 90%; /* #CFFAFE */
+    --rust-ink-hsl: 192 91% 27%; /* #155E75 - readable cyan */
 
     --muted: 38 23% 91%; /* paper-2 */
     --muted-foreground: 222 5% 44%; /* ink-3 */
@@ -120,34 +133,39 @@
     --destructive: 18 70% 48%;
     --destructive-foreground: 38 27% 96%;
 
-    --ring: 220 90% 55%; /* electric-blue focus ring */
+    --ring: 188 85% 53%; /* logo cyan focus ring */
 
     --radius: 0.625rem; /* 10px — r-lg (cards) */
   }
 
   .dark {
-    /* Dark mode: near-black with cool ink + softened electric-blue accent. */
-    --paper: #0e0f12; /* page background */
-    --paper-2: #16181d; /* recessed sections */
-    --paper-3: #1b1d23; /* deeper recess */
-    --line: #2a2c31; /* default borders */
-    --line-strong: #3a3d44; /* hover borders */
-    --ink: #f4f1ea; /* primary text (warm-cream on dark) */
+    /* Dark mode: logo-navy paper + bright cyan accent. The deep navy
+       (#0E0B40) is the helix's background in the brand mark, so the
+       app's dark theme reads as a continuation of the logo. */
+    --paper: #0e0b40; /* page background — logo navy */
+    --paper-2: #14114a; /* recessed sections (slightly raised navy) */
+    --paper-3: #1a1755; /* deeper recess */
+    --line: #2a2570; /* default borders */
+    --line-strong: #3b3590; /* hover borders */
+    --ink: #f4f1ea; /* primary text (warm cream) */
     --ink-2: #d6d1c5; /* body text */
-    --ink-3: #9a9ca3; /* tertiary */
-    --ink-4: #6b6e76; /* placeholders */
-    --surface: #1b1d23; /* raised cards, modals */
+    --ink-3: #a3a0c2; /* tertiary (cool tint to harmonise with navy) */
+    --ink-4: #7a7799; /* placeholders */
+    --surface: #1a1755; /* raised cards, modals */
 
-    --rust: oklch(0.78 0.16 235); /* softened electric blue */
-    --rust-hover: oklch(0.86 0.13 235);
-    --rust-soft: oklch(0.32 0.1 240);
-    --rust-ink: oklch(0.86 0.13 235);
+    --rust: #67e8f9; /* brightened logo cyan for dark bg */
+    --rust-hover: #22d3ee;
+    --rust-soft: #0e7490; /* deep cyan ink panel */
+    --rust-ink: #cffafe;
+    --brand-magenta: #f0abfc; /* brightened magenta on dark */
+    --brand-magenta-soft: #701a75;
+    --brand-magenta-ink: #fae8ff;
 
-    /* Phase tints — brightened for dark contrast, harmonized with blue. */
+    /* Phase tints — brightened for dark contrast, same hue sweep. */
     --p-overview: #8c9aa8;
-    --p-problem: #5fb4c8;
-    --p-lit: #6e9bff;
-    --p-hyp: #9285c6;
+    --p-problem: #67e8f9;
+    --p-lit: #93c5fd;
+    --p-hyp: #f0abfc;
     --p-design: #b9b08a;
 
     --success: oklch(0.7 0.13 155);
@@ -161,48 +179,48 @@
       0 24px 56px -16px color-mix(in oklab, var(--rust) 28%, transparent);
     --shadow-drawer: -24px 0 56px rgba(0, 0, 0, 0.5);
 
-    --background: 222 13% 6%;
+    --background: 245 70% 13%; /* logo navy */
     --foreground: 38 27% 94%;
 
-    --surface-hsl: 222 13% 12%;
-    --paper-hsl: 222 13% 6%;
-    --paper-2-hsl: 222 13% 10%;
-    --paper-3-hsl: 222 13% 12%;
-    --line-hsl: 222 9% 18%;
-    --line-strong-hsl: 222 8% 25%;
+    --surface-hsl: 246 58% 21%;
+    --paper-hsl: 245 70% 13%;
+    --paper-2-hsl: 246 62% 17%;
+    --paper-3-hsl: 246 58% 21%;
+    --line-hsl: 247 49% 30%;
+    --line-strong-hsl: 247 45% 39%;
     --ink-hsl: 38 27% 94%;
     --ink-2-hsl: 38 17% 80%;
-    --ink-3-hsl: 222 5% 62%;
-    --ink-4-hsl: 222 5% 44%;
-    --rust-hsl: 215 100% 72%;
-    --rust-soft-hsl: 220 50% 22%;
-    --rust-ink-hsl: 215 100% 82%;
+    --ink-3-hsl: 250 16% 70%;
+    --ink-4-hsl: 250 11% 53%;
+    --rust-hsl: 188 92% 69%; /* bright logo cyan on dark */
+    --rust-soft-hsl: 192 91% 31%;
+    --rust-ink-hsl: 187 80% 90%;
 
-    --muted: 222 13% 10%;
-    --muted-foreground: 222 5% 62%;
+    --muted: 246 62% 17%;
+    --muted-foreground: 250 16% 70%;
 
-    --popover: 222 13% 12%;
+    --popover: 246 58% 21%;
     --popover-foreground: 38 27% 94%;
 
-    --card: 222 13% 12%;
+    --card: 246 58% 21%;
     --card-foreground: 38 27% 94%;
 
-    --border: 222 9% 18%;
-    --input: 222 9% 18%;
+    --border: 247 49% 30%;
+    --input: 247 49% 30%;
 
     --primary: 38 27% 94%;
-    --primary-foreground: 225 13% 6%;
+    --primary-foreground: 245 70% 13%;
 
-    --secondary: 222 13% 10%;
+    --secondary: 246 62% 17%;
     --secondary-foreground: 38 27% 94%;
 
-    --accent: 222 13% 10%;
+    --accent: 246 62% 17%;
     --accent-foreground: 38 27% 94%;
 
     --destructive: 18 70% 60%;
     --destructive-foreground: 38 27% 94%;
 
-    --ring: 215 100% 72%;
+    --ring: 188 92% 69%;
   }
 }
 

@@ -49,6 +49,15 @@ export const metadata: Metadata = {
   },
   description: APP_DESCRIPTION,
   manifest: "/manifest.json",
+  // Old favicon.ico + icon-{192,256,512} PNGs were deleted with the
+  // rebrand. The new logo PNG (500x500) doubles as favicon / apple
+  // touch icon - modern browsers accept PNG for both. The full lockup
+  // (logo-full.png) is used for OG / Twitter share cards.
+  icons: {
+    icon: [{ url: "/logo.png", sizes: "500x500", type: "image/png" }],
+    shortcut: [{ url: "/logo.png" }],
+    apple: [{ url: "/logo.png", sizes: "500x500", type: "image/png" }]
+  },
   appleWebApp: {
     capable: true,
     statusBarStyle: "black",
@@ -65,20 +74,24 @@ export const metadata: Metadata = {
       default: APP_DEFAULT_TITLE,
       template: APP_TITLE_TEMPLATE
     },
-    description: APP_DESCRIPTION
+    description: APP_DESCRIPTION,
+    images: [{ url: "/logo-full.png", width: 520, height: 335 }]
   },
   twitter: {
-    card: "summary",
+    card: "summary_large_image",
     title: {
       default: APP_DEFAULT_TITLE,
       template: APP_TITLE_TEMPLATE
     },
-    description: APP_DESCRIPTION
+    description: APP_DESCRIPTION,
+    images: ["/logo-full.png"]
   }
 }
 
 export const viewport: Viewport = {
-  themeColor: "#000000"
+  // Logo navy - matches the helix logo background so the address bar /
+  // PWA chrome read as part of the brand mark.
+  themeColor: "#0E0B40"
 }
 
 const i18nNamespaces = ["translation"]
@@ -118,7 +131,7 @@ export default async function RootLayout({
       className={`${interTight.variable} ${ibmPlexSans.variable} ${ibmPlexMono.variable}`}
     >
       <body className="font-sans">
-        <Providers attribute="class" defaultTheme="light">
+        <Providers attribute="class" defaultTheme="dark">
           <TranslationsProvider
             namespaces={i18nNamespaces}
             locale={locale}
