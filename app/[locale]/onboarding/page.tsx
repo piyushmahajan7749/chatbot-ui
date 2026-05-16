@@ -3,6 +3,8 @@ import { Metadata } from "next"
 import { cookies } from "next/headers"
 import { redirect } from "next/navigation"
 import { OnboardingForm } from "./onboarding-form"
+import { AuthHero } from "@/components/auth/auth-hero"
+import { Brand } from "@/components/ui/brand"
 
 export const metadata: Metadata = {
   title: "Welcome"
@@ -42,33 +44,42 @@ export default async function OnboardingPage() {
   const emailLocalPart = session.user.email?.split("@")[0] ?? ""
 
   return (
-    <div className="bg-paper flex min-h-dvh w-full items-center justify-center px-6 py-10">
-      {profile ? (
-        <OnboardingForm
-          initialStep={profile.onboarding_step ?? 0}
-          initialDisplayName={profile.display_name || emailLocalPart}
-          initialRole={
-            (profile.role as
-              | "researcher"
-              | "scientist"
-              | "student"
-              | "pm"
-              | "other"
-              | null) ?? null
-          }
-          initialResearchField={profile.research_field ?? ""}
-          initialUseCase={
-            (profile.use_case as
-              | "design"
-              | "validate"
-              | "explore"
-              | "browse"
-              | null) ?? null
-          }
-        />
-      ) : (
-        <ProfilePendingFallback />
-      )}
+    <div className="bg-paper flex min-h-dvh w-full">
+      <AuthHero />
+      <main className="flex w-full flex-1 items-center justify-center px-6 py-10">
+        <div className="w-full max-w-[560px]">
+          {/* Mobile brand */}
+          <div className="mb-6 flex justify-center lg:hidden">
+            <Brand size={26} />
+          </div>
+          {profile ? (
+            <OnboardingForm
+              initialStep={profile.onboarding_step ?? 0}
+              initialDisplayName={profile.display_name || emailLocalPart}
+              initialRole={
+                (profile.role as
+                  | "researcher"
+                  | "scientist"
+                  | "student"
+                  | "pm"
+                  | "other"
+                  | null) ?? null
+              }
+              initialResearchField={profile.research_field ?? ""}
+              initialUseCase={
+                (profile.use_case as
+                  | "design"
+                  | "validate"
+                  | "explore"
+                  | "browse"
+                  | null) ?? null
+              }
+            />
+          ) : (
+            <ProfilePendingFallback />
+          )}
+        </div>
+      </main>
     </div>
   )
 }

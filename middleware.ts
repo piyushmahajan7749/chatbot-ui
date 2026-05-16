@@ -41,6 +41,11 @@ export async function middleware(request: NextRequest) {
 
     const isRoot = pathname === "/" || pathname === ""
     const isLogin = pathname === "/login" || pathname.startsWith("/login/")
+    const isSignup = pathname === "/signup" || pathname.startsWith("/signup/")
+    const isForgotPassword =
+      pathname === "/forgot-password" || pathname.startsWith("/forgot-password/")
+    // All public auth pages an unauthenticated user is allowed to see.
+    const isPublicAuth = isLogin || isSignup || isForgotPassword
     const isOnboarding = pathname === "/onboarding"
 
     const target = await getRedirectTarget(supabase)
@@ -59,8 +64,9 @@ export async function middleware(request: NextRequest) {
     let redirectResponse: NextResponse | null = null
 
     if (target.kind === "path" && target.path === "/login") {
-      // Unauthenticated.
-      if (!isLogin && !isRoot) {
+      // Unauthenticated. Allow login, signup, forgot-password, and "/"
+      // (marketing landing). Everything else bounces to /login.
+      if (!isPublicAuth && !isRoot) {
         redirectResponse = redirectWith(request, "/login", response)
       }
     } else if (target.kind === "profile_pending") {
@@ -70,8 +76,10 @@ export async function middleware(request: NextRequest) {
       }
     } else if (target.kind === "path") {
       const targetPath = target.path
-      if (isLogin || isRoot) {
-        // Logged-in user on marketing/login pages - send to their destination.
+      if (isPublicAuth || isRoot) {
+        // Logged-in user on marketing / auth pages - send to their
+        // destination. Includes /signup + /forgot-password so a stale
+        // session never strands them on the auth surface.
         redirectResponse = redirectWith(request, targetPath, response)
       } else if (targetPath === "/onboarding" && !isOnboarding) {
         // Not onboarded - must be on /onboarding.

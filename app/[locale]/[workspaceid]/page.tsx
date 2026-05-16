@@ -20,6 +20,7 @@ import { FC, useContext, useEffect, useMemo, useState } from "react"
 import { getProjectsByWorkspaceId } from "@/db/projects"
 
 import { ShadowAISVG } from "@/components/icons/chatbotui-svg"
+import { Walkthrough } from "@/components/onboarding/walkthrough"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { Chip } from "@/components/ui/chip"
@@ -219,8 +220,17 @@ export default function WorkspacePage() {
     }
   ]
 
+  // First-time product tour. We don't list `viewed_walkthrough` on the
+  // generated profile type yet (the column lives in migration 20260510,
+  // which the typegen lags behind), so we read it through a cast and
+  // default to `true` (tour already viewed) when undefined to avoid
+  // re-prompting users that pre-date the migration.
+  const showWalkthrough =
+    !!profile && (profile as any).viewed_walkthrough === false
+
   return (
     <div className="bg-paper h-full overflow-auto px-10 pb-16 pt-7">
+      {showWalkthrough && <Walkthrough initialOpen />}
       <div className="mx-auto max-w-[1060px]">
         {/* Hero */}
         <div className="mb-7 flex items-end justify-between gap-5">
