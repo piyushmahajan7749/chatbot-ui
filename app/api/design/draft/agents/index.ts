@@ -393,8 +393,19 @@ export async function callLiteratureScoutAgent(
         "Searching PubMed, arXiv, Semantic Scholar, Google Scholar, and the web..."
     })
 
+    // Track per-round outcomes so we can tell "PaperFinder is down" from
+    // "PaperFinder returned zero results" - the live test on 2026-05-17
+    // showed every scenario returning 500s with
+    // "BroadSearchAgent failed to respond; No documents retrieved from
+    // dense and s2 search" - the literature surface needs to surface
+    // that to the user instead of the generic "no papers found" copy.
+    let roundsAttempted = 0
+    let roundsServerError = 0
+    let lastServerError: string | null = null
+
     for (let i = 0; i < roundQueries.length; i++) {
       const q = roundQueries[i]
+      roundsAttempted++
       try {
         console.log(
           `\n🌐 [LITERATURE_SCOUT_SEARCH] Round ${i + 1}/${roundQueries.length}: "${q.slice(0, 80)}"`
@@ -437,10 +448,22 @@ export async function callLiteratureScoutAgent(
           break
         }
       } catch (paperFinderError: any) {
+        const msg = paperFinderError?.message ?? String(paperFinderError)
         console.warn(
           `⚠️  [LITERATURE_SCOUT_SEARCH] Round ${i + 1} failed; continuing:`,
-          paperFinderError?.message || paperFinderError
+          msg
         )
+        // Detect upstream 5xx so we can surface a clearer banner if
+        // every round fails the same way. The PaperFinder failure
+        // text starts with the HTTP code from `runPaperFinder`'s
+        // thrown error string.
+        if (
+          /^(5\d{2}|PaperFinder failed)/i.test(msg) ||
+          /failed to respond|no documents retrieved/i.test(msg)
+        ) {
+          roundsServerError++
+          lastServerError = msg
+        }
       }
     }
 
@@ -511,12 +534,25 @@ export async function callLiteratureScoutAgent(
       console.warn(
         "⚠️  [LITERATURE_SCOUT_SEARCH] All rounds returned zero unique papers."
       )
+      // Surface the real cause when every round 5xx'd. Two separate
+      // messages so the UI can decide whether to show "service down,
+      // try again in a few minutes" vs "no papers matched, try
+      // broader query".
+      const allRoundsFailedUpstream =
+        roundsAttempted > 0 && roundsServerError === roundsAttempted
       onProgress?.({
         step: "papers_found",
-        message: "No papers found - continuing with AI synthesis only.",
+        message: allRoundsFailedUpstream
+          ? `Paper search service is unreachable right now (${roundsServerError}/${roundsAttempted} rounds returned errors). Please retry in a few minutes.`
+          : "No papers found for this query. Try broadening the problem statement or upload PDFs manually.",
         totalPapers: 0,
         sourceCounts: {}
       })
+      if (allRoundsFailedUpstream && lastServerError) {
+        console.warn(
+          `⚠️  [LITERATURE_SCOUT_SEARCH] Upstream signature: ${lastServerError}`
+        )
+      }
     } else {
       curated = buildCuratedAggregatedResults(mergedResults)
       curated.searchMetrics.relevanceScores = mergedResults
