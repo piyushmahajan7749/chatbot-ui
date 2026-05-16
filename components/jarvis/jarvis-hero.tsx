@@ -17,9 +17,10 @@
  * blocking the user.
  */
 
-import { IconSparkles } from "@tabler/icons-react"
+import { IconBrain, IconSparkles } from "@tabler/icons-react"
 import { FC, useCallback, useContext, useEffect, useRef, useState } from "react"
 
+import { MemoryDrawer } from "@/components/jarvis/memory-drawer"
 import { ChatbotUIContext } from "@/context/context"
 import { cn } from "@/lib/utils"
 
@@ -63,9 +64,70 @@ const DEFAULT_CHIPS: { label: string; prompt: string }[] = [
   }
 ]
 
+interface ToolAction {
+  type: "navigate" | "open_design_modal" | "open_report_modal"
+  href?: string
+  label: string
+  tool: string
+}
+
 interface Turn {
   role: "user" | "assistant"
   content: string
+  /**
+   * Tool-action chips attached to this turn - rendered above the
+   * assistant text. Each chip deep-links the user into the
+   * corresponding agent (design / report / chat / data collection).
+   */
+  actions?: ToolAction[]
+}
+
+// Unit Separator (\x1f) + "J" - matches the server's
+// ACTION_DEMUX_MARKER in app/api/jarvis/chat/route.ts. The byte never
+// appears in LLM prose so it's a safe demux prefix.
+const ACTION_DEMUX_MARKER = "J"
+
+/**
+ * Pull out any `\x1fJ{...}\n` JSON envelopes from a streamed text
+ * chunk. Returns the plain text remainder + the parsed action
+ * payloads (typed loosely so we can evolve the protocol without
+ * breaking the client).
+ */
+function splitActionFrames(raw: string): {
+  text: string
+  actions: ToolAction[]
+} {
+  if (!raw.includes(ACTION_DEMUX_MARKER)) return { text: raw, actions: [] }
+  const actions: ToolAction[] = []
+  let textOut = ""
+  let i = 0
+  while (i < raw.length) {
+    const next = raw.indexOf(ACTION_DEMUX_MARKER, i)
+    if (next === -1) {
+      textOut += raw.slice(i)
+      break
+    }
+    textOut += raw.slice(i, next)
+    const newlineAt = raw.indexOf("\n", next)
+    const end = newlineAt === -1 ? raw.length : newlineAt
+    const payload = raw.slice(next + ACTION_DEMUX_MARKER.length, end)
+    try {
+      const parsed = JSON.parse(payload) as Record<string, unknown>
+      if (parsed.kind === "tool_action" && typeof parsed.label === "string") {
+        actions.push({
+          type: (parsed.type as ToolAction["type"]) ?? "navigate",
+          href: typeof parsed.href === "string" ? parsed.href : undefined,
+          label: parsed.label,
+          tool: typeof parsed.tool === "string" ? parsed.tool : "unknown"
+        })
+      }
+    } catch {
+      // ignore malformed frames - the worst case is the user sees
+      // one stray action chip missing.
+    }
+    i = newlineAt === -1 ? raw.length : newlineAt + 1
+  }
+  return { text: textOut, actions }
 }
 
 export const JarvisHero: FC<JarvisHeroProps> = ({ brief, chips }) => {
@@ -74,6 +136,10 @@ export const JarvisHero: FC<JarvisHeroProps> = ({ brief, chips }) => {
   const [turns, setTurns] = useState<Turn[]>([])
   const [streaming, setStreaming] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  // Live brief fetched from /api/jarvis/brief. Falls through to the
+  // prop / static default if the fetch fails (the hero never blanks).
+  const [liveBrief, setLiveBrief] = useState<BriefItem[] | null>(null)
+  const [memoryOpen, setMemoryOpen] = useState(false)
   const inputRef = useRef<HTMLTextAreaElement>(null)
   // Stable session id for the life of this mount, so the compress
   // endpoint can group the arc + so episode slugs don't collide.
@@ -82,6 +148,31 @@ export const JarvisHero: FC<JarvisHeroProps> = ({ brief, chips }) => {
       ? crypto.randomUUID()
       : `s-${Date.now()}`
   )
+
+  // Fetch the daily brief on mount + when the active workspace
+  // changes. 6h cache server-side means this is essentially free; we
+  // re-fetch eagerly so a workspace switch reflects in the hero.
+  useEffect(() => {
+    let cancelled = false
+    void (async () => {
+      try {
+        const params = new URLSearchParams()
+        if (selectedWorkspace?.id)
+          params.set("workspaceId", selectedWorkspace.id)
+        const res = await fetch(`/api/jarvis/brief?${params.toString()}`)
+        if (!res.ok) return
+        const json = (await res.json()) as {
+          items?: BriefItem[]
+        }
+        if (!cancelled) setLiveBrief(json.items ?? [])
+      } catch {
+        // best-effort
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [selectedWorkspace?.id])
 
   // ── Beacon-on-unload to compress the arc into the vault. ──────────
   // We re-bind the listener whenever `turns` changes so the closure
@@ -148,19 +239,50 @@ export const JarvisHero: FC<JarvisHeroProps> = ({ brief, chips }) => {
         const reader = res.body.getReader()
         const decoder = new TextDecoder()
         let assistantText = ""
+        let pendingFrame = ""
+        const allActions: ToolAction[] = []
         // Insert a placeholder assistant turn so the UI can fill it as
         // tokens arrive. Append the chunk to that slot each step.
         setTurns(prev => [...prev, { role: "assistant", content: "" }])
         while (true) {
           const { done, value } = await reader.read()
           if (done) break
-          const chunk = decoder.decode(value, { stream: true })
-          assistantText += chunk
+          // Carry over any half-line from the previous chunk so a
+          // marker frame split across reads still parses.
+          const chunk = pendingFrame + decoder.decode(value, { stream: true })
+          const lastMarker = chunk.lastIndexOf(ACTION_DEMUX_MARKER)
+          const lastNewline = chunk.lastIndexOf("\n")
+          let safeEnd = chunk.length
+          if (lastMarker > lastNewline) {
+            // There's an in-flight frame at the tail - hold it back.
+            safeEnd = lastMarker
+          }
+          const safe = chunk.slice(0, safeEnd)
+          pendingFrame = chunk.slice(safeEnd)
+          const { text, actions } = splitActionFrames(safe)
+          assistantText += text
+          if (actions.length) allActions.push(...actions)
           setTurns(prev => {
             const copy = [...prev]
             copy[copy.length - 1] = {
               role: "assistant",
-              content: assistantText
+              content: assistantText,
+              actions: allActions.length ? [...allActions] : undefined
+            }
+            return copy
+          })
+        }
+        // Flush whatever is left in pendingFrame (usually empty).
+        if (pendingFrame) {
+          const { text, actions } = splitActionFrames(pendingFrame)
+          assistantText += text
+          if (actions.length) allActions.push(...actions)
+          setTurns(prev => {
+            const copy = [...prev]
+            copy[copy.length - 1] = {
+              role: "assistant",
+              content: assistantText,
+              actions: allActions.length ? [...allActions] : undefined
             }
             return copy
           })
@@ -195,7 +317,15 @@ export const JarvisHero: FC<JarvisHeroProps> = ({ brief, chips }) => {
   }
 
   const charCount = input.length
-  const brIfList = brief ?? DEFAULT_BRIEF
+  // Resolution order: explicit `brief` prop > server-fetched live
+  // brief > static default. The live brief is `null` until the fetch
+  // resolves, so we keep the default visible for the first paint.
+  const brIfList =
+    brief && brief.length > 0
+      ? brief
+      : liveBrief && liveBrief.length > 0
+        ? liveBrief
+        : DEFAULT_BRIEF
 
   return (
     <section
@@ -224,10 +354,21 @@ export const JarvisHero: FC<JarvisHeroProps> = ({ brief, chips }) => {
         {/* Left: orb + pitch */}
         <div className="flex flex-col items-start gap-5">
           <Orb />
-          <span className="inline-flex items-center gap-1.5 rounded-full border border-[#22D3EE]/40 bg-[#22D3EE]/10 px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.18em] text-[#22D3EE]">
-            <span className="size-1.5 animate-pulse rounded-full bg-[#22D3EE]" />
-            Listening
-          </span>
+          <div className="flex items-center gap-2">
+            <span className="inline-flex items-center gap-1.5 rounded-full border border-[#22D3EE]/40 bg-[#22D3EE]/10 px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.18em] text-[#22D3EE]">
+              <span className="size-1.5 animate-pulse rounded-full bg-[#22D3EE]" />
+              Listening
+            </span>
+            <button
+              type="button"
+              onClick={() => setMemoryOpen(true)}
+              className="inline-flex items-center gap-1.5 rounded-full border border-white/20 bg-white/[0.06] px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.18em] text-[#A3A0C2] transition-colors hover:bg-white/[0.12] hover:text-[#F4F1EA]"
+              title="See and forget what I remember about you"
+            >
+              <IconBrain size={11} />
+              Memory
+            </button>
+          </div>
           <p className="text-[13px] leading-relaxed text-[#A3A0C2]">
             ShadowAI is your research co-pilot. I can call the experiment
             designer, the report drafter, your literature, and your data — just
@@ -257,17 +398,44 @@ export const JarvisHero: FC<JarvisHeroProps> = ({ brief, chips }) => {
         <div className="relative max-h-[280px] overflow-y-auto border-t border-white/10 px-8 py-5 md:px-10">
           <div className="space-y-3">
             {turns.map((t, i) => (
-              <div
-                key={i}
-                className={cn(
-                  "text-[13px] leading-relaxed",
-                  t.role === "user" ? "text-[#A3A0C2]" : "text-[#F4F1EA]"
+              <div key={i} className="space-y-2">
+                <div
+                  className={cn(
+                    "text-[13px] leading-relaxed",
+                    t.role === "user" ? "text-[#A3A0C2]" : "text-[#F4F1EA]"
+                  )}
+                >
+                  <span className="mr-2 font-mono text-[10px] uppercase tracking-widest text-[#7A7799]">
+                    {t.role === "user" ? "You" : "ShadowAI"}
+                  </span>
+                  {t.content || <span className="text-[#7A7799]">…</span>}
+                </div>
+                {/* Tool-action chips - one per agent the model
+                    invoked during this turn. Click navigates the
+                    user to the prefilled surface. */}
+                {t.actions && t.actions.length > 0 && (
+                  <div className="flex flex-wrap gap-2 pl-12">
+                    {t.actions.map((a, ai) =>
+                      a.href ? (
+                        <a
+                          key={ai}
+                          href={a.href}
+                          className="inline-flex items-center gap-1.5 rounded-full border border-[#22D3EE]/40 bg-[#22D3EE]/10 px-3 py-1 text-[12px] font-semibold text-[#22D3EE] transition-colors hover:bg-[#22D3EE]/20"
+                        >
+                          <IconSparkles size={12} />
+                          {a.label}
+                        </a>
+                      ) : (
+                        <span
+                          key={ai}
+                          className="inline-flex items-center gap-1.5 rounded-full border border-white/20 bg-white/10 px-3 py-1 text-[12px] text-[#F4F1EA]"
+                        >
+                          {a.label}
+                        </span>
+                      )
+                    )}
+                  </div>
                 )}
-              >
-                <span className="mr-2 font-mono text-[10px] uppercase tracking-widest text-[#7A7799]">
-                  {t.role === "user" ? "You" : "ShadowAI"}
-                </span>
-                {t.content || <span className="text-[#7A7799]">…</span>}
               </div>
             ))}
             {error && (
@@ -335,6 +503,8 @@ export const JarvisHero: FC<JarvisHeroProps> = ({ brief, chips }) => {
           <span>End-to-end encrypted · Whisper-L · ⌘K for shortcuts</span>
         </div>
       </div>
+
+      <MemoryDrawer isOpen={memoryOpen} onOpenChange={setMemoryOpen} />
     </section>
   )
 }

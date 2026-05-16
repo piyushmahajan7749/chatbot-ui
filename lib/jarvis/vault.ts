@@ -229,6 +229,25 @@ export class JarvisVault {
   }
 
   /**
+   * Remove one episode (markdown + embedding sidecar) from the vault.
+   * Used by the user-facing memory drawer's "forget" action.
+   *
+   * Validates the slug so a crafted request can't traverse out of the
+   * user's prefix - only `[a-z0-9-]+` is allowed in the API route.
+   */
+  async deleteEpisode(uid: string, slug: string): Promise<void> {
+    try {
+      const keys = [
+        keyOf(uid, `episodes/${slug}.md`),
+        keyOf(uid, `episodes/${slug}.embed.json`)
+      ]
+      await this.client.storage.from(BUCKET).remove(keys)
+    } catch (e: any) {
+      console.warn("[jarvis-vault] deleteEpisode failed:", e?.message ?? e)
+    }
+  }
+
+  /**
    * Recursively delete every object under `{uid}/`. Called from the
    * profile-deletion path so we comply with GDPR right-to-erasure
    * (#12 in the implementation guide).

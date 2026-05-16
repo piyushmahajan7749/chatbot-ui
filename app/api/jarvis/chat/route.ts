@@ -3,29 +3,47 @@
  *
  * Flow per request:
  *   1. Auth + load profile.
- *   2. Pull memory: top-3 recent episodes + top-3 semantic matches
- *      against the user's latest message. Best-effort - vault errors
- *      degrade to "no memory" rather than 500ing.
- *   3. Stitch a workspace-context snapshot (counts of designs / reports
- *      / chats, recent design names) so the assistant has live
- *      project state, not just compressed memory.
- *   4. Build the system prompt, stream the reply token-by-token.
+ *   2. Pull memory (top-3 recent + top-3 semantic match) + live
+ *      cross-workspace snapshot (Supabase + Firestore counts).
+ *      Both layers are best-effort - vault / snapshot errors degrade
+ *      to "less context" rather than 500ing.
+ *   3. Run the model in a tool-calling loop. The model can invoke
+ *      design.start / report.start / literature.search / data.analyse
+ *      / vault.recall / vault.list_recent. Tool envelopes are streamed
+ *      back to the client as out-of-band JSON lines (prefixed by a
+ *      magic header) so the chat UI can render action chips inline.
+ *   4. Stream final assistant text token-by-token.
  *
- * Tool calls are intentionally NOT wired here yet - the chips on the
- * hero just pre-fill the input. When we're ready to let the agent
- * invoke the DOE / Report agents, we add OpenAI tool-use blocks +
- * route the tool ids back into the existing /api/design/draft and
- * /api/report/outline endpoints.
+ * The wire protocol is a plain text stream with two kinds of frames:
+ *  - text chunks: raw assistant tokens.
+ *  - JSON envelopes: `\x1fJ{"type":"tool_action", ...}\n` - the client
+ *    splits on \x1fJ to peel actions out from the streamed prose. The
+ *    \x1f (Unit Separator) byte is invisible + can't legitimately
+ *    appear in LLM output, so this is a safe demux marker.
  */
 
 import { cookies } from "next/headers"
 import { NextRequest } from "next/server"
+import type {
+  ChatCompletionMessageParam,
+  ChatCompletionMessageToolCall
+} from "openai/resources/chat/completions"
 
 import {
   getAzureOpenAIForDesign,
   getDesignDeployment
 } from "@/lib/azure-openai"
 import { jarvisVault } from "@/lib/jarvis/vault"
+import {
+  loadCrossWorkspaceSnapshot,
+  renderSnapshotForPrompt,
+  type CrossWorkspaceSnapshot
+} from "@/lib/jarvis/snapshot"
+import {
+  JARVIS_TOOLS,
+  executeJarvisTool,
+  type JarvisToolName
+} from "@/lib/jarvis/tools"
 import type { Episode } from "@/lib/jarvis/types"
 import { createClient } from "@/lib/supabase/server"
 
@@ -33,12 +51,14 @@ export const runtime = "nodejs"
 
 interface ChatRequestBody {
   message: string
-  /** Prior turns held in-memory by the client. */
   chatHistory?: Array<{ role: "user" | "assistant"; content: string }>
   workspaceId?: string | null
   workspaceName?: string | null
   projectId?: string | null
+  locale?: string
 }
+
+const ACTION_DEMUX_MARKER = "J" // Unit Separator + "J" for "JSON".
 
 export async function POST(req: NextRequest) {
   const supabase = createClient(cookies())
@@ -64,15 +84,23 @@ export async function POST(req: NextRequest) {
     m => m && typeof m.content === "string" && m.content.trim()
   )
 
-  // ── Memory retrieval ─────────────────────────────────────────────
-  // Pull both layers in parallel. Cap to 5 unique episodes so the
-  // system prompt stays under ~3K tokens even with chatty episodes.
+  // ── Memory + snapshot in parallel ──────────────────────────────────
   let memoryEpisodes: Episode[] = []
+  let snapshot: CrossWorkspaceSnapshot = {
+    workspaces: [],
+    totals: { workspaces: 0, designs: 0, reports: 0, chats: 0, papers: 0 },
+    recentDesigns: [],
+    recentReports: [],
+    activeWorkspaceId: null,
+    activeWorkspaceName: null
+  }
   try {
-    const [recent, relevant] = await Promise.all([
+    const [recent, relevant, snap] = await Promise.all([
       jarvisVault.listRecentEpisodes(session.user.id, 3),
-      jarvisVault.searchEpisodes(session.user.id, userMessage, 3)
+      jarvisVault.searchEpisodes(session.user.id, userMessage, 3),
+      loadCrossWorkspaceSnapshot(supabase, session.user.id, body.workspaceId)
     ])
+    snapshot = snap
     const seen = new Set<string>()
     for (const ep of [...recent, ...relevant]) {
       if (seen.has(ep.slug)) continue
@@ -81,57 +109,169 @@ export async function POST(req: NextRequest) {
       if (memoryEpisodes.length >= 5) break
     }
   } catch (e: any) {
-    console.warn("[jarvis-chat] memory retrieval failed:", e?.message ?? e)
+    console.warn("[jarvis-chat] memory/snapshot fetch failed:", e?.message ?? e)
   }
-
-  // ── Live workspace snapshot ──────────────────────────────────────
-  // Compressed memory is great for arcs from previous sessions, but
-  // the assistant also needs to know what the user is sitting on
-  // RIGHT NOW. Pull a quick cross-workspace snapshot of designs +
-  // reports + chats so the chips ("Design an experiment", "What's
-  // blocking me?") have grounded numbers to talk about.
-  const snapshot = await loadWorkspaceSnapshot(
-    supabase,
-    session.user.id,
-    body.workspaceId
-  )
 
   const turnNum = Math.floor(chatHistory.length / 2) + 1
   const systemPrompt = buildSystemPrompt({
     memoryEpisodes,
     snapshot,
     turnNum,
-    workspaceName: body.workspaceName ?? null
+    workspaceName: body.workspaceName ?? snapshot.activeWorkspaceName ?? null
   })
 
-  // Don't log message bodies (#12 / #13). Slug counts + memory counts
-  // are enough to debug.
   console.log(
-    `[jarvis-chat] uid=${session.user.id} memory_episodes=${memoryEpisodes.length} turn=${turnNum}`
+    `[jarvis-chat] uid=${session.user.id} memory_episodes=${memoryEpisodes.length} workspaces=${snapshot.totals.workspaces} turn=${turnNum}`
   )
 
+  const messages: ChatCompletionMessageParam[] = [
+    { role: "system", content: systemPrompt },
+    ...(chatHistory.map(m => ({
+      role: m.role,
+      content: m.content
+    })) as ChatCompletionMessageParam[]),
+    { role: "user", content: userMessage }
+  ]
+
   const openai = getAzureOpenAIForDesign()
-  const completion = await openai.chat.completions.create({
-    model: getDesignDeployment(),
-    temperature: 0.6,
-    stream: true,
-    messages: [
-      { role: "system", content: systemPrompt },
-      ...chatHistory,
-      { role: "user", content: userMessage }
-    ]
-  })
+  const deployment = getDesignDeployment()
+  const locale = body.locale ?? "en"
 
   const encoder = new TextEncoder()
   const stream = new ReadableStream({
     async start(controller) {
       try {
-        for await (const chunk of completion) {
-          const delta = chunk.choices[0]?.delta?.content ?? ""
-          if (delta) controller.enqueue(encoder.encode(delta))
+        // Tool-calling loop. Cap at 3 rounds so a runaway model can't
+        // pin the connection - 3 is enough for ("plan → run tool →
+        // read tool → final answer") arcs and well past the typical
+        // "just answer" path which exits on the first round.
+        const MAX_TOOL_ROUNDS = 3
+        for (let round = 0; round < MAX_TOOL_ROUNDS; round++) {
+          const completion = await openai.chat.completions.create({
+            model: deployment,
+            temperature: 0.6,
+            stream: true,
+            messages,
+            tools: JARVIS_TOOLS,
+            tool_choice: "auto"
+          })
+
+          // We stream prose tokens through immediately. Tool calls are
+          // accumulated into a buffer and only executed once the
+          // assistant message finishes (signalled by `finish_reason`).
+          let accumulatedText = ""
+          const toolCalls = new Map<
+            number,
+            {
+              id?: string
+              name?: string
+              argsText: string
+            }
+          >()
+          let finishReason: string | null = null
+
+          for await (const chunk of completion) {
+            const choice = chunk.choices[0]
+            if (!choice) continue
+
+            const delta = choice.delta
+            if (delta?.content) {
+              accumulatedText += delta.content
+              controller.enqueue(encoder.encode(delta.content))
+            }
+            if (delta?.tool_calls) {
+              for (const tc of delta.tool_calls) {
+                const idx = tc.index ?? 0
+                const acc = toolCalls.get(idx) ?? { argsText: "" }
+                if (tc.id) acc.id = tc.id
+                if (tc.function?.name) acc.name = tc.function.name
+                if (tc.function?.arguments)
+                  acc.argsText += tc.function.arguments
+                toolCalls.set(idx, acc)
+              }
+            }
+            if (choice.finish_reason) {
+              finishReason = choice.finish_reason
+            }
+          }
+
+          // No tool calls (or finish was "stop") → we're done.
+          if (finishReason !== "tool_calls" || toolCalls.size === 0) {
+            break
+          }
+
+          // Replay the assistant turn (with tool_calls) so the next
+          // round has the right history, then execute each call.
+          const assistantToolCalls: ChatCompletionMessageToolCall[] =
+            Array.from(toolCalls.values())
+              .filter(t => t.id && t.name)
+              .map(t => ({
+                id: t.id!,
+                type: "function" as const,
+                function: { name: t.name!, arguments: t.argsText || "{}" }
+              }))
+
+          messages.push({
+            role: "assistant",
+            content: accumulatedText || null,
+            tool_calls: assistantToolCalls
+          })
+
+          for (const call of assistantToolCalls) {
+            let parsedArgs: Record<string, unknown> = {}
+            try {
+              parsedArgs = JSON.parse(
+                call.function.arguments || "{}"
+              ) as Record<string, unknown>
+            } catch {
+              parsedArgs = {}
+            }
+            const result = await executeJarvisTool(
+              call.function.name as JarvisToolName,
+              parsedArgs,
+              {
+                userId: session.user.id,
+                locale,
+                workspaceId: snapshot.activeWorkspaceId,
+                workspaceName: snapshot.activeWorkspaceName,
+                snapshot
+              }
+            )
+
+            // Surface the action chip to the client out-of-band so the
+            // UI can render it inline above the rest of the answer.
+            if (result.action) {
+              const { type: actionType, ...restAction } = result.action
+              const envelope = JSON.stringify({
+                kind: "tool_action",
+                tool: call.function.name,
+                type: actionType,
+                ...restAction
+              })
+              controller.enqueue(
+                encoder.encode(`${ACTION_DEMUX_MARKER}${envelope}\n`)
+              )
+            }
+
+            messages.push({
+              role: "tool",
+              tool_call_id: call.id,
+              content: result.message
+            })
+          }
+          // Loop again - the model now has the tool result and can
+          // either call more tools or produce the final answer.
         }
       } catch (e: any) {
         console.warn("[jarvis-chat] stream aborted:", e?.message ?? e)
+        const errorEnvelope = JSON.stringify({
+          type: "error",
+          message:
+            "Sorry, something went wrong on my side. Please try again in a moment."
+        })
+        controller.enqueue(
+          encoder.encode(`${ACTION_DEMUX_MARKER}${errorEnvelope}\n`)
+        )
       } finally {
         controller.close()
       }
@@ -148,75 +288,9 @@ export async function POST(req: NextRequest) {
 
 // ────────────────────────────────────────────────────────────────────
 
-interface WorkspaceSnapshot {
-  designsCount: number
-  reportsCount: number
-  chatsCount: number
-  workspaceId: string | null
-  workspaceName: string | null
-}
-
-async function loadWorkspaceSnapshot(
-  supabase: ReturnType<typeof createClient>,
-  userId: string,
-  hintedWorkspaceId?: string | null
-): Promise<WorkspaceSnapshot> {
-  // Workspace + project + chat counts via supabase. Reports / designs
-  // live in Firestore today so we leave them empty here and let the
-  // memory layer pick up the slack; the hero's "Total designs" stat
-  // card is the live source of truth in the UI.
-  try {
-    const { data: workspace } = hintedWorkspaceId
-      ? await supabase
-          .from("workspaces")
-          .select("id, name")
-          .eq("id", hintedWorkspaceId)
-          .maybeSingle()
-      : await supabase
-          .from("workspaces")
-          .select("id, name")
-          .eq("user_id", userId)
-          .eq("is_home", true)
-          .maybeSingle()
-
-    const wsId = workspace?.id ?? null
-    if (!wsId) {
-      return {
-        designsCount: 0,
-        reportsCount: 0,
-        chatsCount: 0,
-        workspaceId: null,
-        workspaceName: null
-      }
-    }
-
-    const { count: chatsCount } = await supabase
-      .from("chats")
-      .select("id", { count: "exact", head: true })
-      .eq("workspace_id", wsId)
-
-    return {
-      designsCount: 0, // sourced from Firestore via the UI snapshot - not joinable from here.
-      reportsCount: 0,
-      chatsCount: chatsCount ?? 0,
-      workspaceId: wsId,
-      workspaceName: workspace?.name ?? null
-    }
-  } catch (e: any) {
-    console.warn("[jarvis-chat] loadWorkspaceSnapshot failed:", e?.message ?? e)
-    return {
-      designsCount: 0,
-      reportsCount: 0,
-      chatsCount: 0,
-      workspaceId: null,
-      workspaceName: null
-    }
-  }
-}
-
 function buildSystemPrompt(opts: {
   memoryEpisodes: Episode[]
-  snapshot: WorkspaceSnapshot
+  snapshot: CrossWorkspaceSnapshot
   turnNum: number
   workspaceName: string | null
 }): string {
@@ -225,14 +299,12 @@ function buildSystemPrompt(opts: {
   const persona = [
     "You are ShadowAI's home assistant - the user's research co-pilot on the workspace dashboard.",
     "Tone: warm, direct, scientist-to-scientist. Match the user's domain vocabulary. No marketing language, no emoji.",
-    'You can call other agents on the user\'s behalf - the DOE / experiment design pipeline, the report drafter, the literature search, the data analysis pipeline. When the user asks for one, tell them what you\'d do and the surface to launch it from (e.g. "/designs/new" or the "Design an experiment" chip), but DON\'T fabricate results.',
+    "You can call other agents via tools (design.start, report.start, literature.search, data.analyse) AND inspect the user's compressed memory via vault.recall + vault.list_recent. PREFER calling a tool over describing what they should click - when the user says 'start a design', invoke design.start instead of telling them to navigate to /designs/new.",
     "Your answers are short by default - one or two paragraphs. Expand when the user asks. Use bullet lists only when listing 3+ items.",
-    "If you don't know something or it isn't in your memory, say so. Never fabricate a paper, design, or finding."
+    "If you don't know something or it isn't in your memory or the live snapshot, say so. Never fabricate a paper, design, or finding."
   ].join("\n\n")
 
-  const liveBlock = workspaceName
-    ? `\n\nLIVE WORKSPACE CONTEXT:\n- Active workspace: ${workspaceName}${snapshot.workspaceId ? ` (id=${snapshot.workspaceId})` : ""}\n- Chats so far in this workspace: ${snapshot.chatsCount}`
-    : ""
+  const liveBlock = `\n\n${renderSnapshotForPrompt(snapshot)}`
 
   const memoryBlock =
     memoryEpisodes.length === 0
@@ -260,11 +332,11 @@ function buildSystemPrompt(opts: {
           })
           .join(
             ""
-          )}\n\nUse this memory naturally - never quote it back at them or list facts. Let it shape what you notice and what you skip.`
+          )}\n\nUse this memory naturally - never quote it back at them or list facts. Let it shape what you notice and what you skip. Call vault.recall when the user references something not in this block.`
 
   const turnBlock =
     turnNum === 1
-      ? "\n\nThis is the FIRST turn of the session. A short greeting is fine; lead with what they asked about, not pleasantries."
+      ? `\n\nThis is the FIRST turn of the session${workspaceName ? ` in workspace "${workspaceName}"` : ""}. A short greeting is fine; lead with what they asked about, not pleasantries.`
       : `\n\nConversation position: turn ${turnNum} of this session. Do NOT open with a greeting - you already greeted them.`
 
   return persona + liveBlock + memoryBlock + turnBlock
