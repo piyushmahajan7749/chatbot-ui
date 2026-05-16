@@ -6,26 +6,50 @@ import initTranslations from "@/lib/i18n"
 import { Database } from "@/supabase/types"
 import { createServerClient } from "@supabase/ssr"
 import { Metadata, Viewport } from "next"
-import { IBM_Plex_Mono, IBM_Plex_Sans, Inter_Tight } from "next/font/google"
+import localFont from "next/font/local"
 import { cookies } from "next/headers"
 import { ReactNode } from "react"
 import "./globals.css"
 
-const interTight = Inter_Tight({
-  subsets: ["latin"],
-  weight: ["400", "500", "600"],
+// Fonts bundled locally (under `app/fonts/`) instead of being fetched
+// from Google Fonts at render time. The Google path was looping through
+// proxy redirects on some dev networks and exhausting undici's 20-hop
+// redirect cap (`redirect count exceeded`), which crashed every RSC
+// render. Local files = offline-resilient + no external network call.
+// woff2 sourced from @fontsource(-variable) packages (OFL licensed).
+const interTight = localFont({
+  src: "../fonts/inter-tight-variable.woff2",
+  // Variable font spanning weights 100-900 - we only use 400/500/600.
+  weight: "100 900",
   display: "swap",
   variable: "--font-inter-tight"
 })
-const ibmPlexSans = IBM_Plex_Sans({
-  subsets: ["latin"],
-  weight: ["400", "500", "600"],
+const ibmPlexSans = localFont({
+  src: [
+    {
+      path: "../fonts/ibm-plex-sans-400.woff2",
+      weight: "400",
+      style: "normal"
+    },
+    {
+      path: "../fonts/ibm-plex-sans-500.woff2",
+      weight: "500",
+      style: "normal"
+    },
+    { path: "../fonts/ibm-plex-sans-600.woff2", weight: "600", style: "normal" }
+  ],
   display: "swap",
   variable: "--font-ibm-plex-sans"
 })
-const ibmPlexMono = IBM_Plex_Mono({
-  subsets: ["latin"],
-  weight: ["400", "500"],
+const ibmPlexMono = localFont({
+  src: [
+    {
+      path: "../fonts/ibm-plex-mono-400.woff2",
+      weight: "400",
+      style: "normal"
+    },
+    { path: "../fonts/ibm-plex-mono-500.woff2", weight: "500", style: "normal" }
+  ],
   display: "swap",
   variable: "--font-ibm-plex-mono"
 })
