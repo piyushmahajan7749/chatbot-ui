@@ -3,26 +3,55 @@
 /**
  * Workspace-wide Designs list.
  *
- * Pulls every design in the workspace (from ChatbotUIContext, which is
- * already populated by the workspace layout) and renders them in a flat
- * list with project-name attribution. Replaces the earlier stub that
- * redirected to /projects - clicking "All Designs" in the sidebar
- * shouldn't bounce the user back to project nav (#17 in the May ask).
+ * Surfaces every design the user owns across the workspace, sorted
+ * by recency. Controls:
+ *  - Sort/filter tabs on the left (All / In progress / Completed)
+ *  - Search bar on the right (half-width per the scientist's spec)
+ *  - 12 slabs per page with prev/next arrows top + bottom
+ *  - Per-row edit + delete in the upper right; stacked dates in the
+ *    lower right (matches the cross-app SlabRow convention).
  */
 import {
   IconFlask,
   IconFolder,
   IconMessage,
+  IconPencil,
   IconPlus,
-  IconSearch
+  IconSearch,
+  IconTrash
 } from "@tabler/icons-react"
 import { useParams, useRouter } from "next/navigation"
 import { FC, useContext, useEffect, useMemo, useState } from "react"
+import { toast } from "sonner"
 
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger
+} from "@/components/ui/alert-dialog"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle
+} from "@/components/ui/dialog"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { SlabPager } from "@/components/ui/slab-pager"
+import { SlabRow } from "@/components/ui/slab-row"
+import { Textarea } from "@/components/ui/textarea"
 import { DisplayHeading, Eyebrow } from "@/components/ui/typography"
 import { ChatbotUIContext } from "@/context/context"
+import { deleteDesign, updateDesign } from "@/db/designs-firestore"
 import { getProjectsByWorkspaceId } from "@/db/projects"
 import {
   getDesignProblemStatement,
@@ -36,17 +65,28 @@ interface ProjectLite {
   name: string
 }
 
+type DesignsFilter = "all" | "in-progress" | "completed"
+const PAGE_SIZE = 12
+
 export default function DesignsPage() {
   const params = useParams()
   const router = useRouter()
-  const { designs, selectedWorkspace } = useContext(ChatbotUIContext)
+  const { designs, setDesigns, selectedWorkspace } =
+    useContext(ChatbotUIContext)
   const locale = params.locale as string
   const workspaceId = params.workspaceid as string
 
-  // Projects aren't carried in ChatbotUIContext - fetch on mount so
-  // each design row can show its project_id resolved to a name.
   const [projects, setProjects] = useState<ProjectLite[]>([])
   const [search, setSearch] = useState("")
+  const [filter, setFilter] = useState<DesignsFilter>("all")
+  const [page, setPage] = useState(0)
+
+  const [editing, setEditing] = useState<{
+    id: string
+    name: string
+    description: string
+  } | null>(null)
+  const [saving, setSaving] = useState(false)
 
   useEffect(() => {
     if (!selectedWorkspace?.id) return
@@ -73,7 +113,7 @@ export default function DesignsPage() {
   const sortedDesigns = useMemo(
     () =>
       [...designs].sort(
-        (a, b) =>
+        (a: any, b: any) =>
           new Date(b.updated_at || b.created_at).getTime() -
           new Date(a.updated_at || a.created_at).getTime()
       ),
@@ -82,24 +122,84 @@ export default function DesignsPage() {
 
   const filteredDesigns = useMemo(() => {
     const q = search.trim().toLowerCase()
-    if (!q) return sortedDesigns
-    // Resolve project names inline so the useMemo depends only on `projects`
-    // (the source of truth), not the `projectName` helper closure - which
-    // ESLint can't trace through.
     const nameById = new Map(projects.map(p => [p.id, p.name]))
-    return sortedDesigns.filter(d => {
+    return sortedDesigns.filter((d: any) => {
       const pn = d.project_id ? nameById.get(d.project_id) : undefined
-      return (
-        d.name?.toLowerCase().includes(q) ||
-        d.description?.toLowerCase().includes(q) ||
-        pn?.toLowerCase().includes(q)
-      )
+      const progress = getDesignProgress(d)
+      const isCompleted =
+        progress.isCompleted || (d.approved_phases ?? []).includes("design")
+      if (filter === "completed" && !isCompleted) return false
+      if (filter === "in-progress" && isCompleted) return false
+      if (q) {
+        return (
+          d.name?.toLowerCase().includes(q) ||
+          d.description?.toLowerCase().includes(q) ||
+          pn?.toLowerCase().includes(q)
+        )
+      }
+      return true
     })
-  }, [sortedDesigns, search, projects])
+  }, [sortedDesigns, search, projects, filter])
+
+  // Snap page back when filters change so a "Completed (page 3 of 4)"
+  // state doesn't strand the user on an empty page after the filter
+  // narrows to "All (page 1 of 1)".
+  useEffect(() => {
+    setPage(0)
+  }, [filter, search])
 
   const handleNewDesign = () => {
     router.push(`/${locale}/${workspaceId}/designs/new`)
   }
+
+  const handleDelete = async (designId: string) => {
+    try {
+      await deleteDesign(designId)
+      setDesigns(prev => prev.filter((d: any) => d.id !== designId))
+      toast.success("Design deleted")
+    } catch (e: any) {
+      toast.error(`Delete failed: ${e?.message ?? "unknown"}`)
+    }
+  }
+
+  const handleSaveEdit = async () => {
+    if (!editing) return
+    const trimmed = editing.name.trim()
+    if (!trimmed) {
+      toast.error("Name can't be empty.")
+      return
+    }
+    setSaving(true)
+    try {
+      await updateDesign(editing.id, {
+        name: trimmed,
+        description: editing.description
+      })
+      setDesigns(prev =>
+        prev.map((d: any) =>
+          d.id === editing.id
+            ? { ...d, name: trimmed, description: editing.description }
+            : d
+        )
+      )
+      setEditing(null)
+      toast.success("Design updated")
+    } catch (e: any) {
+      toast.error(`Save failed: ${e?.message ?? "unknown"}`)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const totalAll = sortedDesigns.length
+  const inProgressCount = sortedDesigns.filter((d: any) => {
+    const p = getDesignProgress(d)
+    return !(p.isCompleted || (d.approved_phases ?? []).includes("design"))
+  }).length
+  const completedCount = totalAll - inProgressCount
+
+  const start = page * PAGE_SIZE
+  const paged = filteredDesigns.slice(start, start + PAGE_SIZE)
 
   return (
     <div className="bg-paper h-full overflow-auto px-10 pb-16 pt-7">
@@ -112,15 +212,11 @@ export default function DesignsPage() {
               Designs
             </DisplayHeading>
             <div className="text-ink-3 text-[13px]">
-              {designs.length} design{designs.length === 1 ? "" : "s"} across{" "}
+              {totalAll} design{totalAll === 1 ? "" : "s"} across{" "}
               {projects.length} project{projects.length === 1 ? "" : "s"}
             </div>
           </div>
           <div className="flex items-center gap-2">
-            {/* Issue #2 - "Start chat" jumps straight into a chat scoped
-                across all designs in the workspace. The chat page lets
-                the user narrow to one design from there, but the default
-                is the whole collection so they aren't forced to pick. */}
             <Button
               variant="secondary"
               size="lg"
@@ -138,145 +234,281 @@ export default function DesignsPage() {
           </div>
         </div>
 
-        {/* Search */}
-        <div className="border-line bg-paper mb-5 flex items-center gap-2 rounded-md border px-3">
-          <IconSearch size={14} className="text-ink-3 shrink-0" />
-          <input
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-            placeholder="Search designs, descriptions, projects…"
-            className="text-ink placeholder:text-ink-3 h-10 w-full border-none bg-transparent text-[13px] outline-none"
-          />
-        </div>
-
-        {/* List */}
-        {filteredDesigns.length === 0 ? (
+        {totalAll === 0 ? (
           <Card className="p-10 text-center">
             <IconFlask size={28} className="text-ink-3 mx-auto mb-3" />
             <div className="text-ink mb-1 text-[14px] font-semibold">
-              {search.trim()
-                ? "No matching designs"
-                : "No designs in this workspace yet"}
+              No designs in this workspace yet
             </div>
             <div className="text-ink-3 mb-5 text-[13px]">
-              {search.trim()
-                ? "Try a different search term."
-                : "Click New design above to start."}
+              Click New design above to start.
             </div>
           </Card>
         ) : (
-          <DesignsList
-            items={filteredDesigns}
-            projectNameOf={projectName}
-            workspaceId={workspaceId}
-            locale={locale}
-          />
+          <SlabPager
+            total={filteredDesigns.length}
+            page={page}
+            pageSize={PAGE_SIZE}
+            onPageChange={setPage}
+            topLeft={
+              <FilterTabs
+                value={filter}
+                onChange={setFilter}
+                counts={{
+                  all: totalAll,
+                  "in-progress": inProgressCount,
+                  completed: completedCount
+                }}
+              />
+            }
+            topRight={
+              <div className="border-line bg-paper flex w-full max-w-[260px] items-center gap-2 rounded-md border px-3 sm:w-[260px]">
+                <IconSearch size={14} className="text-ink-3 shrink-0" />
+                <input
+                  value={search}
+                  onChange={e => setSearch(e.target.value)}
+                  placeholder="Search designs…"
+                  className="text-ink placeholder:text-ink-3 h-8 w-full border-none bg-transparent text-[12.5px] outline-none"
+                />
+              </div>
+            }
+          >
+            {paged.length === 0 ? (
+              <Card className="p-10 text-center">
+                <div className="text-ink-3 text-[13px]">
+                  No designs match these filters.
+                </div>
+              </Card>
+            ) : (
+              <div className="flex flex-col gap-2.5">
+                {paged.map((d: any) => (
+                  <DesignSlab
+                    key={d.id}
+                    design={d}
+                    pname={projectName(d.project_id)}
+                    onOpen={() =>
+                      router.push(`/${locale}/${workspaceId}/designs/${d.id}`)
+                    }
+                    onEdit={() =>
+                      setEditing({
+                        id: d.id,
+                        name: d.name ?? "",
+                        description: d.description ?? ""
+                      })
+                    }
+                    onDelete={() => handleDelete(d.id)}
+                  />
+                ))}
+              </div>
+            )}
+          </SlabPager>
         )}
       </div>
+
+      {/* Inline edit dialog. Same shape as the reports list edit
+          (#22 follow-up): rename + edit description without a full
+          navigation to the design page. */}
+      <Dialog
+        open={!!editing}
+        onOpenChange={open => {
+          if (!open) setEditing(null)
+        }}
+      >
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Edit design</DialogTitle>
+          </DialogHeader>
+          {editing && (
+            <div className="space-y-3 py-2">
+              <div className="space-y-1.5">
+                <Label htmlFor="design-edit-name">Name</Label>
+                <Input
+                  id="design-edit-name"
+                  value={editing.name}
+                  onChange={e =>
+                    setEditing({ ...editing, name: e.target.value })
+                  }
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="design-edit-desc">Description</Label>
+                <Textarea
+                  id="design-edit-desc"
+                  value={editing.description}
+                  onChange={e =>
+                    setEditing({ ...editing, description: e.target.value })
+                  }
+                  rows={3}
+                />
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setEditing(null)}
+              disabled={saving}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleSaveEdit}
+              disabled={saving || !editing?.name.trim()}
+            >
+              {saving ? "Saving…" : "Save"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
 
-interface DesignsListProps {
-  items: Array<{
-    id: string
-    name: string
-    description?: string | null
-    project_id?: string | null
-    updated_at?: string | null
-    created_at: string
-    /** Raw Firestore content blob - used to derive status. */
-    content?: string | Record<string, unknown> | null
-  }>
-  projectNameOf: (id: string | null | undefined) => string | null
-  workspaceId: string
-  locale: string
+// ── Filter tabs + slab row ───────────────────────────────────────────
+
+interface FilterTabsProps {
+  value: DesignsFilter
+  onChange: (v: DesignsFilter) => void
+  counts: Record<DesignsFilter, number>
 }
 
-const DesignsList: FC<DesignsListProps> = ({
-  items,
-  projectNameOf,
-  workspaceId,
-  locale
-}) => {
-  const router = useRouter()
+const FilterTabs: FC<FilterTabsProps> = ({ value, onChange, counts }) => {
+  const tabs: { key: DesignsFilter; label: string }[] = [
+    { key: "all", label: "All" },
+    { key: "in-progress", label: "In progress" },
+    { key: "completed", label: "Completed" }
+  ]
   return (
-    <div className="flex flex-col gap-2.5">
-      {items.map(d => {
-        const pname = projectNameOf(d.project_id)
-        const progress = getDesignProgress(d)
-        const problemStatement = getDesignProblemStatement(d)
-        const dateLines = formatCreatedModifiedStacked(
-          d.created_at,
-          d.updated_at
-        )
-        return (
-          <button
-            key={d.id}
-            type="button"
-            onClick={() =>
-              router.push(`/${locale}/${workspaceId}/designs/${d.id}`)
-            }
-            className={cn(
-              "border-line bg-surface hover:border-line-strong hover:bg-paper grid grid-cols-[1fr_auto] items-start gap-5 rounded-lg border px-5 py-4 text-left transition-colors"
-            )}
-          >
-            <div className="min-w-0">
-              <div className="text-ink truncate text-[15px] font-semibold">
-                {d.name}
-              </div>
-              {/* Secondary line: user-typed problem statement from
-                  `content.problem.problemStatement`. Falls back to
-                  legacy `description` ONLY when it isn't the same
-                  string as `name` (legacy rows duplicated name into
-                  description, which made the slab show the title
-                  twice - the bug the scientist flagged). */}
-              {problemStatement ? (
-                <div className="text-ink-3 mt-1 line-clamp-2 text-[12.5px]">
-                  {problemStatement}
-                </div>
-              ) : d.description && d.description !== d.name ? (
-                <div className="text-ink-3 mt-1 line-clamp-2 text-[12.5px]">
-                  {d.description}
-                </div>
-              ) : null}
-              {/* Color-coded tag row. Each chip uses its own tint so the
-                  three pieces of info (project / status / stage) are
-                  distinguishable at a glance instead of being one big
-                  rust-soft blob. */}
-              <div className="mt-2 flex flex-wrap items-center gap-2">
-                {pname && (
-                  <span className="border-teal-journey/30 bg-teal-journey-tint text-teal-journey inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10.5px] font-medium">
-                    <IconFolder size={10} />
-                    {pname}
-                  </span>
-                )}
-                <span
-                  className={cn(
-                    "rounded-full border px-2 py-0.5 text-[10.5px] font-medium",
-                    progress.isCompleted
-                      ? "border-transparent bg-[#DDE9DF] text-[#1F4A2C]"
-                      : "border-amber-300/40 bg-amber-100/70 text-amber-800"
-                  )}
-                >
-                  {progress.isCompleted ? "Completed" : "In progress"}
-                </span>
-                {!progress.isCompleted && progress.currentStageLabel && (
-                  <span className="border-purple-persona/30 bg-purple-persona-tint text-purple-persona rounded-full border px-2 py-0.5 text-[10.5px] font-medium">
-                    Stage: {progress.currentStageLabel}
-                  </span>
-                )}
-              </div>
-            </div>
-            {/* Stacked vertical dates on the right corner. */}
-            <div className="text-ink-3 flex min-w-[120px] flex-col items-end gap-0.5 text-right font-mono text-[11px] leading-tight">
-              {dateLines.map(line => (
-                <div key={line}>{line}</div>
-              ))}
-            </div>
-          </button>
-        )
-      })}
+    <div className="border-line bg-paper-2 inline-flex overflow-hidden rounded-md border">
+      {tabs.map(t => (
+        <button
+          key={t.key}
+          type="button"
+          onClick={() => onChange(t.key)}
+          className={cn(
+            "border-line border-r px-3 py-1.5 text-[12px] font-medium transition-colors last:border-r-0",
+            value === t.key
+              ? "bg-ink text-paper"
+              : "text-ink-2 hover:bg-paper hover:text-ink"
+          )}
+        >
+          {t.label}
+          <span className="text-ink-3 ml-1.5 font-mono text-[10.5px]">
+            {counts[t.key]}
+          </span>
+        </button>
+      ))}
     </div>
+  )
+}
+
+interface DesignSlabProps {
+  design: any
+  pname: string | null
+  onOpen: () => void
+  onEdit: () => void
+  onDelete: () => void
+}
+
+const DesignSlab: FC<DesignSlabProps> = ({
+  design,
+  pname,
+  onOpen,
+  onEdit,
+  onDelete
+}) => {
+  const progress = getDesignProgress(design)
+  const isCompleted =
+    progress.isCompleted || (design.approved_phases ?? []).includes("design")
+  const problemStatement = getDesignProblemStatement(design)
+  const dateLines = formatCreatedModifiedStacked(
+    design.created_at,
+    design.updated_at
+  )
+  return (
+    <SlabRow
+      onClick={onOpen}
+      dateLines={dateLines}
+      actions={
+        <>
+          <button
+            type="button"
+            onClick={onEdit}
+            data-slab-action
+            title="Edit name + description"
+            className="hover:bg-paper-2 rounded p-1.5"
+          >
+            <IconPencil size={14} className="text-ink-3" />
+          </button>
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <button
+                type="button"
+                data-slab-action
+                title="Delete design"
+                className="hover:bg-paper-2 rounded p-1.5"
+              >
+                <IconTrash size={14} className="text-destructive" />
+              </button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Delete design?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  This permanently removes &ldquo;{design.name}&rdquo; and
+                  everything inside it (problem, literature, hypotheses,
+                  generated designs). Can&apos;t be undone.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <AlertDialogAction
+                  onClick={onDelete}
+                  className="bg-destructive hover:bg-destructive/90"
+                >
+                  Delete
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+        </>
+      }
+    >
+      <div className="text-ink truncate text-[15px] font-semibold">
+        {design.name}
+      </div>
+      {problemStatement ? (
+        <div className="text-ink-3 mt-1 line-clamp-2 text-[12.5px]">
+          {problemStatement}
+        </div>
+      ) : design.description && design.description !== design.name ? (
+        <div className="text-ink-3 mt-1 line-clamp-2 text-[12.5px]">
+          {design.description}
+        </div>
+      ) : null}
+      <div className="mt-2 flex flex-wrap items-center gap-2">
+        {pname && (
+          <span className="border-teal-journey/30 bg-teal-journey-tint text-teal-journey inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10.5px] font-medium">
+            <IconFolder size={10} />
+            {pname}
+          </span>
+        )}
+        <span
+          className={cn(
+            "rounded-full border px-2 py-0.5 text-[10.5px] font-medium",
+            isCompleted
+              ? "border-transparent bg-[#DDE9DF] text-[#1F4A2C]"
+              : "border-amber-300/40 bg-amber-100/70 text-amber-800"
+          )}
+        >
+          {isCompleted ? "Completed" : "In progress"}
+        </span>
+        {!isCompleted && progress.currentStageLabel && (
+          <span className="border-purple-persona/30 bg-purple-persona-tint text-purple-persona rounded-full border px-2 py-0.5 text-[10.5px] font-medium">
+            Stage: {progress.currentStageLabel}
+          </span>
+        )}
+      </div>
+    </SlabRow>
   )
 }

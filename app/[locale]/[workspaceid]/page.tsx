@@ -24,7 +24,10 @@ import { JarvisHero } from "@/components/jarvis/jarvis-hero"
 import { Walkthrough } from "@/components/onboarding/walkthrough"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
-import { Chip } from "@/components/ui/chip"
+// Chip primitive was used by the old multi-coloured tag row on
+// design / report / chat slabs. The new slab layout uses inline
+// status pills with their own tailwind classes (CHIP_PROJECT,
+// STATUS_COMPLETED, etc) so we no longer pull Chip in here.
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -32,11 +35,36 @@ import {
   DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu"
 import { DisplayHeading, Eyebrow } from "@/components/ui/typography"
-import { STAGES, type StageId } from "@/components/design-flow/stepper"
+// StageId still referenced by the props for DesignsList items
+// (current_stage / approved_phases come off the Firestore row); STAGES
+// list itself is unused now that PhaseBar is gone.
+import { type StageId } from "@/components/design-flow/stepper"
 import { ChatbotUIContext } from "@/context/context"
 import { getDesignProgress } from "@/lib/design-status"
-import { formatCreatedModified } from "@/lib/format-date"
+import { formatCreatedModifiedStacked } from "@/lib/format-date"
+import { SlabPager } from "@/components/ui/slab-pager"
+import { SlabRow } from "@/components/ui/slab-row"
 import { cn } from "@/lib/utils"
+
+// Page size for the dashboard previews. Same value for all three
+// lists so the rhythm reads consistently.
+const DASH_PAGE_SIZE = 8
+
+// Status pill styles shared by Design + Report slabs. Light-green for
+// completed is the scientist's ask - signals "this is done" at a
+// glance vs the amber in-progress chip.
+const STATUS_COMPLETED =
+  "rounded-full border border-transparent bg-[#DDE9DF] px-2 py-0.5 text-[10.5px] font-medium text-[#1F4A2C]"
+const STATUS_IN_PROGRESS =
+  "rounded-full border border-amber-300/40 bg-amber-100/70 px-2 py-0.5 text-[10.5px] font-medium text-amber-800"
+const STATUS_DRAFT =
+  "rounded-full border border-purple-persona/30 bg-purple-persona-tint px-2 py-0.5 text-[10.5px] font-medium text-purple-persona"
+const CHIP_PROJECT =
+  "inline-flex items-center gap-1 rounded-full border border-teal-journey/30 bg-teal-journey-tint px-2 py-0.5 text-[10.5px] font-medium text-teal-journey"
+const CHIP_STAGE =
+  "rounded-full border border-purple-persona/30 bg-purple-persona-tint px-2 py-0.5 text-[10.5px] font-medium text-purple-persona"
+const CHIP_SCOPE =
+  "rounded-full border border-line bg-paper-2 px-2 py-0.5 text-[10.5px] font-medium text-ink-2"
 
 function greeting(now = new Date()) {
   const h = now.getHours()
@@ -384,6 +412,7 @@ interface DesignsListProps {
 
 function DesignsList({ items, wsId, onNew, projectNameOf }: DesignsListProps) {
   const router = useRouter()
+  const [page, setPage] = useState(0)
   if (items.length === 0) {
     return (
       <>
@@ -403,56 +432,34 @@ function DesignsList({ items, wsId, onNew, projectNameOf }: DesignsListProps) {
       </>
     )
   }
+  const start = page * DASH_PAGE_SIZE
+  const paged = items.slice(start, start + DASH_PAGE_SIZE)
   return (
     <>
       <ListHeader title="Designs" count={items.length} />
-      <div className="flex flex-col gap-2.5">
-        {items.map(d => {
-          const pname = projectNameOf(d.project_id)
-          // Status is derived from `content.approvedPhases` (the source of
-          // truth) when present, falling back to the denormalised column
-          // for older rows. Completed = user has approved-and-finalised
-          // the Design phase (issue #31 - the row was previously stuck
-          // on "In progress" forever).
-          const progress = getDesignProgress(d)
-          const isCompleted =
-            progress.isCompleted || (d.approved_phases ?? []).includes("design")
-          return (
-            <button
-              key={d.id}
-              type="button"
-              onClick={() => wsId && router.push(`/${wsId}/designs/${d.id}`)}
-              className="border-line bg-surface hover:border-line-strong hover:bg-paper grid grid-cols-[1fr_auto_auto] items-center gap-5 rounded-lg border px-5 py-4 text-left transition-colors"
-            >
-              <div className="min-w-0">
-                <div className="mb-1 flex items-center gap-2">
-                  {/* "Design" chip removed (issue #5) - the list itself
-                      tells the user these are designs; the chip was just
-                      visual noise. Project / status / stage chips remain. */}
-                  {pname && (
-                    <Chip variant="accent" className="h-[18px] text-[10px]">
-                      {pname}
-                    </Chip>
-                  )}
-                  <Chip
-                    variant={isCompleted ? "default" : "accent"}
-                    className="h-[18px] text-[10px]"
-                  >
-                    {isCompleted ? "Completed" : "In progress"}
-                  </Chip>
-                  {!isCompleted && progress.currentStageLabel && (
-                    <Chip variant="accent" className="h-[18px] text-[10px]">
-                      Stage: {progress.currentStageLabel}
-                    </Chip>
-                  )}
-                  {d.updated_at &&
-                    new Date(d.updated_at).getTime() >
-                      Date.now() - 1000 * 60 * 60 * 24 && (
-                      <Chip variant="accent" className="h-[18px] text-[10px]">
-                        Updated recently
-                      </Chip>
-                    )}
-                </div>
+      <SlabPager
+        total={items.length}
+        page={page}
+        pageSize={DASH_PAGE_SIZE}
+        onPageChange={setPage}
+      >
+        <div className="flex flex-col gap-2.5">
+          {paged.map(d => {
+            const pname = projectNameOf(d.project_id)
+            const progress = getDesignProgress(d)
+            const isCompleted =
+              progress.isCompleted ||
+              (d.approved_phases ?? []).includes("design")
+            const dateLines = formatCreatedModifiedStacked(
+              d.created_at,
+              d.updated_at
+            )
+            return (
+              <SlabRow
+                key={d.id}
+                onClick={() => wsId && router.push(`/${wsId}/designs/${d.id}`)}
+                dateLines={dateLines}
+              >
                 <div className="text-ink truncate text-[15px] font-semibold">
                   {d.name}
                 </div>
@@ -461,63 +468,33 @@ function DesignsList({ items, wsId, onNew, projectNameOf }: DesignsListProps) {
                     {d.description}
                   </div>
                 )}
-              </div>
-              <PhaseBar
-                currentStage={d.current_stage ?? null}
-                approvedPhases={d.approved_phases ?? null}
-              />
-              <div className="text-ink-3 min-w-[140px] text-right font-mono text-[11.5px]">
-                {formatCreatedModified(d.created_at, d.updated_at)}
-              </div>
-            </button>
-          )
-        })}
-      </div>
+                <div className="mt-2 flex flex-wrap items-center gap-2">
+                  {pname && <span className={CHIP_PROJECT}>{pname}</span>}
+                  <span
+                    className={
+                      isCompleted ? STATUS_COMPLETED : STATUS_IN_PROGRESS
+                    }
+                  >
+                    {isCompleted ? "Completed" : "In progress"}
+                  </span>
+                  {!isCompleted && progress.currentStageLabel && (
+                    <span className={CHIP_STAGE}>
+                      Stage: {progress.currentStageLabel}
+                    </span>
+                  )}
+                </div>
+              </SlabRow>
+            )
+          })}
+        </div>
+      </SlabPager>
     </>
   )
 }
 
-/**
- * Five-segment stage bar. Each segment carries a `title` tooltip naming its
- * phase + status. When `currentStage` / `approvedPhases` are unknown we
- * still render labels so hover explains the bar - phase 1 is shown as the
- * placeholder active step.
- */
-function PhaseBar({
-  currentStage,
-  approvedPhases
-}: {
-  currentStage: StageId | null
-  approvedPhases: StageId[] | null
-}) {
-  const curIdx = currentStage ? STAGES.findIndex(s => s.id === currentStage) : 0
-  const knownStatus = !!(currentStage || approvedPhases)
-  return (
-    <div className="flex gap-1">
-      {STAGES.map((stage, i) => {
-        const isDone = approvedPhases?.includes(stage.id) || i < curIdx
-        const isActive = i === curIdx && knownStatus
-        const status = isDone ? "done" : isActive ? "active" : "pending"
-        const title = `Phase ${i + 1} of 5 · ${stage.label}${
-          knownStatus ? ` (${status})` : " - status not loaded"
-        }`
-        return (
-          <div
-            key={stage.id}
-            title={title}
-            aria-label={title}
-            className={cn(
-              "h-1 w-[18px] rounded-sm transition-colors",
-              isDone && "bg-ink",
-              isActive && "bg-rust",
-              !isDone && !isActive && "bg-paper-3"
-            )}
-          />
-        )
-      })}
-    </div>
-  )
-}
+// PhaseBar removed - the scientist asked for the grey bars next to
+// the dates to come off the dashboard slabs. Stage info now lives on
+// the "Stage:" chip in DesignsList alongside the in-progress status.
 
 interface ReportsListProps {
   items: Array<{
@@ -536,6 +513,7 @@ interface ReportsListProps {
 
 function ReportsList({ items, wsId, projectNameOf }: ReportsListProps) {
   const router = useRouter()
+  const [page, setPage] = useState(0)
   if (items.length === 0) {
     return (
       <>
@@ -552,45 +530,36 @@ function ReportsList({ items, wsId, projectNameOf }: ReportsListProps) {
       </>
     )
   }
+  const start = page * DASH_PAGE_SIZE
+  const paged = items.slice(start, start + DASH_PAGE_SIZE)
   return (
     <>
       <ListHeader title="Reports" count={items.length} />
-      <div className="flex flex-col gap-2.5">
-        {items.map(r => {
-          const pname = projectNameOf(r.project_id)
-          // Reports are "Completed" once the draft body is populated;
-          // otherwise still "In progress" (#14). Tolerant of both
-          // string-stored draft and object-with-sections shapes.
-          const draft = r.report_draft
-          const reportCompleted =
-            (typeof draft === "string" && draft.trim().length > 0) ||
-            (!!draft &&
-              typeof draft === "object" &&
-              Object.keys(draft as Record<string, unknown>).length > 0)
-          return (
-            <button
-              key={r.id}
-              type="button"
-              onClick={() => wsId && router.push(`/${wsId}/reports/${r.id}`)}
-              className="border-line bg-surface hover:border-line-strong hover:bg-paper grid grid-cols-[1fr_auto] items-center gap-5 rounded-lg border px-5 py-4 text-left transition-colors"
-            >
-              <div className="min-w-0">
-                <div className="mb-1 flex items-center gap-2">
-                  <Chip variant="default" className="h-[18px] text-[10px]">
-                    Report
-                  </Chip>
-                  {pname && (
-                    <Chip variant="accent" className="h-[18px] text-[10px]">
-                      {pname}
-                    </Chip>
-                  )}
-                  <Chip
-                    variant={reportCompleted ? "default" : "accent"}
-                    className="h-[18px] text-[10px]"
-                  >
-                    {reportCompleted ? "Completed" : "In progress"}
-                  </Chip>
-                </div>
+      <SlabPager
+        total={items.length}
+        page={page}
+        pageSize={DASH_PAGE_SIZE}
+        onPageChange={setPage}
+      >
+        <div className="flex flex-col gap-2.5">
+          {paged.map(r => {
+            const pname = projectNameOf(r.project_id)
+            const draft = r.report_draft
+            const reportCompleted =
+              (typeof draft === "string" && draft.trim().length > 0) ||
+              (!!draft &&
+                typeof draft === "object" &&
+                Object.keys(draft as Record<string, unknown>).length > 0)
+            const dateLines = formatCreatedModifiedStacked(
+              r.created_at,
+              r.updated_at
+            )
+            return (
+              <SlabRow
+                key={r.id}
+                onClick={() => wsId && router.push(`/${wsId}/reports/${r.id}`)}
+                dateLines={dateLines}
+              >
                 <div className="text-ink truncate text-[15px] font-semibold">
                   {r.name || "Untitled report"}
                 </div>
@@ -599,14 +568,21 @@ function ReportsList({ items, wsId, projectNameOf }: ReportsListProps) {
                     {r.description}
                   </div>
                 )}
-              </div>
-              <div className="text-ink-3 min-w-[140px] text-right font-mono text-[11.5px]">
-                {formatCreatedModified(r.created_at, r.updated_at)}
-              </div>
-            </button>
-          )
-        })}
-      </div>
+                <div className="mt-2 flex flex-wrap items-center gap-2">
+                  {pname && <span className={CHIP_PROJECT}>{pname}</span>}
+                  <span
+                    className={
+                      reportCompleted ? STATUS_COMPLETED : STATUS_IN_PROGRESS
+                    }
+                  >
+                    {reportCompleted ? "Completed" : "In progress"}
+                  </span>
+                </div>
+              </SlabRow>
+            )
+          })}
+        </div>
+      </SlabPager>
     </>
   )
 }
@@ -635,6 +611,7 @@ function ChatsList({
   reports
 }: ChatsListProps) {
   const router = useRouter()
+  const [page, setPage] = useState(0)
   if (items.length === 0) {
     return (
       <>
@@ -651,69 +628,67 @@ function ChatsList({
       </>
     )
   }
+  const start = page * DASH_PAGE_SIZE
+  const paged = items.slice(start, start + DASH_PAGE_SIZE)
   return (
     <>
       <ListHeader title="Chats" count={items.length} />
-      <div className="flex flex-col gap-2.5">
-        {items.map(c => {
-          // Surface what this chat is grounded against. Mirrors
-          // ChatScopeBadge logic in the chat header (CSV-encoded
-          // scope_id supports multi-pick).
-          const scopeIds = (c.scope_id ?? "")
-            .split(",")
-            .map(s => s.trim())
-            .filter(Boolean)
-          let scopeChip: string | null = null
-          if (c.scope === "project") {
-            scopeChip =
-              scopeIds.length === 1
-                ? (projectNameOf(scopeIds[0]) ?? "Project")
-                : `${scopeIds.length} projects`
-          } else if (c.scope === "design") {
-            scopeChip =
-              scopeIds.length === 1
-                ? (designs.find(d => d.id === scopeIds[0])?.name ?? "Design")
-                : `${scopeIds.length} designs`
-          } else if (c.scope === "report") {
-            scopeChip =
-              scopeIds.length === 1
-                ? (reports.find(r => r.id === scopeIds[0])?.name ?? "Report")
-                : `${scopeIds.length} reports`
-          } else if (c.project_id) {
-            // legacy: project_id alone (no scope), still show
-            scopeChip = projectNameOf(c.project_id) ?? "Project"
-          } else {
-            scopeChip = "Workspace"
-          }
-          return (
-            <button
-              key={c.id}
-              type="button"
-              onClick={() => wsId && router.push(`/${wsId}/chat/${c.id}`)}
-              className="border-line bg-surface hover:border-line-strong hover:bg-paper grid grid-cols-[1fr_auto] items-center gap-5 rounded-lg border px-5 py-4 text-left transition-colors"
-            >
-              <div className="min-w-0">
-                <div className="mb-1 flex items-center gap-2">
-                  <Chip variant="default" className="h-[18px] text-[10px]">
-                    Chat
-                  </Chip>
-                  {scopeChip && (
-                    <Chip variant="accent" className="h-[18px] text-[10px]">
-                      {scopeChip}
-                    </Chip>
-                  )}
-                </div>
+      <SlabPager
+        total={items.length}
+        page={page}
+        pageSize={DASH_PAGE_SIZE}
+        onPageChange={setPage}
+      >
+        <div className="flex flex-col gap-2.5">
+          {paged.map(c => {
+            const scopeIds = (c.scope_id ?? "")
+              .split(",")
+              .map(s => s.trim())
+              .filter(Boolean)
+            let scopeChip: string | null = null
+            if (c.scope === "project") {
+              scopeChip =
+                scopeIds.length === 1
+                  ? (projectNameOf(scopeIds[0]) ?? "Project")
+                  : `${scopeIds.length} projects`
+            } else if (c.scope === "design") {
+              scopeChip =
+                scopeIds.length === 1
+                  ? (designs.find(d => d.id === scopeIds[0])?.name ?? "Design")
+                  : `${scopeIds.length} designs`
+            } else if (c.scope === "report") {
+              scopeChip =
+                scopeIds.length === 1
+                  ? (reports.find(r => r.id === scopeIds[0])?.name ?? "Report")
+                  : `${scopeIds.length} reports`
+            } else if (c.project_id) {
+              scopeChip = projectNameOf(c.project_id) ?? "Project"
+            } else {
+              scopeChip = "Workspace"
+            }
+            const dateLines = formatCreatedModifiedStacked(
+              c.created_at,
+              c.updated_at
+            )
+            return (
+              <SlabRow
+                key={c.id}
+                onClick={() => wsId && router.push(`/${wsId}/chat/${c.id}`)}
+                dateLines={dateLines}
+              >
                 <div className="text-ink truncate text-[15px] font-semibold">
                   {c.name || "Untitled chat"}
                 </div>
-              </div>
-              <div className="text-ink-3 min-w-[140px] text-right font-mono text-[11.5px]">
-                {formatCreatedModified(c.created_at, c.updated_at)}
-              </div>
-            </button>
-          )
-        })}
-      </div>
+                {scopeChip && (
+                  <div className="mt-2 flex flex-wrap items-center gap-2">
+                    <span className={CHIP_SCOPE}>{scopeChip}</span>
+                  </div>
+                )}
+              </SlabRow>
+            )
+          })}
+        </div>
+      </SlabPager>
     </>
   )
 }

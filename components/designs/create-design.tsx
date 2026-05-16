@@ -16,6 +16,7 @@ import { ChatbotUIContext } from "@/context/context"
 import { useDesignContext } from "@/context/designcontext"
 import { linkDesignToProject } from "@/db/designs"
 import { createDesign, updateDesign } from "@/db/designs-firestore"
+import { getProjectsByWorkspaceId } from "@/db/projects"
 import {
   Dialog,
   DialogContent,
@@ -27,6 +28,13 @@ import {
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue
+} from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
 import { cn } from "@/lib/utils"
 
@@ -147,7 +155,22 @@ export const CreateDesign: FC<CreateDesignProps> = ({
   const [creating, setCreating] = useState(false)
   const nameRef = useRef<HTMLInputElement>(null)
 
+  // Project dropdown - scientists asked for the new-design dialog to
+  // pin which project the design lives under. "none" is the sentinel
+  // for "workspace-level, no project". Defaults to whatever projectId
+  // the caller passed (e.g. when launched from inside a project's
+  // canvas) so we don't ask twice.
+  const [projects, setProjects] = useState<{ id: string; name: string }[]>([])
+  const [selectedProjectId, setSelectedProjectId] = useState<string | "none">(
+    projectId ?? "none"
+  )
+
   const isExternalMode = EXTERNAL_DESIGN_MODES.includes(mode)
+  // PDFs are now allowed on from-hypothesis too so the scientist can
+  // attach supporting papers next to the hypothesis they're seeding.
+  // From-scratch + from-plan still skip the picker (lit-tab uploads
+  // cover them) - we don't want every mode showing a file row.
+  const canAttachFiles = isExternalMode || mode === "from-hypothesis"
 
   useEffect(() => {
     if (!isOpen) return
@@ -170,9 +193,34 @@ export const CreateDesign: FC<CreateDesignProps> = ({
     setPlanText("")
     setExternalDesignText("")
     setAttachedFiles([])
+    setSelectedProjectId(projectId ?? "none")
     setTimeout(() => nameRef.current?.focus(), 0)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isOpen, mode])
+  }, [isOpen, mode, projectId])
+
+  // Load projects on first open so the picker has options. Best-effort -
+  // a fetch failure just shows "(no project)" as the only choice.
+  useEffect(() => {
+    if (!isOpen || !selectedWorkspace?.id) return
+    let cancelled = false
+    void getProjectsByWorkspaceId(selectedWorkspace.id)
+      .then((rows: any[]) => {
+        if (!cancelled) {
+          setProjects(
+            (rows ?? []).map((p: any) => ({
+              id: p.id as string,
+              name: p.name as string
+            }))
+          )
+        }
+      })
+      .catch((err: any) =>
+        console.warn("[CreateDesign] failed to load projects:", err)
+      )
+    return () => {
+      cancelled = true
+    }
+  }, [isOpen, selectedWorkspace?.id])
 
   if (!profile || !selectedWorkspace) return null
 
@@ -208,6 +256,12 @@ export const CreateDesign: FC<CreateDesignProps> = ({
       const seededProblem =
         mode === "from-scratch" ? initialQuery.trim() : problem.trim()
 
+      // Prefer the dropdown selection over the caller's `projectId` so a
+      // user opening the dialog from inside a project canvas can still
+      // override and file the design at workspace level.
+      const finalProjectId =
+        selectedProjectId === "none" ? null : selectedProjectId
+
       // 1) Create the base design row (Supabase).
       const created = await createDesign(
         {
@@ -219,15 +273,19 @@ export const CreateDesign: FC<CreateDesignProps> = ({
           objectives: [],
           variables: [],
           specialConsiderations: [],
-          project_id: projectId ?? null
+          project_id: finalProjectId
         },
         selectedWorkspace.id
       )
 
-      if (projectId && created?.id && created.project_id !== projectId) {
+      if (
+        finalProjectId &&
+        created?.id &&
+        created.project_id !== finalProjectId
+      ) {
         try {
-          await linkDesignToProject(created.id, projectId)
-          created.project_id = projectId
+          await linkDesignToProject(created.id, finalProjectId)
+          created.project_id = finalProjectId
         } catch (err) {
           console.warn("Failed to link new design to project:", err)
         }
@@ -404,14 +462,27 @@ export const CreateDesign: FC<CreateDesignProps> = ({
 
       const locale = (params.locale as string) ?? "en"
       const wsId = params.workspaceid as string
-      // External-design modes auto-trigger the matching agent on landing.
-      const autoQs =
-        mode === "check-stats"
-          ? "?auto=stats-review"
-          : mode === "make-plan"
-            ? "?auto=make-plan"
-            : ""
-      router.push(`/${locale}/${wsId}/designs/${created.id}${autoQs}`)
+
+      // Routing per mode. The design detail page reads `?tab=` to
+      // open on a non-Problem tab when the user already supplied
+      // upstream content - otherwise every flavour landed back on
+      // Problem with the user re-typing what they already typed in
+      // the dialog (scientist's complaint).
+      let qs = ""
+      if (mode === "check-stats") {
+        qs = "?auto=stats-review&tab=design"
+      } else if (mode === "make-plan") {
+        qs = "?auto=make-plan&tab=design"
+      } else if (mode === "from-hypothesis") {
+        // Problem + Literature + Hypothesis pre-approved upstream;
+        // land on Hypotheses so the user can pick + run Design next.
+        qs = "?tab=hypotheses"
+      } else if (mode === "from-plan") {
+        // Plan stashed onto problem; land on Literature so the user
+        // can confirm sources before generating.
+        qs = "?tab=literature"
+      }
+      router.push(`/${locale}/${wsId}/designs/${created.id}${qs}`)
     } catch (error) {
       console.error("Failed to create design:", error)
       toast.error("Failed to create design.")
@@ -455,6 +526,33 @@ export const CreateDesign: FC<CreateDesignProps> = ({
               onChange={e => setName(e.target.value)}
               onKeyDown={handleKeyDown}
             />
+          </div>
+
+          {/* Project picker - scientist's ask. Single dropdown that
+              also covers the project-canvas-launched case (parent passes
+              `projectId`, we pre-select it but still let the user
+              override). */}
+          <div className="space-y-1.5">
+            <Label htmlFor="design-project">Project</Label>
+            <Select
+              value={selectedProjectId}
+              onValueChange={v => setSelectedProjectId(v as string | "none")}
+            >
+              <SelectTrigger id="design-project">
+                <SelectValue placeholder="Choose a project (optional)" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">No project</SelectItem>
+                {projects.map(p => (
+                  <SelectItem key={p.id} value={p.id}>
+                    {p.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <p className="text-ink-3 text-[11.5px]">
+              Pin the design to a project, or leave at the workspace level.
+            </p>
           </div>
 
           {/* Problem statement field - hidden for from-scratch since the user
@@ -538,17 +636,22 @@ export const CreateDesign: FC<CreateDesignProps> = ({
             </div>
           )}
 
-          {/* Attachments field removed from the new-design dialog (issue #8).
-              External-mode flows (check-stats / make-plan) still need the
-              file picker because the user is bringing in a pre-existing
-              design; for from-scratch / from-hypothesis / from-plan the
-              user uploads PDFs from the Literature tab instead. */}
-          {isExternalMode && (
+          {/* Attachments field: external modes accept the pasted-design's
+              source files (PDFs, CSVs, etc); from-hypothesis now also
+              accepts PDFs so scientists can drop in supporting papers
+              next to the hypothesis they're seeding (per scientist
+              ask). From-scratch + from-plan continue to skip the
+              picker - those flows upload from the Literature tab. */}
+          {canAttachFiles && (
             <div className="space-y-1.5">
               <Label htmlFor="design-attachments">
-                Attachments
+                {mode === "from-hypothesis"
+                  ? "Supporting papers"
+                  : "Attachments"}
                 <span className="text-ink-3 ml-1 text-[11px] font-normal">
-                  pdf, csv, docx, txt - optional
+                  {mode === "from-hypothesis"
+                    ? "pdf - optional"
+                    : "pdf, csv, docx, txt - optional"}
                 </span>
               </Label>
               <label

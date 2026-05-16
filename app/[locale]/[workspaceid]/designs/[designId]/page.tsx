@@ -341,9 +341,19 @@ export default function DesignDetailPage() {
   const [loading, setLoading] = useState(true)
   // Default landing tab is "problem" - newly-created designs should drop the
   // user straight into editing instead of showing the Overview placeholder.
-  // Once the loader sees an `approvedPhases` list with progress past Problem,
-  // the resume effect below jumps to the first non-approved phase.
-  const [activeTab, setActiveTab] = useState("problem")
+  // Initial tab honours `?tab=` from the new-design dialog so non-
+  // from-scratch modes land where they need to (hypotheses after
+  // from-hypothesis, literature after from-plan, design after
+  // check-stats / make-plan). Falls back to "problem". The resume
+  // effect downstream still moves the user to the first non-approved
+  // phase once the loader catches up.
+  const initialTab = (() => {
+    const t = searchParams?.get("tab") ?? ""
+    return ["problem", "literature", "hypotheses", "design"].includes(t)
+      ? t
+      : "problem"
+  })()
+  const [activeTab, setActiveTab] = useState(initialTab)
   const [busy, setBusy] = useState<
     | null
     | "literature"
@@ -2121,12 +2131,9 @@ function ProblemTab(props: {
               at 50 mg/mL"). Kept distinct from Objective on purpose - the
               objective is qualitative, success criteria are quantitative. */}
           <div className="space-y-1.5">
-            <Label>
-              Success criteria
-              <span className="text-ink-3 ml-1 text-[11px] font-normal">
-                optional
-              </span>
-            </Label>
+            {/* "optional" suffix dropped per scientist's spec - the
+                label stands alone, the field still allows empty. */}
+            <Label>Success criteria</Label>
             <Textarea
               value={successCriteria}
               onChange={e => setSuccessCriteria(e.target.value)}
@@ -2141,12 +2148,7 @@ function ProblemTab(props: {
               math by default. Optional; the agent has a sensible default
               when unset. */}
           <div className="space-y-1.5 md:max-w-xs">
-            <Label>
-              Include replicates
-              <span className="text-ink-3 ml-1 text-[11px] font-normal">
-                optional
-              </span>
-            </Label>
+            <Label>Include replicates</Label>
             <Select
               value={includeReplicates || undefined}
               onValueChange={value =>
