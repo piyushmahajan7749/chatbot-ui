@@ -144,13 +144,24 @@ export const ChatUI: FC<ChatUIProps> = ({ variant = "full", chatId }) => {
     // RAG: snapshot rows on message_file_items (post-PR-9a) - survive
     //      doc re-indexing because they carry the title/url/content
     //      copy that was true at message-write time.
-    const messageFileItemPromises = fetchedMessages.map(
-      async message => await getMessageFileItemsByMessageId(message.id)
-    )
-    // RAG citation snapshots fail if migration 20260507 (which adds the
-    // `rag_item_id` + `content_snapshot` cols on `message_file_items`)
-    // hasn't been applied yet. Swallow the per-message failure so chat
-    // load isn't blocked - citations just fall back to live-only mode.
+    //
+    // Each per-message lookup is wrapped in a try/catch so one bad
+    // row (RLS hiccup, legacy data) can't blank the whole chat - the
+    // pre-fix behaviour where a single `Promise.all` rejection short-
+    // circuited every later `set*` call was the root cause of the
+    // "blank saved chat" regression (#24).
+    const messageFileItemPromises = fetchedMessages.map(async message => {
+      try {
+        return await getMessageFileItemsByMessageId(message.id)
+      } catch (err) {
+        console.warn(
+          "[ChatUI] getMessageFileItemsByMessageId failed for",
+          message.id,
+          err
+        )
+        return { id: message.id, file_items: [] as any[] }
+      }
+    })
     const ragCitationPromises = fetchedMessages.map(async message => {
       try {
         return await getRagCitationsByMessageId(message.id)
@@ -195,10 +206,22 @@ export const ChatUI: FC<ChatUIProps> = ({ variant = "full", chatId }) => {
     ] as typeof legacyFileItems
     setChatFileItems(uniqueFileItems)
 
-    const chatFiles = await getChatFilesByChatId(effectiveChatId)
+    // Same defence as the per-message loops above - a single failure
+    // here used to leave `chatFiles` unset, which meant a file-scoped
+    // chat opened with no file pills.
+    let chatFiles: Awaited<ReturnType<typeof getChatFilesByChatId>> = {
+      id: effectiveChatId,
+      name: "",
+      files: []
+    }
+    try {
+      chatFiles = await getChatFilesByChatId(effectiveChatId)
+    } catch (err) {
+      console.warn("[ChatUI] getChatFilesByChatId failed:", err)
+    }
 
     setChatFiles(
-      chatFiles.files.map(file => ({
+      (chatFiles.files ?? []).map((file: any) => ({
         id: file.id,
         name: file.name,
         type: file.type,
