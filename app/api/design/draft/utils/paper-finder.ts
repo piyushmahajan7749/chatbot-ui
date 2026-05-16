@@ -195,6 +195,20 @@ function toSearchResult(doc: PaperFinderDocument): SearchResult | null {
   const citationCount = normalizeNumber(citationCountRaw)
   const keywordsRaw = getFirstValue(candidates, "keywords", "tags")
   const keywords = normalizeKeywords(keywordsRaw)
+  // PubMed, Semantic Scholar, and OpenAlex surface a `publication_type` /
+  // `publicationTypes` array tagging review / meta-analysis papers. We
+  // pull whichever shape arrives + fall back to a title heuristic.
+  const publicationTypesRaw =
+    getFirstValue(
+      candidates,
+      "publication_types",
+      "publicationTypes",
+      "publication_type",
+      "publicationType",
+      "pub_types"
+    ) ?? []
+  const publicationTypes = normalizeKeywords(publicationTypesRaw)
+  const isReview = detectReviewArticle(title, abstract, publicationTypes ?? [])
   const relevanceScore =
     normalizeNumber(
       doc.score ??
@@ -243,8 +257,59 @@ function toSearchResult(doc: PaperFinderDocument): SearchResult | null {
     source: normalizeSource(sourceRaw),
     relevanceScore,
     keywords,
-    fullText
+    fullText,
+    publicationTypes: publicationTypes?.length ? publicationTypes : undefined,
+    isReview
   }
+}
+
+/**
+ * Mark a result as a "review" so it can be dropped from primary-
+ * research literature surfaces. Three signals, any one sufficient:
+ *
+ *  1. Explicit publication-type tag from PubMed / Semantic Scholar
+ *     ("review", "systematic review", "meta-analysis", etc).
+ *  2. Title keyword match - covers sources that don't expose the
+ *     publication type (Tavily web hits, generic Google Scholar).
+ *  3. Abstract opening phrase match ("This review summarises…") as a
+ *     last-resort hint when title is generic but body explicitly
+ *     describes itself as a review.
+ *
+ * Conservative on purpose: false positives push a useful primary paper
+ * out of the list, which is worse than letting one review through. The
+ * agent's LLM synthesis is a final guardrail.
+ */
+function detectReviewArticle(
+  title: string | undefined,
+  abstract: string | undefined,
+  publicationTypes: string[]
+): boolean {
+  const REVIEW_TYPE_RE =
+    /\b(review|systematic.review|meta.analysis|narrative.review|scoping.review)\b/i
+  if (publicationTypes.some(t => REVIEW_TYPE_RE.test(t))) return true
+
+  const titleStr = (title ?? "").toLowerCase()
+  // Title heuristic - match whole-word "review" / "meta-analysis"
+  // anywhere in the title. "A review of …" / "Systematic review …" /
+  // "… : a meta-analysis" all hit. Avoid "peer-reviewed" by requiring a
+  // word boundary on both sides.
+  if (
+    /\b(review|meta-analysis|systematic review|scoping review|narrative review|umbrella review)\b/.test(
+      titleStr
+    )
+  ) {
+    return true
+  }
+
+  const abstractHead = (abstract ?? "").slice(0, 200).toLowerCase()
+  if (
+    /^(?:this|the present|in this) (?:review|meta-analysis|systematic review)/.test(
+      abstractHead
+    )
+  ) {
+    return true
+  }
+  return false
 }
 
 function getFirstString(

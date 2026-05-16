@@ -3,6 +3,7 @@ import {
   getDesignDeployment
 } from "@/lib/azure-openai"
 import { zodResponseFormat } from "openai/helpers/zod"
+import { z } from "zod"
 import {
   ExperimentDesignState,
   LiteratureScoutOutput,
@@ -56,7 +57,12 @@ function buildCitationsDetailed(searchResults?: any): CitationItem[] {
       journal: p.journal,
       doi: p.doi,
       apa: undefined,
-      abstract: p.abstract,
+      // Prefer the problem-aware summary (3-4 sentences tailored to
+      // the user's question) when present; fall back to the raw
+      // abstract if the LLM summariser wasn't run or failed. The
+      // frontend reads this as `abstract` -> the paper card's
+      // Summary field.
+      abstract: p.problemAwareSummary || p.abstract,
       // Carry raw relevance score through to the frontend layer. The route
       // handler normalizes to [0, 1] when converting to Paper[].
       relevanceScore: p.relevanceScore ?? undefined
@@ -83,6 +89,105 @@ function buildCitationsDetailed(searchResults?: any): CitationItem[] {
 const openai = () => getAzureOpenAIForDesign()
 const MODEL_NAME = () => getDesignDeployment()
 
+/**
+ * Generate a problem-aware 3-4 sentence summary for each paper in one
+ * batched LLM call. The scientist asked for cards that explain *why
+ * this paper matters* for the user's problem - the raw upstream
+ * abstract is too long, dry, and not anchored to the user's question.
+ *
+ * Implementation notes:
+ *  - Single structured-output call instead of N per-paper calls; cuts
+ *    cost + latency by ~10x for a typical list of 8-12 papers.
+ *  - Inputs are truncated (title + 400-char abstract) so the prompt
+ *    stays well under context limits even with 20+ candidates.
+ *  - Best-effort: any failure falls back to the original abstract via
+ *    the OR in `buildCitationsDetailed`.
+ */
+async function summarizePapersForProblem(
+  state: ExperimentDesignState,
+  papers: SearchResult[]
+): Promise<Map<number, string>> {
+  const out = new Map<number, string>()
+  if (papers.length === 0) return out
+
+  const PaperSummariesSchema = z.object({
+    summaries: z.array(
+      z.object({
+        index: z.number().int(),
+        summary: z.string()
+      })
+    )
+  })
+
+  // Cap to top 20 (sorted by relevance upstream). Anything past that
+  // is unlikely to make the surface list anyway.
+  const slice = papers.slice(0, 20)
+
+  const numbered = slice
+    .map((p, i) => {
+      const abstract = (p.abstract || "").slice(0, 400).replace(/\s+/g, " ")
+      const authors = p.authors?.slice(0, 3).join(", ") || "Unknown"
+      const year = p.publishedDate || ""
+      return [
+        `[${i + 1}] Title: ${p.title}`,
+        `    Authors: ${authors}${year ? ` (${year})` : ""}`,
+        `    Abstract excerpt: ${abstract}`
+      ].join("\n")
+    })
+    .join("\n\n")
+
+  const objective =
+    state.objectives?.filter(Boolean).join("; ") || "(not specified)"
+  const variables =
+    [
+      ...(state.variables?.known ?? []),
+      ...(state.variables?.unknown ?? [])
+    ].join(", ") || "(not specified)"
+
+  const systemPrompt =
+    "You write tight, scientist-facing summaries of research papers. Each summary is EXACTLY 3-4 sentences. Sentence 1 says what the paper did (the actual experiment / method). Sentence 2-3 reports the key finding(s). The final sentence connects the paper's relevance to the user's stated problem, objective, or variables. No hedging, no marketing language, no 'In this paper, the authors…' filler. Plain text only - no markdown."
+
+  const userPrompt = [
+    `User's research problem:\n${state.problem}`,
+    `Objective: ${objective}`,
+    state.domain ? `Domain: ${state.domain}` : "",
+    state.phase ? `Phase: ${state.phase}` : "",
+    `Variables in play: ${variables}`,
+    "",
+    "Write one summary per paper below. Return JSON {summaries:[{index, summary}]} where each `index` matches the [N] label below.",
+    "",
+    numbered
+  ]
+    .filter(Boolean)
+    .join("\n")
+
+  try {
+    const completion = await openai().beta.chat.completions.parse({
+      model: MODEL_NAME(),
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: userPrompt }
+      ],
+      temperature: 0.3,
+      response_format: zodResponseFormat(PaperSummariesSchema, "paperSummaries")
+    })
+    const parsed = completion.choices[0]?.message?.parsed
+    if (!parsed) return out
+    for (const row of parsed.summaries) {
+      const idx = row.index - 1
+      if (idx >= 0 && idx < slice.length && row.summary?.trim()) {
+        out.set(idx, row.summary.trim())
+      }
+    }
+  } catch (err: any) {
+    console.warn(
+      "[LITERATURE_SCOUT_SUMMARIZE] Problem-aware summary failed:",
+      err?.message ?? err
+    )
+  }
+  return out
+}
+
 type AgentCallResult<T> = {
   output: T
   prompt: AgentPromptUsage
@@ -92,11 +197,46 @@ export type LiteratureScoutProgressEvent =
   | { step: "analyzing"; message: string }
   | { step: "optimizing_query"; message: string; primaryQuery?: string }
   | { step: "searching_sources"; message: string }
+  /**
+   * One emitted per per-round search call so the scientist sees the
+   * agent actually working through the source list instead of staring
+   * at a single "Searching sources" line for 30s. The `round` field
+   * (1-based) is rendered as "Round N / total" in the UI.
+   */
+  | {
+      step: "searching_round"
+      message: string
+      round: number
+      totalRounds: number
+      uniqueSoFar: number
+    }
   | {
       step: "papers_found"
       message: string
       totalPapers: number
       sourceCounts: Record<string, number>
+    }
+  /**
+   * Review-article filter (#paper-finder fix). Tells the user how many
+   * survey papers were dropped so the surfaced list is primary research
+   * - the "looks like the current papers found are review articles"
+   * complaint.
+   */
+  | {
+      step: "filtering_reviews"
+      message: string
+      dropped: number
+      remaining: number
+    }
+  | {
+      step: "ranking"
+      message: string
+      remaining: number
+    }
+  | {
+      step: "summarizing_papers"
+      message: string
+      papersCount: number
     }
   | { step: "synthesizing"; message: string }
   | { step: "done"; message: string; papersCount: number }
@@ -259,6 +399,16 @@ export async function callLiteratureScoutAgent(
         console.log(
           `\n🌐 [LITERATURE_SCOUT_SEARCH] Round ${i + 1}/${roundQueries.length}: "${q.slice(0, 80)}"`
         )
+        // Per-round progress event - lets the UI render a live ticker
+        // ("Searching round 2 / 5 - 7 papers so far") instead of one
+        // static line.
+        onProgress?.({
+          step: "searching_round",
+          message: `Searching round ${i + 1} of ${roundQueries.length}…`,
+          round: i + 1,
+          totalRounds: roundQueries.length,
+          uniqueSoFar: dedupeNormalize(allResults).length
+        })
         const pfStart = Date.now()
         const response = await runPaperFinder(buildRoundQuery(q), {
           operationMode: "infer",
@@ -294,14 +444,68 @@ export async function callLiteratureScoutAgent(
       }
     }
 
-    const mergedResults = dedupeNormalize(allResults)
-      .filter(p => {
-        const url = (p.url || "").toLowerCase()
-        const title = (p.title || "").toLowerCase()
-        return !excludeUrls.has(url) && !excludeTitles.has(title)
-      })
+    // ── Filter review articles ──────────────────────────────────────────
+    // Surveys, meta-analyses, and narrative reviews are theoretical -
+    // the hypothesis pipeline needs primary research (actual data +
+    // experiments) per the scientist's complaint. `isReview` was set in
+    // paper-finder.ts/toSearchResult via publication-type tags + title
+    // heuristic. We keep the dropped reviews around in a separate bucket
+    // so we can re-introduce them if the primary list comes back empty.
+    const deduped = dedupeNormalize(allResults).filter(p => {
+      const url = (p.url || "").toLowerCase()
+      const title = (p.title || "").toLowerCase()
+      return !excludeUrls.has(url) && !excludeTitles.has(title)
+    })
+    const primaryResearch = deduped.filter(p => !p.isReview)
+    const droppedReviews = deduped.length - primaryResearch.length
+    if (droppedReviews > 0) {
+      console.log(
+        `🚫 [LITERATURE_SCOUT_FILTER] Dropped ${droppedReviews} review article(s); ${primaryResearch.length} primary research papers remain.`
+      )
+    }
+    onProgress?.({
+      step: "filtering_reviews",
+      message:
+        droppedReviews > 0
+          ? `Filtered ${droppedReviews} review article${droppedReviews === 1 ? "" : "s"}, kept ${primaryResearch.length} primary research paper${primaryResearch.length === 1 ? "" : "s"}.`
+          : "No review articles to filter.",
+      dropped: droppedReviews,
+      remaining: primaryResearch.length
+    })
+
+    // Fall back to including reviews ONLY when the primary pool is
+    // empty - better than blank UI. We still flag them as reviews
+    // downstream so the LLM is told to treat them with caution.
+    const filteredPool = primaryResearch.length > 0 ? primaryResearch : deduped
+
+    onProgress?.({
+      step: "ranking",
+      message: `Ranking ${filteredPool.length} paper${filteredPool.length === 1 ? "" : "s"} by relevance to your problem…`,
+      remaining: filteredPool.length
+    })
+
+    const mergedResults = [...filteredPool]
       .sort((a, b) => (b.relevanceScore ?? 0) - (a.relevanceScore ?? 0))
       .slice(0, 40)
+
+    // ── Problem-aware summaries ────────────────────────────────────────
+    // Run AFTER ranking + filtering, so we only pay the LLM cost on
+    // papers that will actually surface. Mutates `mergedResults` in
+    // place by writing `problemAwareSummary` on each paper - that's
+    // what buildCitationsDetailed picks up.
+    if (mergedResults.length > 0) {
+      onProgress?.({
+        step: "summarizing_papers",
+        message: `Summarising ${mergedResults.length} paper${mergedResults.length === 1 ? "" : "s"} against your problem statement…`,
+        papersCount: mergedResults.length
+      })
+      const summaries = await summarizePapersForProblem(state, mergedResults)
+      for (const [idx, summary] of Array.from(summaries.entries())) {
+        if (idx < mergedResults.length) {
+          mergedResults[idx].problemAwareSummary = summary
+        }
+      }
+    }
 
     if (mergedResults.length === 0) {
       console.warn(

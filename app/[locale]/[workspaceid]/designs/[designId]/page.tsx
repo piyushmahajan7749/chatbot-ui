@@ -111,6 +111,13 @@ export type LiteratureProgress = PhaseProgress & {
   totalPapers?: number
   sourceCounts?: Record<string, number>
   papersCount?: number
+  // Per-round + filter step fields (#paper-finder). All optional so
+  // the union still parses when an older event arrives without them.
+  round?: number
+  totalRounds?: number
+  uniqueSoFar?: number
+  dropped?: number
+  remaining?: number
 }
 
 async function runPhaseStreaming(
@@ -2336,6 +2343,34 @@ function progressToEvents(
         detail: counts || undefined
       }
     }
+    // Per-round search ticker - surfaces "Round 2 of 5 - 7 papers so
+    // far" so the scientist sees genuine progress instead of a single
+    // static line.
+    if (ev.step === "searching_round") {
+      return {
+        step: ev.step,
+        message: ev.message,
+        detail: `${ev.uniqueSoFar} unique paper${ev.uniqueSoFar === 1 ? "" : "s"} so far`
+      }
+    }
+    if (ev.step === "filtering_reviews") {
+      const dropped = ev.dropped ?? 0
+      const remaining = ev.remaining ?? 0
+      return {
+        step: ev.step,
+        message: ev.message,
+        detail:
+          dropped > 0
+            ? `${dropped} review${dropped === 1 ? "" : "s"} dropped, ${remaining} primary research kept`
+            : undefined
+      }
+    }
+    if (ev.step === "ranking") {
+      return { step: ev.step, message: ev.message }
+    }
+    if (ev.step === "summarizing_papers") {
+      return { step: ev.step, message: ev.message }
+    }
     return { step: ev.step, message: ev.message }
   })
 }
@@ -2445,10 +2480,53 @@ function LiteratureTab(props: {
             events={progressToEvents(progress ?? [])}
           />
         ) : (
-          <div className="border-line bg-paper-2 text-ink-3 rounded-xl border border-dashed p-8 text-center text-xs">
-            {isBusy
-              ? "Searching literature..."
-              : "No literature yet. Approve the Problem tab to kick off the search."}
+          // Single-CTA empty state. Replaces the older multi-option
+          // fallback the scientist flagged ("says no papers found
+          // then gives 4 options"). One primary action - upload your
+          // own PDFs - and one secondary - go back and tweak the
+          // problem so the next search has more signal. Both
+          // approve/regenerate live in PhaseActionBar which is
+          // suppressed in this branch (see below).
+          <div className="border-line bg-paper-2 flex flex-col items-center gap-3 rounded-xl border border-dashed p-10 text-center">
+            <div className="text-ink text-sm font-semibold">
+              {isBusy
+                ? "Searching literature…"
+                : "No papers surfaced for this problem."}
+            </div>
+            {!isBusy && (
+              <p className="text-ink-3 max-w-sm text-xs leading-relaxed">
+                The literature agent couldn&apos;t find primary research
+                matching your problem statement. Upload PDFs you already have,
+                or revise the problem to broaden the search.
+              </p>
+            )}
+            {!isBusy && (
+              <div className="mt-2 flex items-center gap-2">
+                <label className="cursor-pointer">
+                  <input
+                    type="file"
+                    accept="application/pdf"
+                    multiple
+                    className="hidden"
+                    onChange={e => {
+                      onUploadPdfs(e.target.files)
+                      e.currentTarget.value = ""
+                    }}
+                  />
+                  <span className="bg-rust text-paper inline-flex items-center gap-1.5 rounded-md px-4 py-2 text-xs font-semibold hover:bg-[color:var(--rust-hover)]">
+                    <IconUpload size={14} />
+                    Upload PDFs
+                  </span>
+                </label>
+                <button
+                  type="button"
+                  onClick={onRevise}
+                  className="border-line text-ink-2 hover:bg-paper inline-flex items-center gap-1.5 rounded-md border px-4 py-2 text-xs font-semibold"
+                >
+                  Revise problem statement
+                </button>
+              </div>
+            )}
           </div>
         )
       ) : (
@@ -2628,16 +2706,22 @@ function LiteratureTab(props: {
         })()
       )}
 
-      <PhaseActionBar
-        onApprove={onApproveAndGenerate}
-        approveLabel="Approve & Generate Hypotheses"
-        approveDisabled={!canGenerate}
-        onRegenerate={papers.length > 0 ? onRegenerate : undefined}
-        regenerateLabel="Generate more"
-        regenerateIcon={<IconPlus size={14} />}
-        isBusy={isBusy}
-        isApproved={isApproved}
-      />
+      {/* PhaseActionBar suppressed entirely in the no-papers branch -
+          there's nothing to approve or regenerate, so showing it just
+          adds dead buttons next to the empty-state CTA. Rendered as
+          soon as the search has produced at least one paper. */}
+      {papers.length > 0 && (
+        <PhaseActionBar
+          onApprove={onApproveAndGenerate}
+          approveLabel="Approve & Generate Hypotheses"
+          approveDisabled={!canGenerate}
+          onRegenerate={onRegenerate}
+          regenerateLabel="Generate more"
+          regenerateIcon={<IconPlus size={14} />}
+          isBusy={isBusy}
+          isApproved={isApproved}
+        />
+      )}
     </div>
   )
 }
