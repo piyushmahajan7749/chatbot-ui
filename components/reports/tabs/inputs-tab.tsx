@@ -2,13 +2,16 @@
 
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Tables } from "@/supabase/types"
 import {
   IconLoader2,
+  IconPlus,
   IconRefresh,
   IconSparkles,
+  IconTrash,
   IconUpload
 } from "@tabler/icons-react"
 import { FC, useContext, useRef, useState } from "react"
@@ -17,6 +20,17 @@ import { ChatbotUIContext } from "@/context/context"
 import { createFileBasedOnExtension } from "@/db/files"
 import { ReportRetrievalSelect } from "../report-retrieval-select"
 import { DEFAULT_TEMPLATE_ID, REPORT_TEMPLATES } from "@/lib/report/templates"
+
+/**
+ * One scientist-added section. `name` is the heading; `description`
+ * tells the generation agent what to put in it. Both required at the
+ * UI layer; the server treats `description` as a hint.
+ */
+export interface CustomSectionInput {
+  id: string
+  name: string
+  description: string
+}
 
 interface InputsTabProps {
   objective: string
@@ -34,6 +48,8 @@ interface InputsTabProps {
   generationError: string | null
   templateId: string
   onTemplateChange: (id: string) => void
+  customSections: CustomSectionInput[]
+  onCustomSectionsChange: (sections: CustomSectionInput[]) => void
 }
 
 // Accepted upload formats per the scientist's spec: pdf / docx / csv / jpeg.
@@ -52,9 +68,19 @@ export const InputsTab: FC<InputsTabProps> = ({
   onGenerate,
   generationError,
   templateId,
-  onTemplateChange
+  onTemplateChange,
+  customSections,
+  onCustomSectionsChange
 }) => {
-  const canGenerate = !!objective.trim() && protocol.length > 0 && !isGenerating
+  // Data files are now mandatory alongside the design + objective so
+  // the analysis agent always has something to work from (#11 in the
+  // bug-list). Falling back to "report with no data" was producing
+  // thin sections that read like marketing copy.
+  const canGenerate =
+    !!objective.trim() &&
+    protocol.length > 0 &&
+    dataFiles.length > 0 &&
+    !isGenerating
   const activeTemplateId = templateId || DEFAULT_TEMPLATE_ID
 
   const { profile, selectedWorkspace } = useContext(ChatbotUIContext)
@@ -291,11 +317,115 @@ export const InputsTab: FC<InputsTabProps> = ({
 
           {renderFileField({
             label: "Data Files",
+            required: true,
             type: "dataFiles",
             selected: dataFiles,
             uploadRef: dataFilesUploadRef,
             caption: "Experimental data the analysis agent should work from."
           })}
+
+          {/* Optional custom sections - scientist's ask. Lets the user
+              add ad-hoc sections beyond the template (e.g. "Internal
+              SOPs cited", "Open questions for PI"). Each row carries a
+              name + brief description so the generation agent knows
+              what to write. Persisted on report.custom_sections; the
+              generation pipeline appends them to the section list. */}
+          <div className="border-line space-y-3 rounded-xl border border-dashed p-4">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <Label>Custom sections</Label>
+                <p className="text-ink-400 mt-0.5 text-[11.5px]">
+                  Optional. Add extra sections on top of the template - the
+                  generation agent will write them too.
+                </p>
+              </div>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() =>
+                  onCustomSectionsChange([
+                    ...customSections,
+                    {
+                      id: `cs-${Date.now()}-${Math.random()
+                        .toString(36)
+                        .slice(2, 6)}`,
+                      name: "",
+                      description: ""
+                    }
+                  ])
+                }
+                disabled={isGenerating}
+                className="gap-1"
+              >
+                <IconPlus size={13} />
+                Add section
+              </Button>
+            </div>
+            {customSections.length === 0 ? (
+              <p className="text-ink-3 text-[12px]">
+                No custom sections yet. Click <b>Add section</b> to introduce
+                one.
+              </p>
+            ) : (
+              <ul className="space-y-3">
+                {customSections.map((sec, idx) => (
+                  <li
+                    key={sec.id}
+                    className="border-line bg-surface space-y-2 rounded-md border p-3"
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <Label className="text-ink-2 text-[11.5px] font-medium">
+                        Section {idx + 1}
+                      </Label>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          onCustomSectionsChange(
+                            customSections.filter((_, i) => i !== idx)
+                          )
+                        }
+                        disabled={isGenerating}
+                        title="Remove section"
+                        className="text-ink-3 hover:text-destructive rounded p-1"
+                      >
+                        <IconTrash size={13} />
+                      </button>
+                    </div>
+                    <Input
+                      value={sec.name}
+                      onChange={e =>
+                        onCustomSectionsChange(
+                          customSections.map((s, i) =>
+                            i === idx ? { ...s, name: e.target.value } : s
+                          )
+                        )
+                      }
+                      placeholder="Section name (e.g. Open questions for PI)"
+                      disabled={isGenerating}
+                      maxLength={120}
+                    />
+                    <Textarea
+                      value={sec.description}
+                      onChange={e =>
+                        onCustomSectionsChange(
+                          customSections.map((s, i) =>
+                            i === idx
+                              ? { ...s, description: e.target.value }
+                              : s
+                          )
+                        )
+                      }
+                      placeholder="What should this section contain? (1-2 sentences)"
+                      rows={2}
+                      disabled={isGenerating}
+                      maxLength={600}
+                    />
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
 
           {generationError && (
             <div className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">

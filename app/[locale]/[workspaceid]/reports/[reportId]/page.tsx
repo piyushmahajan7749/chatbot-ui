@@ -77,6 +77,12 @@ export default function ReportDetailPage() {
   const [paperFiles, setPaperFiles] = useState<Tables<"files">[]>([])
   const [dataFiles, setDataFilesState] = useState<Tables<"files">[]>([])
   const [templateId, setTemplateId] = useState<string>(DEFAULT_TEMPLATE_ID)
+  // Optional scientist-added sections. Persisted on the Firestore
+  // report row as `custom_sections`. Each entry feeds into the report
+  // generation prompt + the saved-template export.
+  const [customSections, setCustomSections] = useState<
+    Array<{ id: string; name: string; description: string }>
+  >([])
 
   const [isGenerating, setIsGenerating] = useState(false)
   const [regeneratingKey, setRegeneratingKey] = useState<string | null>(null)
@@ -125,6 +131,19 @@ export default function ReportDetailPage() {
       setPaperFiles(data.files?.papers ?? [])
       setDataFilesState(data.files?.dataFiles ?? [])
       setTemplateId(data.template_id ?? DEFAULT_TEMPLATE_ID)
+      // Custom sections are persisted as an array of {id, name,
+      // description} on the report doc. Empty array when missing so
+      // the inputs tab renders a clean "+ Add section" affordance.
+      const cs = Array.isArray(data.custom_sections) ? data.custom_sections : []
+      setCustomSections(
+        cs
+          .filter((s: any) => s && typeof s === "object")
+          .map((s: any, i: number) => ({
+            id: typeof s.id === "string" ? s.id : `cs-${i}`,
+            name: typeof s.name === "string" ? s.name : "",
+            description: typeof s.description === "string" ? s.description : ""
+          }))
+      )
     } catch (error) {
       console.error("Error fetching report:", error)
       toast({
@@ -195,6 +214,27 @@ export default function ReportDetailPage() {
       papers: type === "papers" ? next : paperFiles,
       dataFiles: type === "dataFiles" ? next : dataFiles
     })
+  }
+
+  /**
+   * Persist custom sections on every change with a tiny debounce. Same
+   * 800ms pattern as section-content saves so a typing burst maps to
+   * one Firestore write.
+   */
+  const customSectionsSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(
+    null
+  )
+  const handleCustomSectionsChange = (
+    next: Array<{ id: string; name: string; description: string }>
+  ) => {
+    setCustomSections(next)
+    if (customSectionsSaveTimer.current)
+      clearTimeout(customSectionsSaveTimer.current)
+    customSectionsSaveTimer.current = setTimeout(() => {
+      updateReport(reportId, { custom_sections: next }).catch(err => {
+        console.warn("[reports] persist custom_sections failed:", err)
+      })
+    }, 800)
   }
 
   const handleGenerate = async () => {
@@ -676,6 +716,8 @@ export default function ReportDetailPage() {
               isGenerating={isGenerating || generationStatus === "generating"}
               hasDraft={hasDraft}
               onGenerate={handleGenerate}
+              customSections={customSections}
+              onCustomSectionsChange={handleCustomSectionsChange}
               generationError={
                 generationStatus === "error"
                   ? (report?.generation_error ?? null)
