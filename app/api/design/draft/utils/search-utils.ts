@@ -442,6 +442,171 @@ export async function searchTavilyEnhanced(
   }
 }
 
+/**
+ * OpenAlex search.
+ *
+ * Why we use it: free, 100k req/day, no API key required. Covers ~250M
+ * works across all disciplines and is the closest free analogue to the
+ * Semantic Scholar paid-tier index we lost when our S2 key expired
+ * (2026-05-18). Documentation: https://docs.openalex.org/
+ *
+ * Auth: we pass `mailto=` as a query parameter to opt into the "polite
+ * pool" - higher priority + better rate limits. No bearer token, no
+ * registration step. We pull the email from `OPENALEX_MAILTO` env, then
+ * fall back to a generic noreply so requests never go un-tagged (the
+ * common pool is heavily rate-limited).
+ *
+ * Abstract reconstruction: OpenAlex stores abstracts in inverted-index
+ * form (`{word: [positions, ...]}`) to dodge copyright redistribution
+ * problems. We reconstruct linear text by sorting positions and
+ * concatenating, which is what every OpenAlex client does. The result
+ * is the canonical abstract minus copyrighted formatting.
+ */
+export async function searchOpenAlexEnhanced(
+  query: string,
+  maxResults: number = 10
+): Promise<SearchResult[]> {
+  try {
+    // OpenAlex polite-pool rate limits to 10 req/sec when mailto is set.
+    // We stay well under that with a 5-req/sec ceiling.
+    await rateLimiter.checkAndWait("openalex", 5)
+    console.log(`🔍 [OPENALEX] Searching for: ${query}`)
+
+    const mailto =
+      process.env.OPENALEX_MAILTO ||
+      process.env.CONTACT_EMAIL ||
+      "research@shadowai.dev"
+
+    const response = await axios.get("https://api.openalex.org/works", {
+      params: {
+        search: query,
+        per_page: Math.min(maxResults, 25),
+        mailto,
+        // Trim the payload to fields we actually render. Without this
+        // OpenAlex returns ~50 fields per work and the response can
+        // balloon past 1 MB on a 25-result page.
+        select: [
+          "id",
+          "doi",
+          "title",
+          "publication_year",
+          "publication_date",
+          "type",
+          "cited_by_count",
+          "authorships",
+          "primary_location",
+          "abstract_inverted_index",
+          "open_access"
+        ].join(",")
+      },
+      headers: {
+        // OpenAlex prefers a real-looking UA even in the polite pool.
+        "User-Agent": `chatbot-ui (${mailto})`
+      },
+      timeout: 12000
+    })
+
+    const works: any[] = Array.isArray(response.data?.results)
+      ? response.data.results
+      : []
+
+    const results: SearchResult[] = works.map((w: any) => {
+      const authors: string[] = Array.isArray(w.authorships)
+        ? w.authorships
+            .map((a: any) => a?.author?.display_name)
+            .filter(
+              (n: unknown): n is string => typeof n === "string" && n.length > 0
+            )
+        : []
+
+      // OpenAlex DOIs come back as `https://doi.org/10.xxxx/...` -
+      // strip the URL prefix so downstream code that builds APA
+      // citations or dedupes by DOI sees a bare DOI.
+      const rawDoi: string | undefined =
+        typeof w.doi === "string" && w.doi.length > 0 ? w.doi : undefined
+      const doi = rawDoi?.replace(/^https?:\/\/(dx\.)?doi\.org\//i, "")
+
+      const primaryLocation = w.primary_location || {}
+      const journal: string | undefined =
+        primaryLocation?.source?.display_name ?? undefined
+
+      // Best URL preference order: explicit landing page → DOI link →
+      // OpenAlex work page. The OpenAlex `id` is a full URL like
+      // `https://openalex.org/W2741809807`.
+      const url: string =
+        primaryLocation?.landing_page_url ||
+        (doi ? `https://doi.org/${doi}` : "") ||
+        (typeof w.id === "string" ? w.id : "")
+
+      const abstract = reconstructAbstractFromInvertedIndex(
+        w.abstract_inverted_index
+      )
+
+      // Map OpenAlex `type` ("article", "review", "book-chapter", ...)
+      // to our publicationTypes array so the existing review-filter
+      // (isReview heuristic in paper-finder.ts) picks it up.
+      const publicationTypes = typeof w.type === "string" ? [w.type] : undefined
+
+      return {
+        title: typeof w.title === "string" ? w.title : "No title",
+        authors,
+        abstract: abstract || "No abstract",
+        publishedDate: w.publication_date || String(w.publication_year || ""),
+        journal: journal || "Unknown journal",
+        url,
+        doi,
+        citationCount:
+          typeof w.cited_by_count === "number" ? w.cited_by_count : undefined,
+        source: "openalex" as const,
+        publicationTypes,
+        // OpenAlex 'type' = 'review' is the strongest signal we can
+        // get for free. Title-based fallback heuristics already run
+        // downstream so we don't duplicate them here.
+        isReview:
+          typeof w.type === "string" && w.type.toLowerCase().includes("review")
+      }
+    })
+
+    console.log(`✅ [OPENALEX] Found ${results.length} results`)
+    return results
+  } catch (error: any) {
+    if (error.response?.status === 429) {
+      console.warn(
+        "⚠️ [OPENALEX] Rate limited (429). Polite pool overloaded - backing off."
+      )
+      await new Promise(resolve => setTimeout(resolve, 30000))
+      return []
+    }
+    console.error("❌ [OPENALEX] Search error:", error?.message ?? error)
+    return []
+  }
+}
+
+/**
+ * OpenAlex stores abstracts as `{word: [pos1, pos2, ...]}` to avoid
+ * redistributing copyrighted long-form text. To get back to readable
+ * prose: flatten to `[(pos, word), ...]`, sort by position, join with
+ * spaces. Some words appear multiple times (one entry per position),
+ * which is handled naturally by the flatten step.
+ *
+ * Returns "" when the work has no abstract (some pre-prints + grey
+ * literature). Callers should treat that as "abstract unavailable".
+ */
+function reconstructAbstractFromInvertedIndex(
+  inverted: Record<string, number[]> | null | undefined
+): string {
+  if (!inverted || typeof inverted !== "object") return ""
+  const tokens: Array<[number, string]> = []
+  for (const [word, positions] of Object.entries(inverted)) {
+    if (!Array.isArray(positions)) continue
+    for (const pos of positions) {
+      if (typeof pos === "number") tokens.push([pos, word])
+    }
+  }
+  tokens.sort((a, b) => a[0] - b[0])
+  return tokens.map(([, word]) => word).join(" ")
+}
+
 // Semantic Scholar search integration
 export async function searchSemanticScholar(
   query: string,
@@ -581,6 +746,10 @@ export async function performMultiSourceSearch(
     searchTavilyEnhanced(query, maxResultsPerSource).catch(err => {
       console.error("Tavily search failed:", err)
       return []
+    }),
+    searchOpenAlexEnhanced(query, maxResultsPerSource).catch(err => {
+      console.error("OpenAlex search failed:", err)
+      return []
     })
   ]
 
@@ -589,7 +758,8 @@ export async function performMultiSourceSearch(
     arxivResults,
     semanticScholarResults,
     scholarResults,
-    tavilyResults
+    tavilyResults,
+    openAlexResults
   ] = await Promise.allSettled(searchPromises)
 
   const aggregatedResults: AggregatedSearchResults = {
@@ -603,7 +773,9 @@ export async function performMultiSourceSearch(
           : [],
       scholar:
         scholarResults.status === "fulfilled" ? scholarResults.value : [],
-      tavily: tavilyResults.status === "fulfilled" ? tavilyResults.value : []
+      tavily: tavilyResults.status === "fulfilled" ? tavilyResults.value : [],
+      openalex:
+        openAlexResults.status === "fulfilled" ? openAlexResults.value : []
     },
     synthesizedFindings: {
       keyMethodologies: [],
@@ -619,7 +791,8 @@ export async function performMultiSourceSearch(
         arxiv: 0.8, // High for technical papers
         semanticScholar: 0.85, // High for cross-disciplinary
         scholar: 0.75, // Good general coverage
-        tavily: 0.7 // Recent/real-time content
+        tavily: 0.7, // Recent/real-time content
+        openalex: 0.85 // Broad coverage, free, comparable to S2
       }
     }
   }
@@ -647,19 +820,23 @@ export async function performMultiSourceSearch(
   )
   aggregatedResults.sources.scholar = dedupe(aggregatedResults.sources.scholar)
   aggregatedResults.sources.tavily = dedupe(aggregatedResults.sources.tavily)
+  aggregatedResults.sources.openalex = dedupe(
+    aggregatedResults.sources.openalex
+  )
 
   aggregatedResults.totalResults =
     aggregatedResults.sources.pubmed.length +
     aggregatedResults.sources.arxiv.length +
     aggregatedResults.sources.semanticScholar.length +
     aggregatedResults.sources.scholar.length +
-    aggregatedResults.sources.tavily.length
+    aggregatedResults.sources.tavily.length +
+    aggregatedResults.sources.openalex.length
 
   console.log(
     `✅ [MULTI_SEARCH] Completed. Total results: ${aggregatedResults.totalResults}`
   )
   console.log(
-    `📊 [MULTI_SEARCH] Distribution - PubMed: ${aggregatedResults.sources.pubmed.length}, ArXiv: ${aggregatedResults.sources.arxiv.length}, Semantic Scholar: ${aggregatedResults.sources.semanticScholar.length}, Scholar: ${aggregatedResults.sources.scholar.length}, Tavily: ${aggregatedResults.sources.tavily.length}`
+    `📊 [MULTI_SEARCH] Distribution - PubMed: ${aggregatedResults.sources.pubmed.length}, ArXiv: ${aggregatedResults.sources.arxiv.length}, Semantic Scholar: ${aggregatedResults.sources.semanticScholar.length}, Scholar: ${aggregatedResults.sources.scholar.length}, Tavily: ${aggregatedResults.sources.tavily.length}, OpenAlex: ${aggregatedResults.sources.openalex.length}`
   )
 
   return aggregatedResults

@@ -53,7 +53,8 @@ const sourceLabels: Record<string, string> = {
   arxiv: "ArXiv",
   semanticScholar: "Semantic Scholar",
   scholar: "Google Scholar",
-  tavily: "Recent Web"
+  tavily: "Recent Web",
+  openalex: "OpenAlex"
 }
 
 const domainLabels: Record<Domain, string> = {
@@ -391,6 +392,7 @@ const renderSearchDocuments = (searchResults: any) => {
     "pubmed",
     "arxiv",
     "semanticScholar",
+    "openalex",
     "scholar",
     "tavily"
   ]

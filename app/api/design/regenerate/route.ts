@@ -11,6 +11,12 @@ import {
 import { requireUser } from "@/lib/server/require-user"
 import { requireFirestoreOwner } from "@/lib/server/firestore-authz"
 import { checkRateLimit } from "@/lib/server/rate-limit"
+// OpenAlex is a keyless free index (~250M works). Import the shared
+// implementation from search-utils rather than copy-pasting another
+// local fn into this already-overgrown file. The other source fns
+// here are local because they take slightly different defaults; for
+// OpenAlex the search-utils signature works as-is.
+import { searchOpenAlexEnhanced } from "../draft/utils/search-utils"
 
 // Add model constant
 const MODEL_NAME = () => getDesignDeployment()
@@ -42,10 +48,22 @@ interface SearchResult {
   publishedDate: string
   journal?: string
   citationCount?: number
-  source: "pubmed" | "arxiv" | "scholar" | "semantic_scholar" | "tavily"
+  source:
+    | "pubmed"
+    | "arxiv"
+    | "scholar"
+    | "semantic_scholar"
+    | "tavily"
+    | "openalex"
   relevanceScore?: number
   keywords?: string[]
   fullText?: string
+  // OpenAlex carries `type` (article/review/book-chapter/...). Mirrored
+  // from the draft pipeline's SearchResult so the shared
+  // searchOpenAlexEnhanced fn assigns into a compatible shape.
+  publicationTypes?: string[]
+  isReview?: boolean
+  problemAwareSummary?: string
 }
 
 interface AggregatedSearchResults {
@@ -56,6 +74,7 @@ interface AggregatedSearchResults {
     scholar: SearchResult[]
     semanticScholar: SearchResult[]
     tavily: SearchResult[]
+    openalex: SearchResult[]
   }
   synthesizedFindings: {
     keyMethodologies: string[]
@@ -513,6 +532,10 @@ async function performMultiSourceSearch(
     searchTavilyEnhanced(query, maxResultsPerSource).catch(err => {
       console.error("Tavily search failed:", err)
       return []
+    }),
+    searchOpenAlexEnhanced(query, maxResultsPerSource).catch(err => {
+      console.error("OpenAlex search failed:", err)
+      return []
     })
   ]
 
@@ -521,7 +544,8 @@ async function performMultiSourceSearch(
     arxivResults,
     semanticScholarResults,
     scholarResults,
-    tavilyResults
+    tavilyResults,
+    openAlexResults
   ] = await Promise.allSettled(searchPromises)
 
   const aggregatedResults: AggregatedSearchResults = {
@@ -535,7 +559,9 @@ async function performMultiSourceSearch(
           : [],
       scholar:
         scholarResults.status === "fulfilled" ? scholarResults.value : [],
-      tavily: tavilyResults.status === "fulfilled" ? tavilyResults.value : []
+      tavily: tavilyResults.status === "fulfilled" ? tavilyResults.value : [],
+      openalex:
+        openAlexResults.status === "fulfilled" ? openAlexResults.value : []
     },
     synthesizedFindings: {
       keyMethodologies: [],
@@ -551,7 +577,8 @@ async function performMultiSourceSearch(
         arxiv: 0.8, // High for technical papers
         semanticScholar: 0.85, // High for cross-disciplinary
         scholar: 0.75, // Good general coverage
-        tavily: 0.7 // Recent/real-time content
+        tavily: 0.7, // Recent/real-time content
+        openalex: 0.85 // Broad coverage, free, comparable to S2
       }
     }
   }
@@ -561,7 +588,8 @@ async function performMultiSourceSearch(
     aggregatedResults.sources.arxiv.length +
     aggregatedResults.sources.semanticScholar.length +
     aggregatedResults.sources.scholar.length +
-    aggregatedResults.sources.tavily.length
+    aggregatedResults.sources.tavily.length +
+    aggregatedResults.sources.openalex.length
 
   console.log(
     `✅ [MULTI_SEARCH] Completed. Total results: ${aggregatedResults.totalResults}`
@@ -583,7 +611,8 @@ async function synthesizeSearchResults(
     ...searchResults.sources.arxiv,
     ...searchResults.sources.semanticScholar,
     ...searchResults.sources.scholar,
-    ...searchResults.sources.tavily
+    ...searchResults.sources.tavily,
+    ...searchResults.sources.openalex
   ]
 
   if (allResults.length === 0) {
@@ -807,7 +836,8 @@ export async function POST(req: NextRequest) {
         arxiv: [],
         semanticScholar: [],
         scholar: [],
-        tavily: []
+        tavily: [],
+        openalex: []
       },
       synthesizedFindings: {
         keyMethodologies: [],
@@ -823,7 +853,8 @@ export async function POST(req: NextRequest) {
           arxiv: 0.8,
           semanticScholar: 0.85,
           scholar: 0.75,
-          tavily: 0.8 // Higher weight for recent content in regeneration
+          tavily: 0.8, // Higher weight for recent content in regeneration
+          openalex: 0.85
         }
       }
     }
@@ -875,7 +906,8 @@ export async function POST(req: NextRequest) {
       consolidatedResults.sources.arxiv.length +
       consolidatedResults.sources.semanticScholar.length +
       consolidatedResults.sources.scholar.length +
-      consolidatedResults.sources.tavily.length
+      consolidatedResults.sources.tavily.length +
+      consolidatedResults.sources.openalex.length
 
     console.log(
       `📊 [REGENERATE] Consolidated ${consolidatedResults.totalResults} targeted papers`
@@ -904,8 +936,9 @@ ENHANCED LITERATURE SEARCH RESULTS (Feedback-Focused):
 
 SOURCE DISTRIBUTION & RELEVANCE WEIGHTS:
 - PubMed (biomedical, weight: 0.9): ${synthesizedResults.sources.pubmed.length} papers
-- ArXiv (technical preprints, weight: 0.8): ${synthesizedResults.sources.arxiv.length} papers  
+- ArXiv (technical preprints, weight: 0.8): ${synthesizedResults.sources.arxiv.length} papers
 - Semantic Scholar (cross-disciplinary, weight: 0.85): ${synthesizedResults.sources.semanticScholar.length} papers
+- OpenAlex (broad open index, weight: 0.85): ${synthesizedResults.sources.openalex.length} papers
 - Google Scholar (comprehensive, weight: 0.75): ${synthesizedResults.sources.scholar.length} papers
 - Tavily (recent developments, weight: 0.8): ${synthesizedResults.sources.tavily.length} papers
 
@@ -1037,7 +1070,8 @@ Generate a comprehensive improved experimental design that transforms the feedba
           arxiv: synthesizedResults.sources.arxiv.length,
           semanticScholar: synthesizedResults.sources.semanticScholar.length,
           scholar: synthesizedResults.sources.scholar.length,
-          tavily: synthesizedResults.sources.tavily.length
+          tavily: synthesizedResults.sources.tavily.length,
+          openalex: synthesizedResults.sources.openalex.length
         },
         feedbackIntegration: "enhanced with keyword boosting"
       }

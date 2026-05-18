@@ -159,7 +159,8 @@ export function buildCuratedAggregatedResults(
       arxiv: toAgg("arxiv"),
       semanticScholar: toAgg("semantic_scholar"),
       scholar: toAgg("scholar"),
-      tavily: toAgg("tavily")
+      tavily: toAgg("tavily"),
+      openalex: toAgg("openalex")
     },
     synthesizedFindings: {
       keyMethodologies: [],
@@ -175,12 +176,13 @@ export function buildCuratedAggregatedResults(
         arxiv: 0.8,
         semanticScholar: 0.85,
         scholar: 0.75,
-        tavily: 0.7
+        tavily: 0.7,
+        openalex: 0.85
       }
     }
   }
   console.log(
-    `📊 [DEEPSCHOLAR][AGG] Distribution - PubMed: ${agg.sources.pubmed.length}, ArXiv: ${agg.sources.arxiv.length}, Semantic Scholar: ${agg.sources.semanticScholar.length}, Scholar: ${agg.sources.scholar.length}, Tavily: ${agg.sources.tavily.length}`
+    `📊 [DEEPSCHOLAR][AGG] Distribution - PubMed: ${agg.sources.pubmed.length}, ArXiv: ${agg.sources.arxiv.length}, Semantic Scholar: ${agg.sources.semanticScholar.length}, Scholar: ${agg.sources.scholar.length}, Tavily: ${agg.sources.tavily.length}, OpenAlex: ${agg.sources.openalex.length}`
   )
   return agg
 }

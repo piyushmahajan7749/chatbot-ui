@@ -79,6 +79,7 @@ function buildCitationsDetailed(searchResults?: any): CitationItem[] {
   )
   items.push(...collect(searchResults.sources.scholar || [], "scholar"))
   items.push(...collect(searchResults.sources.tavily || [], "tavily"))
+  items.push(...collect(searchResults.sources.openalex || [], "openalex"))
 
   // Sort by relevanceScore (desc) so the UI gets a pre-ranked list.
   items.sort(
@@ -412,18 +413,19 @@ export async function callLiteratureScoutAgent(
         ...multi.sources.arxiv,
         ...multi.sources.semanticScholar,
         ...multi.sources.scholar,
-        ...multi.sources.tavily
+        ...multi.sources.tavily,
+        ...multi.sources.openalex
       ]
       allResults.push(...prewarmed)
       console.log(
         `🟢 [LITERATURE_SCOUT_PREWARM] Keyless sources returned ${prewarmed.length} papers ` +
           `(PubMed=${multi.sources.pubmed.length}, arXiv=${multi.sources.arxiv.length}, ` +
           `S2-public=${multi.sources.semanticScholar.length}, Scholar=${multi.sources.scholar.length}, ` +
-          `Tavily=${multi.sources.tavily.length})`
+          `Tavily=${multi.sources.tavily.length}, OpenAlex=${multi.sources.openalex.length})`
       )
       onProgress?.({
         step: "searching_sources",
-        message: `Got ${prewarmed.length} papers from PubMed/arXiv/web. Refining with PaperFinder…`
+        message: `Got ${prewarmed.length} papers from PubMed/arXiv/OpenAlex/web. Refining with PaperFinder…`
       })
     } catch (e: any) {
       console.warn(
@@ -618,7 +620,8 @@ export async function callLiteratureScoutAgent(
         arxiv: curated.sources.arxiv.length,
         semanticScholar: curated.sources.semanticScholar.length,
         scholar: curated.sources.scholar.length,
-        tavily: curated.sources.tavily.length
+        tavily: curated.sources.tavily.length,
+        openalex: curated.sources.openalex.length
       }
       onProgress?.({
         step: "papers_found",

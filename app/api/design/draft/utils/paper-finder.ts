@@ -415,5 +415,8 @@ function normalizeSource(raw?: string | null): SearchResult["source"] {
   if (value.includes("arxiv")) return "arxiv"
   if (value.includes("semantic")) return "semantic_scholar"
   if (value.includes("tavily")) return "tavily"
+  // Match both `openalex` and OpenAlex work-IDs (URLs like
+  // `https://openalex.org/Wxxxxxxx`).
+  if (value.includes("openalex")) return "openalex"
   return "scholar"
 }

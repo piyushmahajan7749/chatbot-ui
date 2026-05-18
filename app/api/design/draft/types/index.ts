@@ -10,7 +10,13 @@ export interface SearchResult {
   publishedDate: string
   journal?: string
   citationCount?: number
-  source: "pubmed" | "arxiv" | "scholar" | "semantic_scholar" | "tavily"
+  source:
+    | "pubmed"
+    | "arxiv"
+    | "scholar"
+    | "semantic_scholar"
+    | "tavily"
+    | "openalex"
   relevanceScore?: number
   keywords?: string[]
   fullText?: string
@@ -47,6 +53,7 @@ export interface AggregatedSearchResults {
     scholar: SearchResult[]
     semanticScholar: SearchResult[]
     tavily: SearchResult[]
+    openalex: SearchResult[]
   }
   synthesizedFindings: {
     keyMethodologies: string[]
@@ -84,7 +91,13 @@ export interface CitationItem {
   index: number
   title: string
   url: string
-  source: "pubmed" | "arxiv" | "scholar" | "semantic_scholar" | "tavily"
+  source:
+    | "pubmed"
+    | "arxiv"
+    | "scholar"
+    | "semantic_scholar"
+    | "tavily"
+    | "openalex"
   authors: string[]
   year?: string
   journal?: string
