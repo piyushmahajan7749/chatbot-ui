@@ -7,6 +7,14 @@ export interface PaperFinderOptions {
   operationMode?: OperationMode
   insertedBefore?: string | null
   readResultsFromCache?: boolean
+  /**
+   * Optional caller-supplied AbortSignal. When the caller aborts (e.g.
+   * because parallel rounds have already gathered enough papers and
+   * remaining rounds are wasted work), the in-flight fetch is cancelled
+   * AND the internal timeout signal is still respected. Implemented via
+   * `AbortSignal.any([...])` so whichever signal fires first wins.
+   */
+  signal?: AbortSignal
 }
 
 export interface PaperFinderResponse {
@@ -61,8 +69,16 @@ export async function runPaperFinder(
   }
 
   const timeoutMs = Number(process.env.PAPER_FINDER_TIMEOUT_MS || 30000)
-  const controller = new AbortController()
-  const timer = setTimeout(() => controller.abort(), timeoutMs)
+  const timeoutController = new AbortController()
+  const timer = setTimeout(() => timeoutController.abort(), timeoutMs)
+
+  // If the caller passed a signal (parallel-rounds cancel path),
+  // combine it with our timeout signal so EITHER source can abort
+  // the fetch. AbortSignal.any is Node 20+ / modern-browsers; Vercel
+  // runtime is on Node 20.
+  const signal = options.signal
+    ? AbortSignal.any([timeoutController.signal, options.signal])
+    : timeoutController.signal
 
   const response = await fetch(url, {
     method: "POST",
@@ -70,7 +86,7 @@ export async function runPaperFinder(
       "Content-Type": "application/json"
     },
     body: JSON.stringify(payload),
-    signal: controller.signal
+    signal
   }).finally(() => clearTimeout(timer))
 
   if (!response.ok) {

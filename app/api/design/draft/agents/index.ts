@@ -456,110 +456,142 @@ export async function callLiteratureScoutAgent(
       })
     }
 
-    // Track per-round outcomes so we can tell "PaperFinder is down" from
-    // "PaperFinder returned zero results" - the live test on 2026-05-17
-    // showed every scenario returning 500s with
-    // "BroadSearchAgent failed to respond; No documents retrieved from
-    // dense and s2 search" - the literature surface needs to surface
-    // that to the user instead of the generic "no papers found" copy.
+    // ── Parallel PaperFinder fan-out with early-exit cancel ─────────────
+    // Round dispatch was previously a serial for-loop with per-round
+    // early-exit. With the S2 1 req/sec cumulative cap on the
+    // paper-finder side, the LLM QueryAnalyzer step (~5s) and the
+    // OpenAlex retrieval (~2s) of every round were running back-to-
+    // back even though they don't share resources - 3 rounds took
+    // ~75s when they could run concurrently in ~25-40s.
+    //
+    // The deal:
+    //   - Fire all rounds in parallel via Promise.allSettled.
+    //   - Share a parent AbortController. When unique-paper count
+    //     crosses `minPapers`, abort the parent. Inflight fetches
+    //     get cancelled (saves bandwidth + paper-finder CPU). Rounds
+    //     that already returned data still count.
+    //   - Track per-round state in a Map keyed by round index so
+    //     progress events stay ordered even though completions
+    //     arrive out of order.
+    //   - Pre-round skip preserved at the dispatch site: if the
+    //     pre-warm already produced ≥ minPapers, we don't fire any
+    //     rounds at all.
     let roundsAttempted = 0
     let roundsServerError = 0
     let lastServerError: string | null = null
 
-    for (let i = 0; i < roundQueries.length; i++) {
-      const q = roundQueries[i]
-      // Pre-round early-exit: if the pre-warm (or prior rounds) already
-      // gave us enough unique, non-excluded papers, skip the remaining
-      // PaperFinder calls entirely. This matters when PaperFinder is
-      // throwing 5xxs - without this check we'd burn all 5 rounds on
-      // failing calls even though we have plenty of papers in hand.
-      const uniqueBeforeRound = dedupeNormalize(allResults).filter(p => {
-        const url = (p.url || "").toLowerCase()
-        const title = (p.title || "").toLowerCase()
-        return !excludeUrls.has(url) && !excludeTitles.has(title)
-      })
-      if (uniqueBeforeRound.length >= minPapers) {
-        console.log(
-          `✅ [LITERATURE_SCOUT_SEARCH] Already have ${uniqueBeforeRound.length} unique papers; skipping remaining ${roundQueries.length - i} PaperFinder round(s).`
-        )
-        break
-      }
-      roundsAttempted++
-      try {
-        console.log(
-          `\n🌐 [LITERATURE_SCOUT_SEARCH] Round ${i + 1}/${roundQueries.length}: "${q.slice(0, 80)}"`
-        )
-        // Per-round progress event - lets the UI render a live ticker
-        // ("PaperFinder round 2/5 · query: ... · 7 papers so far ·
-        // 23.4s") instead of one static line. We emit BEFORE the call
-        // (without elapsedMs) and AGAIN AFTER (with elapsedMs) so the
-        // user sees the round transition into "done" state instead of
-        // sitting on a 25-second-long spinner with no feedback.
+    const uniqueBeforeRounds = dedupeNormalize(allResults).filter(p => {
+      const url = (p.url || "").toLowerCase()
+      const title = (p.title || "").toLowerCase()
+      return !excludeUrls.has(url) && !excludeTitles.has(title)
+    })
+    if (uniqueBeforeRounds.length >= minPapers) {
+      console.log(
+        `✅ [LITERATURE_SCOUT_SEARCH] Pre-warm yielded ${uniqueBeforeRounds.length} unique papers (≥ ${minPapers} target); skipping PaperFinder fan-out entirely.`
+      )
+    } else if (roundQueries.length > 0) {
+      const fanOutStart = Date.now()
+      console.log(
+        `🚀 [LITERATURE_SCOUT_SEARCH] Firing ${roundQueries.length} PaperFinder rounds in parallel (will abort remaining once we reach ${minPapers} unique papers).`
+      )
+
+      const abortController = new AbortController()
+      let aborted = false
+
+      const runOneRound = async (q: string, idx: number) => {
         const shortQuery = q.length > 70 ? q.slice(0, 67) + "…" : q
+        // Emit "started" event - same pre-call signal as the old
+        // serial loop, just from a parallel scheduler.
         onProgress?.({
           step: "searching_round",
-          message: `PaperFinder round ${i + 1} of ${roundQueries.length} · asking with snippet-level ranking…`,
-          round: i + 1,
+          message: `PaperFinder round ${idx + 1}/${roundQueries.length} · asking with snippet-level ranking…`,
+          round: idx + 1,
           totalRounds: roundQueries.length,
           uniqueSoFar: dedupeNormalize(allResults).length,
           query: shortQuery
         })
         const pfStart = Date.now()
-        const response = await runPaperFinder(buildRoundQuery(q), {
-          operationMode: "infer",
-          readResultsFromCache: !searchOptions.bypassCache
-        })
-        const roundElapsedMs = Date.now() - pfStart
-        console.log(
-          `⏱️  [LITERATURE_SCOUT_SEARCH] Round ${i + 1} responded in ${roundElapsedMs}ms`
-        )
-
-        const normalized = normalizePaperFinderResults(response)
-        allResults.push(...normalized)
-        if (response?.response_text) responseTexts.push(response.response_text)
-        const uniqueNow = dedupeNormalize(allResults).length
-        // Post-round event with elapsedMs so the UI can replace the
-        // spinner line with a done-checkmark + actual time taken.
-        onProgress?.({
-          step: "searching_round",
-          message: `PaperFinder round ${i + 1} done · returned ${normalized.length} paper${normalized.length === 1 ? "" : "s"} (${uniqueNow} unique total)`,
-          round: i + 1,
-          totalRounds: roundQueries.length,
-          uniqueSoFar: uniqueNow,
-          query: shortQuery,
-          elapsedMs: roundElapsedMs
-        })
-
-        // Early-exit once we've gathered enough unique, non-excluded papers.
-        const uniqueSoFar = dedupeNormalize(allResults).filter(p => {
-          const url = (p.url || "").toLowerCase()
-          const title = (p.title || "").toLowerCase()
-          return !excludeUrls.has(url) && !excludeTitles.has(title)
-        })
-        if (uniqueSoFar.length >= minPapers) {
+        try {
+          const response = await runPaperFinder(buildRoundQuery(q), {
+            operationMode: "infer",
+            readResultsFromCache: !searchOptions.bypassCache,
+            signal: abortController.signal
+          })
+          const roundElapsedMs = Date.now() - pfStart
           console.log(
-            `✅ [LITERATURE_SCOUT_SEARCH] Reached ${uniqueSoFar.length} unique papers after ${i + 1} round(s); stopping fan-out.`
+            `⏱️  [LITERATURE_SCOUT_SEARCH] Round ${idx + 1} responded in ${roundElapsedMs}ms`
           )
-          break
-        }
-      } catch (paperFinderError: any) {
-        const msg = paperFinderError?.message ?? String(paperFinderError)
-        console.warn(
-          `⚠️  [LITERATURE_SCOUT_SEARCH] Round ${i + 1} failed; continuing:`,
-          msg
-        )
-        // Detect upstream 5xx so we can surface a clearer banner if
-        // every round fails the same way. The PaperFinder failure
-        // text starts with the HTTP code from `runPaperFinder`'s
-        // thrown error string.
-        if (
-          /^(5\d{2}|PaperFinder failed)/i.test(msg) ||
-          /failed to respond|no documents retrieved/i.test(msg)
-        ) {
-          roundsServerError++
-          lastServerError = msg
+
+          const normalized = normalizePaperFinderResults(response)
+          // Append to shared results array. JS event-loop guarantees
+          // these pushes happen one-at-a-time even with parallel
+          // promises, so no race on .push() itself.
+          allResults.push(...normalized)
+          if (response?.response_text) {
+            responseTexts.push(response.response_text)
+          }
+
+          const uniqueNow = dedupeNormalize(allResults).length
+          onProgress?.({
+            step: "searching_round",
+            message: `PaperFinder round ${idx + 1} done · returned ${normalized.length} paper${normalized.length === 1 ? "" : "s"} (${uniqueNow} unique total)`,
+            round: idx + 1,
+            totalRounds: roundQueries.length,
+            uniqueSoFar: uniqueNow,
+            query: shortQuery,
+            elapsedMs: roundElapsedMs
+          })
+
+          // Early-exit cancel: as soon as ANY round pushes us past
+          // the threshold, abort the others. Already-running fetches
+          // get a network-level cancel; their results discarded.
+          const uniqueAfter = dedupeNormalize(allResults).filter(p => {
+            const url = (p.url || "").toLowerCase()
+            const title = (p.title || "").toLowerCase()
+            return !excludeUrls.has(url) && !excludeTitles.has(title)
+          })
+          if (uniqueAfter.length >= minPapers && !aborted) {
+            aborted = true
+            console.log(
+              `✅ [LITERATURE_SCOUT_SEARCH] Reached ${uniqueAfter.length} unique papers after round ${idx + 1}; cancelling remaining inflight rounds.`
+            )
+            abortController.abort()
+          }
+        } catch (paperFinderError: any) {
+          const msg = paperFinderError?.message ?? String(paperFinderError)
+          // Abort-caused errors are expected when we hit the early-
+          // exit threshold; don't count them as upstream failures
+          // and don't spam the log.
+          const wasAborted =
+            paperFinderError?.name === "AbortError" || /aborted/i.test(msg)
+          if (wasAborted) {
+            console.log(
+              `🟡 [LITERATURE_SCOUT_SEARCH] Round ${idx + 1} cancelled by early-exit.`
+            )
+            return
+          }
+          console.warn(
+            `⚠️  [LITERATURE_SCOUT_SEARCH] Round ${idx + 1} failed; continuing:`,
+            msg
+          )
+          if (
+            /^(5\d{2}|PaperFinder failed)/i.test(msg) ||
+            /failed to respond|no documents retrieved/i.test(msg)
+          ) {
+            roundsServerError++
+            lastServerError = msg
+          }
         }
       }
+
+      roundsAttempted = roundQueries.length
+      await Promise.allSettled(
+        roundQueries.map((q, idx) => runOneRound(q, idx))
+      )
+
+      console.log(
+        `🏁 [LITERATURE_SCOUT_SEARCH] Parallel fan-out finished in ${Date.now() - fanOutStart}ms (${roundsAttempted} rounds, ${roundsServerError} server errors).`
+      )
     }
 
     // ── Filter review articles ──────────────────────────────────────────
