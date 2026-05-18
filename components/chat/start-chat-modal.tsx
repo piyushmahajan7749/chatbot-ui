@@ -488,7 +488,7 @@ const MultiPickList: FC<{
     // pushed the dialog off-screen). Setting w-full forces the scroll
     // container to track the dialog width, which lets the row's
     // `truncate` chain finally clip the title.
-    <div className="max-h-[320px] w-full min-w-0 space-y-1.5 overflow-y-auto pr-1">
+    <div className="max-h-[320px] w-full min-w-0 space-y-1.5 overflow-y-auto overflow-x-hidden pr-1">
       <div className="flex items-center justify-between px-1 pb-1">
         <span className="text-ink-3 text-[11.5px]">
           {picked.length} selected
@@ -532,7 +532,15 @@ const MultiPickList: FC<{
                 {it.title}
               </div>
               {it.subtitle && (
-                <div className="text-ink-3 mt-0.5 line-clamp-1 break-all text-[11.5px]">
+                // `truncate` (not `line-clamp-1 break-all`) - the latter
+                // only hides extra LINES, which requires the text to
+                // actually wrap. Long single-line descriptions with no
+                // upstream max-width constraint never wrap, so the row
+                // grows wider than the dialog and clips visibly past
+                // the modal edge. `truncate` sets white-space:nowrap
+                // unconditionally + ellipsis-clips, which works
+                // regardless of parent width.
+                <div className="text-ink-3 mt-0.5 block truncate text-[11.5px]">
                   {it.subtitle}
                 </div>
               )}
