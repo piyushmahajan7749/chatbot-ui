@@ -48,7 +48,7 @@ export interface EpisodeFrontmatter {
    */
   workspace_id: string
   project_id?: string | null
-  /** Tools/actions the agent ran during the arc (e.g. "design.start"). */
+  /** Tools/actions the agent ran during the arc (e.g. "literature.search"). */
   tools_used: string[]
   /**
    * Optional standout quote worth surfacing months later. Empty

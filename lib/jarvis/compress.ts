@@ -50,7 +50,7 @@ const SYSTEM_PROMPT = `You compress chat arcs between a scientist and Shadow AI'
 - topics: 2-5 lowercase tags - science topics + project codes ("formulation", "viscosity", "prj-407", "lyophilisation").
 - intent: ONE short snake_case label describing the arc's intent ("review_data", "plan_experiment", "draft_report", "answer_question", "vent_blocker", "schedule_task").
 - priority: 1-5 integer. 5 = mentioned multiple times / acted on / blocker. 3 = ordinary working chat. 1 = small-talk / ambient.
-- tools_used: array of agent tools invoked in the arc (zero or more of: "design.start", "report.start", "literature.search", "data.analyse"). Empty array if nothing ran.
+- tools_used: array of agent tools invoked in the arc (zero or more of: "literature.search", "data.analyse", "vault.recall", "vault.list_recent"). Empty array if nothing ran. Note: the assistant no longer creates designs/reports from chat - those happen in the UI - so "design.start" / "report.start" should never appear here even if older episodes mention them.
 - references: array of {kind, id, title} pointing at concrete entities the conversation touched. kind ∈ {design, report, paper, project, file, data_collection, chat}. ONLY include ids you actually saw in the transcript (typically embedded in agent context blocks). Empty array if nothing was referenced.
 - breakthrough_quote: ONE short user quote worth remembering (insight, decision, frustration). Empty string when nothing stands out.
 

@@ -40,17 +40,11 @@ interface JarvisHeroProps {
   displayName?: string
 }
 
+// Quick-fill chips below the chat input.
+// Design + report creation intentionally NOT here - those flows live in
+// /designs and /reports UI surfaces, not chat. Chat is for thinking out
+// loud, literature recall, data Q&A, and "what's blocking me" triage.
 const DEFAULT_CHIPS: { label: string; prompt: string }[] = [
-  {
-    label: "Design an experiment",
-    prompt:
-      "I want to design a new experiment. Walk me through the inputs you need."
-  },
-  {
-    label: "Draft a report",
-    prompt:
-      "Help me draft a research report. Ask me for the design + data first."
-  },
   {
     label: "Search the literature",
     prompt:
@@ -65,7 +59,9 @@ const DEFAULT_CHIPS: { label: string; prompt: string }[] = [
 ]
 
 interface ToolAction {
-  type: "navigate" | "open_design_modal" | "open_report_modal"
+  // Only "navigate" is emitted by the server today. Modal-open variants
+  // were retired alongside the design.start / report.start tools.
+  type: "navigate"
   href?: string
   label: string
   tool: string

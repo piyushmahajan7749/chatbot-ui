@@ -8,10 +8,13 @@
  *      Both layers are best-effort - vault / snapshot errors degrade
  *      to "less context" rather than 500ing.
  *   3. Run the model in a tool-calling loop. The model can invoke
- *      design.start / report.start / literature.search / data.analyse
- *      / vault.recall / vault.list_recent. Tool envelopes are streamed
- *      back to the client as out-of-band JSON lines (prefixed by a
- *      magic header) so the chat UI can render action chips inline.
+ *      literature.search / data.analyse / vault.recall /
+ *      vault.list_recent. Design + report creation are intentionally
+ *      NOT chat-driven - those happen in the /designs and /reports
+ *      UI surfaces (see persona block below). Tool envelopes are
+ *      streamed back to the client as out-of-band JSON lines
+ *      (prefixed by a magic header) so the chat UI can render action
+ *      chips inline.
  *   4. Stream final assistant text token-by-token.
  *
  * The wire protocol is a plain text stream with two kinds of frames:
@@ -299,7 +302,8 @@ function buildSystemPrompt(opts: {
   const persona = [
     "You are ShadowAI's home assistant - the user's research co-pilot on the workspace dashboard.",
     "Tone: warm, direct, scientist-to-scientist. Match the user's domain vocabulary. No marketing language, no emoji.",
-    "You can call other agents via tools (design.start, report.start, literature.search, data.analyse) AND inspect the user's compressed memory via vault.recall + vault.list_recent. PREFER calling a tool over describing what they should click - when the user says 'start a design', invoke design.start instead of telling them to navigate to /designs/new.",
+    "Tools you CAN call: literature.search (semantic paper search), data.analyse (open a dataset), vault.recall + vault.list_recent (read your compressed memory of this user).",
+    "Tools you do NOT have: starting a new experiment design or drafting a new report. Those flows live in the dedicated UI surfaces, not chat. If the user asks to 'design an experiment', 'start a DOE', 'draft a report', or anything that creates a new design or report, DO NOT try to do it in chat. Instead, point them to the right page: for a new design tell them to open the Designs page and click + New design (link: /designs); for a new report tell them to open the Reports page and click + New report (link: /reports). One short sentence is enough. After that you can keep helping them think through the problem in chat - hypotheses, prior art, statistics, blockers - but the creation step itself happens in the UI.",
     "Your answers are short by default - one or two paragraphs. Expand when the user asks. Use bullet lists only when listing 3+ items.",
     "If you don't know something or it isn't in your memory or the live snapshot, say so. Never fabricate a paper, design, or finding."
   ].join("\n\n")

@@ -18,16 +18,21 @@ import type { ChatCompletionTool } from "openai/resources/chat/completions"
 import type { CrossWorkspaceSnapshot } from "./snapshot"
 import { jarvisVault } from "./vault"
 
+// Note: design.start + report.start were intentionally removed. Design +
+// report creation should happen through the dedicated UI surfaces (the
+// /designs and /reports pages), not through the dashboard chat. The
+// system prompt now redirects the user there when they ask for these
+// flows in natural language. See app/api/jarvis/chat/route.ts.
 export type JarvisToolName =
-  | "design.start"
-  | "report.start"
   | "literature.search"
   | "data.analyse"
   | "vault.recall"
   | "vault.list_recent"
 
 export interface JarvisToolAction {
-  type: "navigate" | "open_design_modal" | "open_report_modal"
+  // Only "navigate" is emitted in practice. The modal-open variants
+  // existed for the now-removed design.start / report.start tools.
+  type: "navigate"
   /** Relative app URL when type === navigate. */
   href?: string
   /** Pre-fill payload the modal should hydrate with. */
@@ -47,72 +52,6 @@ export interface JarvisToolResult {
  * `chat.completions.create({ tools, tool_choice })` call.
  */
 export const JARVIS_TOOLS: ChatCompletionTool[] = [
-  {
-    type: "function",
-    function: {
-      name: "design.start",
-      description:
-        "Launch the DOE / experiment-design pipeline. Use this when the user clearly wants to start a new experiment design or hypothesis-driven workflow. Captures their research question + optional starting hypothesis so the design page opens pre-filled.",
-      parameters: {
-        type: "object",
-        properties: {
-          mode: {
-            type: "string",
-            enum: [
-              "from-scratch",
-              "from-hypothesis",
-              "from-plan",
-              "check-stats",
-              "make-plan"
-            ],
-            description:
-              "Which entry mode to open. from-scratch = full 5-stage flow starting from a research question; from-hypothesis = skip to experiment design with a stated hypothesis; from-plan = paste an existing procedure; check-stats = statistical review of an existing design; make-plan = generate a dated execution plan for an existing design."
-          },
-          researchQuestion: {
-            type: "string",
-            description:
-              "The user's stated research question or problem (for from-scratch / from-hypothesis modes). Plain text, 1-2 sentences."
-          },
-          workspaceId: {
-            type: "string",
-            description:
-              "ID of the workspace to create the design under. Defaults to the user's active workspace - only set when the user explicitly names a different one."
-          }
-        },
-        required: ["mode"],
-        additionalProperties: false
-      }
-    }
-  },
-  {
-    type: "function",
-    function: {
-      name: "report.start",
-      description:
-        "Open the new-report modal so the user can begin drafting a report. Pass a working title and optional project so the modal lands pre-filled.",
-      parameters: {
-        type: "object",
-        properties: {
-          workingTitle: {
-            type: "string",
-            description: "Short title for the report, ≤ 80 chars."
-          },
-          projectId: {
-            type: "string",
-            description:
-              "Optional ID of the project to file this report under. Leave blank for workspace-level."
-          },
-          workspaceId: {
-            type: "string",
-            description:
-              "ID of the workspace. Defaults to the user's active workspace."
-          }
-        },
-        required: ["workingTitle"],
-        additionalProperties: false
-      }
-    }
-  },
   {
     type: "function",
     function: {
@@ -219,67 +158,6 @@ export async function executeJarvisTool(
 ): Promise<JarvisToolResult> {
   try {
     switch (name) {
-      case "design.start": {
-        const mode = String(args.mode ?? "from-scratch")
-        const q =
-          typeof args.researchQuestion === "string"
-            ? args.researchQuestion.trim()
-            : ""
-        const wsId =
-          (typeof args.workspaceId === "string" && args.workspaceId) ||
-          ctx.workspaceId
-        if (!wsId) {
-          return {
-            ok: false,
-            message:
-              "No active workspace. Ask the user which workspace to create the design in before calling design.start again."
-          }
-        }
-        const params = new URLSearchParams({ mode })
-        if (q) params.set("q", q)
-        const href = `/${ctx.locale}/${wsId}/designs/new?${params.toString()}`
-        return {
-          ok: true,
-          message: `Opened the new-design modal in mode=${mode}${q ? ` with question "${q}"` : ""}. The user just needs to confirm + hit Start.`,
-          action: {
-            type: "navigate",
-            href,
-            label: q ? `Start design: ${q.slice(0, 60)}` : "Open design flow"
-          }
-        }
-      }
-
-      case "report.start": {
-        const title =
-          typeof args.workingTitle === "string"
-            ? args.workingTitle.trim().slice(0, 80)
-            : ""
-        const wsId =
-          (typeof args.workspaceId === "string" && args.workspaceId) ||
-          ctx.workspaceId
-        if (!wsId) {
-          return {
-            ok: false,
-            message:
-              "No active workspace. Ask the user which workspace to file the report under."
-          }
-        }
-        const params = new URLSearchParams()
-        if (title) params.set("title", title)
-        if (typeof args.projectId === "string" && args.projectId)
-          params.set("projectId", args.projectId)
-        const href = `/${ctx.locale}/${wsId}/reports/new${params.size ? `?${params.toString()}` : ""}`
-        return {
-          ok: true,
-          message: `Opened the new-report flow${title ? ` with working title "${title}"` : ""}. The user picks the project + uploads files next.`,
-          action: {
-            type: "navigate",
-            href,
-            label: title ? `Draft report: ${title}` : "Draft a new report"
-          }
-        }
-      }
-
       case "literature.search": {
         const query = typeof args.query === "string" ? args.query.trim() : ""
         const wsId = ctx.workspaceId
