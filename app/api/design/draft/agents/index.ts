@@ -200,7 +200,7 @@ type AgentCallResult<T> = {
 export type LiteratureScoutProgressEvent =
   | { step: "analyzing"; message: string }
   | { step: "optimizing_query"; message: string; primaryQuery?: string }
-  | { step: "searching_sources"; message: string }
+  | { step: "searching_sources"; message: string; detail?: string }
   /**
    * One emitted per per-round search call so the scientist sees the
    * agent actually working through the source list instead of staring
@@ -213,6 +213,8 @@ export type LiteratureScoutProgressEvent =
       round: number
       totalRounds: number
       uniqueSoFar: number
+      query?: string
+      elapsedMs?: number
     }
   | {
       step: "papers_found"
@@ -393,19 +395,19 @@ export async function callLiteratureScoutAgent(
 
     onProgress?.({
       step: "searching_sources",
-      message:
-        "Searching PubMed, arXiv, Semantic Scholar, Google Scholar, and the web..."
+      message: "Casting a wide net across 6 paper indexes…",
+      detail:
+        "PubMed · arXiv · Semantic Scholar · Google Scholar · OpenAlex · the web — all in parallel"
     })
 
     // ── Pre-warm with keyless sources (PubMed + arXiv + S2-public + Scholar
-    // + Tavily) BEFORE the PaperFinder fan-out. This makes the lit-scout
-    // resilient to PaperFinder outages: even if every PaperFinder round
-    // 5xx's (e.g. the 2026-05-18 Semantic Scholar key expiry that took
-    // out the entire dense-retrieval arm of paper-finder), we still
-    // surface real papers to the scientist. PubMed + arXiv require no
-    // API key at all so they always work; the rest are best-effort.
+    // + Tavily + OpenAlex) BEFORE the PaperFinder fan-out. This makes the
+    // lit-scout resilient to PaperFinder outages: even if every PaperFinder
+    // round 5xx's, we still surface real papers to the scientist. PubMed,
+    // arXiv, and OpenAlex require no API key at all so they always work.
     // performMultiSourceSearch wraps each source in .catch() so one
     // failure never sinks the rest.
+    const prewarmStart = Date.now()
     try {
       const multi = await performMultiSourceSearch(queryData.primaryQuery, 10)
       const prewarmed: SearchResult[] = [
@@ -417,21 +419,41 @@ export async function callLiteratureScoutAgent(
         ...multi.sources.openalex
       ]
       allResults.push(...prewarmed)
+      const prewarmMs = Date.now() - prewarmStart
+      // Per-source breakdown so the user actually sees which indexes
+      // came back with results vs which struck out for this query.
+      // Renders below the message line in PhaseProgressView's `detail`
+      // slot.
+      const perSource = [
+        ["PubMed", multi.sources.pubmed.length],
+        ["arXiv", multi.sources.arxiv.length],
+        ["Semantic Scholar", multi.sources.semanticScholar.length],
+        ["Google Scholar", multi.sources.scholar.length],
+        ["OpenAlex", multi.sources.openalex.length],
+        ["Web", multi.sources.tavily.length]
+      ] as const
+      const detail = perSource
+        .map(([label, n]) => `${label}: ${n}`)
+        .join("  ·  ")
       console.log(
-        `🟢 [LITERATURE_SCOUT_PREWARM] Keyless sources returned ${prewarmed.length} papers ` +
-          `(PubMed=${multi.sources.pubmed.length}, arXiv=${multi.sources.arxiv.length}, ` +
-          `S2-public=${multi.sources.semanticScholar.length}, Scholar=${multi.sources.scholar.length}, ` +
-          `Tavily=${multi.sources.tavily.length}, OpenAlex=${multi.sources.openalex.length})`
+        `🟢 [LITERATURE_SCOUT_PREWARM] Keyless sources returned ${prewarmed.length} papers in ${prewarmMs}ms (${detail})`
       )
       onProgress?.({
         step: "searching_sources",
-        message: `Got ${prewarmed.length} papers from PubMed/arXiv/OpenAlex/web. Refining with PaperFinder…`
+        message: `Got ${prewarmed.length} candidate papers from the open indexes (in ${(prewarmMs / 1000).toFixed(1)}s). Refining with PaperFinder for snippet-level ranking…`,
+        detail
       })
     } catch (e: any) {
       console.warn(
         `⚠️  [LITERATURE_SCOUT_PREWARM] Multi-source pre-warm failed:`,
         e?.message ?? e
       )
+      onProgress?.({
+        step: "searching_sources",
+        message:
+          "Open indexes had trouble responding — falling back to PaperFinder only.",
+        detail: e?.message ? String(e.message).slice(0, 120) : undefined
+      })
     }
 
     // Track per-round outcomes so we can tell "PaperFinder is down" from
@@ -468,29 +490,45 @@ export async function callLiteratureScoutAgent(
           `\n🌐 [LITERATURE_SCOUT_SEARCH] Round ${i + 1}/${roundQueries.length}: "${q.slice(0, 80)}"`
         )
         // Per-round progress event - lets the UI render a live ticker
-        // ("Searching round 2 / 5 - 7 papers so far") instead of one
-        // static line.
+        // ("PaperFinder round 2/5 · query: ... · 7 papers so far ·
+        // 23.4s") instead of one static line. We emit BEFORE the call
+        // (without elapsedMs) and AGAIN AFTER (with elapsedMs) so the
+        // user sees the round transition into "done" state instead of
+        // sitting on a 25-second-long spinner with no feedback.
+        const shortQuery = q.length > 70 ? q.slice(0, 67) + "…" : q
         onProgress?.({
           step: "searching_round",
-          message: `Searching round ${i + 1} of ${roundQueries.length}…`,
+          message: `PaperFinder round ${i + 1} of ${roundQueries.length} · asking with snippet-level ranking…`,
           round: i + 1,
           totalRounds: roundQueries.length,
-          uniqueSoFar: dedupeNormalize(allResults).length
+          uniqueSoFar: dedupeNormalize(allResults).length,
+          query: shortQuery
         })
         const pfStart = Date.now()
         const response = await runPaperFinder(buildRoundQuery(q), {
           operationMode: "infer",
           readResultsFromCache: !searchOptions.bypassCache
         })
+        const roundElapsedMs = Date.now() - pfStart
         console.log(
-          `⏱️  [LITERATURE_SCOUT_SEARCH] Round ${i + 1} responded in ${
-            Date.now() - pfStart
-          }ms`
+          `⏱️  [LITERATURE_SCOUT_SEARCH] Round ${i + 1} responded in ${roundElapsedMs}ms`
         )
 
         const normalized = normalizePaperFinderResults(response)
         allResults.push(...normalized)
         if (response?.response_text) responseTexts.push(response.response_text)
+        const uniqueNow = dedupeNormalize(allResults).length
+        // Post-round event with elapsedMs so the UI can replace the
+        // spinner line with a done-checkmark + actual time taken.
+        onProgress?.({
+          step: "searching_round",
+          message: `PaperFinder round ${i + 1} done · returned ${normalized.length} paper${normalized.length === 1 ? "" : "s"} (${uniqueNow} unique total)`,
+          round: i + 1,
+          totalRounds: roundQueries.length,
+          uniqueSoFar: uniqueNow,
+          query: shortQuery,
+          elapsedMs: roundElapsedMs
+        })
 
         // Early-exit once we've gathered enough unique, non-excluded papers.
         const uniqueSoFar = dedupeNormalize(allResults).filter(p => {

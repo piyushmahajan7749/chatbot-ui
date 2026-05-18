@@ -118,6 +118,12 @@ export type LiteratureProgress = PhaseProgress & {
   uniqueSoFar?: number
   dropped?: number
   remaining?: number
+  // Richer commentary fields. `detail` is a short freeform string the
+  // UI renders below the message line. `query` + `elapsedMs` are
+  // emitted by the per-round event so we can show "q: '…' · 23.4s".
+  detail?: string
+  query?: string
+  elapsedMs?: number
 }
 
 async function runPhaseStreaming(
@@ -2356,6 +2362,15 @@ function progressToEvents(
         detail: ev.primaryQuery
       }
     }
+    if (ev.step === "searching_sources") {
+      // Carries per-source count breakdown (PubMed: 8 · arXiv: 3 · …)
+      // when the pre-warm completes, plain message before.
+      return {
+        step: ev.step,
+        message: ev.message,
+        detail: ev.detail
+      }
+    }
     if (ev.step === "papers_found") {
       const counts = Object.entries(ev.sourceCounts ?? {})
         .filter(([, n]) => n > 0)
@@ -2368,13 +2383,26 @@ function progressToEvents(
       }
     }
     // Per-round search ticker - surfaces "Round 2 of 5 - 7 papers so
-    // far" so the scientist sees genuine progress instead of a single
-    // static line.
+    // far · 23.4s" so the scientist sees genuine progress instead of
+    // a single static line. The agent emits TWO events per round (a
+    // pre-call event without elapsedMs, then a post-call event with
+    // elapsedMs), so the detail line composes the unique-count + the
+    // (optional) elapsed time + the (optional) round-query.
     if (ev.step === "searching_round") {
+      const parts: string[] = []
+      parts.push(
+        `${ev.uniqueSoFar} unique paper${ev.uniqueSoFar === 1 ? "" : "s"} so far`
+      )
+      if (typeof ev.elapsedMs === "number") {
+        parts.push(`${(ev.elapsedMs / 1000).toFixed(1)}s`)
+      }
+      if (ev.query) {
+        parts.push(`q: "${ev.query}"`)
+      }
       return {
         step: ev.step,
         message: ev.message,
-        detail: `${ev.uniqueSoFar} unique paper${ev.uniqueSoFar === 1 ? "" : "s"} so far`
+        detail: parts.join("  ·  ")
       }
     }
     if (ev.step === "filtering_reviews") {
