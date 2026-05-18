@@ -58,6 +58,25 @@ export interface AggregatedSearchResults {
     queryOptimization: string[]
     relevanceScores: number[]
     sourceWeights: Record<string, number>
+    /**
+     * Status of the upstream paper search across all attempted rounds.
+     * Drives the prompt-side "do NOT invent citations" banner + the
+     * UI-side "service unreachable vs no matches" copy.
+     *
+     *   - `ok`               → at least one paper made it through.
+     *   - `upstream_unreachable` → every round 5xx'd from PaperFinder
+     *                              (or its Vespa backend). Different
+     *                              from "no matches" - user should
+     *                              retry, not rewrite the problem.
+     *   - `no_results`       → searches ran fine but matched zero
+     *                          papers. Suggest broadening the query.
+     */
+    searchStatus?: {
+      mode: "ok" | "upstream_unreachable" | "no_results"
+      roundsAttempted: number
+      roundsServerError: number
+      lastServerError: string | null
+    }
   }
 }
 

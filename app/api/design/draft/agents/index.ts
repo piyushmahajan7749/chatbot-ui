@@ -530,16 +530,16 @@ export async function callLiteratureScoutAgent(
       }
     }
 
+    // Whether every attempted round 5xx'd from upstream - drives the
+    // UI banner copy (retry vs broaden) AND the prompt-side "do NOT
+    // invent citations" instruction. Computed once and reused.
+    const allRoundsFailedUpstream =
+      roundsAttempted > 0 && roundsServerError === roundsAttempted
+
     if (mergedResults.length === 0) {
       console.warn(
         "⚠️  [LITERATURE_SCOUT_SEARCH] All rounds returned zero unique papers."
       )
-      // Surface the real cause when every round 5xx'd. Two separate
-      // messages so the UI can decide whether to show "service down,
-      // try again in a few minutes" vs "no papers matched, try
-      // broader query".
-      const allRoundsFailedUpstream =
-        roundsAttempted > 0 && roundsServerError === roundsAttempted
       onProgress?.({
         step: "papers_found",
         message: allRoundsFailedUpstream
@@ -574,6 +574,22 @@ export async function callLiteratureScoutAgent(
     }
 
     curated.searchMetrics.queryOptimization = roundQueries
+
+    // Stamp the upstream status so the synthesis prompt + UI both know
+    // whether to say "service unreachable, retry" or "no matches,
+    // broaden the query". Without this signal the LLM was inventing
+    // citations to fill the gap (seen 2026-05-18 with Vespa 403s).
+    curated.searchMetrics.searchStatus = {
+      mode:
+        mergedResults.length > 0
+          ? "ok"
+          : allRoundsFailedUpstream
+            ? "upstream_unreachable"
+            : "no_results",
+      roundsAttempted,
+      roundsServerError,
+      lastServerError
+    }
 
     if (responseTexts.length > 0) {
       curated.synthesizedFindings.novelInsights = [
@@ -610,13 +626,30 @@ export async function callLiteratureScoutAgent(
     })
 
     const parsed = completion.choices[0].message.parsed!
+
+    // Belt + suspenders: when the actual paper search returned zero
+    // results, FORCE citations to []. The prompt already tells the
+    // model not to invent any (see renderSearchDocuments zero-result
+    // branch), but if it ever ignores that instruction we strip them
+    // here so fabricated APA strings never reach the user. The cost
+    // of being wrong here (dropping a real citation) is zero - there
+    // are no real citations to drop, since totalResults is 0.
+    const realPaperCount = state.searchResults?.totalResults ?? 0
+    const sanitizedCitations =
+      realPaperCount === 0 ? [] : parsed.citations || []
+    if (realPaperCount === 0 && (parsed.citations?.length ?? 0) > 0) {
+      console.warn(
+        `🛡️  [LITERATURE_SCOUT_GUARD] Stripped ${parsed.citations!.length} model-fabricated citation(s) - no real papers were retrieved.`
+      )
+    }
+
     const output: LiteratureScoutOutput = {
       whatOthersHaveDone:
         parsed.whatOthersHaveDone || "No information available",
       goodMethodsAndTools:
         parsed.goodMethodsAndTools || "No information available",
       potentialPitfalls: parsed.potentialPitfalls || "No information available",
-      citations: parsed.citations || [],
+      citations: sanitizedCitations,
       citationsDetailed: buildCitationsDetailed(state.searchResults)
     }
 

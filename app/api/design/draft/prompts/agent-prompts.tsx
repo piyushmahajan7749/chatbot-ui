@@ -427,8 +427,71 @@ const renderSearchDocuments = (searchResults: any) => {
     })
     .filter(Boolean)
 
+  // Zero-paper path: previously this returned `null`, which left the LLM
+  // with no context about why - so it cheerfully invented 4 fake papers
+  // (observed 2026-05-18 when Vespa 403'd inside PaperFinder). Now we
+  // emit an explicit "0 papers, do NOT invent citations" block so the
+  // model knows the search ran and came back empty, and we tell it
+  // exactly which queries were tried so its `whatOthersHaveDone`
+  // narrative can describe the gap honestly.
   if (sections.length === 0) {
-    return null
+    const status = searchResults.searchMetrics?.searchStatus
+    const queries: string[] = Array.isArray(
+      searchResults.searchMetrics?.queryOptimization
+    )
+      ? searchResults.searchMetrics.queryOptimization
+      : []
+    const upstreamFailed = status?.mode === "upstream_unreachable"
+    return (
+      <Documents>
+        <Document>
+          <p>
+            <strong>⚠ Paper search returned ZERO results.</strong>
+          </p>
+          <p>
+            {upstreamFailed
+              ? `The upstream paper-finding service was unreachable (${status?.roundsServerError ?? "?"}/${status?.roundsAttempted ?? "?"} rounds returned 5xx errors${status?.lastServerError ? `; last error: ${String(status.lastServerError).slice(0, 200)}` : ""}).`
+              : `Searches ran successfully but matched zero papers in the indexed corpus.`}
+          </p>
+          {queries.length > 0 && (
+            <>
+              <p>Queries attempted ({queries.length}):</p>
+              <ul>
+                {queries.map((q: string, i: number) => (
+                  <li key={`q-${i}`}>{q}</li>
+                ))}
+              </ul>
+            </>
+          )}
+          <p>
+            <strong>MANDATORY behaviour given zero results:</strong>
+          </p>
+          <ul>
+            <li>
+              Set <code>citations</code> to an empty array <code>[]</code>. Do
+              NOT invent or guess any citations. Do NOT cite papers from general
+              knowledge - this output is shown to a scientist and fabricated
+              references break trust irrecoverably.
+            </li>
+            <li>
+              In <code>whatOthersHaveDone</code>, state explicitly that the
+              literature search returned no results, list the queries that were
+              tried (above), and{" "}
+              {upstreamFailed
+                ? "note that the paper search service appears to be temporarily unreachable so the user should retry shortly"
+                : "suggest that the user broaden the problem statement, add more domain keywords, or upload PDFs manually"}
+              .
+            </li>
+            <li>
+              In <code>goodMethodsAndTools</code> and{" "}
+              <code>potentialPitfalls</code>, you may share general domain-level
+              guidance from your training, but do NOT attribute it to any
+              specific paper.
+            </li>
+          </ul>
+        </Document>
+      </Documents>
+    )
   }
 
   return (

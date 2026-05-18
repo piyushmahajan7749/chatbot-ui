@@ -68,65 +68,170 @@ export class EnhancedRateLimiter {
 
 export const rateLimiter = new EnhancedRateLimiter()
 
-// Enhanced query optimization
+/**
+ * Build a clean primary query + alternative reformulations for the
+ * literature-scout fan-out.
+ *
+ * History: the old version concatenated `${problem} ${objectives} ${variables}
+ * experimental design` for the primary, which double-counted any objective
+ * that was a substring of the problem (e.g. "Reduce viscosity of X" +
+ * "to reduce the viscosity of X" → the same phrase twice in one query).
+ * It also templated alternatives that came out as either fragments
+ * (`experimental design Reduce viscosity of`) or leading-whitespace
+ * boilerplate (`" clinical trial experimental design biomarker"`) when
+ * variables / problem were short or empty. Upstream PaperFinder logs
+ * showed its analyzer had to recover the real intent from our blob.
+ *
+ * New approach: trust the upstream query analyzer to do its own
+ * keyword extraction + relevance-criteria building. Send it CLEAN
+ * natural-language queries - the problem statement on its own, then
+ * 2-4 reformulations that emphasise different angles. Drop any query
+ * that's a fragment (< 15 chars or < 3 content words) so a round is
+ * never wasted on garbage like `" clinical trial experimental design"`.
+ */
 export function optimizeSearchQuery(
   problem: string,
   objectives: string[],
   variables: string[],
-  domain: "biomedical" | "technical" | "general" = "biomedical"
+  _domain: "biomedical" | "technical" | "general" = "biomedical"
 ): {
   primaryQuery: string
   alternativeQueries: string[]
   keywords: string[]
 } {
-  const keywords = [
-    ...problem.split(/\s+/).filter(word => word.length > 3),
-    ...objectives.flatMap(obj =>
-      obj.split(/\s+/).filter(word => word.length > 3)
-    ),
-    ...variables.flatMap(variable =>
-      variable.split(/\s+/).filter(word => word.length > 3)
-    )
-  ]
+  const cleanProblem = problem.trim().replace(/\s+/g, " ")
+  const lowerProblem = cleanProblem.toLowerCase()
 
-  // Domain-specific query enhancement
-  const domainTerms = {
-    biomedical: [
-      "clinical trial",
-      "experimental design",
-      "biomarker",
-      "therapeutic",
-      "efficacy",
-      "safety"
-    ],
-    technical: [
-      "methodology",
-      "algorithm",
-      "optimization",
-      "analysis",
-      "validation"
-    ],
-    general: ["research", "study", "analysis", "method", "approach"]
+  // Drop objectives + variables that are already substrings of the
+  // problem - they add no signal and bloat the query (this is exactly
+  // what made the primary read "Reduce viscosity of X to reduce
+  // viscosity of X" before).
+  const cleanObjectives = objectives
+    .map(o => o.trim().replace(/\s+/g, " "))
+    .filter(o => o.length > 4 && !lowerProblem.includes(o.toLowerCase()))
+  const cleanVariables = variables
+    .map(v => v.trim().replace(/\s+/g, " "))
+    .filter(v => v.length > 1 && !lowerProblem.includes(v.toLowerCase()))
+
+  const keywords = uniqueContentWords(
+    [cleanProblem, ...cleanObjectives, ...cleanVariables].join(" "),
+    12
+  )
+  const problemKeywords = uniqueContentWords(cleanProblem, 6)
+
+  // Primary = the problem statement on its own. Upstream PaperFinder's
+  // QueryAnalyzer prefers a tight natural-language query - the boilerplate
+  // we used to append ("experimental design clinical trial biomarker")
+  // showed up in the analyzer's output as noise it had to discard.
+  const primaryQuery = cleanProblem
+
+  // Alternatives: each one is a focused reformulation that stands alone
+  // as a sensible literature query. Order = strongest to weakest so
+  // the early-exit (10 unique papers) fires on the best alternative
+  // before we burn rounds on the long-tail.
+  const candidates: string[] = []
+  if (cleanObjectives.length) {
+    candidates.push(
+      `${cleanProblem}. Objectives: ${cleanObjectives.join("; ")}`
+    )
+  }
+  if (problemKeywords.length >= 3) {
+    candidates.push(`${problemKeywords.join(" ")} methods strategies`)
+    candidates.push(`${problemKeywords.join(" ")} mechanism factors`)
+  }
+  if (cleanVariables.length) {
+    candidates.push(
+      `${cleanProblem}. Key factors: ${cleanVariables.join(", ")}`
+    )
   }
 
-  const enhancedKeywords = Array.from(
-    new Set([...keywords, ...domainTerms[domain]])
-  )
-
-  const primaryQuery = `${problem} ${objectives.join(" ")} ${variables.join(" ")} experimental design`
-
-  const alternativeQueries = [
-    `"${problem}" methodology research design`,
-    `${enhancedKeywords.slice(0, 5).join(" ")} clinical study`,
-    `${variables.join(" ")} ${domainTerms[domain].slice(0, 3).join(" ")}`,
-    `experimental design ${problem.split(" ").slice(0, 3).join(" ")}`
-  ]
+  // Defensive sweep - every query must be ≥ 15 chars AND ≥ 3 content
+  // words. Anything shorter is fragmentary and just wastes a round.
+  const seen = new Set<string>([primaryQuery.toLowerCase()])
+  const alternativeQueries: string[] = []
+  for (const raw of candidates) {
+    const q = raw.trim().replace(/\s+/g, " ")
+    const key = q.toLowerCase()
+    if (q.length >= 15 && countContentWords(q) >= 3 && !seen.has(key)) {
+      seen.add(key)
+      alternativeQueries.push(q)
+    }
+  }
 
   return {
-    primaryQuery: primaryQuery.trim(),
+    primaryQuery,
     alternativeQueries,
-    keywords: enhancedKeywords
+    keywords
   }
+}
+
+// Lowercased stop-word list for content-word extraction. Kept small + hot
+// so we don't pull in `natural`/`compromise` for a 30-line helper.
+const STOP_WORDS = new Set([
+  "a",
+  "an",
+  "and",
+  "or",
+  "of",
+  "to",
+  "the",
+  "in",
+  "on",
+  "for",
+  "by",
+  "with",
+  "from",
+  "is",
+  "are",
+  "was",
+  "were",
+  "be",
+  "been",
+  "being",
+  "at",
+  "as",
+  "how",
+  "what",
+  "why",
+  "when",
+  "where",
+  "this",
+  "that",
+  "these",
+  "those",
+  "do",
+  "does",
+  "did",
+  "not",
+  "no",
+  "its",
+  "it",
+  "into",
+  "over",
+  "under",
+  "via",
+  "than",
+  "such",
+  "we",
+  "they",
+  "their"
+])
+
+function uniqueContentWords(text: string, limit: number): string[] {
+  const seen = new Set<string>()
+  const out: string[] = []
+  for (const raw of text.split(/\s+/)) {
+    const w = raw.toLowerCase().replace(/[^a-z0-9-]/g, "")
+    if (!w || w.length < 3 || STOP_WORDS.has(w) || seen.has(w)) continue
+    seen.add(w)
+    out.push(w)
+    if (out.length >= limit) break
+  }
+  return out
+}
+
+function countContentWords(text: string): number {
+  return uniqueContentWords(text, 9999).length
 }
 
 // Enhanced PubMed search with direct API calls
