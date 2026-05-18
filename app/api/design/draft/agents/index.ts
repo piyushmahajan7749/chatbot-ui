@@ -32,7 +32,10 @@ import {
   createReportWriterPrompt,
   getAgentUserPrompt
 } from "../prompts/agent-prompts"
-import { optimizeSearchQuery } from "../utils/search-utils"
+import {
+  optimizeSearchQuery,
+  performMultiSourceSearch
+} from "../utils/search-utils"
 import {
   buildCuratedAggregatedResults,
   dedupeNormalize
@@ -393,6 +396,42 @@ export async function callLiteratureScoutAgent(
         "Searching PubMed, arXiv, Semantic Scholar, Google Scholar, and the web..."
     })
 
+    // ── Pre-warm with keyless sources (PubMed + arXiv + S2-public + Scholar
+    // + Tavily) BEFORE the PaperFinder fan-out. This makes the lit-scout
+    // resilient to PaperFinder outages: even if every PaperFinder round
+    // 5xx's (e.g. the 2026-05-18 Semantic Scholar key expiry that took
+    // out the entire dense-retrieval arm of paper-finder), we still
+    // surface real papers to the scientist. PubMed + arXiv require no
+    // API key at all so they always work; the rest are best-effort.
+    // performMultiSourceSearch wraps each source in .catch() so one
+    // failure never sinks the rest.
+    try {
+      const multi = await performMultiSourceSearch(queryData.primaryQuery, 10)
+      const prewarmed: SearchResult[] = [
+        ...multi.sources.pubmed,
+        ...multi.sources.arxiv,
+        ...multi.sources.semanticScholar,
+        ...multi.sources.scholar,
+        ...multi.sources.tavily
+      ]
+      allResults.push(...prewarmed)
+      console.log(
+        `🟢 [LITERATURE_SCOUT_PREWARM] Keyless sources returned ${prewarmed.length} papers ` +
+          `(PubMed=${multi.sources.pubmed.length}, arXiv=${multi.sources.arxiv.length}, ` +
+          `S2-public=${multi.sources.semanticScholar.length}, Scholar=${multi.sources.scholar.length}, ` +
+          `Tavily=${multi.sources.tavily.length})`
+      )
+      onProgress?.({
+        step: "searching_sources",
+        message: `Got ${prewarmed.length} papers from PubMed/arXiv/web. Refining with PaperFinder…`
+      })
+    } catch (e: any) {
+      console.warn(
+        `⚠️  [LITERATURE_SCOUT_PREWARM] Multi-source pre-warm failed:`,
+        e?.message ?? e
+      )
+    }
+
     // Track per-round outcomes so we can tell "PaperFinder is down" from
     // "PaperFinder returned zero results" - the live test on 2026-05-17
     // showed every scenario returning 500s with
@@ -405,6 +444,22 @@ export async function callLiteratureScoutAgent(
 
     for (let i = 0; i < roundQueries.length; i++) {
       const q = roundQueries[i]
+      // Pre-round early-exit: if the pre-warm (or prior rounds) already
+      // gave us enough unique, non-excluded papers, skip the remaining
+      // PaperFinder calls entirely. This matters when PaperFinder is
+      // throwing 5xxs - without this check we'd burn all 5 rounds on
+      // failing calls even though we have plenty of papers in hand.
+      const uniqueBeforeRound = dedupeNormalize(allResults).filter(p => {
+        const url = (p.url || "").toLowerCase()
+        const title = (p.title || "").toLowerCase()
+        return !excludeUrls.has(url) && !excludeTitles.has(title)
+      })
+      if (uniqueBeforeRound.length >= minPapers) {
+        console.log(
+          `✅ [LITERATURE_SCOUT_SEARCH] Already have ${uniqueBeforeRound.length} unique papers; skipping remaining ${roundQueries.length - i} PaperFinder round(s).`
+        )
+        break
+      }
       roundsAttempted++
       try {
         console.log(
