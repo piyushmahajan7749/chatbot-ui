@@ -573,19 +573,30 @@ export async function callLiteratureScoutAgent(
     let roundsServerError = 0
     let lastServerError: string | null = null
 
-    const uniqueBeforeRounds = dedupeNormalize(allResults).filter(p => {
-      const url = (p.url || "").toLowerCase()
-      const title = (p.title || "").toLowerCase()
-      return !excludeUrls.has(url) && !excludeTitles.has(title)
-    })
-    if (uniqueBeforeRounds.length >= minPapers) {
-      console.log(
-        `✅ [LITERATURE_SCOUT_SEARCH] Pre-warm yielded ${uniqueBeforeRounds.length} unique papers (≥ ${minPapers} target); skipping PaperFinder fan-out entirely.`
-      )
-    } else if (roundQueries.length > 0) {
+    // Always fire PaperFinder rounds when queries are present.
+    //
+    // We used to skip the PaperFinder fan-out when pre-warm already
+    // produced ≥ minPapers (default 10) unique candidates. That made
+    // sense when paper-finder was unreliable, slow, and used a single
+    // arm — pre-warm's 6 keyless sources could outperform it.
+    //
+    // Today paper-finder runs 7 retrieval arms (S2 dense + S2 paper
+    // search + OpenAlex + PubMed + arXiv + Scholar + Tavily) against
+    // ALL of the LLM-planned queries (primary + mechanism + methods +
+    // failure_modes + …). Skipping it costs us:
+    //   - the 2-4 alternative queries' contributions entirely
+    //   - Cohere rerank + LLM relevance judgement over the merged pool
+    //   - ~5× the candidate count
+    //
+    // So we now always run paper-finder when there's at least one
+    // query to send. Pre-warm becomes purely additive — visible-fast
+    // baseline + safety net for when paper-finder is unreachable —
+    // not a short-circuit.
+    if (roundQueries.length > 0) {
+      const preWarmCount = dedupeNormalize(allResults).length
       const fanOutStart = Date.now()
       console.log(
-        `🚀 [LITERATURE_SCOUT_SEARCH] Firing ${roundQueries.length} PaperFinder rounds in parallel; waiting for ALL to settle before ranking.`
+        `🚀 [LITERATURE_SCOUT_SEARCH] Firing ${roundQueries.length} PaperFinder rounds in parallel (pre-warm seeded ${preWarmCount} candidates; PaperFinder adds the multi-query, multi-arm coverage).`
       )
 
       // Per-round result slots, keyed by round index so we can stitch
