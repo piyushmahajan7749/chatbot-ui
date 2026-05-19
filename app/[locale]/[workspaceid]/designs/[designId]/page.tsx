@@ -121,9 +121,12 @@ export type LiteratureProgress = PhaseProgress & {
   // Richer commentary fields. `detail` is a short freeform string the
   // UI renders below the message line. `query` + `elapsedMs` are
   // emitted by the per-round event so we can show "q: '…' · 23.4s".
+  // `intent` is the LLM-assigned angle for this round (mechanism /
+  // methods / applications / etc.) — used in the round detail line.
   detail?: string
   query?: string
   elapsedMs?: number
+  intent?: string
   // Dedup + post-rank funnel counts. `totalCandidates` carries the
   // "from N searched" count rendered in the surfaced-papers header.
   rawCount?: number
@@ -2448,6 +2451,13 @@ function progressToEvents(
       )
       if (typeof ev.elapsedMs === "number") {
         parts.push(`${(ev.elapsedMs / 1000).toFixed(1)}s`)
+      }
+      if (ev.intent && ev.intent !== "primary") {
+        // LLM-assigned angle (mechanism / methods / applications /
+        // recent_advances / comparative / failure_modes). Renders the
+        // raw label - short, scientist-readable, no extra dictionary
+        // lookup needed.
+        parts.push(`angle: ${ev.intent.replace(/_/g, " ")}`)
       }
       if (ev.query) {
         parts.push(`q: "${ev.query}"`)

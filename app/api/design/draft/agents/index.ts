@@ -33,8 +33,10 @@ import {
   getAgentUserPrompt
 } from "../prompts/agent-prompts"
 import {
+  generateSearchQueriesWithLLM,
   optimizeSearchQuery,
-  performMultiSourceSearch
+  performMultiSourceSearch,
+  type QueryIntent
 } from "../utils/search-utils"
 import {
   buildCuratedAggregatedResults,
@@ -215,6 +217,13 @@ export type LiteratureScoutProgressEvent =
       uniqueSoFar: number
       query?: string
       elapsedMs?: number
+      /**
+       * LLM-assigned intent label for this round when the query
+       * generator used the LLM path. UI renders this alongside the
+       * round number ("Round 2/4 · mechanism"). Falls back to "primary"
+       * for every round in heuristic mode.
+       */
+      intent?: QueryIntent
     }
   | {
       step: "papers_found"
@@ -322,19 +331,76 @@ export async function callLiteratureScoutAgent(
     ...(state.variables?.unknown || [])
   ]
 
-  const queryData = optimizeSearchQuery(
-    state.problem,
-    state.objectives,
-    combinedVariables,
-    "biomedical"
-  )
+  // ── Query generation: LLM-first, heuristic fallback ──────────────────
+  // The LLM generator takes the full structured design context (problem
+  // + domain + phase + objectives + variables + constraints + special
+  // considerations) and emits 3-4 complementary queries each labelled
+  // with its intent (mechanism / methods / applications / etc.). The
+  // intent labels flow through to per-round progress events so the user
+  // sees "round 2/4 · mechanism · q: '…'" instead of guessing why two
+  // rounds look almost identical.
+  //
+  // If the LLM call fails for any reason (network, parse, empty), we
+  // fall back to the heuristic optimizeSearchQuery — same shape, less
+  // intelligent, but always works.
+  onProgress?.({
+    step: "optimizing_query",
+    message: "Generating literature-search queries from your problem context…"
+  })
+  const llmQueries = await generateSearchQueriesWithLLM({
+    problem: state.problem,
+    domain: state.domain,
+    phase: state.phase,
+    objectives: state.objectives,
+    knownVariables: state.variables?.known,
+    unknownVariables: state.variables?.unknown,
+    constraints: state.constraints,
+    specialConsiderations: state.specialConsiderations
+  })
+
+  let queryIntents: QueryIntent[] = []
+  let queryData: {
+    primaryQuery: string
+    alternativeQueries: string[]
+    keywords: string[]
+  }
+  if (llmQueries) {
+    queryData = {
+      primaryQuery: llmQueries.primaryQuery,
+      alternativeQueries: llmQueries.alternativeQueries,
+      keywords: llmQueries.keywords
+    }
+    // Track the LLM-assigned intent for each alternative so we can
+    // show "round 2/4 · mechanism" in the UI progress feed.
+    queryIntents = ["primary", ...llmQueries.alternativeIntents]
+  } else {
+    queryData = optimizeSearchQuery(
+      state.problem,
+      state.objectives,
+      combinedVariables,
+      "biomedical"
+    )
+    // Heuristic mode: tag everything as "primary" so the UI doesn't
+    // claim intent we don't actually have.
+    queryIntents = [
+      "primary",
+      ...queryData.alternativeQueries.map(() => "primary" as QueryIntent)
+    ]
+  }
 
   console.log("\n🔍 [LITERATURE_SCOUT_SEARCH] Search Query Optimization:")
+  console.log(`  Source: ${llmQueries ? "LLM" : "heuristic-fallback"}`)
   console.log("  🎯 Primary Query:", queryData.primaryQuery)
+  queryData.alternativeQueries.forEach((q, i) => {
+    const intent = queryIntents[i + 1] ?? "primary"
+    console.log(`  ↳ Alt ${i + 1} [${intent}]: ${q}`)
+  })
 
   onProgress?.({
     step: "optimizing_query",
-    message: "Optimized search query",
+    message: llmQueries
+      ? `Generated ${1 + queryData.alternativeQueries.length} complementary queries (LLM-planned). Each targets a different angle.`
+      : `Built ${1 + queryData.alternativeQueries.length} search queries (fallback heuristic — LLM unavailable).`,
     primaryQuery: queryData.primaryQuery
   })
 
@@ -537,14 +603,20 @@ export async function callLiteratureScoutAgent(
 
       const runOneRound = async (q: string, idx: number): Promise<void> => {
         const shortQuery = q.length > 70 ? q.slice(0, 67) + "…" : q
+        const intent = queryIntents[idx] ?? "primary"
+        // Intent suffix renders next to the round number in the UI
+        // ("Round 2/4 · mechanism") - helps the user understand WHY
+        // we ran each round, not just "we ran another round".
+        const intentSuffix = intent !== "primary" ? ` · ${intent}` : ""
         // Pre-call event - tells the UI this round has started.
         onProgress?.({
           step: "searching_round",
-          message: `PaperFinder round ${idx + 1}/${roundQueries.length} · asking with snippet-level ranking…`,
+          message: `PaperFinder round ${idx + 1}/${roundQueries.length}${intentSuffix} · asking with snippet-level ranking…`,
           round: idx + 1,
           totalRounds: roundQueries.length,
           uniqueSoFar: dedupeNormalize(allResults).length,
-          query: shortQuery
+          query: shortQuery,
+          intent
         })
         const pfStart = Date.now()
         try {
@@ -574,12 +646,13 @@ export async function callLiteratureScoutAgent(
           ]).length
           onProgress?.({
             step: "searching_round",
-            message: `PaperFinder round ${idx + 1} done · returned ${normalized.length} paper${normalized.length === 1 ? "" : "s"} (≈${provisionalUnique} unique so far)`,
+            message: `PaperFinder round ${idx + 1}${intentSuffix} done · returned ${normalized.length} paper${normalized.length === 1 ? "" : "s"} (≈${provisionalUnique} unique so far)`,
             round: idx + 1,
             totalRounds: roundQueries.length,
             uniqueSoFar: provisionalUnique,
             query: shortQuery,
-            elapsedMs: roundElapsedMs
+            elapsedMs: roundElapsedMs,
+            intent
           })
         } catch (paperFinderError: any) {
           const msg = paperFinderError?.message ?? String(paperFinderError)

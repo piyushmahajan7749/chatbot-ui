@@ -1,8 +1,15 @@
 import axios from "axios"
 import { TavilySearchResults } from "@langchain/community/tools/tavily_search"
 import { SERPGoogleScholarAPITool } from "@langchain/community/tools/google_scholar"
-import { getAzureOpenAI, getAzureOpenAIModel } from "@/lib/azure-openai"
-import { AggregatedSearchResults, SearchResult } from "../types"
+import { zodResponseFormat } from "openai/helpers/zod"
+import { z } from "zod"
+import {
+  getAzureOpenAI,
+  getAzureOpenAIForDesign,
+  getAzureOpenAIModel,
+  getDesignDeployment
+} from "@/lib/azure-openai"
+import { AggregatedSearchResults, Domain, Phase, SearchResult } from "../types"
 
 // Initialize enhanced search tools
 let scholarTool: SERPGoogleScholarAPITool | null = null
@@ -162,6 +169,248 @@ export function optimizeSearchQuery(
     primaryQuery,
     alternativeQueries,
     keywords
+  }
+}
+
+// ───────────────────────────────────────────────────────────────────────
+// LLM-based query generator
+// ───────────────────────────────────────────────────────────────────────
+//
+// The heuristic `optimizeSearchQuery` above is fine as a baseline but it
+// ignores most of the lit-scout's structured context: domain, phase,
+// constraints, special considerations. Its alternative queries are also
+// just string-template shuffles ("<keywords> methods strategies" /
+// "<keywords> mechanism factors") rather than thoughtful complementary
+// angles.
+//
+// This LLM-based generator does what a real research librarian would
+// do: read the scientist's structured problem context (problem +
+// domain + phase + objectives + variables + constraints), think about
+// which complementary angles are worth pulling literature from, and
+// emit 3-4 carefully-worded queries each labelled with its intent. The
+// labels flow through to the per-round progress events so the user can
+// see "round 2/4 · mechanism · q: '…'" instead of guessing why two
+// rounds look almost identical.
+//
+// Falls back to `null` on any failure - caller should then fall back to
+// the heuristic `optimizeSearchQuery` so we never block the lit-scout on
+// a flaky LLM call.
+
+/** Human-readable labels for each Domain enum value used in the prompt. */
+const DOMAIN_LABEL: Record<Domain, string> = {
+  formulation_development: "Formulation development",
+  discovery_biology: "Discovery biology / target identification",
+  molecular_biology: "Molecular biology / genomics",
+  protein_expression: "Protein expression and purification",
+  cell_culture: "Cell culture / upstream",
+  fermentation: "Fermentation / bioprocess",
+  analytics_qc: "Analytics / QC"
+}
+
+const PHASE_LABEL: Record<Phase, string> = {
+  screening: "Screening (broad factor coverage)",
+  optimization: "Optimization (refine ranges + interactions)",
+  robustness: "Robustness (variability + stress testing)",
+  scale_up: "Scale-up (process + manufacturability)",
+  validation: "Validation (reproducibility + controls)"
+}
+
+export interface QueryGenerationContext {
+  problem: string
+  domain?: Domain | string
+  phase?: Phase | string
+  objectives?: string[]
+  knownVariables?: string[]
+  unknownVariables?: string[]
+  constraints?: {
+    material?: string
+    time?: string
+    equipment?: string
+  }
+  specialConsiderations?: string[]
+}
+
+/**
+ * Intent labels we ask the LLM to assign to each alternative query. The
+ * agent uses these to surface "round 2/4 · mechanism" in the progress
+ * feed instead of an opaque truncated query.
+ */
+export type QueryIntent =
+  | "primary" // tight restatement of the problem
+  | "mechanism" // why does this happen / molecular basis
+  | "methods" // experimental/computational techniques
+  | "applications" // where it's been deployed / case studies
+  | "recent_advances" // latest work in the area
+  | "comparative" // versus alternatives / benchmarks
+  | "failure_modes" // pitfalls / what goes wrong
+
+/** The LLM's structured-output shape. */
+const SearchQueriesSchema = z.object({
+  primaryQuery: z.object({
+    query: z
+      .string()
+      .describe(
+        "Tight natural-language restatement of the problem, 6-15 words, " +
+          "optimized for relevance ranking on academic search engines. " +
+          "Use domain-specific terminology. Avoid filler words."
+      ),
+    rationale: z
+      .string()
+      .describe("One sentence explaining why this query phrasing is best.")
+  }),
+  alternativeQueries: z
+    .array(
+      z.object({
+        intent: z.enum([
+          "mechanism",
+          "methods",
+          "applications",
+          "recent_advances",
+          "comparative",
+          "failure_modes"
+        ]),
+        query: z
+          .string()
+          .describe(
+            "6-15 word search query targeting this specific intent. " +
+              "Should complement (not duplicate) the primary query. " +
+              "Use distinct vocabulary."
+          ),
+        rationale: z
+          .string()
+          .describe("One sentence explaining what literature this surfaces.")
+      })
+    )
+    .min(2)
+    .max(4),
+  keywords: z
+    .array(z.string())
+    .describe(
+      "5-10 domain-specific keywords distilled from the context, useful " +
+        "for downstream filtering."
+    )
+})
+
+export interface LLMQueryGeneratorResult {
+  primaryQuery: string
+  alternativeQueries: string[]
+  /** Same length as alternativeQueries; intent label per query. */
+  alternativeIntents: QueryIntent[]
+  keywords: string[]
+  /** Marker so caller can log "LLM was used" vs "heuristic was used". */
+  source: "llm"
+}
+
+/**
+ * Generate search queries via the design-deployment LLM. Returns null on
+ * ANY failure (network, parsing, empty response, etc.) so the caller can
+ * fall through to the heuristic optimizeSearchQuery without a try/catch
+ * dance at every call site.
+ */
+export async function generateSearchQueriesWithLLM(
+  ctx: QueryGenerationContext
+): Promise<LLMQueryGeneratorResult | null> {
+  const problem = (ctx.problem ?? "").trim()
+  if (!problem) return null
+
+  const domainLabel = ctx.domain
+    ? (DOMAIN_LABEL[ctx.domain as Domain] ?? String(ctx.domain))
+    : null
+  const phaseLabel = ctx.phase
+    ? (PHASE_LABEL[ctx.phase as Phase] ?? String(ctx.phase))
+    : null
+
+  const constraintLines: string[] = []
+  if (ctx.constraints?.material)
+    constraintLines.push(`Material: ${ctx.constraints.material}`)
+  if (ctx.constraints?.time)
+    constraintLines.push(`Time: ${ctx.constraints.time}`)
+  if (ctx.constraints?.equipment)
+    constraintLines.push(`Equipment: ${ctx.constraints.equipment}`)
+
+  const userContext = [
+    `Problem: ${problem}`,
+    domainLabel ? `Domain: ${domainLabel}` : null,
+    phaseLabel ? `Phase: ${phaseLabel}` : null,
+    ctx.objectives?.length
+      ? `Objectives:\n- ${ctx.objectives.join("\n- ")}`
+      : null,
+    ctx.knownVariables?.length
+      ? `Known variables: ${ctx.knownVariables.join(", ")}`
+      : null,
+    ctx.unknownVariables?.length
+      ? `Unknown variables to explore: ${ctx.unknownVariables.join(", ")}`
+      : null,
+    constraintLines.length
+      ? `Constraints:\n- ${constraintLines.join("\n- ")}`
+      : null,
+    ctx.specialConsiderations?.length
+      ? `Special considerations:\n- ${ctx.specialConsiderations.join("\n- ")}`
+      : null
+  ]
+    .filter(Boolean)
+    .join("\n\n")
+
+  const systemPrompt = [
+    "You are an expert biomedical research librarian working for a senior scientist.",
+    "Your job: turn the scientist's structured experiment-design context into a small set of literature-search queries that, run in parallel, will surface the most relevant primary research from PubMed / Semantic Scholar / OpenAlex / arXiv.",
+    "",
+    "Hard rules:",
+    "- The PRIMARY query is the strongest single-shot version. Make it tight, natural-language, 6-15 words. Use domain-specific terminology (mechanisms named after their authors, standard assays, canonical proteins/factors). Avoid hedge words, filler, or jargon-stacking.",
+    "- 2-4 ALTERNATIVE queries, each targeting a DIFFERENT angle and using DIFFERENT vocabulary. Don't just shuffle the primary query's words. Each alternative carries an intent label so the agent knows what kind of paper it expects back.",
+    "- Intent labels are: mechanism (molecular/physical basis), methods (assays, techniques, instruments), applications (case studies, prior deployments), recent_advances (latest 3-5 years), comparative (vs alternatives, benchmarks), failure_modes (pitfalls, what goes wrong, common artifacts).",
+    "- Pick intents that fit THIS problem. If the user is in early discovery, mechanism + recent_advances are usually right. If they're in optimization, methods + failure_modes + comparative often beat the rest. Don't force all 6.",
+    "- Keywords: 5-10 short tokens distilled from the context. These are used downstream for filtering, not as standalone queries.",
+    "",
+    "Output STRICT JSON matching the provided schema. No commentary, no markdown."
+  ].join("\n")
+
+  try {
+    const openai = getAzureOpenAIForDesign()
+    const model = getDesignDeployment()
+    const completion = await openai.beta.chat.completions.parse({
+      model,
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: userContext }
+      ],
+      temperature: 0.3,
+      response_format: zodResponseFormat(SearchQueriesSchema, "searchQueries")
+    })
+    const parsed = completion.choices[0]?.message?.parsed
+    if (!parsed) return null
+
+    // Defensive: ensure primary and at least one alternative came back
+    // non-empty. If the LLM produced an empty string for either, treat as
+    // failure and fall back to the heuristic.
+    const primary = parsed.primaryQuery.query?.trim()
+    if (!primary) return null
+    const alts = parsed.alternativeQueries
+      .map(a => ({ query: a.query?.trim() ?? "", intent: a.intent }))
+      .filter(a => a.query.length >= 6)
+    if (alts.length === 0) return null
+
+    console.log(
+      `🤖 [QUERY_GEN_LLM] Generated ${alts.length + 1} queries: primary + ${alts.map(a => a.intent).join(", ")}`
+    )
+
+    return {
+      primaryQuery: primary,
+      alternativeQueries: alts.map(a => a.query),
+      alternativeIntents: alts.map(a => a.intent as QueryIntent),
+      keywords: parsed.keywords
+        .filter(
+          (k): k is string => typeof k === "string" && k.trim().length > 0
+        )
+        .map(k => k.trim()),
+      source: "llm"
+    }
+  } catch (err: any) {
+    console.warn(
+      "⚠️ [QUERY_GEN_LLM] LLM call failed, will fall back to heuristic:",
+      err?.message ?? err
+    )
+    return null
   }
 }
 
