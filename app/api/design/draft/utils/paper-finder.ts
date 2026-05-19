@@ -68,7 +68,16 @@ export async function runPaperFinder(
     read_results_from_cache: options.readResultsFromCache ?? true
   }
 
-  const timeoutMs = Number(process.env.PAPER_FINDER_TIMEOUT_MS || 30000)
+  // Default 150s. paper-finder takes 30-90s server-side on most queries
+  // once S2's 1 req/s rate limit serialises the dense + s2_search arms,
+  // and complex queries with rich relevance criteria (e.g. the bispecific-
+  // antibody viscosity one we used in regression tests) routinely hit 90-
+  // 120s. The previous 30s default was set before the S2 rate-limit
+  // change and caused every parallel round in the lit-scout agent to
+  // abort, falling back to just the pre-warm pool of ~3-10 papers (the
+  // 2026-05-19 "only 3 papers shown in UI" regression). Override via
+  // PAPER_FINDER_TIMEOUT_MS in env if you need a tighter or looser cap.
+  const timeoutMs = Number(process.env.PAPER_FINDER_TIMEOUT_MS || 150000)
   const timeoutController = new AbortController()
   const timer = setTimeout(() => timeoutController.abort(), timeoutMs)
 
