@@ -221,6 +221,28 @@ export type LiteratureScoutProgressEvent =
       message: string
       totalPapers: number
       sourceCounts: Record<string, number>
+      /**
+       * Total number of unique candidate papers the pipeline considered
+       * BEFORE the top-N cut (i.e. after dedup + review filter, before
+       * `mergedResults.slice(0, 40)`). The UI surfaces this in the
+       * "N papers surfaced · ranked by relevance · from M searched"
+       * header so the scientist sees the funnel — we didn't just find
+       * 10 papers, we sifted through hundreds and these 10 are the
+       * cream.
+       */
+      totalCandidates?: number
+    }
+  /**
+   * Dedup funnel: raw count across all sources (PubMed/arXiv/OpenAlex/
+   * PaperFinder rounds) → unique-after-dedup. Lets the user see "we
+   * pulled 180 candidates from 9 sources, collapsed to 95 unique
+   * papers".
+   */
+  | {
+      step: "deduping"
+      message: string
+      rawCount: number
+      uniqueCount: number
     }
   /**
    * Review-article filter (#paper-finder fix). Tells the user how many
@@ -594,6 +616,23 @@ export async function callLiteratureScoutAgent(
       )
     }
 
+    // ── Dedup funnel ────────────────────────────────────────────────────
+    // Tell the user how many raw candidates we pulled across all
+    // sources + how many remain after dedup. e.g. "Sifted 180 raw
+    // candidates → 95 unique papers".
+    const rawCandidateCount = allResults.length
+    const deduped = dedupeNormalize(allResults).filter(p => {
+      const url = (p.url || "").toLowerCase()
+      const title = (p.title || "").toLowerCase()
+      return !excludeUrls.has(url) && !excludeTitles.has(title)
+    })
+    onProgress?.({
+      step: "deduping",
+      message: `Collapsed ${rawCandidateCount} raw candidate${rawCandidateCount === 1 ? "" : "s"} to ${deduped.length} unique paper${deduped.length === 1 ? "" : "s"}.`,
+      rawCount: rawCandidateCount,
+      uniqueCount: deduped.length
+    })
+
     // ── Filter review articles ──────────────────────────────────────────
     // Surveys, meta-analyses, and narrative reviews are theoretical -
     // the hypothesis pipeline needs primary research (actual data +
@@ -601,11 +640,6 @@ export async function callLiteratureScoutAgent(
     // paper-finder.ts/toSearchResult via publication-type tags + title
     // heuristic. We keep the dropped reviews around in a separate bucket
     // so we can re-introduce them if the primary list comes back empty.
-    const deduped = dedupeNormalize(allResults).filter(p => {
-      const url = (p.url || "").toLowerCase()
-      const title = (p.title || "").toLowerCase()
-      return !excludeUrls.has(url) && !excludeTitles.has(title)
-    })
     const primaryResearch = deduped.filter(p => !p.isReview)
     const droppedReviews = deduped.length - primaryResearch.length
     if (droppedReviews > 0) {
@@ -693,11 +727,21 @@ export async function callLiteratureScoutAgent(
         tavily: curated.sources.tavily.length,
         openalex: curated.sources.openalex.length
       }
+      // `totalCandidates` is the count BEFORE the .slice(0, 40) cut, so
+      // the UI can show "10 surfaced · ranked by relevance · from
+      // <totalCandidates> searched". This is `filteredPool.length`
+      // which is post-dedup + post-review-filter (or post-dedup if
+      // we fell back to including reviews).
+      const totalCandidates = filteredPool.length
       onProgress?.({
         step: "papers_found",
-        message: `Found ${mergedResults.length} papers`,
+        message:
+          mergedResults.length < totalCandidates
+            ? `Surfaced top ${mergedResults.length} of ${totalCandidates} ranked candidate${totalCandidates === 1 ? "" : "s"}.`
+            : `Found ${mergedResults.length} paper${mergedResults.length === 1 ? "" : "s"}`,
         totalPapers: mergedResults.length,
-        sourceCounts
+        sourceCounts,
+        totalCandidates
       })
     }
 

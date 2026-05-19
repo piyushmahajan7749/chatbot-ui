@@ -124,6 +124,11 @@ export type LiteratureProgress = PhaseProgress & {
   detail?: string
   query?: string
   elapsedMs?: number
+  // Dedup + post-rank funnel counts. `totalCandidates` carries the
+  // "from N searched" count rendered in the surfaced-papers header.
+  rawCount?: number
+  uniqueCount?: number
+  totalCandidates?: number
 }
 
 async function runPhaseStreaming(
@@ -400,6 +405,22 @@ export default function DesignDetailPage() {
   const [literatureProgress, setLiteratureProgress] = useState<
     LiteratureProgress[]
   >([])
+  // Total candidates the pipeline sifted through (post-dedup +
+  // post-review-filter, pre top-N cut). Drives the "from N searched"
+  // label under the surfaced-papers header. Sourced from the most
+  // recent `papers_found` progress event that carried the count.
+  const literatureTotalCandidates = useMemo(() => {
+    for (let i = literatureProgress.length - 1; i >= 0; i--) {
+      const ev = literatureProgress[i]
+      if (
+        ev.step === "papers_found" &&
+        typeof ev.totalCandidates === "number"
+      ) {
+        return ev.totalCandidates
+      }
+    }
+    return undefined
+  }, [literatureProgress])
 
   // Hypotheses tab state
   const [hypotheses, setHypotheses] = useState<Hypothesis[]>([])
@@ -1842,12 +1863,20 @@ export default function DesignDetailPage() {
               onDeletePaper={handleDeletePaper}
               onUploadPdfs={handleUploadPdfs}
               onApproveAndGenerate={handleApproveAndGenerateHypotheses}
-              onRegenerate={handleGenerateMoreLiterature}
+              // `handleGenerateMoreLiterature` was the pre-2026-05-19
+              // "Generate more" handler that re-ran the entire search.
+              // We've switched the in-tab button to local pagination
+              // ("Show more" = next 10 of the already-ranked pool),
+              // which is way faster + matches user expectation. Kept
+              // as `onSearchMore` so a future "search again" UI can
+              // re-wire it without re-implementing the full search.
+              onSearchMore={handleGenerateMoreLiterature}
               canGenerate={selectedPapers.length > 0}
               isApproved={isPhaseApproved("literature")}
               isBusy={busy === "hypotheses" || busy === "literature"}
               isSearching={busy === "literature"}
               progress={literatureProgress}
+              totalCandidates={literatureTotalCandidates}
               onRevise={() => handleRevisePhase("literature")}
               onDownloadPaper={handleDownloadPaper}
             />
@@ -2371,15 +2400,39 @@ function progressToEvents(
         detail: ev.detail
       }
     }
+    // Dedup funnel - raw count from all sources → unique after dedup.
+    // Surfaces the "we considered N candidates, kept M unique" stage.
+    if (ev.step === "deduping") {
+      const raw = typeof ev.rawCount === "number" ? ev.rawCount : null
+      const unique = typeof ev.uniqueCount === "number" ? ev.uniqueCount : null
+      const dropped = raw !== null && unique !== null ? raw - unique : null
+      return {
+        step: ev.step,
+        message: ev.message,
+        detail:
+          dropped !== null && dropped > 0
+            ? `${dropped} duplicate${dropped === 1 ? "" : "s"} merged across sources`
+            : undefined
+      }
+    }
     if (ev.step === "papers_found") {
       const counts = Object.entries(ev.sourceCounts ?? {})
         .filter(([, n]) => n > 0)
         .map(([k, n]) => `${k}: ${n}`)
         .join("  ·  ")
+      // When totalCandidates > delivered count, prepend the funnel
+      // ratio so the user sees "Top 10 of 95 ranked · pubmed: 12 · …"
+      const ratio =
+        typeof ev.totalCandidates === "number" &&
+        typeof ev.totalPapers === "number" &&
+        ev.totalCandidates > ev.totalPapers
+          ? `top ${ev.totalPapers} of ${ev.totalCandidates} ranked`
+          : null
+      const detail = [ratio, counts].filter(Boolean).join("  ·  ")
       return {
         step: ev.step,
         message: ev.message,
-        detail: counts || undefined
+        detail: detail || undefined
       }
     }
     // Per-round search ticker - surfaces "Round 2 of 5 - 7 papers so
@@ -2418,10 +2471,29 @@ function progressToEvents(
       }
     }
     if (ev.step === "ranking") {
-      return { step: ev.step, message: ev.message }
+      // Cohere reranker over the post-filter pool. `remaining` is
+      // populated by the agent with the input count.
+      return {
+        step: ev.step,
+        message: ev.message,
+        detail:
+          typeof ev.remaining === "number"
+            ? `Scoring ${ev.remaining} candidate${ev.remaining === 1 ? "" : "s"} against your problem statement`
+            : undefined
+      }
     }
     if (ev.step === "summarizing_papers") {
-      return { step: ev.step, message: ev.message }
+      // Per-paper LLM summary pass that runs only over the top-N
+      // post-rank papers, so the user sees "Summarising 10 papers
+      // (~5s)" as a distinct phase from the broader rerank.
+      return {
+        step: ev.step,
+        message: ev.message,
+        detail:
+          typeof ev.papersCount === "number"
+            ? `Writing problem-aware blurbs for the top ${ev.papersCount}`
+            : undefined
+      }
     }
     return { step: ev.step, message: ev.message }
   })
@@ -2433,12 +2505,27 @@ function LiteratureTab(props: {
   onDeletePaper: (id: string) => void
   onUploadPdfs: (files: FileList | null) => void
   onApproveAndGenerate: () => void
-  onRegenerate: () => void
+  /**
+   * Hook to kick off a fresh paper-finder pass when the user wants
+   * more candidates than what was returned. Wired but NOT exposed
+   * in the UI today - the "Show more" button paginates the existing
+   * ranked pool instead. Kept on the props so a future "search
+   * again from scratch" affordance can plug into it without re-
+   * implementing the run.
+   */
+  onSearchMore: () => void
   canGenerate: boolean
   isApproved: boolean
   isBusy: boolean
   isSearching?: boolean
   progress?: LiteratureProgress[]
+  /**
+   * Total candidates the pipeline considered before the top-N cut.
+   * Rendered as "from N searched" in the surfaced-papers header so
+   * the scientist sees the funnel - we didn't just find 10 papers,
+   * we sifted through 95.
+   */
+  totalCandidates?: number
   onRevise: () => void
   /** Save the paper to the workspace paper library + trigger browser open. */
   onDownloadPaper: (paper: Paper) => void
@@ -2449,12 +2536,12 @@ function LiteratureTab(props: {
     onDeletePaper,
     onUploadPdfs,
     onApproveAndGenerate,
-    onRegenerate,
     canGenerate,
     isApproved,
     isBusy,
     isSearching,
     progress,
+    totalCandidates,
     onRevise,
     onDownloadPaper
   } = props
@@ -2463,6 +2550,22 @@ function LiteratureTab(props: {
   // literature agent's scoring is for - but let the user flip to recency
   // when they need the latest work.
   const [sortMode, setSortMode] = useState<"relevance" | "recency">("relevance")
+
+  // ── Show-more pagination ────────────────────────────────────────────
+  // The lit-scout returns up to 40 ranked papers per run. We initially
+  // surface 10 - enough to scan without overwhelming the scientist -
+  // and let them click "Show more" to reveal the next 10 from the
+  // already-ranked pool. Pure client-side pagination, no extra API
+  // call. Resets whenever the papers array identity changes (e.g.
+  // after a real re-search or after problem revision).
+  const PAGE_SIZE = 10
+  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE)
+  useEffect(() => {
+    setVisibleCount(PAGE_SIZE)
+  }, [papers])
+  const handleShowMore = () => {
+    setVisibleCount(c => Math.min(c + PAGE_SIZE, papers.length))
+  }
 
   return (
     <div className="space-y-4">
@@ -2609,13 +2712,37 @@ function LiteratureTab(props: {
             user: "Uploaded"
           }
           const selectedCount = ranked.filter(p => p.selected).length
+          // Cap how many cards we render at once. The Paper[] from the
+          // server can be up to 40; we surface the first `visibleCount`
+          // and gate the rest behind the "Show more" button below the
+          // list. `visiblePapers.length` is what the header displays so
+          // the count matches what the user actually sees on screen.
+          const visiblePapers = ranked.slice(0, visibleCount)
+          const moreAvailable = visibleCount < ranked.length
+          // Choose what "N searched" reflects: prefer the server-
+          // reported `totalCandidates` (pre-truncation pool size,
+          // typically much larger than ranked.length); fall back to
+          // ranked.length when the run hasn't reported it (older
+          // payloads, user-uploaded-only runs).
+          const searchedTotal =
+            typeof totalCandidates === "number" &&
+            totalCandidates > ranked.length
+              ? totalCandidates
+              : ranked.length
           return (
             <div className="space-y-3">
               <div className="text-ink-3 flex items-center justify-between text-[12px]">
                 <span>
+                  <b className="text-ink">{visiblePapers.length}</b> of{" "}
                   <b className="text-ink">{ranked.length}</b> paper
                   {ranked.length === 1 ? "" : "s"} surfaced · ranked by
                   relevance
+                  {searchedTotal > ranked.length && (
+                    <>
+                      {" · from "}
+                      <b className="text-ink">{searchedTotal}</b> searched
+                    </>
+                  )}
                 </span>
                 {selectedCount > 0 && (
                   <span>
@@ -2623,7 +2750,7 @@ function LiteratureTab(props: {
                   </span>
                 )}
               </div>
-              {ranked.map((paper, idx) => (
+              {visiblePapers.map((paper, idx) => (
                 <div
                   key={paper.id}
                   className={cn(
@@ -2761,14 +2888,25 @@ function LiteratureTab(props: {
       {/* PhaseActionBar suppressed entirely in the no-papers branch -
           there's nothing to approve or regenerate, so showing it just
           adds dead buttons next to the empty-state CTA. Rendered as
-          soon as the search has produced at least one paper. */}
+          soon as the search has produced at least one paper.
+
+          The secondary "Show more" button paginates the already-
+          ranked pool by PAGE_SIZE (= 10) per click. Hidden once every
+          paper is on screen so the user isn't left clicking a
+          dead-end button. */}
       {papers.length > 0 && (
         <PhaseActionBar
           onApprove={onApproveAndGenerate}
           approveLabel="Approve & Generate Hypotheses"
           approveDisabled={!canGenerate}
-          onRegenerate={onRegenerate}
-          regenerateLabel="Generate more"
+          onRegenerate={
+            visibleCount < papers.length ? handleShowMore : undefined
+          }
+          regenerateLabel={
+            visibleCount < papers.length
+              ? `Show more (${Math.min(PAGE_SIZE, papers.length - visibleCount)})`
+              : undefined
+          }
           regenerateIcon={<IconPlus size={14} />}
           isBusy={isBusy}
           isApproved={isApproved}
