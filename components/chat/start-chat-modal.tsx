@@ -234,7 +234,14 @@ export const StartChatModal: FC<StartChatModalProps> = ({
 
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
-      <DialogContent className="sm:max-w-2xl">
+      {/* `w-[640px] max-w-[calc(100vw-32px)]` is the load-bearing fix:
+          DialogContent's base `grid` lets grid children claim
+          `min-width: auto` (their intrinsic content width), so a
+          single long design title was blowing the modal past
+          `max-w-2xl`. Pinning a fixed width with a viewport cap +
+          `min-w-0 overflow-hidden` on the grid stops every child from
+          dictating size and forces the inner truncate chain to clip. */}
+      <DialogContent className="w-[640px] min-w-0 max-w-[calc(100vw-32px)] overflow-hidden sm:max-w-screen-sm">
         <DialogHeader>
           <DialogTitle>Start a new chat</DialogTitle>
           <DialogDescription>
@@ -249,7 +256,7 @@ export const StartChatModal: FC<StartChatModalProps> = ({
             setActiveTab(v as ChatScope)
             setSearch("")
           }}
-          className="w-full"
+          className="w-full min-w-0 max-w-full overflow-hidden"
         >
           {/* `justify-center` on every trigger keeps the icon+label
               cluster centred inside each grid cell - without it the
@@ -289,7 +296,10 @@ export const StartChatModal: FC<StartChatModalProps> = ({
           )}
 
           {/* WORKSPACE */}
-          <TabsContent value="workspace" className="mt-4">
+          <TabsContent
+            value="workspace"
+            className="mt-4 min-w-0 max-w-full overflow-hidden"
+          >
             <div className="border-line bg-paper-2 flex items-start gap-3 rounded-lg border p-4">
               <IconBriefcase size={18} className="text-ink-700 mt-0.5" />
               <div className="min-w-0 flex-1">
@@ -306,7 +316,10 @@ export const StartChatModal: FC<StartChatModalProps> = ({
           </TabsContent>
 
           {/* PROJECT (multi-select) */}
-          <TabsContent value="project" className="mt-3">
+          <TabsContent
+            value="project"
+            className="mt-3 min-w-0 max-w-full overflow-hidden"
+          >
             <MultiPickList
               items={filteredProjects.map((p: any) => ({
                 id: p.id,
@@ -320,7 +333,10 @@ export const StartChatModal: FC<StartChatModalProps> = ({
           </TabsContent>
 
           {/* DESIGN (multi-select) */}
-          <TabsContent value="design" className="mt-3">
+          <TabsContent
+            value="design"
+            className="mt-3 min-w-0 max-w-full overflow-hidden"
+          >
             <MultiPickList
               items={filteredDesigns.map(d => ({
                 id: d.id,
@@ -334,7 +350,10 @@ export const StartChatModal: FC<StartChatModalProps> = ({
           </TabsContent>
 
           {/* REPORT (multi-select) */}
-          <TabsContent value="report" className="mt-3">
+          <TabsContent
+            value="report"
+            className="mt-3 min-w-0 max-w-full overflow-hidden"
+          >
             <MultiPickList
               items={filteredReports.map(r => ({
                 id: r.id,
@@ -348,7 +367,10 @@ export const StartChatModal: FC<StartChatModalProps> = ({
           </TabsContent>
 
           {/* FILES (multi-select) */}
-          <TabsContent value="files" className="mt-3">
+          <TabsContent
+            value="files"
+            className="mt-3 min-w-0 max-w-full overflow-hidden"
+          >
             <MultiPickList
               items={filteredFiles.map(f => ({
                 id: f.id,
