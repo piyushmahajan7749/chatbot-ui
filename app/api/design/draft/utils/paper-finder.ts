@@ -469,14 +469,27 @@ function normalizeSource(raw?: string | null): SearchResult["source"] {
   // OpenAlex first — its query_type "openalex_search" + provider
   // "openalex" both contain "openalex". Match the work-ID URL too.
   if (value.includes("openalex")) return "openalex"
+  // PubMed: query_type "pubmed_search" + provider "pubmed".
+  if (value.includes("pubmed")) return "pubmed"
+  // arXiv: query_type "arxiv_search" + provider "arxiv".
+  if (value.includes("arxiv")) return "arxiv"
+  // Tavily: query_type "tavily_search" + provider "tavily".
+  if (value.includes("tavily")) return "tavily"
+  // Google Scholar (via SerpAPI): query_type "scholar_search" +
+  // provider "scholar".
+  if (
+    value === "scholar" ||
+    value.includes("scholar_search") ||
+    value.includes("serpapi")
+  ) {
+    return "scholar"
+  }
   // Semantic Scholar via paper-finder's internal arms.
   //   - "dense"               → S2 snippet search (VespaRetriever)
   //   - "s2_relevance_search" → S2 paper_search
   //   - "s2_bulk_search", "s2_title_search", "s2_author_paper_search",
   //     "s2_citing_papers" → S2 variants
   //   - "snowball"            → expansion built from S2 citations
-  // None of these contain "semantic" literally, so add explicit
-  // prefix checks BEFORE the generic "semantic" check.
   if (
     value === "dense" ||
     value.startsWith("s2_") ||
@@ -486,8 +499,5 @@ function normalizeSource(raw?: string | null): SearchResult["source"] {
   ) {
     return "semantic_scholar"
   }
-  if (value.includes("pubmed")) return "pubmed"
-  if (value.includes("arxiv")) return "arxiv"
-  if (value.includes("tavily")) return "tavily"
   return "scholar"
 }
