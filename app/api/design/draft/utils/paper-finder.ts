@@ -164,6 +164,20 @@ function toSearchResult(doc: PaperFinderDocument): SearchResult | null {
     doc
   ].filter(isLooseRecord)
 
+  // PaperFinder records the upstream retrieval arm in `origins[0]`
+  // (query_type + provider). This is the only place that info lives -
+  // it's NOT mirrored to a top-level `source` field. Without reading
+  // it, every doc fell through normalizeSource's default → "scholar"
+  // and the UI badges showed everything as Google Scholar even when
+  // it came from S2 paper_search or OpenAlex. Surface it here so the
+  // sourceRaw lookup below picks it up.
+  const docAsRecord = doc as LooseRecord
+  const origins = (docAsRecord.origins ?? doc.metadata?.origins ?? []) as Array<
+    Record<string, any>
+  >
+  const firstOrigin =
+    Array.isArray(origins) && origins.length > 0 ? origins[0] : null
+
   const title = getFirstString(
     candidates,
     "title",
@@ -208,7 +222,23 @@ function toSearchResult(doc: PaperFinderDocument): SearchResult | null {
   const journal =
     getFirstString(candidates, "journal", "publication", "venue", "source") ||
     undefined
+  // Source-tag resolution order:
+  //   1. origins[0].provider     — set explicitly by paper-finder for
+  //      OpenAlex docs ("openalex"). NULL for S2 docs - their provider
+  //      is implicit in the query_type.
+  //   2. origins[0].query_type   — the retrieval arm:
+  //        - "dense"                          → S2 snippet search
+  //        - "s2_relevance_search"            → S2 paper_search
+  //        - "s2_bulk_search" / "s2_title_*"  → S2 variants
+  //        - "snowball"                       → expansion via S2 citations
+  //        - "openalex_search"                → OpenAlex
+  //   3. Top-level fields the older Tavily/Scholar code paths set.
+  //   4. Journal name as a last-resort heuristic.
+  // normalizeSource() below maps each of these to our 6-value
+  // SearchResult["source"] enum.
   const sourceRaw =
+    (firstOrigin?.provider as string | undefined) ||
+    (firstOrigin?.query_type as string | undefined) ||
     getFirstString(candidates, "source", "provider", "origin", "collection") ||
     journal
   const citationCountRaw = getFirstValue(
@@ -436,12 +466,28 @@ function normalizeNumber(value: any): number | undefined {
 function normalizeSource(raw?: string | null): SearchResult["source"] {
   if (!raw) return "scholar"
   const value = raw.toLowerCase()
+  // OpenAlex first — its query_type "openalex_search" + provider
+  // "openalex" both contain "openalex". Match the work-ID URL too.
+  if (value.includes("openalex")) return "openalex"
+  // Semantic Scholar via paper-finder's internal arms.
+  //   - "dense"               → S2 snippet search (VespaRetriever)
+  //   - "s2_relevance_search" → S2 paper_search
+  //   - "s2_bulk_search", "s2_title_search", "s2_author_paper_search",
+  //     "s2_citing_papers" → S2 variants
+  //   - "snowball"            → expansion built from S2 citations
+  // None of these contain "semantic" literally, so add explicit
+  // prefix checks BEFORE the generic "semantic" check.
+  if (
+    value === "dense" ||
+    value.startsWith("s2_") ||
+    value === "snowball" ||
+    value.includes("vespa") ||
+    value.includes("semantic")
+  ) {
+    return "semantic_scholar"
+  }
   if (value.includes("pubmed")) return "pubmed"
   if (value.includes("arxiv")) return "arxiv"
-  if (value.includes("semantic")) return "semantic_scholar"
   if (value.includes("tavily")) return "tavily"
-  // Match both `openalex` and OpenAlex work-IDs (URLs like
-  // `https://openalex.org/Wxxxxxxx`).
-  if (value.includes("openalex")) return "openalex"
   return "scholar"
 }

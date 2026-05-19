@@ -650,9 +650,18 @@ export async function searchSemanticScholar(
     return results
   } catch (error: any) {
     if (error.response?.status === 429) {
-      console.warn("⚠️ [SEMANTIC_SCHOLAR] Rate limited (429), backing off...")
-      // Add extra delay for rate limiting
-      await new Promise(resolve => setTimeout(resolve, 60000)) // Wait 1 minute
+      // PREVIOUSLY this slept 60s before returning []. That 60s sleep
+      // ran INSIDE the Promise.allSettled bundle in performMultiSource
+      // Search, blocking the entire pre-warm from settling for a full
+      // minute even though every other source had already returned.
+      // The user-visible symptom was "Got 0 candidate papers from the
+      // open indexes (in 60.1s)" - the 60s was this exact sleep.
+      // We're already in a parallel fan-out; return immediately on
+      // 429 so the slow-source doesn't hold up the bundle. Loss of
+      // a single source's results is OK; we have 5 other arms.
+      console.warn(
+        "⚠️ [SEMANTIC_SCHOLAR] Rate limited (429); skipping this arm (no 60s sleep)."
+      )
       return []
     }
     console.error("❌ [SEMANTIC_SCHOLAR] Search error:", error.message || error)
@@ -719,6 +728,38 @@ export async function searchGoogleScholar(
   }
 }
 
+/**
+ * Race a per-source promise against a wall-clock timeout so one slow
+ * source can't hold up the bundle. With Promise.allSettled below, the
+ * slowest fulfilled promise dominates total wall-clock; before this
+ * wrapper, a single source taking 60s+ would block the pre-warm from
+ * delivering the 5 other arms that had already returned.
+ *
+ * Resolves to `[]` on timeout (treated the same as a soft failure).
+ * The caller is already in a parallel fan-out where any one source
+ * returning empty is fine - we have 5 other arms.
+ */
+async function withTimeout<T>(
+  promise: Promise<T[]>,
+  timeoutMs: number,
+  sourceLabel: string
+): Promise<T[]> {
+  let timer: ReturnType<typeof setTimeout> | undefined
+  const timeout = new Promise<T[]>(resolve => {
+    timer = setTimeout(() => {
+      console.warn(
+        `⏱️  [MULTI_SEARCH] ${sourceLabel} did not respond within ${timeoutMs}ms; returning empty for this source.`
+      )
+      resolve([])
+    }, timeoutMs)
+  })
+  try {
+    return await Promise.race([promise, timeout])
+  } finally {
+    if (timer) clearTimeout(timer)
+  }
+}
+
 // Multi-source search aggregator with enhanced capabilities
 export async function performMultiSourceSearch(
   query: string,
@@ -726,31 +767,60 @@ export async function performMultiSourceSearch(
 ): Promise<AggregatedSearchResults> {
   console.log(`🚀 [MULTI_SEARCH] Starting comprehensive search for: ${query}`)
 
+  // Per-source wall-clock cap (15s). Sources that don't respond in
+  // this window contribute [] and we move on. Total pre-warm
+  // wall-clock is therefore bounded at ~15s, not the previous 60s+
+  // worst case dominated by S2's hard 429-backoff sleep.
+  const PER_SOURCE_TIMEOUT_MS = 15000
   const searchPromises = [
-    searchPubMedEnhanced(query, maxResultsPerSource).catch(err => {
-      console.error("PubMed search failed:", err)
-      return []
-    }),
-    searchArXivEnhanced(query, maxResultsPerSource).catch(err => {
-      console.error("ArXiv search failed:", err)
-      return []
-    }),
-    searchSemanticScholar(query, maxResultsPerSource).catch(err => {
-      console.error("Semantic Scholar search failed:", err)
-      return []
-    }),
-    searchGoogleScholar(query, maxResultsPerSource).catch(err => {
-      console.error("Google Scholar search failed:", err)
-      return []
-    }),
-    searchTavilyEnhanced(query, maxResultsPerSource).catch(err => {
-      console.error("Tavily search failed:", err)
-      return []
-    }),
-    searchOpenAlexEnhanced(query, maxResultsPerSource).catch(err => {
-      console.error("OpenAlex search failed:", err)
-      return []
-    })
+    withTimeout(
+      searchPubMedEnhanced(query, maxResultsPerSource).catch(err => {
+        console.error("PubMed search failed:", err)
+        return []
+      }),
+      PER_SOURCE_TIMEOUT_MS,
+      "PubMed"
+    ),
+    withTimeout(
+      searchArXivEnhanced(query, maxResultsPerSource).catch(err => {
+        console.error("ArXiv search failed:", err)
+        return []
+      }),
+      PER_SOURCE_TIMEOUT_MS,
+      "arXiv"
+    ),
+    withTimeout(
+      searchSemanticScholar(query, maxResultsPerSource).catch(err => {
+        console.error("Semantic Scholar search failed:", err)
+        return []
+      }),
+      PER_SOURCE_TIMEOUT_MS,
+      "Semantic Scholar"
+    ),
+    withTimeout(
+      searchGoogleScholar(query, maxResultsPerSource).catch(err => {
+        console.error("Google Scholar search failed:", err)
+        return []
+      }),
+      PER_SOURCE_TIMEOUT_MS,
+      "Google Scholar"
+    ),
+    withTimeout(
+      searchTavilyEnhanced(query, maxResultsPerSource).catch(err => {
+        console.error("Tavily search failed:", err)
+        return []
+      }),
+      PER_SOURCE_TIMEOUT_MS,
+      "Tavily"
+    ),
+    withTimeout(
+      searchOpenAlexEnhanced(query, maxResultsPerSource).catch(err => {
+        console.error("OpenAlex search failed:", err)
+        return []
+      }),
+      PER_SOURCE_TIMEOUT_MS,
+      "OpenAlex"
+    )
   ]
 
   const [
