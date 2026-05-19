@@ -478,26 +478,31 @@ export async function callLiteratureScoutAgent(
       })
     }
 
-    // ── Parallel PaperFinder fan-out with early-exit cancel ─────────────
-    // Round dispatch was previously a serial for-loop with per-round
-    // early-exit. With the S2 1 req/sec cumulative cap on the
-    // paper-finder side, the LLM QueryAnalyzer step (~5s) and the
-    // OpenAlex retrieval (~2s) of every round were running back-to-
-    // back even though they don't share resources - 3 rounds took
-    // ~75s when they could run concurrently in ~25-40s.
+    // ── Parallel PaperFinder fan-out (all-complete, no abort) ──────────
+    // Round dispatch fires all queries in parallel against PaperFinder,
+    // waits for ALL of them to complete, then merges + dedupes + ranks.
     //
-    // The deal:
-    //   - Fire all rounds in parallel via Promise.allSettled.
-    //   - Share a parent AbortController. When unique-paper count
-    //     crosses `minPapers`, abort the parent. Inflight fetches
-    //     get cancelled (saves bandwidth + paper-finder CPU). Rounds
-    //     that already returned data still count.
-    //   - Track per-round state in a Map keyed by round index so
-    //     progress events stay ordered even though completions
-    //     arrive out of order.
-    //   - Pre-round skip preserved at the dispatch site: if the
-    //     pre-warm already produced ≥ minPapers, we don't fire any
-    //     rounds at all.
+    // Earlier versions of this code aborted in-flight rounds the moment
+    // one round pushed the unique-paper count past `minPapers`. That
+    // saved wall-clock time but at the cost of throwing away whole
+    // rounds' worth of paper-finder responses that arrived 50ms after
+    // the threshold was hit - and paper-finder had already paid the S2
+    // quota for those calls server-side. Net effect: data loss for no
+    // material wall-clock win (the longest round dominates total time
+    // regardless of how many earlier rounds we cancel).
+    //
+    // Current design:
+    //   - Per-round results collected into a local map keyed by index.
+    //   - No shared AbortController; rounds finish or time out on
+    //     their own per-call deadline (PAPER_FINDER_TIMEOUT_MS = 150s).
+    //   - Per-round progress events still fire pre/post-call so the
+    //     UI checklist updates in real time as each round completes.
+    //   - Pre-round skip preserved at the dispatch site: if pre-warm
+    //     already produced ≥ minPapers, we don't fire any rounds.
+    //   - After Promise.allSettled, flatten all per-round papers into
+    //     allResults in a single batched concat - guarantees the
+    //     downstream dedup/rank/slice sees the FULL union of every
+    //     round's contribution, in deterministic order.
     let roundsAttempted = 0
     let roundsServerError = 0
     let lastServerError: string | null = null
@@ -514,16 +519,25 @@ export async function callLiteratureScoutAgent(
     } else if (roundQueries.length > 0) {
       const fanOutStart = Date.now()
       console.log(
-        `🚀 [LITERATURE_SCOUT_SEARCH] Firing ${roundQueries.length} PaperFinder rounds in parallel (will abort remaining once we reach ${minPapers} unique papers).`
+        `🚀 [LITERATURE_SCOUT_SEARCH] Firing ${roundQueries.length} PaperFinder rounds in parallel; waiting for ALL to settle before ranking.`
       )
 
-      const abortController = new AbortController()
-      let aborted = false
+      // Per-round result slots, keyed by round index so we can stitch
+      // results back together in deterministic order even though
+      // completions arrive concurrently.
+      type RoundResult = {
+        papers: SearchResult[]
+        responseText?: string
+        error?: { message: string; isUpstreamFailure: boolean }
+        elapsedMs: number
+      }
+      const roundResults: Array<RoundResult | null> = roundQueries.map(
+        () => null
+      )
 
-      const runOneRound = async (q: string, idx: number) => {
+      const runOneRound = async (q: string, idx: number): Promise<void> => {
         const shortQuery = q.length > 70 ? q.slice(0, 67) + "…" : q
-        // Emit "started" event - same pre-call signal as the old
-        // serial loop, just from a parallel scheduler.
+        // Pre-call event - tells the UI this round has started.
         onProgress?.({
           step: "searching_round",
           message: `PaperFinder round ${idx + 1}/${roundQueries.length} · asking with snippet-level ranking…`,
@@ -536,8 +550,7 @@ export async function callLiteratureScoutAgent(
         try {
           const response = await runPaperFinder(buildRoundQuery(q), {
             operationMode: "infer",
-            readResultsFromCache: !searchOptions.bypassCache,
-            signal: abortController.signal
+            readResultsFromCache: !searchOptions.bypassCache
           })
           const roundElapsedMs = Date.now() - pfStart
           console.log(
@@ -545,63 +558,42 @@ export async function callLiteratureScoutAgent(
           )
 
           const normalized = normalizePaperFinderResults(response)
-          // Append to shared results array. JS event-loop guarantees
-          // these pushes happen one-at-a-time even with parallel
-          // promises, so no race on .push() itself.
-          allResults.push(...normalized)
-          if (response?.response_text) {
-            responseTexts.push(response.response_text)
+          roundResults[idx] = {
+            papers: normalized,
+            responseText: response?.response_text,
+            elapsedMs: roundElapsedMs
           }
 
-          const uniqueNow = dedupeNormalize(allResults).length
+          // Best-effort live progress: estimate the running unique
+          // count by combining the prior allResults snapshot with
+          // this round's contribution. This is for UX feedback only -
+          // the AUTHORITATIVE dedup happens once after the gather.
+          const provisionalUnique = dedupeNormalize([
+            ...allResults,
+            ...normalized
+          ]).length
           onProgress?.({
             step: "searching_round",
-            message: `PaperFinder round ${idx + 1} done · returned ${normalized.length} paper${normalized.length === 1 ? "" : "s"} (${uniqueNow} unique total)`,
+            message: `PaperFinder round ${idx + 1} done · returned ${normalized.length} paper${normalized.length === 1 ? "" : "s"} (≈${provisionalUnique} unique so far)`,
             round: idx + 1,
             totalRounds: roundQueries.length,
-            uniqueSoFar: uniqueNow,
+            uniqueSoFar: provisionalUnique,
             query: shortQuery,
             elapsedMs: roundElapsedMs
           })
-
-          // Early-exit cancel: as soon as ANY round pushes us past
-          // the threshold, abort the others. Already-running fetches
-          // get a network-level cancel; their results discarded.
-          const uniqueAfter = dedupeNormalize(allResults).filter(p => {
-            const url = (p.url || "").toLowerCase()
-            const title = (p.title || "").toLowerCase()
-            return !excludeUrls.has(url) && !excludeTitles.has(title)
-          })
-          if (uniqueAfter.length >= minPapers && !aborted) {
-            aborted = true
-            console.log(
-              `✅ [LITERATURE_SCOUT_SEARCH] Reached ${uniqueAfter.length} unique papers after round ${idx + 1}; cancelling remaining inflight rounds.`
-            )
-            abortController.abort()
-          }
         } catch (paperFinderError: any) {
           const msg = paperFinderError?.message ?? String(paperFinderError)
-          // Abort-caused errors are expected when we hit the early-
-          // exit threshold; don't count them as upstream failures
-          // and don't spam the log.
-          const wasAborted =
-            paperFinderError?.name === "AbortError" || /aborted/i.test(msg)
-          if (wasAborted) {
-            console.log(
-              `🟡 [LITERATURE_SCOUT_SEARCH] Round ${idx + 1} cancelled by early-exit.`
-            )
-            return
-          }
           console.warn(
             `⚠️  [LITERATURE_SCOUT_SEARCH] Round ${idx + 1} failed; continuing:`,
             msg
           )
-          if (
+          const isUpstreamFailure =
             /^(5\d{2}|PaperFinder failed)/i.test(msg) ||
             /failed to respond|no documents retrieved/i.test(msg)
-          ) {
-            roundsServerError++
-            lastServerError = msg
+          roundResults[idx] = {
+            papers: [],
+            elapsedMs: Date.now() - pfStart,
+            error: { message: msg, isUpstreamFailure }
           }
         }
       }
@@ -610,6 +602,26 @@ export async function callLiteratureScoutAgent(
       await Promise.allSettled(
         roundQueries.map((q, idx) => runOneRound(q, idx))
       )
+
+      // ── All rounds settled. Aggregate now. ──────────────────────────
+      // Flatten per-round results into allResults in deterministic
+      // order (round 0 first, round 1 next, ...). Order matters here
+      // only for stable dedup behaviour (first occurrence wins) -
+      // final ranking is by relevanceScore so visual order isn't
+      // affected.
+      for (const result of roundResults) {
+        if (!result) continue
+        if (result.papers.length > 0) {
+          allResults.push(...result.papers)
+        }
+        if (result.responseText) {
+          responseTexts.push(result.responseText)
+        }
+        if (result.error?.isUpstreamFailure) {
+          roundsServerError++
+          lastServerError = result.error.message
+        }
+      }
 
       console.log(
         `🏁 [LITERATURE_SCOUT_SEARCH] Parallel fan-out finished in ${Date.now() - fanOutStart}ms (${roundsAttempted} rounds, ${roundsServerError} server errors).`
