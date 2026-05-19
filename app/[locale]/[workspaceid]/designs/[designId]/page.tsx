@@ -2536,6 +2536,7 @@ function LiteratureTab(props: {
     onDeletePaper,
     onUploadPdfs,
     onApproveAndGenerate,
+    onSearchMore,
     canGenerate,
     isApproved,
     isBusy,
@@ -2566,6 +2567,20 @@ function LiteratureTab(props: {
   const handleShowMore = () => {
     setVisibleCount(c => Math.min(c + PAGE_SIZE, papers.length))
   }
+
+  // Smart secondary action - paginate locally when there are still
+  // un-shown papers in the pool; fall back to a fresh paper-finder
+  // run when the pool is exhausted. Without this fallback, runs that
+  // returned < 10 papers (or where the user has already paged through
+  // everything) leave the user with no action button at all - they
+  // can't ask the agent for MORE candidates. Always-on affordance.
+  const morePaperFinderUnshown = visibleCount < papers.length
+  const secondaryActionHandler = morePaperFinderUnshown
+    ? handleShowMore
+    : onSearchMore
+  const secondaryActionLabel = morePaperFinderUnshown
+    ? `Show more (${Math.min(PAGE_SIZE, papers.length - visibleCount)})`
+    : "Search for more papers"
 
   return (
     <div className="space-y-4">
@@ -2899,15 +2914,15 @@ function LiteratureTab(props: {
           onApprove={onApproveAndGenerate}
           approveLabel="Approve & Generate Hypotheses"
           approveDisabled={!canGenerate}
-          onRegenerate={
-            visibleCount < papers.length ? handleShowMore : undefined
+          onRegenerate={secondaryActionHandler}
+          regenerateLabel={secondaryActionLabel}
+          regenerateIcon={
+            morePaperFinderUnshown ? (
+              <IconPlus size={14} />
+            ) : (
+              <IconRefresh size={14} />
+            )
           }
-          regenerateLabel={
-            visibleCount < papers.length
-              ? `Show more (${Math.min(PAGE_SIZE, papers.length - visibleCount)})`
-              : undefined
-          }
-          regenerateIcon={<IconPlus size={14} />}
           isBusy={isBusy}
           isApproved={isApproved}
         />
