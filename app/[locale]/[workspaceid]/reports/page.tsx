@@ -3,18 +3,17 @@
 /**
  * Workspace-wide Reports list.
  *
- * Three filter tabs on the left (Saved / In progress / Templates),
- * right-aligned search at half-width, page-level pagination at 12
- * slabs/page. Each slab matches the canonical SlabRow alignment:
- * inline edit + delete in the upper right, stacked Created /
- * Modified dates in the lower right.
+ * Reports are generated from designs, so each slab is attributed to its parent
+ * design. Two filter tabs (Completed / In progress) on the left, right-aligned
+ * search at half-width, page-level pagination at 12 slabs/page. Each slab
+ * matches the canonical SlabRow alignment: inline edit + delete in the upper
+ * right, stacked Created / Modified dates in the lower right.
  *
- * Templates surface is rendered by a sibling component fetched from
- * the report-templates Firestore collection. Saved + In progress
- * filters operate on the regular reports collection.
+ * There is no "new report" or "start chat" action here — reports are spawned
+ * from a completed design via the design's "Generate report" button.
  */
 
-import { FC, useContext, useEffect, useMemo, useState } from "react"
+import { FC, useEffect, useMemo, useState } from "react"
 import { useParams, useRouter } from "next/navigation"
 import { toast } from "sonner"
 
@@ -44,12 +43,9 @@ import { SlabPager } from "@/components/ui/slab-pager"
 import { SlabRow } from "@/components/ui/slab-row"
 import { Textarea } from "@/components/ui/textarea"
 import { DisplayHeading, Eyebrow } from "@/components/ui/typography"
-import { ChatbotUIContext } from "@/context/context"
 import {
-  IconFolder,
-  IconMessage,
+  IconFlask,
   IconPencil,
-  IconPlus,
   IconReport,
   IconSearch,
   IconTrash
@@ -59,12 +55,6 @@ import {
   getReportsByWorkspaceId,
   updateReport
 } from "@/db/reports-firestore"
-import {
-  deleteReportTemplate,
-  listReportTemplates,
-  type ReportTemplateRow
-} from "@/db/report-templates-firestore"
-import { getProjectsByWorkspaceId } from "@/db/projects"
 import { formatCreatedModifiedStacked } from "@/lib/format-date"
 import { cn } from "@/lib/utils"
 
@@ -72,33 +62,26 @@ interface Report {
   id: string
   name: string
   description: string
-  project_id?: string | null
+  source_design_id?: string | null
+  source_design_name?: string | null
   created_at: string
   updated_at: string
   report_draft?: string
   report_outline?: string
 }
 
-interface ProjectLite {
-  id: string
-  name: string
-}
-
-type ReportsFilter = "saved" | "in-progress" | "templates"
+type ReportsFilter = "completed" | "in-progress"
 const PAGE_SIZE = 12
 
 export default function ReportsPage() {
   const params = useParams()
   const router = useRouter()
-  const { selectedWorkspace } = useContext(ChatbotUIContext)
   const workspaceId = params.workspaceid as string
   const locale = params.locale as string
 
   const [reports, setReports] = useState<Report[]>([])
-  const [projects, setProjects] = useState<ProjectLite[]>([])
-  const [templates, setTemplates] = useState<ReportTemplateRow[]>([])
   const [loading, setLoading] = useState(true)
-  const [filter, setFilter] = useState<ReportsFilter>("saved")
+  const [filter, setFilter] = useState<ReportsFilter>("completed")
   const [search, setSearch] = useState("")
   const [page, setPage] = useState(0)
 
@@ -112,25 +95,6 @@ export default function ReportsPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [workspaceId])
 
-  useEffect(() => {
-    if (!selectedWorkspace?.id) return
-    let cancelled = false
-    void getProjectsByWorkspaceId(selectedWorkspace.id)
-      .then((rows: any[]) => {
-        if (!cancelled) {
-          setProjects(
-            (rows ?? []).map(p => ({ id: p.id, name: p.name as string }))
-          )
-        }
-      })
-      .catch((err: any) =>
-        console.warn("[ReportsPage] failed to load projects:", err)
-      )
-    return () => {
-      cancelled = true
-    }
-  }, [selectedWorkspace?.id])
-
   // Snap to first page whenever the slice the user is looking at changes.
   useEffect(() => {
     setPage(0)
@@ -139,26 +103,14 @@ export default function ReportsPage() {
   const fetchAll = async () => {
     setLoading(true)
     try {
-      const [reportRows, templateRows] = await Promise.all([
-        getReportsByWorkspaceId(workspaceId),
-        listReportTemplates(workspaceId).catch(err => {
-          // Templates collection may not exist yet for older workspaces;
-          // an empty list is a sensible fallback.
-          console.warn("[ReportsPage] template fetch failed:", err)
-          return [] as ReportTemplateRow[]
-        })
-      ])
+      const reportRows = await getReportsByWorkspaceId(workspaceId)
       setReports(reportRows as Report[])
-      setTemplates(templateRows)
     } catch (error) {
-      console.error("Error fetching reports/templates:", error)
+      console.error("Error fetching reports:", error)
     } finally {
       setLoading(false)
     }
   }
-
-  const projectName = (projectId: string | null | undefined) =>
-    (projectId && projects.find(p => p.id === projectId)?.name) || null
 
   const sortedReports = useMemo(
     () =>
@@ -172,7 +124,7 @@ export default function ReportsPage() {
 
   const isCompleted = (r: Report) => !!r.report_draft
 
-  const savedReports = useMemo(
+  const completedReports = useMemo(
     () => sortedReports.filter(isCompleted),
     [sortedReports]
   )
@@ -181,47 +133,25 @@ export default function ReportsPage() {
     [sortedReports]
   )
 
-  const activeList: Report[] | ReportTemplateRow[] =
-    filter === "saved"
-      ? savedReports
-      : filter === "in-progress"
-        ? inProgressReports
-        : templates
+  const activeList: Report[] =
+    filter === "completed" ? completedReports : inProgressReports
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase()
     if (!q) return activeList
-    if (filter === "templates") {
-      return (activeList as ReportTemplateRow[]).filter(t =>
-        `${t.name} ${t.description ?? ""}`.toLowerCase().includes(q)
-      )
-    }
-    const nameById = new Map(projects.map(p => [p.id, p.name]))
-    return (activeList as Report[]).filter(r => {
-      const pn = r.project_id ? nameById.get(r.project_id) : undefined
-      return (
+    return activeList.filter(
+      r =>
         r.name?.toLowerCase().includes(q) ||
         r.description?.toLowerCase().includes(q) ||
-        pn?.toLowerCase().includes(q)
-      )
-    })
-  }, [activeList, search, projects, filter])
+        r.source_design_name?.toLowerCase().includes(q)
+    )
+  }, [activeList, search])
 
   const handleDeleteReport = async (reportId: string) => {
     try {
       await deleteReport(reportId)
       setReports(prev => prev.filter(r => r.id !== reportId))
       toast.success("Report deleted")
-    } catch (error: any) {
-      toast.error(`Delete failed: ${error?.message ?? "unknown"}`)
-    }
-  }
-
-  const handleDeleteTemplate = async (templateId: string) => {
-    try {
-      await deleteReportTemplate(templateId)
-      setTemplates(prev => prev.filter(t => t.id !== templateId))
-      toast.success("Template deleted")
     } catch (error: any) {
       toast.error(`Delete failed: ${error?.message ?? "unknown"}`)
     }
@@ -270,27 +200,8 @@ export default function ReportsPage() {
             Reports
           </DisplayHeading>
           <p className="text-ink-3 mt-1 text-[13px]">
-            Generate, manage, and template research reports.
+            Reports generated from your completed designs.
           </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <Button
-            variant="secondary"
-            size="lg"
-            onClick={() =>
-              router.push(`/${locale}/${workspaceId}/chat?defaultScope=reports`)
-            }
-          >
-            <IconMessage size={14} stroke={2.4} /> Start chat
-          </Button>
-          <Button
-            variant="primary"
-            size="lg"
-            onClick={() => router.push(`/${locale}/${workspaceId}/reports/new`)}
-          >
-            <IconPlus size={14} stroke={2.4} />
-            New Report
-          </Button>
         </div>
       </div>
 
@@ -298,7 +209,7 @@ export default function ReportsPage() {
         <div className="flex h-64 items-center justify-center">
           <div className="border-line border-t-rust size-8 animate-spin rounded-full border-2" />
         </div>
-      ) : reports.length === 0 && templates.length === 0 ? (
+      ) : reports.length === 0 ? (
         <Card className="p-10 text-center">
           <div className="bg-rust-soft mx-auto mb-4 flex size-12 items-center justify-center rounded-full">
             <IconReport size={28} className="text-rust" />
@@ -307,16 +218,16 @@ export default function ReportsPage() {
             No reports yet
           </p>
           <p className="text-ink-3 mx-auto mb-6 max-w-sm text-[13px] leading-relaxed">
-            Generate a report from any design or workspace data. Save the
-            structure as a template once you have one you like.
+            Reports are generated from a completed design. Open a finished
+            design and use its “Generate report” action.
           </p>
           <Button
             variant="primary"
             size="sm"
-            onClick={() => router.push(`/${locale}/${workspaceId}/reports/new`)}
+            onClick={() => router.push(`/${locale}/${workspaceId}/designs`)}
           >
-            <IconPlus size={12} />
-            Create your first report
+            <IconFlask size={12} />
+            Go to designs
           </Button>
         </Card>
       ) : (
@@ -330,9 +241,8 @@ export default function ReportsPage() {
               value={filter}
               onChange={setFilter}
               counts={{
-                saved: savedReports.length,
-                "in-progress": inProgressReports.length,
-                templates: templates.length
+                completed: completedReports.length,
+                "in-progress": inProgressReports.length
               }}
             />
           }
@@ -342,11 +252,7 @@ export default function ReportsPage() {
               <input
                 value={search}
                 onChange={e => setSearch(e.target.value)}
-                placeholder={
-                  filter === "templates"
-                    ? "Search templates…"
-                    : "Search reports…"
-                }
+                placeholder="Search reports…"
                 className="text-ink placeholder:text-ink-3 h-8 w-full border-none bg-transparent text-[12.5px] outline-none"
               />
             </div>
@@ -355,38 +261,22 @@ export default function ReportsPage() {
           {paged.length === 0 ? (
             <Card className="p-10 text-center">
               <div className="text-ink-3 text-[13px]">
-                {filter === "templates"
-                  ? "No saved templates yet. Build one from a finished report."
-                  : "No reports match these filters."}
+                No reports match these filters.
               </div>
             </Card>
           ) : (
             <div className="flex flex-col gap-2.5">
-              {filter === "templates"
-                ? (paged as ReportTemplateRow[]).map(tpl => (
-                    <TemplateSlab
-                      key={tpl.id}
-                      template={tpl}
-                      onUse={() =>
-                        router.push(
-                          `/${locale}/${workspaceId}/reports/new?templateId=${tpl.id}`
-                        )
-                      }
-                      onDelete={() => handleDeleteTemplate(tpl.id)}
-                    />
-                  ))
-                : (paged as Report[]).map(r => (
-                    <ReportSlab
-                      key={r.id}
-                      report={r}
-                      pname={projectName(r.project_id)}
-                      onOpen={() =>
-                        router.push(`/${locale}/${workspaceId}/reports/${r.id}`)
-                      }
-                      onEdit={() => openEdit(r)}
-                      onDelete={() => handleDeleteReport(r.id)}
-                    />
-                  ))}
+              {paged.map(r => (
+                <ReportSlab
+                  key={r.id}
+                  report={r}
+                  onOpen={() =>
+                    router.push(`/${locale}/${workspaceId}/reports/${r.id}`)
+                  }
+                  onEdit={() => openEdit(r)}
+                  onDelete={() => handleDeleteReport(r.id)}
+                />
+              ))}
             </div>
           )}
         </SlabPager>
@@ -456,9 +346,8 @@ const ReportsFilterTabs: FC<ReportsFilterTabsProps> = ({
   counts
 }) => {
   const tabs: { key: ReportsFilter; label: string }[] = [
-    { key: "saved", label: "Saved reports" },
-    { key: "in-progress", label: "In progress" },
-    { key: "templates", label: "Saved templates" }
+    { key: "completed", label: "Completed" },
+    { key: "in-progress", label: "In progress" }
   ]
   return (
     <div className="border-line bg-paper-2 inline-flex overflow-hidden rounded-md border">
@@ -488,7 +377,6 @@ const ReportsFilterTabs: FC<ReportsFilterTabsProps> = ({
 
 interface ReportSlabProps {
   report: Report
-  pname: string | null
   onOpen: () => void
   onEdit: () => void
   onDelete: () => void
@@ -496,13 +384,11 @@ interface ReportSlabProps {
 
 const ReportSlab: FC<ReportSlabProps> = ({
   report,
-  pname,
   onOpen,
   onEdit,
   onDelete
 }) => {
   const completed = !!report.report_draft
-  const isDraft = !report.report_draft && !!report.report_outline
   const dateLines = formatCreatedModifiedStacked(
     report.created_at,
     report.updated_at
@@ -564,10 +450,10 @@ const ReportSlab: FC<ReportSlabProps> = ({
         </p>
       )}
       <div className="mt-2 flex flex-wrap items-center gap-2">
-        {pname && (
+        {report.source_design_name && (
           <span className="border-teal-journey/30 bg-teal-journey-tint text-teal-journey inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10.5px] font-medium">
-            <IconFolder size={10} />
-            {pname}
+            <IconFlask size={10} />
+            {report.source_design_name}
           </span>
         )}
         <span
@@ -575,83 +461,10 @@ const ReportSlab: FC<ReportSlabProps> = ({
             "rounded-full border px-2 py-0.5 text-[10.5px] font-medium",
             completed
               ? "border-transparent bg-[#DDE9DF] text-[#1F4A2C]"
-              : isDraft
-                ? "border-purple-persona/30 bg-purple-persona-tint text-purple-persona"
-                : "border-amber-300/40 bg-amber-100/70 text-amber-800"
+              : "border-amber-300/40 bg-amber-100/70 text-amber-800"
           )}
         >
-          {completed ? "Completed" : isDraft ? "Draft" : "In progress"}
-        </span>
-      </div>
-    </SlabRow>
-  )
-}
-
-// ── Template slab ───────────────────────────────────────────────────
-
-interface TemplateSlabProps {
-  template: ReportTemplateRow
-  onUse: () => void
-  onDelete: () => void
-}
-
-const TemplateSlab: FC<TemplateSlabProps> = ({ template, onUse, onDelete }) => {
-  const dateLines = formatCreatedModifiedStacked(
-    template.created_at,
-    template.updated_at
-  )
-  return (
-    <SlabRow
-      onClick={onUse}
-      dateLines={dateLines}
-      actions={
-        <AlertDialog>
-          <AlertDialogTrigger asChild>
-            <button
-              type="button"
-              data-slab-action
-              title="Delete template"
-              className="hover:bg-paper-2 rounded p-1.5"
-            >
-              <IconTrash size={14} className="text-destructive" />
-            </button>
-          </AlertDialogTrigger>
-          <AlertDialogContent>
-            <AlertDialogHeader>
-              <AlertDialogTitle>Delete template?</AlertDialogTitle>
-              <AlertDialogDescription>
-                Existing reports built from this template won&apos;t be
-                affected; only the template itself is removed.
-              </AlertDialogDescription>
-            </AlertDialogHeader>
-            <AlertDialogFooter>
-              <AlertDialogCancel>Cancel</AlertDialogCancel>
-              <AlertDialogAction
-                onClick={onDelete}
-                className="bg-destructive hover:bg-destructive/90"
-              >
-                Delete
-              </AlertDialogAction>
-            </AlertDialogFooter>
-          </AlertDialogContent>
-        </AlertDialog>
-      }
-    >
-      <h3 className="text-ink truncate text-[15px] font-semibold">
-        {template.name}
-      </h3>
-      {template.description && (
-        <p className="text-ink-3 mt-1 line-clamp-2 text-[12.5px]">
-          {template.description}
-        </p>
-      )}
-      <div className="mt-2 flex flex-wrap items-center gap-2">
-        <span className="border-line bg-paper-2 text-ink-2 rounded-full border px-2 py-0.5 text-[10.5px] font-medium">
-          Template
-        </span>
-        <span className="text-ink-3 text-[10.5px]">
-          {template.section_count} section
-          {template.section_count === 1 ? "" : "s"}
+          {completed ? "Completed" : "In progress"}
         </span>
       </div>
     </SlabRow>

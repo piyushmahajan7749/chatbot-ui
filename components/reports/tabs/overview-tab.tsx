@@ -4,7 +4,9 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import {
   IconArrowRight,
+  IconExternalLink,
   IconFileText,
+  IconFlask,
   IconInfoCircle,
   IconUpload
 } from "@tabler/icons-react"
@@ -18,6 +20,9 @@ interface OverviewTabProps {
   generationStatus: "idle" | "generating" | "ready" | "error"
   generationError: string | null
   onGoToTab: (tab: ReportTab) => void
+  /** Parent design this report was generated from (when applicable). */
+  sourceDesignName?: string | null
+  onOpenDesign?: () => void
 }
 
 const STATUS_COPY: Record<
@@ -47,7 +52,9 @@ export const OverviewTab: FC<OverviewTabProps> = ({
   fileCount,
   generationStatus,
   generationError,
-  onGoToTab
+  onGoToTab,
+  sourceDesignName,
+  onOpenDesign
 }) => {
   const statusMeta = STATUS_COPY[generationStatus]
   const draft = report?.report_draft ?? null
@@ -116,6 +123,30 @@ export const OverviewTab: FC<OverviewTabProps> = ({
               <div className="text-ink-500 text-sm">
                 Add an objective on the <strong>Inputs</strong> tab to describe
                 what this report should cover.
+              </div>
+            </div>
+          )}
+
+          {report?.source_design_id && (
+            <div>
+              <div className="text-ink-400 mb-1 text-[11px] font-bold uppercase tracking-widest">
+                Generated from design
+              </div>
+              <div className="border-ink-200 flex items-center justify-between gap-3 rounded-xl border p-3">
+                <span className="text-ink-800 flex items-center gap-2 text-sm font-medium">
+                  <IconFlask size={15} className="text-teal-journey" />
+                  {sourceDesignName || report.source_design_name || "Design"}
+                </span>
+                {onOpenDesign && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="gap-1.5"
+                    onClick={onOpenDesign}
+                  >
+                    <IconExternalLink size={13} /> Open design
+                  </Button>
+                )}
               </div>
             </div>
           )}

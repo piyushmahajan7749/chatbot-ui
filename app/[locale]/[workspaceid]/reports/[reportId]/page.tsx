@@ -860,6 +860,15 @@ export default function ReportDetailPage() {
                   generationStatus={generationStatus}
                   generationError={report?.generation_error ?? null}
                   onGoToTab={setActiveTab}
+                  sourceDesignName={report?.source_design_name ?? null}
+                  onOpenDesign={
+                    report?.source_design_id
+                      ? () =>
+                          router.push(
+                            `/${locale}/${workspaceId}/designs/${report.source_design_id}`
+                          )
+                      : undefined
+                  }
                 />
               )}
               {activeTab === "inputs" && (
