@@ -27,6 +27,12 @@ export async function POST(
     )
   }
   const projectId: string | null = body?.projectId ?? null
+  // When duplicating a completed design to branch a variant, reopen it for
+  // editing: the agent outputs (papers, hypotheses, generated designs) are
+  // preserved, but the approved phases are cleared so the copy is "in
+  // progress" and the user can re-select papers/hypotheses. The public
+  // "Fork to workspace" path leaves this false (an exact copy).
+  const resetApproval: boolean = body?.resetApproval === true
 
   const srcRef = adminDb.collection("designs").doc(params.designid)
   const srcDoc = await srcRef.get()
@@ -47,6 +53,22 @@ export async function POST(
 
   const newId = crypto.randomUUID()
   const now = new Date().toISOString()
+
+  // Optionally clear approvedPhases so the duplicate is editable again.
+  let forkContent = src.content ?? null
+  if (resetApproval && forkContent != null) {
+    try {
+      const wasString = typeof forkContent === "string"
+      const parsed = wasString ? JSON.parse(forkContent) : { ...forkContent }
+      if (parsed && typeof parsed === "object") {
+        parsed.approvedPhases = []
+        forkContent = wasString ? JSON.stringify(parsed) : parsed
+      }
+    } catch {
+      // Leave content untouched if it isn't parseable JSON.
+    }
+  }
+
   const fork = {
     id: newId,
     user_id: user.id,
@@ -63,7 +85,7 @@ export async function POST(
       user_id: src.user_id,
       name: src.name ?? ""
     },
-    content: src.content ?? null,
+    content: forkContent,
     domain: src.domain ?? null,
     phase: src.phase ?? null,
     objectives: src.objectives ?? null,

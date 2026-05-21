@@ -50,6 +50,11 @@ interface InputsTabProps {
   onTemplateChange: (id: string) => void
   customSections: CustomSectionInput[]
   onCustomSectionsChange: (sections: CustomSectionInput[]) => void
+  /**
+   * When the report was spawned from a design, the design itself supplies the
+   * protocol/method, so a protocol file isn't required to generate.
+   */
+  protocolOptional?: boolean
 }
 
 // Accepted upload formats per the scientist's spec: pdf / docx / csv / jpeg.
@@ -70,15 +75,17 @@ export const InputsTab: FC<InputsTabProps> = ({
   templateId,
   onTemplateChange,
   customSections,
-  onCustomSectionsChange
+  onCustomSectionsChange,
+  protocolOptional = false
 }) => {
   // Data files are now mandatory alongside the design + objective so
   // the analysis agent always has something to work from (#11 in the
   // bug-list). Falling back to "report with no data" was producing
-  // thin sections that read like marketing copy.
+  // thin sections that read like marketing copy. The protocol file is
+  // optional for design-sourced reports (the design is the protocol).
   const canGenerate =
     !!objective.trim() &&
-    protocol.length > 0 &&
+    (protocolOptional || protocol.length > 0) &&
     dataFiles.length > 0 &&
     !isGenerating
   const activeTemplateId = templateId || DEFAULT_TEMPLATE_ID
@@ -295,12 +302,13 @@ export const InputsTab: FC<InputsTabProps> = ({
               report-outline route signature don't need migrating. */}
           {renderFileField({
             label: "Design / Plan / Procedure",
-            required: true,
+            required: !protocolOptional,
             type: "protocol",
             selected: protocol,
             uploadRef: protocolUploadRef,
-            caption:
-              "The experimental design, plan, or step-by-step procedure document this report is built from."
+            caption: protocolOptional
+              ? "Optional — this report's design already supplies the method. Add extra procedure docs here if needed."
+              : "The experimental design, plan, or step-by-step procedure document this report is built from."
           })}
 
           {/* Field rename: Preparation / Reference Papers → Reference

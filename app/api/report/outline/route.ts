@@ -850,12 +850,18 @@ function parseDataFromSummary(
 
 export async function POST(req: Request) {
   try {
-    const { protocol, papers, dataFiles, experimentObjective } =
+    const { protocol, papers, dataFiles, experimentObjective, designContext } =
       (await req.json()) as {
         protocol?: string[]
         papers?: string[]
         dataFiles?: string[]
         experimentObjective?: string
+        /**
+         * Markdown summary of the parent design. When a report is generated
+         * from a design the design itself supplies the protocol/method, so
+         * the client passes it here instead of (or alongside) protocol files.
+         */
+        designContext?: string
       }
 
     const protocolIds = Array.isArray(protocol) ? protocol : []
@@ -872,8 +878,20 @@ export async function POST(req: Request) {
 
     const byId = new Map(resolved.map(r => [r.fileId, r]))
 
-    const protocolText = protocolIds
+    const protocolFromFiles = protocolIds
       .map(id => byId.get(id)?.content || "")
+      .filter(Boolean)
+      .join("\n\n")
+    // Prepend the parent design summary (when generating from a design) so
+    // the report writer treats the design as the authoritative protocol.
+    const designContextText =
+      typeof designContext === "string" ? designContext.trim() : ""
+    const protocolText = [
+      designContextText
+        ? `# Source design (use as the protocol/method)\n\n${designContextText}`
+        : "",
+      protocolFromFiles
+    ]
       .filter(Boolean)
       .join("\n\n")
     const paperText = paperIds

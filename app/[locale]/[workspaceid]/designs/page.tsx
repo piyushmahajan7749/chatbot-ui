@@ -12,11 +12,14 @@
  *    lower right (matches the cross-app SlabRow convention).
  */
 import {
+  IconCopy,
+  IconFileText,
   IconFlask,
   IconFolder,
   IconMessage,
   IconPencil,
   IconPlus,
+  IconReportAnalytics,
   IconSearch,
   IconTrash
 } from "@tabler/icons-react"
@@ -50,6 +53,7 @@ import { SlabPager } from "@/components/ui/slab-pager"
 import { SlabRow } from "@/components/ui/slab-row"
 import { Textarea } from "@/components/ui/textarea"
 import { DisplayHeading, Eyebrow } from "@/components/ui/typography"
+import { GenerateReportModal } from "@/components/designs/generate-report-modal"
 import { ChatbotUIContext } from "@/context/context"
 import { deleteDesign, updateDesign } from "@/db/designs-firestore"
 import { getProjectsByWorkspaceId } from "@/db/projects"
@@ -57,7 +61,10 @@ import {
   getDesignProblemStatement,
   getDesignProgress
 } from "@/lib/design-status"
-import { formatCreatedModifiedStacked } from "@/lib/format-date"
+import {
+  formatCreatedModifiedStacked,
+  formatShortDate
+} from "@/lib/format-date"
 import { cn } from "@/lib/utils"
 
 interface ProjectLite {
@@ -71,7 +78,7 @@ const PAGE_SIZE = 12
 export default function DesignsPage() {
   const params = useParams()
   const router = useRouter()
-  const { designs, setDesigns, selectedWorkspace } =
+  const { designs, setDesigns, reports, selectedWorkspace } =
     useContext(ChatbotUIContext)
   const locale = params.locale as string
   const workspaceId = params.workspaceid as string
@@ -87,6 +94,55 @@ export default function DesignsPage() {
     description: string
   } | null>(null)
   const [saving, setSaving] = useState(false)
+  // The design currently being turned into a report (drives the modal).
+  const [reportDesign, setReportDesign] = useState<any | null>(null)
+  const [duplicatingId, setDuplicatingId] = useState<string | null>(null)
+
+  // Most-recent report per source design, so each completed design's slab can
+  // surface its report (and disable the generate button once one exists).
+  const reportByDesignId = useMemo(() => {
+    const map = new Map<string, any>()
+    for (const r of reports as any[]) {
+      const did = r?.source_design_id
+      if (!did) continue
+      const existing = map.get(did)
+      if (
+        !existing ||
+        new Date(r.updated_at || r.created_at).getTime() >
+          new Date(existing.updated_at || existing.created_at).getTime()
+      ) {
+        map.set(did, r)
+      }
+    }
+    return map
+  }, [reports])
+
+  const handleDuplicate = async (design: any) => {
+    if (!selectedWorkspace?.id) return
+    setDuplicatingId(design.id)
+    try {
+      const res = await fetch(`/api/design/${design.id}/fork`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          workspaceId: selectedWorkspace.id,
+          projectId: design.project_id ?? null,
+          resetApproval: true
+        })
+      })
+      if (!res.ok) {
+        const detail = await res.json().catch(() => ({}))
+        throw new Error(detail?.error || `Duplicate failed (${res.status})`)
+      }
+      const { design: forked } = await res.json()
+      setDesigns(prev => [forked, ...prev])
+      toast.success("Design duplicated — open the copy to branch a variant")
+    } catch (e: any) {
+      toast.error(`Duplicate failed: ${e?.message ?? "unknown"}`)
+    } finally {
+      setDuplicatingId(null)
+    }
+  }
 
   useEffect(() => {
     if (!selectedWorkspace?.id) return
@@ -220,6 +276,13 @@ export default function DesignsPage() {
             <Button
               variant="secondary"
               size="lg"
+              onClick={() => router.push(`/${locale}/${workspaceId}/reports`)}
+            >
+              <IconReportAnalytics size={14} stroke={2.4} /> Reports
+            </Button>
+            <Button
+              variant="secondary"
+              size="lg"
               onClick={() =>
                 router.push(
                   `/${locale}/${workspaceId}/chat?defaultScope=designs`
@@ -286,6 +349,8 @@ export default function DesignsPage() {
                     key={d.id}
                     design={d}
                     pname={projectName(d.project_id)}
+                    reportForDesign={reportByDesignId.get(d.id) ?? null}
+                    duplicating={duplicatingId === d.id}
                     onOpen={() =>
                       router.push(`/${locale}/${workspaceId}/designs/${d.id}`)
                     }
@@ -297,6 +362,13 @@ export default function DesignsPage() {
                       })
                     }
                     onDelete={() => handleDelete(d.id)}
+                    onDuplicate={() => handleDuplicate(d)}
+                    onGenerateReport={() => setReportDesign(d)}
+                    onOpenReport={reportId =>
+                      router.push(
+                        `/${locale}/${workspaceId}/reports/${reportId}`
+                      )
+                    }
                   />
                 ))}
               </div>
@@ -360,6 +432,17 @@ export default function DesignsPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Generate-report modal — opened from a completed design's slab. */}
+      <GenerateReportModal
+        open={!!reportDesign}
+        onOpenChange={open => {
+          if (!open) setReportDesign(null)
+        }}
+        design={reportDesign}
+        workspaceId={workspaceId}
+        locale={locale}
+      />
     </div>
   )
 }
@@ -405,17 +488,27 @@ const FilterTabs: FC<FilterTabsProps> = ({ value, onChange, counts }) => {
 interface DesignSlabProps {
   design: any
   pname: string | null
+  reportForDesign: any | null
+  duplicating: boolean
   onOpen: () => void
   onEdit: () => void
   onDelete: () => void
+  onDuplicate: () => void
+  onGenerateReport: () => void
+  onOpenReport: (reportId: string) => void
 }
 
 const DesignSlab: FC<DesignSlabProps> = ({
   design,
   pname,
+  reportForDesign,
+  duplicating,
   onOpen,
   onEdit,
-  onDelete
+  onDelete,
+  onDuplicate,
+  onGenerateReport,
+  onOpenReport
 }) => {
   const progress = getDesignProgress(design)
   const isCompleted =
@@ -425,12 +518,47 @@ const DesignSlab: FC<DesignSlabProps> = ({
     design.created_at,
     design.updated_at
   )
+  const hasReport = !!reportForDesign
   return (
     <SlabRow
       onClick={onOpen}
       dateLines={dateLines}
       actions={
         <>
+          <button
+            type="button"
+            onClick={e => {
+              e.stopPropagation()
+              onDuplicate()
+            }}
+            data-slab-action
+            disabled={duplicating}
+            title="Duplicate to branch a variant"
+            className="hover:bg-paper-2 rounded p-1.5 disabled:opacity-50"
+          >
+            <IconCopy size={14} className="text-ink-3" />
+          </button>
+          {/* Generate report — completed designs only, and only until a
+              report exists (after that the slab shows the report button). */}
+          {isCompleted && (
+            <button
+              type="button"
+              onClick={e => {
+                e.stopPropagation()
+                if (!hasReport) onGenerateReport()
+              }}
+              data-slab-action
+              disabled={hasReport}
+              title={
+                hasReport
+                  ? "Report already generated"
+                  : "Generate a report from this design"
+              }
+              className="hover:bg-paper-2 rounded p-1.5 disabled:opacity-40"
+            >
+              <IconReportAnalytics size={14} className="text-ink-3" />
+            </button>
+          )}
           <button
             type="button"
             onClick={onEdit}
@@ -507,6 +635,24 @@ const DesignSlab: FC<DesignSlabProps> = ({
           <span className="border-purple-persona/30 bg-purple-persona-tint text-purple-persona rounded-full border px-2 py-0.5 text-[10.5px] font-medium">
             Stage: {progress.currentStageLabel}
           </span>
+        )}
+        {hasReport && (
+          <button
+            type="button"
+            data-slab-action
+            onClick={e => {
+              e.stopPropagation()
+              onOpenReport(reportForDesign.id)
+            }}
+            title="Open the report generated from this design"
+            className="bg-brick hover:bg-brick-hover ml-auto inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[10.5px] font-semibold text-white"
+          >
+            <IconFileText size={11} />
+            View report
+            <span className="font-normal opacity-80">
+              · {formatShortDate(reportForDesign.created_at)}
+            </span>
+          </button>
         )}
       </div>
     </SlabRow>

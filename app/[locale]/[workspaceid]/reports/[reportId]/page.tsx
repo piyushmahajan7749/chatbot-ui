@@ -27,6 +27,7 @@ import {
 } from "@/components/reports/tabs/overview-tab"
 import { InputsTab } from "@/components/reports/tabs/inputs-tab"
 import { ReportTab as ReportTabView } from "@/components/reports/tabs/report-tab"
+import { ReportDesignRail } from "@/components/reports/report-design-rail"
 import { ReportPreviewModal } from "@/components/reports/report-preview-modal"
 import { exportReportToPDF, exportReportToPPTX } from "@/lib/report/export"
 import { getTemplate, DEFAULT_TEMPLATE_ID } from "@/lib/report/templates"
@@ -105,6 +106,9 @@ export default function ReportDetailPage() {
   const sectionSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const objectiveSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  // Reports opened in a "generating" state (created by the Generate-report
+  // modal) resume generation here. Tracked per-report so it fires only once.
+  const autoGenRef = useRef<Set<string>>(new Set())
 
   // Save-as-template + add-section dialogs. Both share the simple
   // {name, description} payload shape - we render them as separate
@@ -268,7 +272,11 @@ export default function ReportDetailPage() {
   }
 
   const handleGenerate = async () => {
-    if (!objective.trim() || protocolFiles.length === 0) return
+    // Design-sourced reports use the design itself as the protocol, so a
+    // protocol *file* isn't required when we have a design_context snapshot.
+    const hasProtocolContext =
+      protocolFiles.length > 0 || !!report?.design_context
+    if (!objective.trim() || !hasProtocolContext) return
     setIsGenerating(true)
     const toastId = `report-generate-${reportId}`
     sonnerToast.loading("Generating report draft…", {
@@ -301,7 +309,8 @@ export default function ReportDetailPage() {
           experimentObjective: objective,
           protocol: protocolFiles.map(f => f.id),
           papers: paperFiles.map(f => f.id),
-          dataFiles: dataFiles.map(f => f.id)
+          dataFiles: dataFiles.map(f => f.id),
+          designContext: report?.design_context ?? undefined
         })
       })
       if (!response.ok) {
@@ -345,6 +354,29 @@ export default function ReportDetailPage() {
       setIsGenerating(false)
     }
   }
+
+  // Resume generation for a report the modal created in a "generating"
+  // state. Fires once per report, once the inputs have loaded.
+  useEffect(() => {
+    if (!report || autoGenRef.current.has(report.id)) return
+    if (report.generation_status !== "generating" || hasDraft || isGenerating)
+      return
+    const hasInputs =
+      dataFiles.length > 0 &&
+      (protocolFiles.length > 0 || !!report.design_context)
+    if (!objective.trim() || !hasInputs) return
+    autoGenRef.current.add(report.id)
+    void handleGenerate()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [
+    report?.id,
+    report?.generation_status,
+    hasDraft,
+    isGenerating,
+    objective,
+    dataFiles.length,
+    protocolFiles.length
+  ])
 
   const handleRegenerateSection = async (
     sectionKey: string,
@@ -798,77 +830,96 @@ export default function ReportDetailPage() {
         </div>
       </div>
 
-      {/* Tabs */}
-      <AccentTabs
-        activeKey={activeTab}
-        onChange={key => setActiveTab(key as ReportTab)}
-        tabs={tabDefs}
-      />
+      {/* Body: tabs + content on the left, parent-design rail on the right
+          (the rail appears only for reports spawned from a design). */}
+      <div className="flex min-h-0 flex-1 overflow-hidden">
+        <div className="flex min-h-0 flex-1 flex-col">
+          {/* Tabs */}
+          <AccentTabs
+            activeKey={activeTab}
+            onChange={key => setActiveTab(key as ReportTab)}
+            tabs={tabDefs}
+          />
 
-      {/* Tab content. Inputs + Overview keep a comfortable
+          {/* Tab content. Inputs + Overview keep a comfortable
           max-width; the Report tab gets the full 6xl so the index +
           body grid has more room to breathe (scientist asked for the
           main content to widen so the chart and tables don't need so
           much horizontal scrolling). */}
-      <div className="min-h-0 flex-1 overflow-auto">
-        <div
-          className={cn(
-            "mx-auto p-6",
-            activeTab === "report" ? "max-w-6xl" : "max-w-4xl"
-          )}
-        >
-          {activeTab === "overview" && (
-            <OverviewTab
-              report={report}
-              fileCount={fileCount}
-              generationStatus={generationStatus}
-              generationError={report?.generation_error ?? null}
-              onGoToTab={setActiveTab}
-            />
-          )}
-          {activeTab === "inputs" && (
-            <InputsTab
-              objective={objective}
-              onObjectiveChange={handleObjectiveChange}
-              protocol={protocolFiles}
-              papers={paperFiles}
-              dataFiles={dataFiles}
-              onToggleFile={handleToggleFile}
-              isGenerating={isGenerating || generationStatus === "generating"}
-              hasDraft={hasDraft}
-              onGenerate={handleGenerate}
-              customSections={customSections}
-              onCustomSectionsChange={handleCustomSectionsChange}
-              generationError={
-                generationStatus === "error"
-                  ? (report?.generation_error ?? null)
-                  : null
-              }
-              templateId={templateId}
-              onTemplateChange={handleTemplateChange}
-            />
-          )}
-          {activeTab === "report" && (
-            <ReportTabView
-              draft={draft}
-              chartImage={report?.chart_image ?? null}
-              chartData={report?.chart_data ?? null}
-              regenerating={regeneratingKey}
-              onRegenerate={handleRegenerateSection}
-              onEditContent={handleSectionContentChange}
-              onRegenerateChart={handleChartRegenerate}
-              onChartTypeChange={handleChartTypeChange}
-              regeneratingChart={regeneratingChart}
-              onOpenPreview={() => setShowPreview(true)}
-              templateId={templateId}
-              reportTitle={report?.name || "Untitled Report"}
-              isSaved={isReportSaved}
-              onSaveAsTemplate={handleOpenSaveAsTemplate}
-              customSections={customSections}
-              onAddCustomSection={handleOpenAddSection}
-            />
-          )}
+          <div className="min-h-0 flex-1 overflow-auto">
+            <div
+              className={cn(
+                "mx-auto p-6",
+                activeTab === "report" ? "max-w-6xl" : "max-w-4xl"
+              )}
+            >
+              {activeTab === "overview" && (
+                <OverviewTab
+                  report={report}
+                  fileCount={fileCount}
+                  generationStatus={generationStatus}
+                  generationError={report?.generation_error ?? null}
+                  onGoToTab={setActiveTab}
+                />
+              )}
+              {activeTab === "inputs" && (
+                <InputsTab
+                  objective={objective}
+                  onObjectiveChange={handleObjectiveChange}
+                  protocol={protocolFiles}
+                  papers={paperFiles}
+                  dataFiles={dataFiles}
+                  onToggleFile={handleToggleFile}
+                  isGenerating={
+                    isGenerating || generationStatus === "generating"
+                  }
+                  hasDraft={hasDraft}
+                  onGenerate={handleGenerate}
+                  customSections={customSections}
+                  onCustomSectionsChange={handleCustomSectionsChange}
+                  generationError={
+                    generationStatus === "error"
+                      ? (report?.generation_error ?? null)
+                      : null
+                  }
+                  templateId={templateId}
+                  onTemplateChange={handleTemplateChange}
+                  protocolOptional={!!report?.source_design_id}
+                />
+              )}
+              {activeTab === "report" && (
+                <ReportTabView
+                  draft={draft}
+                  chartImage={report?.chart_image ?? null}
+                  chartData={report?.chart_data ?? null}
+                  regenerating={regeneratingKey}
+                  onRegenerate={handleRegenerateSection}
+                  onEditContent={handleSectionContentChange}
+                  onRegenerateChart={handleChartRegenerate}
+                  onChartTypeChange={handleChartTypeChange}
+                  regeneratingChart={regeneratingChart}
+                  onOpenPreview={() => setShowPreview(true)}
+                  templateId={templateId}
+                  reportTitle={report?.name || "Untitled Report"}
+                  isSaved={isReportSaved}
+                  onSaveAsTemplate={handleOpenSaveAsTemplate}
+                  customSections={customSections}
+                  onAddCustomSection={handleOpenAddSection}
+                />
+              )}
+            </div>
+          </div>
         </div>
+        {report?.source_design_id && (
+          <ReportDesignRail
+            designId={report.source_design_id}
+            designName={report.source_design_name ?? null}
+            designContext={report.design_context ?? null}
+            files={report.files ?? {}}
+            locale={locale}
+            workspaceId={workspaceId}
+          />
+        )}
       </div>
 
       <ReportPreviewModal

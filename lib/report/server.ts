@@ -55,6 +55,13 @@ export async function createReport(request: Request): Promise<Response> {
       sharing: report?.sharing ?? "private",
       folder_id: report?.folder_id ?? null,
 
+      // Parent design attribution (reports are spawned from a design).
+      source_design_id: report?.source_design_id ?? null,
+      source_design_name: report?.source_design_name ?? null,
+      design_context: report?.design_context ?? null,
+      template_id: report?.template_id ?? null,
+      generation_status: report?.generation_status ?? "idle",
+
       report_outline: report?.report_outline ?? null,
       report_draft: report?.report_draft ?? null,
       chart_image: report?.chart_image ?? null,

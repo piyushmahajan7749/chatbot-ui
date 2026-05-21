@@ -29,6 +29,19 @@ export const ReportSchema = z.object({
   sharing: z.string().default("private"),
   folder_id: z.string().nullable().default(null),
 
+  // Parent design this report was generated from. Reports are now always
+  // spawned from a completed design, so these attribute the report back to
+  // its source. `source_design_name` is denormalised so list/slab views
+  // don't have to resolve the design doc.
+  source_design_id: z.string().nullable().default(null),
+  source_design_name: z.string().nullable().default(null),
+  /**
+   * Markdown snapshot of the source design at the time the report was
+   * created. Fed to the generator as the protocol/method context and
+   * rendered read-only in the report's design side-panel.
+   */
+  design_context: z.string().nullable().default(null),
+
   // Generated content (filled in over time).
   report_outline: z.unknown().nullable().default(null),
   report_draft: z.unknown().nullable().default(null),
@@ -59,6 +72,11 @@ export const ReportCreateInputSchema = z.object({
       description: z.string().optional(),
       sharing: z.string().optional(),
       folder_id: z.string().nullable().optional(),
+      source_design_id: z.string().nullable().optional(),
+      source_design_name: z.string().nullable().optional(),
+      design_context: z.string().nullable().optional(),
+      template_id: z.string().nullable().optional(),
+      generation_status: z.string().optional(),
       report_outline: z.unknown().optional(),
       report_draft: z.unknown().optional(),
       chart_image: z.unknown().optional()
