@@ -26,10 +26,11 @@ import {
   Stepper,
   type StageId as DesignStageId
 } from "@/components/design-flow/stepper"
-// ScopedChatRail / SplitRailLayout imports removed - the side chat rail
-// was retired in favour of the full-screen "Chat" button (issue #11).
+// Side chat rail (right split-screen) scoped to this design. Re-introduced
+// for the experiment-design pivot: chat lives next to the design so the user
+// can ask for edits while looking at it.
+import { ScopedChatRail } from "@/components/canvas/scoped-chat-rail"
 import { addPaperToLibrary } from "@/db/paper-library"
-import { createChat } from "@/db/chats"
 import { supabase } from "@/lib/supabase/browser-client"
 import { ChatbotUIContext } from "@/context/context"
 import { useToast } from "@/app/hooks/use-toast"
@@ -342,10 +343,6 @@ export default function DesignDetailPage() {
   const { profile, setUserInput, selectedWorkspace, chatSettings } =
     useContext(ChatbotUIContext)
   void profile
-
-  // Tracks "Open in chat" in-flight state - disables the button so a
-  // double-click doesn't create two chats.
-  const [openingFullChat, setOpeningFullChat] = useState(false)
 
   const designId = params.designId as string
   const workspaceId = params.workspaceid as string
@@ -944,6 +941,19 @@ export default function DesignDetailPage() {
   // ── Revise handler ────────────────────────────────────────────────────
 
   const handleRevisePhase = async (phase: PhaseKey) => {
+    // A completed (Design-approved) design is locked: its scientific content
+    // can't be edited in place. To change a hypothesis or an input, the user
+    // duplicates it from the Designs list (the Duplicate icon reopens the copy
+    // for editing while preserving the agent outputs).
+    if (approvedPhases.includes("design")) {
+      toast({
+        title: "This design is locked",
+        description:
+          "Completed designs can't be edited. Duplicate it from the Designs list to branch a variant you can change.",
+        variant: "destructive"
+      })
+      return
+    }
     const keep = clearDownstreamState(phase)
     const revised = keep.filter(p => p !== phase)
     setApprovedPhases(revised)
@@ -1568,13 +1578,6 @@ export default function DesignDetailPage() {
     activeDesign
   })
 
-  // Side chat rail removed (issue #11) - the design page now only offers
-  // the full-screen Chat button in the header. `chatContextPrompt` and
-  // `showRail` are kept as dead values to minimise the surface of this
-  // change; if no future feature reintroduces a rail, we'll garbage-
-  // collect them on the next sweep.
-  void chatContextPrompt
-
   if (loading) {
     return (
       <div className="bg-ink-50 flex h-full items-center justify-center">
@@ -1599,87 +1602,13 @@ export default function DesignDetailPage() {
     setActiveTab(key)
   }
 
-  /**
-   * Open an OPEN-ENDED, full-screen chat scoped to this design. The side rail
-   * (toggled by the "Chat" button) is task-shaped - short turns next to the
-   * design canvas. Some questions are bigger: "give me 5 alternative
-   * statistical plans", "summarise everything I have so far", "draft a
-   * methods section from this design". For those, the user needs the full
-   * chat UI, not a side panel. This handler creates a fresh chat with
-   * `scope='design'`, `scope_id=designId` so the retrieve pipeline pulls
-   * RAG chunks for this design only, then routes the user to it.
-   */
-  const handleOpenFullChat = async () => {
-    if (!selectedWorkspace || openingFullChat) return
-    setOpeningFullChat(true)
-    try {
-      const {
-        data: { user }
-      } = await supabase.auth.getUser()
-      if (!user) throw new Error("Not signed in")
-
-      // Reuse an existing design-scoped chat if one exists instead of
-      // accumulating a fresh chat on every click. Two bugs were hiding
-      // here:
-      //   1. First open showed the LAST workspace chat because
-      //      selectedChat lagged in context; reusing the existing
-      //      design chat makes the navigation deterministic.
-      //   2. The "second click did nothing" symptom was the
-      //      `openingFullChat` flag never being reset on success - if
-      //      the user navigated back and clicked again, the guard at
-      //      the top of this fn short-circuited. The `finally` block
-      //      below now always clears the flag.
-      const { getChatByScope } = await import("@/db/chats")
-      const existing = await getChatByScope("design", designId).catch(
-        () => null
-      )
-
-      let chatId = existing?.id
-      if (!chatId) {
-        const baseName = (title || design?.name || "Design").slice(0, 60)
-        const created = await createChat({
-          user_id: user.id,
-          workspace_id: selectedWorkspace.id,
-          name: `${baseName} chat`,
-          scope: "design",
-          scope_id: designId,
-          project_id: design?.project_id ?? null,
-          model: chatSettings?.model ?? selectedWorkspace.default_model,
-          prompt:
-            chatSettings?.prompt ?? selectedWorkspace.default_prompt ?? "",
-          temperature:
-            chatSettings?.temperature ?? selectedWorkspace.default_temperature,
-          context_length:
-            chatSettings?.contextLength ??
-            selectedWorkspace.default_context_length,
-          embeddings_provider:
-            chatSettings?.embeddingsProvider ??
-            selectedWorkspace.embeddings_provider,
-          include_profile_context:
-            chatSettings?.includeProfileContext ??
-            selectedWorkspace.include_profile_context,
-          include_workspace_instructions:
-            chatSettings?.includeWorkspaceInstructions ??
-            selectedWorkspace.include_workspace_instructions,
-          sharing: "private"
-        })
-        chatId = created.id
-      }
-
-      router.push(`/${locale}/${workspaceId}/chat/${chatId}`)
-    } catch (err) {
-      console.error("Failed to open design in chat:", err)
-      toast({
-        title: "Couldn't open chat",
-        description:
-          err instanceof Error ? err.message : "Failed to start a new chat.",
-        variant: "destructive"
-      })
-    } finally {
-      // Always reset so the user can retry without a hard refresh.
-      setOpeningFullChat(false)
-    }
-  }
+  // The design-scoped chat now lives in a right-side rail (ScopedChatRail)
+  // rather than a full-screen route. The rail is only available once the
+  // design has been generated. Toggled by the header "Chat" button.
+  const designGenerated = generatedDesigns.length > 0
+  const toggleChatRail = () => setShowRail(s => !s)
+  // A completed (Design-approved) design is locked — edits require duplicating.
+  const designLocked = approvedPhases.includes("design")
 
   return (
     <div className="bg-ink-50 flex h-full flex-col overflow-hidden">
@@ -1712,6 +1641,14 @@ export default function DesignDetailPage() {
             <div>
               <div className="text-ink-400 flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.13em]">
                 <span>Design</span>
+                {designLocked && (
+                  <span
+                    className="rounded border border-[#1F4A2C]/20 bg-[#DDE9DF] px-2 py-0.5 normal-case tracking-normal text-[#1F4A2C]"
+                    title="Completed designs are locked — duplicate to edit"
+                  >
+                    Locked
+                  </span>
+                )}
                 {busy && (
                   <span className="bg-teal-journey-tint text-teal-journey border-teal-journey/30 rounded border px-2 py-0.5 normal-case tracking-normal">
                     Running {busy}...
@@ -1745,20 +1682,26 @@ export default function DesignDetailPage() {
           </div>
 
           {/* ── Toolbar actions (right side) ───────────────── */}
-          {/* Single "Chat" button opens a full-screen design-scoped chat
-                (issue #11). The old side-rail toggle was removed - users
-                preferred the full chat UI for longer questions, and having
-                two chat surfaces with subtly different scope was confusing. */}
+          {/* "Chat" opens a right-side rail scoped to this design so the user
+                can ask for edits while looking at it. Only available once the
+                design has been generated. */}
           <div className="flex items-center gap-2">
-            <button
-              onClick={() => void handleOpenFullChat()}
-              disabled={openingFullChat}
-              className="from-brick to-brick-hover flex h-9 items-center gap-2 rounded-full bg-gradient-to-r px-4 text-xs font-semibold uppercase tracking-wide text-white shadow-sm ring-1 ring-inset ring-white/20 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md active:translate-y-0 disabled:opacity-60"
-              title="Open this design in a full-screen chat"
-            >
-              <IconSparkles size={14} className="shrink-0" />
-              {openingFullChat ? "Opening..." : "Chat"}
-            </button>
+            {designGenerated && (
+              <button
+                onClick={toggleChatRail}
+                aria-pressed={showRail}
+                className={cn(
+                  "flex h-9 items-center gap-2 rounded-full px-4 text-xs font-semibold uppercase tracking-wide shadow-sm ring-1 ring-inset transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md active:translate-y-0",
+                  showRail
+                    ? "bg-ink text-paper ring-white/20"
+                    : "from-brick to-brick-hover bg-gradient-to-r text-white ring-white/20"
+                )}
+                title="Chat with this design"
+              >
+                <IconSparkles size={14} className="shrink-0" />
+                {showRail ? "Hide chat" : "Chat"}
+              </button>
+            )}
           </div>
         </div>
       </div>
@@ -1816,135 +1759,157 @@ export default function DesignDetailPage() {
         )
       })()}
 
-      {/* Tab content */}
-      <div className="min-h-0 flex-1 overflow-auto">
-        <div
-          className={
-            activeTab === "overview" || activeTab === "design"
-              ? "mx-auto max-w-6xl p-6"
-              : "mx-auto max-w-4xl p-6"
-          }
-        >
-          {activeTab === "problem" && (
-            <ProblemTab
-              title={title}
-              setTitle={setTitle}
-              problemStatement={problemStatement}
-              setProblemStatement={setProblemStatement}
-              domain={domain}
-              setDomain={setDomain}
-              phase={phase}
-              setPhase={setPhase}
-              objective={objective}
-              setObjective={setObjective}
-              constraintMaterial={constraintMaterial}
-              setConstraintMaterial={setConstraintMaterial}
-              constraintTime={constraintTime}
-              setConstraintTime={setConstraintTime}
-              constraintEquipment={constraintEquipment}
-              setConstraintEquipment={setConstraintEquipment}
-              variablesKnown={variablesKnown}
-              setVariablesKnown={setVariablesKnown}
-              variablesUnknown={variablesUnknown}
-              setVariablesUnknown={setVariablesUnknown}
-              successCriteria={successCriteria}
-              setSuccessCriteria={setSuccessCriteria}
-              includeReplicates={includeReplicates}
-              setIncludeReplicates={setIncludeReplicates}
-              onApproveAndGenerate={handleApproveAndGenerateLiterature}
-              canSubmit={problemValid}
-              isApproved={isPhaseApproved("problem")}
-              isBusy={busy === "literature"}
-              onRevise={() => handleRevisePhase("problem")}
-            />
-          )}
+      {/* Body: tab content on the left, design chat rail on the right */}
+      <div className="flex min-h-0 flex-1 overflow-hidden">
+        <div className="min-h-0 flex-1 overflow-auto">
+          <div
+            className={
+              activeTab === "overview" || activeTab === "design"
+                ? "mx-auto max-w-6xl p-6"
+                : "mx-auto max-w-4xl p-6"
+            }
+          >
+            {activeTab === "problem" && (
+              <ProblemTab
+                title={title}
+                setTitle={setTitle}
+                problemStatement={problemStatement}
+                setProblemStatement={setProblemStatement}
+                domain={domain}
+                setDomain={setDomain}
+                phase={phase}
+                setPhase={setPhase}
+                objective={objective}
+                setObjective={setObjective}
+                constraintMaterial={constraintMaterial}
+                setConstraintMaterial={setConstraintMaterial}
+                constraintTime={constraintTime}
+                setConstraintTime={setConstraintTime}
+                constraintEquipment={constraintEquipment}
+                setConstraintEquipment={setConstraintEquipment}
+                variablesKnown={variablesKnown}
+                setVariablesKnown={setVariablesKnown}
+                variablesUnknown={variablesUnknown}
+                setVariablesUnknown={setVariablesUnknown}
+                successCriteria={successCriteria}
+                setSuccessCriteria={setSuccessCriteria}
+                includeReplicates={includeReplicates}
+                setIncludeReplicates={setIncludeReplicates}
+                onApproveAndGenerate={handleApproveAndGenerateLiterature}
+                canSubmit={problemValid}
+                isApproved={isPhaseApproved("problem")}
+                isBusy={busy === "literature"}
+                onRevise={() => handleRevisePhase("problem")}
+              />
+            )}
 
-          {activeTab === "literature" && (
-            <LiteratureTab
-              papers={papers}
-              onTogglePaper={handleTogglePaper}
-              onDeletePaper={handleDeletePaper}
-              onUploadPdfs={handleUploadPdfs}
-              onApproveAndGenerate={handleApproveAndGenerateHypotheses}
-              // `handleGenerateMoreLiterature` was the pre-2026-05-19
-              // "Generate more" handler that re-ran the entire search.
-              // We've switched the in-tab button to local pagination
-              // ("Show more" = next 10 of the already-ranked pool),
-              // which is way faster + matches user expectation. Kept
-              // as `onSearchMore` so a future "search again" UI can
-              // re-wire it without re-implementing the full search.
-              onSearchMore={handleGenerateMoreLiterature}
-              canGenerate={selectedPapers.length > 0}
-              isApproved={isPhaseApproved("literature")}
-              isBusy={busy === "hypotheses" || busy === "literature"}
-              isSearching={busy === "literature"}
-              progress={literatureProgress}
-              totalCandidates={literatureTotalCandidates}
-              onRevise={() => handleRevisePhase("literature")}
-              onDownloadPaper={handleDownloadPaper}
-            />
-          )}
+            {activeTab === "literature" && (
+              <LiteratureTab
+                papers={papers}
+                onTogglePaper={handleTogglePaper}
+                onDeletePaper={handleDeletePaper}
+                onUploadPdfs={handleUploadPdfs}
+                onApproveAndGenerate={handleApproveAndGenerateHypotheses}
+                // `handleGenerateMoreLiterature` was the pre-2026-05-19
+                // "Generate more" handler that re-ran the entire search.
+                // We've switched the in-tab button to local pagination
+                // ("Show more" = next 10 of the already-ranked pool),
+                // which is way faster + matches user expectation. Kept
+                // as `onSearchMore` so a future "search again" UI can
+                // re-wire it without re-implementing the full search.
+                onSearchMore={handleGenerateMoreLiterature}
+                canGenerate={selectedPapers.length > 0}
+                isApproved={isPhaseApproved("literature")}
+                isBusy={busy === "hypotheses" || busy === "literature"}
+                isSearching={busy === "literature"}
+                progress={literatureProgress}
+                totalCandidates={literatureTotalCandidates}
+                onRevise={() => handleRevisePhase("literature")}
+                onDownloadPaper={handleDownloadPaper}
+              />
+            )}
 
-          {activeTab === "hypotheses" && (
-            <HypothesesTab
-              hypotheses={hypotheses}
-              papers={papers}
-              onToggle={handleToggleHypothesis}
-              onEdit={handleEditHypothesis}
-              onApproveAndGenerate={handleApproveAndGenerateDesign}
-              onRegenerate={handleRegenerateHypotheses}
-              canGenerate={selectedHypotheses.length > 0}
-              isApproved={isPhaseApproved("hypotheses")}
-              isBusy={busy === "design" || busy === "hypotheses"}
-              isGenerating={busy === "hypotheses"}
-              progress={hypothesesProgress}
-              onRevise={() => handleRevisePhase("hypotheses")}
-            />
-          )}
+            {activeTab === "hypotheses" && (
+              <HypothesesTab
+                hypotheses={hypotheses}
+                papers={papers}
+                onToggle={handleToggleHypothesis}
+                onEdit={handleEditHypothesis}
+                onApproveAndGenerate={handleApproveAndGenerateDesign}
+                onRegenerate={handleRegenerateHypotheses}
+                canGenerate={selectedHypotheses.length > 0}
+                isApproved={isPhaseApproved("hypotheses")}
+                isBusy={busy === "design" || busy === "hypotheses"}
+                isGenerating={busy === "hypotheses"}
+                progress={hypothesesProgress}
+                onRevise={() => handleRevisePhase("hypotheses")}
+              />
+            )}
 
-          {activeTab === "design" && (
-            <DesignTab
-              designs={generatedDesigns}
-              hypotheses={hypotheses}
-              activeId={activeDesignId}
-              onSelect={setActiveDesignId}
-              activeDesign={activeDesign}
-              onSave={handleSaveDesign}
-              onDownload={handleDownloadDesign}
-              onApproveAndContinue={handleApproveDesignAndContinue}
-              onRegenerate={handleRegenerateDesign}
-              isApproved={isPhaseApproved("design")}
-              isBusy={busy === "design"}
-              isGenerating={busy === "design"}
-              progress={designProgress}
-              onRevise={() => handleRevisePhase("design")}
-              designVersions={designVersions}
-              onRestoreVersion={handleRestoreDesignVersion}
-              onEditSection={handleEditSection}
-            />
-          )}
+            {activeTab === "design" && (
+              <DesignTab
+                designs={generatedDesigns}
+                hypotheses={hypotheses}
+                activeId={activeDesignId}
+                onSelect={setActiveDesignId}
+                activeDesign={activeDesign}
+                onSave={handleSaveDesign}
+                onDownload={handleDownloadDesign}
+                onApproveAndContinue={handleApproveDesignAndContinue}
+                onRegenerate={handleRegenerateDesign}
+                isApproved={isPhaseApproved("design")}
+                isBusy={busy === "design"}
+                isGenerating={busy === "design"}
+                progress={designProgress}
+                onRevise={() => handleRevisePhase("design")}
+                designVersions={designVersions}
+                onRestoreVersion={handleRestoreDesignVersion}
+                onEditSection={handleEditSection}
+              />
+            )}
 
-          {activeTab === "overview" && (
-            <OverviewTab
-              title={title}
-              problemStatement={problemStatement}
-              domain={domain}
-              phase={phase}
-              objective={objective}
-              constraintMaterial={constraintMaterial}
-              constraintTime={constraintTime}
-              constraintEquipment={constraintEquipment}
-              variablesKnown={variablesKnown}
-              variablesUnknown={variablesUnknown}
-              papers={papers}
-              hypotheses={hypotheses}
-              designs={generatedDesigns}
-              approvedPhases={approvedPhases}
-              activeDesign={activeDesign}
-              onGoToTab={setActiveTab}
-            />
-          )}
+            {activeTab === "overview" && (
+              <OverviewTab
+                title={title}
+                problemStatement={problemStatement}
+                domain={domain}
+                phase={phase}
+                objective={objective}
+                constraintMaterial={constraintMaterial}
+                constraintTime={constraintTime}
+                constraintEquipment={constraintEquipment}
+                variablesKnown={variablesKnown}
+                variablesUnknown={variablesUnknown}
+                papers={papers}
+                hypotheses={hypotheses}
+                designs={generatedDesigns}
+                approvedPhases={approvedPhases}
+                activeDesign={activeDesign}
+                onGoToTab={setActiveTab}
+              />
+            )}
+          </div>
         </div>
+        {showRail && designGenerated && (
+          <div className="border-ink-200 w-[380px] shrink-0 border-l">
+            <ScopedChatRail
+              scope="design"
+              scopeId={designId}
+              scopeName={title || design?.name || "Design"}
+              autoStart
+              contextPrompt={chatContextPrompt}
+              headerSlot={
+                <button
+                  onClick={toggleChatRail}
+                  title="Close chat"
+                  className="text-ink-3 hover:bg-paper-2 hover:text-ink rounded p-1"
+                >
+                  <IconX size={16} />
+                </button>
+              }
+            />
+          </div>
+        )}
       </div>
     </div>
   )
