@@ -7,7 +7,6 @@ import {
   IconClipboardText,
   IconFileText,
   IconFlask,
-  IconMessage,
   IconPlus,
   IconSparkles,
   type Icon as TablerIconType
@@ -17,10 +16,6 @@ import { FC, useContext, useEffect, useMemo, useState } from "react"
 
 import { getProjectsByWorkspaceId } from "@/db/projects"
 
-// ShadowAISVG was used by the legacy "Quick start" card. Now that the
-// Jarvis hero owns that surface, the SVG is only used elsewhere on the
-// page (sidebar tile chrome), so it's pulled in lazily where needed.
-import { JarvisHero } from "@/components/jarvis/jarvis-hero"
 import { Walkthrough } from "@/components/onboarding/walkthrough"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
@@ -63,8 +58,6 @@ const CHIP_PROJECT =
   "inline-flex items-center gap-1 rounded-full border border-teal-journey/30 bg-teal-journey-tint px-2 py-0.5 text-[10.5px] font-medium text-teal-journey"
 const CHIP_STAGE =
   "rounded-full border border-purple-persona/30 bg-purple-persona-tint px-2 py-0.5 text-[10.5px] font-medium text-purple-persona"
-const CHIP_SCOPE =
-  "rounded-full border border-line bg-paper-2 px-2 py-0.5 text-[10.5px] font-medium text-ink-2"
 
 function greeting(now = new Date()) {
   const h = now.getHours()
@@ -113,11 +106,11 @@ type EntryMode =
   | "check-stats"
   | "make-plan"
 
-type ListKind = "designs" | "reports" | "chats"
+type ListKind = "designs" | "reports"
 
 export default function WorkspacePage() {
   const router = useRouter()
-  const { selectedWorkspace, profile, designs, reports, chats } =
+  const { selectedWorkspace, profile, designs, reports } =
     useContext(ChatbotUIContext)
   // Legacy `query` state from the removed Quick-start input - the
   // Jarvis hero owns the prompt textarea now, so this state is no
@@ -173,15 +166,12 @@ export default function WorkspacePage() {
       ),
     [reports]
   )
-  const sortedChats = useMemo(
-    () =>
-      [...chats].sort(
-        (a, b) =>
-          new Date(b.updated_at || b.created_at).getTime() -
-          new Date(a.updated_at || a.created_at).getTime()
-      ),
-    [chats]
-  )
+
+  // Resolve a report's parent design name. Reports are now generated from a
+  // design (source_design_id), so the slab attributes each report to its
+  // design rather than a project.
+  const designNameOf = (id: string | null | undefined) =>
+    (id && designs.find(d => d.id === id)?.name) || null
 
   // In-progress heuristic: touched in the last 14 days (in lieu of loading
   // approvedPhases from Firestore for every design). Completed = total − active.
@@ -206,11 +196,6 @@ export default function WorkspacePage() {
     // The dialog branches on `mode` for mode-specific fields (hypothesis text,
     // existing plan, external design paste/upload).
     router.push(`/${wsId}/designs/new?mode=${mode}`)
-  }
-
-  const startChat = () => {
-    if (!wsId) return
-    router.push(`/${wsId}/chat`)
   }
 
   const entryModes: Array<{
@@ -275,9 +260,6 @@ export default function WorkspacePage() {
           </div>
 
           <div className="flex items-center gap-2">
-            <Button variant="secondary" size="lg" onClick={startChat}>
-              <IconMessage size={14} stroke={2.4} /> Start chat
-            </Button>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="primary" size="lg">
@@ -313,16 +295,8 @@ export default function WorkspacePage() {
           </div>
         </div>
 
-        {/* Jarvis hero - the home assistant with memory + brief.
-            Replaces the legacy "Quick start" input card. Streams chat
-            via /api/jarvis/chat, beacons /api/jarvis/compress on
-            unload to persist the arc into the user's vault. */}
-        <div className="mb-7">
-          <JarvisHero displayName={firstName} />
-        </div>
-
         {/* Stats - clicking switches the list shown below */}
-        <div className="mb-7 grid grid-cols-3 gap-3.5">
+        <div className="mb-7 grid grid-cols-2 gap-3.5">
           <Stat
             label="Total designs"
             value={designs.length}
@@ -341,19 +315,12 @@ export default function WorkspacePage() {
             active={activeList === "reports"}
             onClick={() => setActiveList("reports")}
           />
-          <Stat
-            label="Chats"
-            value={chats.length}
-            sub={chats.length === 0 ? "none yet" : "threads"}
-            active={activeList === "chats"}
-            onClick={() => setActiveList("chats")}
-          />
         </div>
 
         {/* Active list */}
         {activeList === "designs" && (
           <DesignsList
-            items={sortedDesigns.slice(0, 8)}
+            items={sortedDesigns}
             wsId={wsId}
             onNew={() => startDesign()}
             projectNameOf={projectName}
@@ -361,18 +328,9 @@ export default function WorkspacePage() {
         )}
         {activeList === "reports" && (
           <ReportsList
-            items={sortedReports.slice(0, 8)}
+            items={sortedReports}
             wsId={wsId}
-            projectNameOf={projectName}
-          />
-        )}
-        {activeList === "chats" && (
-          <ChatsList
-            items={sortedChats.slice(0, 8)}
-            wsId={wsId}
-            projectNameOf={projectName}
-            designs={designs}
-            reports={reports}
+            designNameOf={designNameOf}
           />
         )}
       </div>
@@ -501,17 +459,18 @@ interface ReportsListProps {
     id: string
     name?: string | null
     description?: string | null
-    project_id?: string | null
+    /** Parent design this report was generated from. */
+    source_design_id?: string | null
     /** Generated report body - when non-empty we mark the report Completed. */
     report_draft?: unknown
     updated_at?: string | null
     created_at: string
   }>
   wsId?: string
-  projectNameOf: (id: string | null | undefined) => string | null
+  designNameOf: (id: string | null | undefined) => string | null
 }
 
-function ReportsList({ items, wsId, projectNameOf }: ReportsListProps) {
+function ReportsList({ items, wsId, designNameOf }: ReportsListProps) {
   const router = useRouter()
   const [page, setPage] = useState(0)
   if (items.length === 0) {
@@ -543,7 +502,7 @@ function ReportsList({ items, wsId, projectNameOf }: ReportsListProps) {
       >
         <div className="flex flex-col gap-2.5">
           {paged.map(r => {
-            const pname = projectNameOf(r.project_id)
+            const dname = designNameOf(r.source_design_id)
             const draft = r.report_draft
             const reportCompleted =
               (typeof draft === "string" && draft.trim().length > 0) ||
@@ -569,7 +528,11 @@ function ReportsList({ items, wsId, projectNameOf }: ReportsListProps) {
                   </div>
                 )}
                 <div className="mt-2 flex flex-wrap items-center gap-2">
-                  {pname && <span className={CHIP_PROJECT}>{pname}</span>}
+                  {dname && (
+                    <span className={CHIP_PROJECT}>
+                      <IconFlask size={10} /> {dname}
+                    </span>
+                  )}
                   <span
                     className={
                       reportCompleted ? STATUS_COMPLETED : STATUS_IN_PROGRESS
@@ -578,112 +541,6 @@ function ReportsList({ items, wsId, projectNameOf }: ReportsListProps) {
                     {reportCompleted ? "Completed" : "In progress"}
                   </span>
                 </div>
-              </SlabRow>
-            )
-          })}
-        </div>
-      </SlabPager>
-    </>
-  )
-}
-
-interface ChatsListProps {
-  items: Array<{
-    id: string
-    name?: string | null
-    scope?: string | null
-    scope_id?: string | null
-    project_id?: string | null
-    updated_at?: string | null
-    created_at: string
-  }>
-  wsId?: string
-  projectNameOf: (id: string | null | undefined) => string | null
-  designs: Array<{ id: string; name: string }>
-  reports: Array<{ id: string; name?: string | null }>
-}
-
-function ChatsList({
-  items,
-  wsId,
-  projectNameOf,
-  designs,
-  reports
-}: ChatsListProps) {
-  const router = useRouter()
-  const [page, setPage] = useState(0)
-  if (items.length === 0) {
-    return (
-      <>
-        <ListHeader title="Chats" count={0} />
-        <Card className="p-10 text-center">
-          <IconMessage size={28} className="text-ink-3 mx-auto mb-3" />
-          <div className="text-ink mb-1 text-[14px] font-semibold">
-            No chats yet
-          </div>
-          <div className="text-ink-3 text-[13px]">
-            Start a chat to see threads here.
-          </div>
-        </Card>
-      </>
-    )
-  }
-  const start = page * DASH_PAGE_SIZE
-  const paged = items.slice(start, start + DASH_PAGE_SIZE)
-  return (
-    <>
-      <ListHeader title="Chats" count={items.length} />
-      <SlabPager
-        total={items.length}
-        page={page}
-        pageSize={DASH_PAGE_SIZE}
-        onPageChange={setPage}
-      >
-        <div className="flex flex-col gap-2.5">
-          {paged.map(c => {
-            const scopeIds = (c.scope_id ?? "")
-              .split(",")
-              .map(s => s.trim())
-              .filter(Boolean)
-            let scopeChip: string | null = null
-            if (c.scope === "project") {
-              scopeChip =
-                scopeIds.length === 1
-                  ? (projectNameOf(scopeIds[0]) ?? "Project")
-                  : `${scopeIds.length} projects`
-            } else if (c.scope === "design") {
-              scopeChip =
-                scopeIds.length === 1
-                  ? (designs.find(d => d.id === scopeIds[0])?.name ?? "Design")
-                  : `${scopeIds.length} designs`
-            } else if (c.scope === "report") {
-              scopeChip =
-                scopeIds.length === 1
-                  ? (reports.find(r => r.id === scopeIds[0])?.name ?? "Report")
-                  : `${scopeIds.length} reports`
-            } else if (c.project_id) {
-              scopeChip = projectNameOf(c.project_id) ?? "Project"
-            } else {
-              scopeChip = "Workspace"
-            }
-            const dateLines = formatCreatedModifiedStacked(
-              c.created_at,
-              c.updated_at
-            )
-            return (
-              <SlabRow
-                key={c.id}
-                onClick={() => wsId && router.push(`/${wsId}/chat/${c.id}`)}
-                dateLines={dateLines}
-              >
-                <div className="text-ink truncate text-[15px] font-semibold">
-                  {c.name || "Untitled chat"}
-                </div>
-                {scopeChip && (
-                  <div className="mt-2 flex flex-wrap items-center gap-2">
-                    <span className={CHIP_SCOPE}>{scopeChip}</span>
-                  </div>
-                )}
               </SlabRow>
             )
           })}

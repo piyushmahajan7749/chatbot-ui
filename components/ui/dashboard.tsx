@@ -31,7 +31,7 @@ export const Dashboard: FC<DashboardProps> = ({ children }) => {
   const router = useRouter()
   const params = useParams()
   const searchParams = useSearchParams()
-  const tabValue = searchParams.get("tab") || "chats"
+  const tabValue = searchParams.get("tab") || "projects"
 
   const workspaceId = params.workspaceid as string | undefined
   const locale = (params.locale as string | undefined) ?? "en"

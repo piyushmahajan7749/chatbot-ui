@@ -1,5 +1,5 @@
 import { ContentType } from "@/types"
-import { IconFolder, IconMessages } from "@tabler/icons-react"
+import { IconFolder } from "@tabler/icons-react"
 import { FC } from "react"
 import { TabsList } from "../ui/tabs"
 import { WithTooltip } from "../ui/with-tooltip"
@@ -13,10 +13,10 @@ interface SidebarSwitcherProps {
 }
 
 /**
- * v2 sidebar: two entries only - Projects and Chat History.
- * Everything Project-local lives inside the Project canvas; reusable workspace
- * items (files, assistants, prompts, etc.) are no longer surfaced in primary
- * nav. Profile stays at the bottom.
+ * Experiment-design sidebar: Projects only. Chat is no longer a workspace-level
+ * surface - it lives scoped to a design (side chat) or as the "all designs"
+ * thread, so the Chat History nav item has been removed. Project-local items
+ * live inside the Project canvas. Profile stays at the bottom.
  */
 export const SidebarSwitcher: FC<SidebarSwitcherProps> = ({
   onContentTypeChange
@@ -27,11 +27,6 @@ export const SidebarSwitcher: FC<SidebarSwitcherProps> = ({
         <SidebarSwitchItem
           icon={<IconFolder size={SIDEBAR_ICON_SIZE} />}
           contentType="projects"
-          onContentTypeChange={onContentTypeChange}
-        />
-        <SidebarSwitchItem
-          icon={<IconMessages size={SIDEBAR_ICON_SIZE} />}
-          contentType="chat-history"
           onContentTypeChange={onContentTypeChange}
         />
       </TabsList>
