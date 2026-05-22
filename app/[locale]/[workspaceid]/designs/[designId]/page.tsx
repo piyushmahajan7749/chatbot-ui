@@ -56,6 +56,8 @@ import {
   IconArrowLeft,
   IconArrowRight,
   IconBook,
+  IconBookmark,
+  IconBookmarkFilled,
   IconBulb,
   IconChartBar,
   IconCheck,
@@ -74,7 +76,6 @@ import {
   IconShare,
   IconSparkles,
   IconTargetArrow,
-  IconTrash,
   IconUpload,
   IconVariable,
   IconX
@@ -973,25 +974,26 @@ export default function DesignDetailPage() {
     })
   }
 
-  const handleDeletePaper = (id: string) => {
-    setPapers(prev => {
-      const next = prev.filter(p => p.id !== id)
-      void persistContent({ papers: next })
-      return next
-    })
-  }
+  // Tracks which papers the user has saved into the design's library this
+  // session, so the card's save icon can flip to a "Saved" state.
+  const [savedPaperIds, setSavedPaperIds] = useState<Set<string>>(
+    () => new Set<string>()
+  )
 
   /**
-   * Save paper into the workspace paper library + open the source URL in a
-   * new tab so the user can read / actually download. Library save is
-   * fire-and-forget - failures only log; the user-visible action (open
-   * URL) always runs.
+   * Save a paper into the workspace paper library, tagged with this design so
+   * it surfaces under the design name in the Library section. Optimistic +
+   * fire-and-forget: the icon flips immediately and failures roll back with a
+   * soft toast. (The card's own "Link ↗" is how the user opens the source —
+   * saving no longer hijacks a new browser tab.)
    */
-  const handleDownloadPaper = (paper: Paper) => {
-    if (paper.sourceUrl) {
-      window.open(paper.sourceUrl, "_blank", "noopener,noreferrer")
-    }
+  const handleSavePaper = (paper: Paper) => {
     if (!workspaceId) return
+    setSavedPaperIds(prev => {
+      const next = new Set(prev)
+      next.add(paper.id)
+      return next
+    })
     void addPaperToLibrary({
       workspaceId,
       paper: {
@@ -1007,24 +1009,25 @@ export default function DesignDetailPage() {
     })
       .then((res: any) => {
         if (res?.deduplicated) {
-          // Already in library - keep the toast quiet to avoid noise on
-          // repeat clicks. Just a console line for observability.
           console.log("[paper-library] paper already saved:", paper.title)
         } else {
           toast({
             title: "Saved to library",
-            description: `"${paper.title.slice(0, 60)}" added to workspace papers.`
+            description: `"${paper.title.slice(0, 60)}" added to this design's library.`
           })
         }
       })
       .catch(err => {
         console.warn("[paper-library] save failed:", err)
-        // Don't block the user - the URL already opened. Surface a soft
-        // toast so they know the library save didn't take.
+        // Roll back the optimistic flag so the user can retry.
+        setSavedPaperIds(prev => {
+          const next = new Set(prev)
+          next.delete(paper.id)
+          return next
+        })
         toast({
           title: "Couldn't save to library",
-          description:
-            err?.message ?? "Paper opened, but workspace save failed.",
+          description: err?.message ?? "Workspace save failed — try again.",
           variant: "destructive"
         })
       })
@@ -1807,7 +1810,6 @@ export default function DesignDetailPage() {
               <LiteratureTab
                 papers={papers}
                 onTogglePaper={handleTogglePaper}
-                onDeletePaper={handleDeletePaper}
                 onUploadPdfs={handleUploadPdfs}
                 onApproveAndGenerate={handleApproveAndGenerateHypotheses}
                 // `handleGenerateMoreLiterature` was the pre-2026-05-19
@@ -1825,7 +1827,8 @@ export default function DesignDetailPage() {
                 progress={literatureProgress}
                 totalCandidates={literatureTotalCandidates}
                 onRevise={() => handleRevisePhase("literature")}
-                onDownloadPaper={handleDownloadPaper}
+                onSavePaper={handleSavePaper}
+                savedPaperIds={savedPaperIds}
               />
             )}
 
@@ -2348,14 +2351,32 @@ function PhaseProgressView(props: {
   )
 }
 
+// Plain-language headlines for each stage of the literature search. The
+// server emits terse/technical `message` strings; we override them here with
+// clear, human descriptions so the scientist can see — and trust — exactly
+// what the agent is doing at each step. The dynamic `detail` line (live
+// counts, timings, queries) is kept underneath for credibility.
+const FRIENDLY_STEP_MESSAGE: Record<string, string> = {
+  optimizing_query: "Reading your problem to craft precise search queries",
+  searching_sources:
+    "Searching PubMed, arXiv, Semantic Scholar, Google Scholar, and the web",
+  deduping: "Merging the same paper found across different sources",
+  papers_found: "Gathering everything we found",
+  searching_round: "Running deeper, angle-specific searches",
+  filtering_reviews: "Setting aside reviews to keep original research",
+  ranking: "Ranking each paper against your research problem",
+  summarizing_papers: "Writing a short, problem-focused summary for each paper"
+}
+
 function progressToEvents(
   events: LiteratureProgress[]
 ): Array<{ step: string; message: string; detail?: string }> {
   return events.map(ev => {
+    const message = FRIENDLY_STEP_MESSAGE[ev.step] ?? ev.message
     if (ev.step === "optimizing_query") {
       return {
         step: ev.step,
-        message: ev.message,
+        message,
         detail: ev.primaryQuery
       }
     }
@@ -2364,7 +2385,7 @@ function progressToEvents(
       // when the pre-warm completes, plain message before.
       return {
         step: ev.step,
-        message: ev.message,
+        message,
         detail: ev.detail
       }
     }
@@ -2376,7 +2397,7 @@ function progressToEvents(
       const dropped = raw !== null && unique !== null ? raw - unique : null
       return {
         step: ev.step,
-        message: ev.message,
+        message,
         detail:
           dropped !== null && dropped > 0
             ? `${dropped} duplicate${dropped === 1 ? "" : "s"} merged across sources`
@@ -2399,7 +2420,7 @@ function progressToEvents(
       const detail = [ratio, counts].filter(Boolean).join("  ·  ")
       return {
         step: ev.step,
-        message: ev.message,
+        message,
         detail: detail || undefined
       }
     }
@@ -2429,7 +2450,7 @@ function progressToEvents(
       }
       return {
         step: ev.step,
-        message: ev.message,
+        message,
         detail: parts.join("  ·  ")
       }
     }
@@ -2438,7 +2459,7 @@ function progressToEvents(
       const remaining = ev.remaining ?? 0
       return {
         step: ev.step,
-        message: ev.message,
+        message,
         detail:
           dropped > 0
             ? `${dropped} review${dropped === 1 ? "" : "s"} dropped, ${remaining} primary research kept`
@@ -2450,7 +2471,7 @@ function progressToEvents(
       // populated by the agent with the input count.
       return {
         step: ev.step,
-        message: ev.message,
+        message,
         detail:
           typeof ev.remaining === "number"
             ? `Scoring ${ev.remaining} candidate${ev.remaining === 1 ? "" : "s"} against your problem statement`
@@ -2463,7 +2484,7 @@ function progressToEvents(
       // (~5s)" as a distinct phase from the broader rerank.
       return {
         step: ev.step,
-        message: ev.message,
+        message,
         detail:
           typeof ev.papersCount === "number"
             ? `Writing problem-aware blurbs for the top ${ev.papersCount}`
@@ -2477,7 +2498,6 @@ function progressToEvents(
 function LiteratureTab(props: {
   papers: Paper[]
   onTogglePaper: (id: string) => void
-  onDeletePaper: (id: string) => void
   onUploadPdfs: (files: FileList | null) => void
   onApproveAndGenerate: () => void
   /**
@@ -2502,13 +2522,14 @@ function LiteratureTab(props: {
    */
   totalCandidates?: number
   onRevise: () => void
-  /** Save the paper to the workspace paper library + trigger browser open. */
-  onDownloadPaper: (paper: Paper) => void
+  /** Save the paper into this design's library (workspace paper library). */
+  onSavePaper: (paper: Paper) => void
+  /** Ids of papers already saved this session — flips the save icon state. */
+  savedPaperIds: Set<string>
 }) {
   const {
     papers,
     onTogglePaper,
-    onDeletePaper,
     onUploadPdfs,
     onApproveAndGenerate,
     onSearchMore,
@@ -2519,7 +2540,8 @@ function LiteratureTab(props: {
     progress,
     totalCandidates,
     onRevise,
-    onDownloadPaper
+    onSavePaper,
+    savedPaperIds
   } = props
 
   // Sort dropdown (issue #14). Default to relevance - that's what the
@@ -2589,10 +2611,8 @@ function LiteratureTab(props: {
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="relevance">Rank by relevance</SelectItem>
-                <SelectItem value="recency">
-                  Sort by latest published
-                </SelectItem>
+                <SelectItem value="relevance">Ranked by relevance</SelectItem>
+                <SelectItem value="recency">Ranked by latest</SelectItem>
               </SelectContent>
             </Select>
           )}
@@ -2725,8 +2745,8 @@ function LiteratureTab(props: {
                 <span>
                   <b className="text-ink">{visiblePapers.length}</b> of{" "}
                   <b className="text-ink">{ranked.length}</b> paper
-                  {ranked.length === 1 ? "" : "s"} surfaced · ranked by
-                  relevance
+                  {ranked.length === 1 ? "" : "s"} surfaced · ranked by{" "}
+                  {sortMode === "recency" ? "latest" : "relevance"}
                   {searchedTotal > ranked.length && (
                     <>
                       {" · from "}
@@ -2768,15 +2788,6 @@ function LiteratureTab(props: {
                       <h4 className="text-ink flex-1 text-[14px] font-semibold leading-snug">
                         {paper.title}
                       </h4>
-                      {typeof paper.relevanceScore === "number" &&
-                        paper.relevanceScore > 0 && (
-                          <span
-                            title={`Relevance ${(paper.relevanceScore * 100).toFixed(0)}%`}
-                            className="text-ink-3 shrink-0 font-mono text-[10.5px]"
-                          >
-                            {(paper.relevanceScore * 100).toFixed(0)}% match
-                          </span>
-                        )}
                     </div>
                     {(() => {
                       const authorList = paper.authors ?? []
@@ -2842,31 +2853,33 @@ function LiteratureTab(props: {
                     )}
                   </div>
                   <div className="flex shrink-0 items-center gap-1">
-                    {paper.sourceUrl && (
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={e => {
-                          e.stopPropagation()
-                          onDownloadPaper(paper)
-                        }}
-                        className="text-ink-3 hover:text-ink"
-                        title="Download paper + save to workspace library"
-                      >
-                        <IconDownload size={14} />
-                      </Button>
-                    )}
-                    {!isApproved && (
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => onDeletePaper(paper.id)}
-                        className="text-ink-3 hover:text-destructive"
-                        title="Remove paper"
-                      >
-                        <IconTrash size={14} />
-                      </Button>
-                    )}
+                    {(() => {
+                      const isSaved = savedPaperIds.has(paper.id)
+                      return (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={e => {
+                            e.stopPropagation()
+                            if (!isSaved) onSavePaper(paper)
+                          }}
+                          className={
+                            isSaved ? "text-rust" : "text-ink-3 hover:text-rust"
+                          }
+                          title={
+                            isSaved
+                              ? "Saved to this design's library"
+                              : "Save to this design's library"
+                          }
+                        >
+                          {isSaved ? (
+                            <IconBookmarkFilled size={14} />
+                          ) : (
+                            <IconBookmark size={14} />
+                          )}
+                        </Button>
+                      )
+                    })()}
                   </div>
                 </div>
               ))}
