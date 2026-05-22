@@ -2,6 +2,7 @@
 
 import {
   IconBook,
+  IconBookmark,
   IconBuilding,
   IconChevronDown,
   IconChevronsLeft,
@@ -485,6 +486,15 @@ export const AppSidebar = ({ isCollapsed, onToggle }: AppSidebarProps) => {
               label="Design Chats"
               active={isActive("/chat-history")}
               onClick={() => wsId && router.push(`/${wsId}/chat-history`)}
+              collapsed={isCollapsed}
+              indent={16}
+            />
+            {/* Library = papers saved from inside designs, grouped by design. */}
+            <NavItem
+              icon={<IconBookmark size={16} />}
+              label="Library"
+              active={isActive("/library")}
+              onClick={() => wsId && router.push(`/${wsId}/library`)}
               collapsed={isCollapsed}
               indent={16}
             />
