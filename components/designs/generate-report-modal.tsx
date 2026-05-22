@@ -95,7 +95,6 @@ export const GenerateReportModal: FC<GenerateReportModalProps> = ({
     missing: string[]
   } | null>(null)
 
-  const protocolRef = useRef<HTMLInputElement>(null)
   const papersRef = useRef<HTMLInputElement>(null)
   const dataRef = useRef<HTMLInputElement>(null)
 
@@ -389,11 +388,12 @@ export const GenerateReportModal: FC<GenerateReportModalProps> = ({
             report. You only need to upload the experiment&apos;s data files.
           </div>
           {renderSlot({
-            label: "Protocol / procedure (optional)",
-            type: "protocol",
-            selected: protocol,
-            uploadRef: protocolRef,
-            caption: "Extra procedure docs beyond the design."
+            label: "Data files",
+            required: true,
+            type: "dataFiles",
+            selected: dataFiles,
+            uploadRef: dataRef,
+            caption: "Experimental data the analysis agent works from."
           })}
           {renderSlot({
             label: "Reference documents (optional)",
@@ -401,14 +401,6 @@ export const GenerateReportModal: FC<GenerateReportModalProps> = ({
             selected: papers,
             uploadRef: papersRef,
             caption: "Supporting papers, SOPs, or notes to cite."
-          })}
-          {renderSlot({
-            label: "Data files",
-            required: true,
-            type: "dataFiles",
-            selected: dataFiles,
-            uploadRef: dataRef,
-            caption: "Experimental data the analysis agent works from."
           })}
 
           {warning && (

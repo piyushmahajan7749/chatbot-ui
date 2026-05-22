@@ -64,7 +64,6 @@ const ACCEPTED_FILE_EXTS = ".pdf,.docx,.csv,.jpeg,.jpg"
 export const InputsTab: FC<InputsTabProps> = ({
   objective,
   onObjectiveChange,
-  protocol,
   papers,
   dataFiles,
   onToggleFile,
@@ -75,19 +74,17 @@ export const InputsTab: FC<InputsTabProps> = ({
   templateId,
   onTemplateChange,
   customSections,
-  onCustomSectionsChange,
-  protocolOptional = false
+  onCustomSectionsChange
 }) => {
   // Data files are now mandatory alongside the design + objective so
   // the analysis agent always has something to work from (#11 in the
   // bug-list). Falling back to "report with no data" was producing
   // thin sections that read like marketing copy. The protocol file is
   // optional for design-sourced reports (the design is the protocol).
+  // The design supplies the protocol/method, so generation only needs an
+  // objective + data files. (Protocol upload field removed from the viewer.)
   const canGenerate =
-    !!objective.trim() &&
-    (protocolOptional || protocol.length > 0) &&
-    dataFiles.length > 0 &&
-    !isGenerating
+    !!objective.trim() && dataFiles.length > 0 && !isGenerating
   const activeTemplateId = templateId || DEFAULT_TEMPLATE_ID
 
   const { profile, selectedWorkspace } = useContext(ChatbotUIContext)
@@ -97,7 +94,6 @@ export const InputsTab: FC<InputsTabProps> = ({
 
   // One hidden <input type="file"> per field so the Upload buttons can
   // trigger their own picker. Refs are kept stable across renders.
-  const protocolUploadRef = useRef<HTMLInputElement>(null)
   const papersUploadRef = useRef<HTMLInputElement>(null)
   const dataFilesUploadRef = useRef<HTMLInputElement>(null)
 
@@ -297,32 +293,9 @@ export const InputsTab: FC<InputsTabProps> = ({
             </p>
           </div>
 
-          {/* Field rename: Protocol → Design/Plan/Procedure. The internal
-              `protocol` key stays the same so persisted reports and the
-              report-outline route signature don't need migrating. */}
-          {renderFileField({
-            label: "Design / Plan / Procedure",
-            required: !protocolOptional,
-            type: "protocol",
-            selected: protocol,
-            uploadRef: protocolUploadRef,
-            caption: protocolOptional
-              ? "Optional — this report's design already supplies the method. Add extra procedure docs here if needed."
-              : "The experimental design, plan, or step-by-step procedure document this report is built from."
-          })}
-
-          {/* Field rename: Preparation / Reference Papers → Reference
-              Documents / Other Files. Caption tells the user what to
-              put here. */}
-          {renderFileField({
-            label: "Reference Documents / Other Files",
-            type: "papers",
-            selected: papers,
-            uploadRef: papersUploadRef,
-            caption:
-              "Supporting papers, prior reports, SOPs, or notes the report should cite or draw context from."
-          })}
-
+          {/* Data files first (mandatory) — the analysis agent works
+              directly from these. The design already supplies the
+              protocol/method, so no protocol upload field here. */}
           {renderFileField({
             label: "Data Files",
             required: true,
@@ -330,6 +303,16 @@ export const InputsTab: FC<InputsTabProps> = ({
             selected: dataFiles,
             uploadRef: dataFilesUploadRef,
             caption: "Experimental data the analysis agent should work from."
+          })}
+
+          {/* Reference documents (optional) — supporting context to cite. */}
+          {renderFileField({
+            label: "Reference Documents / Other Files",
+            type: "papers",
+            selected: papers,
+            uploadRef: papersUploadRef,
+            caption:
+              "Supporting papers, prior reports, SOPs, or notes the report should cite or draw context from."
           })}
 
           {/* Optional custom sections - scientist's ask. Lets the user

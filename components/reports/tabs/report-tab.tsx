@@ -2,7 +2,7 @@
 
 import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
-import { IconPlus, IconRefresh, IconSparkles } from "@tabler/icons-react"
+import { IconRefresh, IconSparkles } from "@tabler/icons-react"
 import { Maximize2 } from "lucide-react"
 import { FC, useCallback, useEffect, useRef, useState } from "react"
 import { ReportSection } from "./report-section"
@@ -217,8 +217,7 @@ export const ReportTab: FC<ReportTabProps> = ({
   reportTitle,
   isSaved = false,
   onSaveAsTemplate,
-  customSections,
-  onAddCustomSection
+  customSections
 }) => {
   const template: ReportTemplate = getTemplate(templateId)
   const sectionGroups = getSectionGroups(template)
@@ -335,18 +334,6 @@ export const ReportTab: FC<ReportTabProps> = ({
                 )
               })}
             </div>
-          )}
-          {/* + Add section CTA below the last item. Saved reports
-              hide it - the structure is locked once saved. */}
-          {!isSaved && onAddCustomSection && (
-            <button
-              type="button"
-              onClick={onAddCustomSection}
-              className="border-line text-ink-2 hover:bg-paper-2 mx-1 mt-2 flex w-[calc(100%-0.5rem)] items-center justify-center gap-1 rounded-md border border-dashed px-2 py-1.5 text-[12px] font-medium transition-colors"
-            >
-              <IconPlus size={12} />
-              Add section
-            </button>
           )}
         </nav>
       </aside>
