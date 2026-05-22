@@ -469,19 +469,24 @@ export const AppSidebar = ({ isCollapsed, onToggle }: AppSidebarProps) => {
               onClick={() => wsId && router.push(`/${wsId}/designs`)}
               collapsed={isCollapsed}
             />
+            {/* Reports + Chats are nested under Designs — everything in this
+                product hangs off a design, so they read as "Design Reports"
+                and "Design Chats" indented beneath it. */}
             <NavItem
               icon={<IconBook size={16} />}
-              label="Reports"
+              label="Design Reports"
               active={isActive("/reports")}
               onClick={() => wsId && router.push(`/${wsId}/reports`)}
               collapsed={isCollapsed}
+              indent={16}
             />
             <NavItem
               icon={<IconMessage size={16} />}
-              label="Chats"
+              label="Design Chats"
               active={isActive("/chat-history")}
               onClick={() => wsId && router.push(`/${wsId}/chat-history`)}
               collapsed={isCollapsed}
+              indent={16}
             />
           </NavSection>
 

@@ -1,16 +1,6 @@
 "use client"
 
-import {
-  IconBulb,
-  IconChartBar,
-  IconChevronDown,
-  IconClipboardText,
-  IconFileText,
-  IconFlask,
-  IconPlus,
-  IconSparkles,
-  type Icon as TablerIconType
-} from "@tabler/icons-react"
+import { IconFileText, IconFlask, IconPlus } from "@tabler/icons-react"
 import { useRouter } from "next/navigation"
 import { FC, useContext, useEffect, useMemo, useState } from "react"
 
@@ -23,12 +13,6 @@ import { Card } from "@/components/ui/card"
 // design / report / chat slabs. The new slab layout uses inline
 // status pills with their own tailwind classes (CHIP_PROJECT,
 // STATUS_COMPLETED, etc) so we no longer pull Chip in here.
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger
-} from "@/components/ui/dropdown-menu"
 import { DisplayHeading, Eyebrow } from "@/components/ui/typography"
 // StageId still referenced by the props for DesignsList items
 // (current_stage / approved_phases come off the Firestore row); STAGES
@@ -98,13 +82,6 @@ const Stat: FC<StatProps> = ({ label, value, sub, active, onClick }) => (
     <div className="text-ink-3 mt-0.5 text-[11.5px]">{sub}</div>
   </button>
 )
-
-type EntryMode =
-  | "from-scratch"
-  | "from-hypothesis"
-  | "from-plan"
-  | "check-stats"
-  | "make-plan"
 
 type ListKind = "designs" | "reports"
 
@@ -184,57 +161,19 @@ export default function WorkspacePage() {
   }, [designs])
   const completedCount = designs.length - inProgressCount
 
+  // Reports completion mirrors the reports page: a report is "completed" once
+  // it has a generated draft (`report_draft`), otherwise it's in progress.
+  const reportsCompletedCount = useMemo(
+    () => reports.filter(r => !!(r as any).report_draft).length,
+    [reports]
+  )
+  const reportsInProgressCount = reports.length - reportsCompletedCount
+
   const startDesign = (seed?: string) => {
     if (!wsId) return
     const base = `/${wsId}/designs/new`
     router.push(seed ? `${base}?q=${encodeURIComponent(seed)}` : base)
   }
-
-  const openMode = (mode: EntryMode) => {
-    if (!wsId) return
-    // All five modes funnel through the create-design dialog at /designs/new.
-    // The dialog branches on `mode` for mode-specific fields (hypothesis text,
-    // existing plan, external design paste/upload).
-    router.push(`/${wsId}/designs/new?mode=${mode}`)
-  }
-
-  const entryModes: Array<{
-    mode: EntryMode
-    label: string
-    desc: string
-    icon: TablerIconType
-  }> = [
-    {
-      mode: "from-scratch",
-      label: "From a research question",
-      desc: "Full 5-stage flow",
-      icon: IconSparkles
-    },
-    {
-      mode: "from-hypothesis",
-      label: "From a hypothesis",
-      desc: "Skip to experiment design",
-      icon: IconBulb
-    },
-    {
-      mode: "from-plan",
-      label: "Structure an existing plan",
-      desc: "Paste your draft procedure",
-      icon: IconClipboardText
-    },
-    {
-      mode: "check-stats",
-      label: "Check a design statistically",
-      desc: "Review power, test choice, sample size",
-      icon: IconChartBar
-    },
-    {
-      mode: "make-plan",
-      label: "Make a plan for a design",
-      desc: "Generate dated execution plan",
-      icon: IconClipboardText
-    }
-  ]
 
   // First-time product tour. We don't list `viewed_walkthrough` on the
   // generated profile type yet (the column lives in migration 20260510,
@@ -260,38 +199,12 @@ export default function WorkspacePage() {
           </div>
 
           <div className="flex items-center gap-2">
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="primary" size="lg">
-                  <IconPlus size={14} stroke={2.4} /> New design
-                  <IconChevronDown size={14} stroke={2.4} />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end" className="w-[300px] p-1.5">
-                {entryModes.map(m => {
-                  const Icon = m.icon
-                  return (
-                    <DropdownMenuItem
-                      key={m.mode}
-                      onSelect={() => openMode(m.mode)}
-                      className="flex cursor-pointer items-start gap-3 rounded-md p-2.5"
-                    >
-                      <div className="bg-paper-2 mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-md">
-                        <Icon size={14} className="text-ink-2" />
-                      </div>
-                      <div className="min-w-0">
-                        <div className="text-ink text-[13px] font-semibold leading-snug">
-                          {m.label}
-                        </div>
-                        <div className="text-ink-3 mt-0.5 text-[11.5px] leading-snug">
-                          {m.desc}
-                        </div>
-                      </div>
-                    </DropdownMenuItem>
-                  )
-                })}
-              </DropdownMenuContent>
-            </DropdownMenu>
+            {/* New design opens the create-design page directly — the
+                multi-mode dropdown was removed; the page itself handles how
+                the user wants to start. */}
+            <Button variant="primary" size="lg" onClick={() => startDesign()}>
+              <IconPlus size={14} stroke={2.4} /> New design
+            </Button>
           </div>
         </div>
 
@@ -309,9 +222,13 @@ export default function WorkspacePage() {
             onClick={() => setActiveList("designs")}
           />
           <Stat
-            label="Reports"
+            label="Total reports"
             value={reports.length}
-            sub={reports.length === 0 ? "none yet" : "generated"}
+            sub={
+              reports.length === 0
+                ? "none yet"
+                : `${reportsInProgressCount} in progress · ${reportsCompletedCount} completed`
+            }
             active={activeList === "reports"}
             onClick={() => setActiveList("reports")}
           />

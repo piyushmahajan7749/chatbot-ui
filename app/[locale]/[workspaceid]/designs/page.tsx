@@ -538,27 +538,6 @@ const DesignSlab: FC<DesignSlabProps> = ({
           >
             <IconCopy size={14} className="text-ink-3" />
           </button>
-          {/* Generate report — completed designs only, and only until a
-              report exists (after that the slab shows the report button). */}
-          {isCompleted && (
-            <button
-              type="button"
-              onClick={e => {
-                e.stopPropagation()
-                if (!hasReport) onGenerateReport()
-              }}
-              data-slab-action
-              disabled={hasReport}
-              title={
-                hasReport
-                  ? "Report already generated"
-                  : "Generate a report from this design"
-              }
-              className="hover:bg-paper-2 rounded p-1.5 disabled:opacity-40"
-            >
-              <IconReportAnalytics size={14} className="text-ink-3" />
-            </button>
-          )}
           <button
             type="button"
             onClick={onEdit}
@@ -636,7 +615,7 @@ const DesignSlab: FC<DesignSlabProps> = ({
             Stage: {progress.currentStageLabel}
           </span>
         )}
-        {hasReport && (
+        {hasReport ? (
           <button
             type="button"
             data-slab-action
@@ -653,6 +632,25 @@ const DesignSlab: FC<DesignSlabProps> = ({
               · {formatShortDate(reportForDesign.created_at)}
             </span>
           </button>
+        ) : (
+          isCompleted && (
+            /* Generate report is a standalone, labelled action — kept out of
+               the edit/duplicate/delete icon cluster (those act on the design
+               itself) and sat in the footer so it reads as the next step. */
+            <button
+              type="button"
+              data-slab-action
+              onClick={e => {
+                e.stopPropagation()
+                onGenerateReport()
+              }}
+              title="Generate a report from this design"
+              className="border-brick text-brick hover:bg-brick ml-auto inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[10.5px] font-semibold transition-colors hover:text-white"
+            >
+              <IconReportAnalytics size={11} />
+              Generate report
+            </button>
+          )
         )}
       </div>
     </SlabRow>

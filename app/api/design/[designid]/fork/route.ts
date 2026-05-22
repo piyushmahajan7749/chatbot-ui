@@ -53,6 +53,19 @@ export async function POST(
 
   const newId = crypto.randomUUID()
   const now = new Date().toISOString()
+  // Place the copy DIRECTLY ABOVE the design it was cloned from in the
+  // recency-ordered lists (dashboard + designs page both sort by updated_at
+  // desc). Giving the fork `updated_at = now` shoved it to the very top of
+  // the list instead of next to its source, so it looked like "nothing
+  // happened" until a refresh. Anchoring updated_at 1s after the source makes
+  // it land immediately above the original — both in the optimistic client
+  // insert and after any refetch.
+  const srcUpdatedMs = src.updated_at
+    ? new Date(src.updated_at).getTime()
+    : Date.now()
+  const forkUpdatedAt = Number.isFinite(srcUpdatedMs)
+    ? new Date(srcUpdatedMs + 1000).toISOString()
+    : now
 
   // Optionally clear approvedPhases so the duplicate is editable again.
   let forkContent = src.content ?? null
@@ -98,7 +111,7 @@ export async function POST(
     equipment: src.equipment ?? null,
     special_considerations: src.special_considerations ?? null,
     created_at: now,
-    updated_at: now
+    updated_at: forkUpdatedAt
   }
 
   await adminDb.collection("designs").doc(newId).set(fork)
