@@ -47,6 +47,40 @@ export const getMessageFileItemsByMessageId = async (
   return { id: messageId, file_items }
 }
 
+/**
+ * Best-effort batch lookup: for a set of chats, return ONE representative RAG
+ * source title per chat (the document an answer cited) so the chats list /
+ * sidebar can show "from {source}". Single round-trip via the
+ * message_file_items → messages embed (`message_id` FK). Chats with no RAG
+ * citations are simply absent from the returned map.
+ */
+export const getChatSourceTitlesByChatIds = async (
+  chatIds: string[]
+): Promise<Record<string, string>> => {
+  if (chatIds.length === 0) return {}
+  const { data, error } = await supabase
+    .from("message_file_items")
+    .select("source_title, messages!inner(chat_id)")
+    .not("source_title", "is", null)
+    .in("messages.chat_id", chatIds)
+
+  if (error) {
+    console.warn(
+      "[message-file-items] chat source titles fetch failed:",
+      error.message
+    )
+    return {}
+  }
+
+  const out: Record<string, string> = {}
+  for (const row of (data ?? []) as any[]) {
+    const chatId = row.messages?.chat_id as string | undefined
+    const title = row.source_title as string | undefined
+    if (chatId && title && !out[chatId]) out[chatId] = title
+  }
+  return out
+}
+
 export const createMessageFileItems = async (
   messageFileItems: TablesInsert<"message_file_items">[]
 ) => {

@@ -13,12 +13,14 @@ import {
   IconLayoutGrid,
   IconMessage,
   IconPlus,
-  IconPoint,
   IconSearch,
   IconSettings
 } from "@tabler/icons-react"
 import { usePathname, useRouter } from "next/navigation"
-import { useContext, useEffect, useState } from "react"
+import { useContext, useEffect, useMemo, useState } from "react"
+
+import { getFirstUserMessagePreviewsByChatIds } from "@/db/messages"
+import { getChatSourceTitlesByChatIds } from "@/db/message-file-items"
 
 import {
   DropdownMenu,
@@ -401,7 +403,52 @@ export const AppSidebar = ({ isCollapsed, onToggle }: AppSidebarProps) => {
     return (parts[0][0] + parts[1][0]).toUpperCase()
   })()
 
-  const recentChats = chats.slice(0, 3)
+  // Recent shows GENERAL chats only — per-design / per-report edit rails live
+  // with their parent, not in the workspace feed.
+  const recentChats = useMemo(
+    () =>
+      chats
+        .filter(c => !c.scope || !["design", "report"].includes(c.scope))
+        .slice(0, 3),
+    [chats]
+  )
+
+  // First question asked + a representative source per recent chat, so each
+  // row reads as a small slab (name / question / from {source}).
+  const [recentMeta, setRecentMeta] = useState<{
+    questions: Record<string, string>
+    sources: Record<string, string>
+  }>({ questions: {}, sources: {} })
+
+  const recentIdsKey = recentChats.map(c => c.id).join(",")
+  useEffect(() => {
+    const ids = recentChats.map(c => c.id)
+    if (ids.length === 0) {
+      setRecentMeta({ questions: {}, sources: {} })
+      return
+    }
+    let cancelled = false
+    void Promise.all([
+      getFirstUserMessagePreviewsByChatIds(ids),
+      getChatSourceTitlesByChatIds(ids)
+    ])
+      .then(([questions, sources]) => {
+        if (!cancelled) setRecentMeta({ questions, sources })
+      })
+      .catch(() => {})
+    return () => {
+      cancelled = true
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [recentIdsKey])
+
+  // Compress a free-form chat name to ~3 words; keep labelled ("·") names.
+  const shortChatTitle = (name: string): string => {
+    if (!name) return "Untitled chat"
+    if (name.includes("·")) return name
+    const words = name.trim().split(/\s+/)
+    return words.slice(0, 3).join(" ") + (words.length > 3 ? "…" : "")
+  }
 
   return (
     <ErrorBoundary>
@@ -551,14 +598,33 @@ export const AppSidebar = ({ isCollapsed, onToggle }: AppSidebarProps) => {
 
           {recentChats.length > 0 && !isCollapsed && (
             <NavSection label="Recent" collapsed={isCollapsed}>
-              {recentChats.map(c => (
-                <NavItem
-                  key={c.id}
-                  icon={<IconPoint size={10} />}
-                  label={c.name || "Untitled chat"}
-                  onClick={() => wsId && router.push(`/${wsId}/chat/${c.id}`)}
-                />
-              ))}
+              {recentChats.map(c => {
+                const question = recentMeta.questions[c.id]
+                const source = recentMeta.sources[c.id]
+                return (
+                  <button
+                    key={c.id}
+                    type="button"
+                    onClick={() => wsId && router.push(`/${wsId}/chat/${c.id}`)}
+                    className="text-ink-2 hover:bg-paper-3 mx-2 my-px flex w-[calc(100%-1rem)] flex-col gap-0.5 rounded-md px-2.5 py-1.5 text-left"
+                  >
+                    <span className="text-ink flex items-center gap-2 text-[13px] font-medium">
+                      <IconMessage size={13} className="text-ink-3 shrink-0" />
+                      <span className="truncate">{shortChatTitle(c.name)}</span>
+                    </span>
+                    {question && (
+                      <span className="text-ink-3 truncate pl-[21px] text-[11.5px]">
+                        {question}
+                      </span>
+                    )}
+                    {source && (
+                      <span className="text-ink-3/80 truncate pl-[21px] font-mono text-[10px]">
+                        from {source}
+                      </span>
+                    )}
+                  </button>
+                )
+              })}
             </NavSection>
           )}
         </div>

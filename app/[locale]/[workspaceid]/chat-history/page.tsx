@@ -1,479 +1,209 @@
 "use client"
 
-import { useContext, useEffect, useMemo, useState } from "react"
+/**
+ * Workspace Chats — the list of GENERAL chats (workspace-wide + project
+ * level). Chats scoped to a single design or report are deliberately excluded:
+ * those live inside the design/report's own chat rail and are not surfaced
+ * here. Each slab shows the chat name, the question that was asked, and the
+ * source the answer drew its information from. Search + page-number pagination
+ * only — no filters, no "start thread" (general chats begin from the chat UI).
+ */
+
+import { useEffect, useMemo, useState } from "react"
 import { useParams, useRouter } from "next/navigation"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
+
 import { EntityCard } from "@/components/cards/entity-card"
-import type { AccentKey } from "@/components/canvas/accent-tabs"
-import { ChatbotUIContext } from "@/context/context"
-import { useToast } from "@/app/hooks/use-toast"
-import {
-  StartChatModal,
-  type StartChatSelection
-} from "@/components/chat/start-chat-modal"
-import { createChatFiles, getChatFilesByChatId } from "@/db/chat-files"
-import { createChat, getChatsByWorkspaceId } from "@/db/chats"
+import { SlabPager } from "@/components/ui/slab-pager"
+import { getChatsByWorkspaceId } from "@/db/chats"
 import { getFirstUserMessagePreviewsByChatIds } from "@/db/messages"
-import { getReportsByWorkspaceId } from "@/db/reports-firestore"
-import { getFileWorkspacesByWorkspaceId } from "@/db/files"
-import { supabase } from "@/lib/supabase/browser-client"
+import { getChatSourceTitlesByChatIds } from "@/db/message-file-items"
 import { formatShortDateEU } from "@/lib/format-date"
 import type { Tables } from "@/supabase/types"
-import {
-  IconFile,
-  IconFileText,
-  IconMessagePlus,
-  IconMessages,
-  IconSearch
-} from "@tabler/icons-react"
-import { cn } from "@/lib/utils"
+import { IconMessages, IconSearch } from "@tabler/icons-react"
 
-type ScopeFilter =
-  | "all"
-  | "workspace"
-  | "project"
-  | "design"
-  | "reports"
-  | "files"
+const PAGE_SIZE = 12
 
-const FILTERS: { key: ScopeFilter; label: string; accent: AccentKey }[] = [
-  { key: "all", label: "All", accent: "neutral" },
-  { key: "workspace", label: "Workspace", accent: "sage-brand" },
-  { key: "project", label: "Project", accent: "teal-journey" },
-  { key: "design", label: "Design", accent: "purple-persona" },
-  { key: "reports", label: "Reports", accent: "orange-product" },
-  { key: "files", label: "Files", accent: "neutral" }
-]
-
-const SCOPE_ACCENT: Record<string, AccentKey> = {
-  workspace: "sage-brand",
-  project: "teal-journey",
-  design: "purple-persona"
-}
+// Single-document chat rails (a chat pinned to one design/report for editing)
+// are stored on the chat row with these scopes; the general Chats page hides
+// them — they belong to their parent design/report, not the workspace feed.
+const EXCLUDED_SCOPES = new Set(["design", "report"])
 
 export default function ChatHistoryPage() {
   const params = useParams()
   const router = useRouter()
-  const { toast } = useToast()
-  const { selectedWorkspace, chatSettings } = useContext(ChatbotUIContext)
 
   const workspaceId = params.workspaceid as string
   const locale = params.locale as string
 
   const [chats, setChats] = useState<Tables<"chats">[]>([])
-  const [reports, setReports] = useState<any[]>([])
-  const [files, setFiles] = useState<Tables<"files">[]>([])
   const [loading, setLoading] = useState(true)
-  const [filter, setFilter] = useState<ScopeFilter>("all")
-  const [startModalOpen, setStartModalOpen] = useState(false)
   const [search, setSearch] = useState("")
-  const [creating, setCreating] = useState(false)
-  // chatId → first user message ("the question asked") - rendered as
-  // the slab subtitle so the row shows what the user actually asked
-  // instead of just the auto-generated short title (#26).
+  const [page, setPage] = useState(0)
+  // chatId → first user message ("the question asked").
   const [questionByChat, setQuestionByChat] = useState<Record<string, string>>(
     {}
   )
-  // chatId → file count for chat_files-scoped chats. Powers the
-  // "Files · N" pill in the slab without making an extra request per
-  // chat at render time (#27).
-  const [fileCountByChat, setFileCountByChat] = useState<
-    Record<string, number>
-  >({})
+  // chatId → a representative RAG source title ("from which source").
+  const [sourceByChat, setSourceByChat] = useState<Record<string, string>>({})
 
   useEffect(() => {
     let cancelled = false
     setLoading(true)
-    // Fan out - chats are the primary feed but reports + files share the
-    // same surface as adjacent chat targets. Each promise is best-effort:
-    // a failed report/file fetch shouldn't blank the whole page.
-    Promise.allSettled([
-      getChatsByWorkspaceId(workspaceId),
-      getReportsByWorkspaceId(workspaceId),
-      getFileWorkspacesByWorkspaceId(workspaceId).then(
-        ws => (ws as any).files ?? []
-      )
-    ])
-      .then(([chatRes, reportRes, fileRes]) => {
+    getChatsByWorkspaceId(workspaceId)
+      .then(rows => {
         if (cancelled) return
-        if (chatRes.status === "fulfilled") {
-          const rows = chatRes.value as Tables<"chats">[]
-          setChats(rows)
-          // Fan out two follow-up queries: first user message per chat
-          // (subtitle) + chat_files counts (Files · N pill). Both are
-          // best-effort so a failure just falls back to no preview.
-          const ids = rows.map(c => c.id)
-          void getFirstUserMessagePreviewsByChatIds(ids)
-            .then(map => {
-              if (!cancelled) setQuestionByChat(map)
-            })
-            .catch(err =>
-              console.warn("[chat-history] question previews failed:", err)
-            )
-          void Promise.all(
-            ids.map(async id => {
-              try {
-                const res = await getChatFilesByChatId(id)
-                return [id, res.files?.length ?? 0] as const
-              } catch {
-                return [id, 0] as const
-              }
-            })
-          ).then(pairs => {
-            if (cancelled) return
-            const map: Record<string, number> = {}
-            for (const [id, n] of pairs) if (n > 0) map[id] = n
-            setFileCountByChat(map)
+        // General chats only: drop the per-design / per-report edit rails.
+        const general = (rows as Tables<"chats">[]).filter(
+          c => !c.scope || !EXCLUDED_SCOPES.has(c.scope)
+        )
+        setChats(general)
+
+        const ids = general.map(c => c.id)
+        void getFirstUserMessagePreviewsByChatIds(ids)
+          .then(map => {
+            if (!cancelled) setQuestionByChat(map)
           })
-        } else {
-          console.error("Failed to load chats:", chatRes.reason)
-        }
-        if (reportRes.status === "fulfilled") {
-          setReports(reportRes.value as any[])
-        }
-        if (fileRes.status === "fulfilled") {
-          setFiles(fileRes.value as Tables<"files">[])
-        }
+          .catch(err =>
+            console.warn("[chat-history] question previews failed:", err)
+          )
+        void getChatSourceTitlesByChatIds(ids)
+          .then(map => {
+            if (!cancelled) setSourceByChat(map)
+          })
+          .catch(err =>
+            console.warn("[chat-history] source titles failed:", err)
+          )
       })
+      .catch(err => console.error("Failed to load chats:", err))
       .finally(() => {
         if (!cancelled) setLoading(false)
       })
     return () => {
       cancelled = true
     }
-  }, [workspaceId, toast])
+  }, [workspaceId])
 
-  const filtered = useMemo(() => {
-    const q = search.trim().toLowerCase()
-    if (filter === "reports" || filter === "files") return chats // unused - feeds below
-    return chats.filter(c => {
-      const scopeMatch =
-        filter === "all"
-          ? true
-          : filter === "workspace"
-            ? !c.scope
-            : c.scope === filter
-      const searchMatch = q ? c.name.toLowerCase().includes(q) : true
-      return scopeMatch && searchMatch
-    })
-  }, [chats, filter, search])
+  // Snap to first page when the search narrows the list.
+  useEffect(() => {
+    setPage(0)
+  }, [search])
 
-  const filteredReports = useMemo(() => {
-    const q = search.trim().toLowerCase()
-    if (!q) return reports
-    return reports.filter(r =>
-      (r.name || r.description || "").toLowerCase().includes(q)
-    )
-  }, [reports, search])
-
-  const filteredFiles = useMemo(() => {
-    const q = search.trim().toLowerCase()
-    if (!q) return files
-    return files.filter(f =>
-      (f.name || f.description || "").toLowerCase().includes(q)
-    )
-  }, [files, search])
-
-  // Slabs now show explicit dd/mm/yy (the scientist's ask in #25). Keep
-  // the helper local so we can swap to dd-mm-yy or relative without
-  // hunting through the page later.
   const shortDate = (date: string | null): string =>
     date ? formatShortDateEU(date) : "-"
 
-  /**
-   * Compress the chat name into a 1-3 word "auto-title". Chats created
-   * by the scope picker already carry a labelled name (e.g. "Workspace
-   * · Foo") - we keep those as-is. Free-form chats use
-   * `messageContent.substring(0,100)` as the name, so we trim to the
-   * first 3 words for the title and let the subtitle carry the full
-   * question.
-   */
+  // Compress a free-form chat name to a 1-3 word title; keep labelled chats.
   const shortChatTitle = (name: string): string => {
     if (!name) return "Untitled"
-    if (name.includes("·")) return name // labelled chat
+    if (name.includes("·")) return name
     const words = name.trim().split(/\s+/)
     return words.slice(0, 3).join(" ") + (words.length > 3 ? "…" : "")
   }
 
-  const handleStartNew = () => {
-    // Open the picker modal - actual chat creation happens in
-    // `handleStartFromModal` once the user picks workspace / project /
-    // design / report / files.
-    setStartModalOpen(true)
-  }
+  const sortedChats = useMemo(
+    () =>
+      [...chats].sort(
+        (a, b) =>
+          new Date(b.updated_at || b.created_at).getTime() -
+          new Date(a.updated_at || a.created_at).getTime()
+      ),
+    [chats]
+  )
 
-  const handleStartFromModal = async (sel: StartChatSelection) => {
-    if (!selectedWorkspace) return
-    setCreating(true)
-    try {
-      const {
-        data: { user }
-      } = await supabase.auth.getUser()
-      if (!user) throw new Error("Not signed in")
+  const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase()
+    if (!q) return sortedChats
+    return sortedChats.filter(c => {
+      const question = questionByChat[c.id] ?? ""
+      return (
+        c.name.toLowerCase().includes(q) || question.toLowerCase().includes(q)
+      )
+    })
+  }, [sortedChats, search, questionByChat])
 
-      // Map the picker's selection onto chats.scope + chats.scope_id +
-      // chats.project_id. Multi-pick (e.g. 3 designs) is encoded as
-      // CSV in scope_id; the retrieve route splits on "," before
-      // passing as p_only_source_ids to the RPC.
-      const scopeIdEncoded =
-        sel.scopeIds.length > 0 ? sel.scopeIds.join(",") : null
-      // For project-scoped chats we mirror the FIRST picked id into
-      // project_id so the existing project-chat surface (studio-canvas)
-      // continues to find this chat. Multi-project still works for RAG;
-      // only the surface routing uses the first id.
-      const projectId =
-        sel.scope === "project" && sel.scopeIds.length > 0
-          ? sel.scopeIds[0]
-          : null
-
-      const chat = await createChat({
-        user_id: user.id,
-        workspace_id: selectedWorkspace.id,
-        name: sel.label,
-        scope: sel.scope,
-        scope_id: scopeIdEncoded,
-        project_id: projectId,
-        model: chatSettings?.model ?? selectedWorkspace.default_model,
-        prompt: chatSettings?.prompt ?? selectedWorkspace.default_prompt ?? "",
-        temperature:
-          chatSettings?.temperature ?? selectedWorkspace.default_temperature,
-        context_length:
-          chatSettings?.contextLength ??
-          selectedWorkspace.default_context_length,
-        embeddings_provider:
-          chatSettings?.embeddingsProvider ??
-          selectedWorkspace.embeddings_provider,
-        include_profile_context:
-          chatSettings?.includeProfileContext ??
-          selectedWorkspace.include_profile_context,
-        include_workspace_instructions:
-          chatSettings?.includeWorkspaceInstructions ??
-          selectedWorkspace.include_workspace_instructions,
-        sharing: "private"
-      })
-
-      // For "files" scope: insert chat_files rows so handleRetrieval
-      // (chat-helpers/index.ts) sees them as attached files and
-      // restricts retrieval to those file rows in `rag_items`.
-      if (sel.fileIds.length > 0) {
-        try {
-          await createChatFiles(
-            sel.fileIds.map(fileId => ({
-              user_id: user.id,
-              chat_id: chat.id,
-              file_id: fileId
-            }))
-          )
-        } catch (err) {
-          console.warn(
-            "[chat-history] failed to attach files; chat created without file scope:",
-            err
-          )
-        }
-      }
-
-      setStartModalOpen(false)
-      router.push(`/${locale}/${workspaceId}/chat/${chat.id}`)
-    } catch (err) {
-      console.error("Failed to start new chat:", err)
-      toast({
-        title: "Error",
-        description: "Failed to start chat.",
-        variant: "destructive"
-      })
-    } finally {
-      setCreating(false)
-    }
-  }
+  const start = page * PAGE_SIZE
+  const paged = filtered.slice(start, start + PAGE_SIZE)
 
   return (
     <div className="bg-ink-50 h-full space-y-6 p-6">
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <div className="text-ink-400 text-[11px] font-bold uppercase tracking-[0.13em]">
-            Workspace
-          </div>
-          <h1 className="text-ink-900 text-2xl font-extrabold tracking-tight">
-            Chats
-          </h1>
-          <p className="text-ink-500 mt-1 text-sm">
-            Every thread across every project and design, in one place.
-          </p>
+      <div>
+        <div className="text-ink-400 text-[11px] font-bold uppercase tracking-[0.13em]">
+          Workspace
         </div>
-        <Button
-          onClick={handleStartNew}
-          disabled={creating || !selectedWorkspace}
-          className="bg-brick hover:bg-brick-hover gap-2"
-        >
-          <IconMessagePlus size={16} />
-          {creating ? "Starting…" : "Start new thread"}
-        </Button>
-      </div>
-
-      {/* Filters + search */}
-      <div className="border-ink-200 flex flex-wrap items-center gap-3 rounded-xl border bg-white p-3">
-        <div className="flex items-center gap-1">
-          {FILTERS.map(f => {
-            const active = filter === f.key
-            return (
-              <button
-                key={f.key}
-                onClick={() => setFilter(f.key)}
-                className={cn(
-                  "rounded-md px-3 py-1.5 text-[11px] font-bold uppercase tracking-widest transition-colors",
-                  active
-                    ? "bg-ink-900 text-white"
-                    : "text-ink-500 hover:bg-ink-100 hover:text-ink-900"
-                )}
-              >
-                {f.label}
-              </button>
-            )
-          })}
-        </div>
-
-        <div className="ml-auto flex min-w-[220px] flex-1 items-center gap-2">
-          <IconSearch size={14} className="text-ink-400 shrink-0" />
-          <Input
-            placeholder="Search threads…"
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-            className="border-none shadow-none focus-visible:ring-0"
-          />
-        </div>
+        <h1 className="text-ink-900 text-2xl font-extrabold tracking-tight">
+          Chats
+        </h1>
+        <p className="text-ink-500 mt-1 text-sm">
+          Your general chats. Chats opened inside a design to edit it stay with
+          that design.
+        </p>
       </div>
 
       {loading ? (
         <div className="flex h-64 items-center justify-center">
           <div className="border-ink-200 border-t-teal-journey size-8 animate-spin rounded-full border-2" />
         </div>
-      ) : filter === "reports" ? (
-        filteredReports.length === 0 ? (
-          <div className="flex h-64 flex-col items-center justify-center gap-2 text-center">
-            <IconFileText size={36} className="text-ink-200" />
-            <p className="text-ink-400 text-sm">
-              {search
-                ? "No reports match this search."
-                : "No reports yet in this workspace."}
-            </p>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-            {filteredReports.map(r => (
-              <EntityCard
-                key={r.id}
-                title={r.name || "Untitled report"}
-                badges={["report"]}
-                chips={[
-                  { label: "report", filled: true, accent: "orange-product" }
-                ]}
-                timestampLabel="Updated"
-                timestamp={shortDate(r.updated_at || r.created_at)}
-                onClick={() =>
-                  router.push(`/${locale}/${workspaceId}/reports/${r.id}`)
-                }
-              />
-            ))}
-          </div>
-        )
-      ) : filter === "files" ? (
-        filteredFiles.length === 0 ? (
-          <div className="flex h-64 flex-col items-center justify-center gap-2 text-center">
-            <IconFile size={36} className="text-ink-200" />
-            <p className="text-ink-400 text-sm">
-              {search
-                ? "No files match this search."
-                : "No files in this workspace yet."}
-            </p>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-            {filteredFiles.map(f => (
-              <EntityCard
-                key={f.id}
-                title={f.name || "Untitled file"}
-                badges={[f.type ?? "file"]}
-                chips={[
-                  { label: f.type ?? "file", filled: true, accent: "neutral" }
-                ]}
-                timestampLabel="Updated"
-                timestamp={shortDate(f.updated_at || f.created_at)}
-                onClick={() => undefined}
-              />
-            ))}
-          </div>
-        )
-      ) : filtered.length === 0 ? (
+      ) : chats.length === 0 ? (
         <div className="flex h-64 flex-col items-center justify-center gap-2 text-center">
           <IconMessages size={36} className="text-ink-200" />
-          <p className="text-ink-400 text-sm">
-            {search || filter !== "all"
-              ? "No threads match these filters."
-              : "No chat threads yet."}
-          </p>
-          {!search && filter === "all" && (
-            <Button
-              onClick={handleStartNew}
-              variant="outline"
-              className="mt-3 gap-2"
-            >
-              <IconMessagePlus size={14} />
-              Start your first thread
-            </Button>
-          )}
+          <p className="text-ink-400 text-sm">No chat threads yet.</p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-          {filtered.map(chat => {
-            const scopeLabel = chat.scope ?? "workspace"
-            const accent = SCOPE_ACCENT[scopeLabel] ?? "neutral"
-            const fileCount = fileCountByChat[chat.id]
-            const question = questionByChat[chat.id] ?? ""
-            // Scope tag is only meaningful on the "All" tab - when the
-            // user is already filtered to e.g. "Project" chats, the
-            // per-row scope chip is redundant noise. Hide it then (#23).
-            const showScopeChip = filter === "all"
-            const chips = showScopeChip
-              ? fileCount
-                ? [
-                    {
-                      label: `files · ${fileCount}`,
-                      filled: true,
-                      accent: "neutral" as const
-                    }
-                  ]
-                : [{ label: scopeLabel, filled: true, accent }]
-              : []
-            const badges = showScopeChip
-              ? fileCount
-                ? [`files · ${fileCount}`]
-                : [scopeLabel]
-              : []
-            return (
-              <EntityCard
-                key={chat.id}
-                title={shortChatTitle(chat.name)}
-                description={question || undefined}
-                badges={badges}
-                chips={chips}
-                timestampLabel=""
-                timestamp={shortDate(chat.updated_at || chat.created_at)}
-                onClick={() =>
-                  router.push(`/${locale}/${workspaceId}/chat/${chat.id}`)
-                }
+        <SlabPager
+          total={filtered.length}
+          page={page}
+          pageSize={PAGE_SIZE}
+          onPageChange={setPage}
+          topRight={
+            <div className="border-ink-200 flex w-full max-w-[260px] items-center gap-2 rounded-md border bg-white px-3 sm:w-[260px]">
+              <IconSearch size={14} className="text-ink-400 shrink-0" />
+              <input
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+                placeholder="Search chats…"
+                className="text-ink-900 placeholder:text-ink-400 h-8 w-full border-none bg-transparent text-[12.5px] outline-none"
               />
-            )
-          })}
-        </div>
+            </div>
+          }
+        >
+          {paged.length === 0 ? (
+            <div className="flex h-48 flex-col items-center justify-center gap-2 text-center">
+              <IconMessages size={32} className="text-ink-200" />
+              <p className="text-ink-400 text-sm">No chats match “{search}”.</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+              {paged.map(chat => {
+                const question = questionByChat[chat.id] ?? ""
+                const source = sourceByChat[chat.id]
+                return (
+                  <EntityCard
+                    key={chat.id}
+                    title={shortChatTitle(chat.name)}
+                    description={question || undefined}
+                    chips={
+                      source
+                        ? [
+                            {
+                              label: `from ${source}`,
+                              filled: true,
+                              accent: "sage-brand" as const
+                            }
+                          ]
+                        : []
+                    }
+                    badges={source ? [`from ${source}`] : []}
+                    timestampLabel=""
+                    timestamp={shortDate(chat.updated_at || chat.created_at)}
+                    onClick={() =>
+                      router.push(`/${locale}/${workspaceId}/chat/${chat.id}`)
+                    }
+                  />
+                )
+              })}
+            </div>
+          )}
+        </SlabPager>
       )}
-
-      <StartChatModal
-        isOpen={startModalOpen}
-        onOpenChange={setStartModalOpen}
-        onConfirm={handleStartFromModal}
-        busy={creating}
-      />
     </div>
   )
 }
