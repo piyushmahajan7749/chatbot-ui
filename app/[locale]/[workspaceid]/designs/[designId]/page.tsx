@@ -428,6 +428,10 @@ export default function DesignDetailPage() {
   const [hypothesesProgress, setHypothesesProgress] = useState<PhaseProgress[]>(
     []
   )
+  // Last hypothesis-generation error, so the Hypotheses tab can show an
+  // accurate "generation failed — retry" state instead of the misleading
+  // "approve literature" prompt after a transient backend failure.
+  const [hypothesesError, setHypothesesError] = useState<string | null>(null)
 
   // Designs state
   const [generatedDesigns, setGeneratedDesigns] = useState<GeneratedDesign[]>(
@@ -711,6 +715,7 @@ export default function DesignDetailPage() {
     setActiveTab("hypotheses")
     setBusy("hypotheses")
     setHypothesesProgress([])
+    setHypothesesError(null)
     try {
       const content = await runPhaseStreaming(
         designId,
@@ -726,9 +731,11 @@ export default function DesignDetailPage() {
       if (content.papers) setPapers(content.papers)
       if (content.hypotheses) setHypotheses(content.hypotheses)
     } catch (error: any) {
+      const msg = error?.message ?? "Try again in a moment."
+      setHypothesesError(msg)
       toast({
         title: "Hypothesis generation failed",
-        description: error?.message ?? "Try again in a moment.",
+        description: msg,
         variant: "destructive"
       })
     } finally {
@@ -820,8 +827,15 @@ export default function DesignDetailPage() {
 
   const handleRegenerateHypotheses = async () => {
     const keep = clearDownstreamState("hypotheses")
+    // Re-approve literature so a retry after a transient failure doesn't get
+    // gated: clearDownstreamState keeps problem + literature, but be explicit.
+    const keepWithLiterature = keep.includes("literature")
+      ? keep
+      : ([...keep, "literature"] as PhaseKey[])
+    setApprovedPhases(keepWithLiterature)
     setBusy("hypotheses")
     setHypothesesProgress([])
+    setHypothesesError(null)
     try {
       const content = await runPhaseStreaming(
         designId,
@@ -829,7 +843,7 @@ export default function DesignDetailPage() {
           phase: "hypotheses",
           problem: currentProblem(),
           papers,
-          approvedPhases: keep
+          approvedPhases: keepWithLiterature
         },
         ev => setHypothesesProgress(prev => [...prev, ev])
       )
@@ -837,9 +851,11 @@ export default function DesignDetailPage() {
       if (content.papers) setPapers(content.papers)
       if (content.hypotheses) setHypotheses(content.hypotheses)
     } catch (error: any) {
+      const msg = error?.message ?? "Try again in a moment."
+      setHypothesesError(msg)
       toast({
         title: "Hypothesis generation failed",
-        description: error?.message ?? "Try again in a moment.",
+        description: msg,
         variant: "destructive"
       })
     } finally {
@@ -1846,6 +1862,7 @@ export default function DesignDetailPage() {
                 isGenerating={busy === "hypotheses"}
                 progress={hypothesesProgress}
                 onRevise={() => handleRevisePhase("hypotheses")}
+                genError={hypothesesError}
               />
             )}
 
@@ -2933,6 +2950,10 @@ function HypothesesTab(props: {
   isGenerating?: boolean
   progress?: PhaseProgress[]
   onRevise: () => void
+  /** Set when the last generation attempt failed, so the empty state can show
+   *  an accurate "generation failed — retry" message instead of the
+   *  misleading "approve literature" prompt. */
+  genError?: string | null
 }) {
   const {
     hypotheses,
@@ -2946,7 +2967,8 @@ function HypothesesTab(props: {
     isBusy,
     isGenerating,
     progress,
-    onRevise
+    onRevise,
+    genError
   } = props
 
   const paperById = useMemo(() => {
@@ -2998,6 +3020,25 @@ function HypothesesTab(props: {
             subtitle="Five generation agents, then rank, reflect, evolve, and meta-review."
             events={progress ?? []}
           />
+        ) : genError ? (
+          <div className="space-y-3 rounded-xl border border-dashed border-red-300 bg-red-50 p-8 text-center">
+            <p className="text-[13px] font-semibold text-red-700">
+              Hypothesis generation didn&apos;t complete
+            </p>
+            <p className="text-[12px] text-red-600">{genError}</p>
+            <p className="text-ink-500 text-[11.5px]">
+              This is usually a transient hiccup — your literature is still
+              approved. Try generating again.
+            </p>
+            <Button
+              onClick={onRegenerate}
+              disabled={isBusy}
+              className="bg-purple-persona hover:bg-purple-persona/90 text-white"
+            >
+              <IconRefresh size={14} className="mr-1.5" />
+              Try again
+            </Button>
+          </div>
         ) : (
           <div className="border-purple-persona/30 bg-purple-persona-tint text-ink-500 rounded-xl border border-dashed p-8 text-center text-xs">
             {isBusy

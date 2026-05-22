@@ -68,15 +68,25 @@ export function ScopedChatRail({
   const { selectedWorkspace, chatSettings } = useContext(ChatbotUIContext)
 
   const [pinnedChat, setPinnedChat] = useState<Tables<"chats"> | null>(null)
-  const [resolving, setResolving] = useState(false)
+  // `resolved` flips true only once the scope lookup has SETTLED (found a
+  // thread or confirmed there's none). The auto-start effect waits on this so
+  // it can't fire before the lookup completes — the old `resolving`-starts-
+  // false flag let auto-start race ahead and create a duplicate thread (or, on
+  // a swallowed createChat error, leave the rail stuck with nothing started).
+  const [resolved, setResolved] = useState(false)
   const [creating, setCreating] = useState(false)
+  const [startError, setStartError] = useState<string | null>(null)
 
   const onChatRoute = Boolean(params.chatid)
 
   useEffect(() => {
-    if (!scopeId || onChatRoute) return
+    // On a chat route ChatUI drives itself; nothing to resolve here.
+    if (!scopeId || onChatRoute) {
+      setResolved(true)
+      return
+    }
     let cancelled = false
-    setResolving(true)
+    setResolved(false)
     getChatByScope(scope, scopeId)
       .then(chat => {
         if (!cancelled) setPinnedChat(chat ?? null)
@@ -85,7 +95,7 @@ export function ScopedChatRail({
         if (!cancelled) setPinnedChat(null)
       })
       .finally(() => {
-        if (!cancelled) setResolving(false)
+        if (!cancelled) setResolved(true)
       })
     return () => {
       cancelled = true
@@ -95,20 +105,14 @@ export function ScopedChatRail({
   useEffect(() => {
     if (!autoStart) return
     if (onChatRoute) return
-    if (resolving) return
+    if (!resolved) return
     if (pinnedChat) return
     if (!scopeId || !selectedWorkspace) return
     if (creating) return
+    if (startError) return // don't auto-retry a failed start; let the user click
     void handleStartThread()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [
-    autoStart,
-    onChatRoute,
-    resolving,
-    pinnedChat,
-    scopeId,
-    selectedWorkspace
-  ])
+  }, [autoStart, onChatRoute, resolved, pinnedChat, scopeId, selectedWorkspace])
 
   // Keep the pinned chat's system prompt in sync with the current scope context
   // (e.g. when the user edits the design or picks different hypotheses).
@@ -129,6 +133,7 @@ export function ScopedChatRail({
   const handleStartThread = async () => {
     if (!scopeId || !selectedWorkspace) return
     setCreating(true)
+    setStartError(null)
     try {
       const {
         data: { user }
@@ -168,8 +173,11 @@ export function ScopedChatRail({
         sharing: "private"
       })
       setPinnedChat(chat)
-    } catch (err) {
+    } catch (err: any) {
       console.error("Failed to start scoped chat thread:", err)
+      setStartError(
+        err?.message ?? "Couldn't start the chat thread. Please try again."
+      )
     } finally {
       setCreating(false)
     }
@@ -207,9 +215,9 @@ export function ScopedChatRail({
       <div className="relative min-h-0 flex-1">
         {onChatRoute ? (
           <ChatUI variant="panel" />
-        ) : resolving ? (
+        ) : !resolved || (creating && !startError) ? (
           <div className="text-ink-3 flex h-full items-center justify-center text-[12px]">
-            Loading thread…
+            {creating ? "Starting chat…" : "Loading thread…"}
           </div>
         ) : pinnedChat ? (
           <div className="flex h-full flex-col">
@@ -230,14 +238,25 @@ export function ScopedChatRail({
         ) : (
           <div className="flex h-full flex-col items-center justify-center gap-3 p-6 text-center">
             <IconMessage size={28} className="text-ink-3" />
-            <p className="text-ink-3 text-[12.5px]">No {scope} chat yet.</p>
+            <p className="text-ink-3 text-[12.5px]">
+              {startError
+                ? "Couldn't start the chat."
+                : `No ${scope} chat yet.`}
+            </p>
+            {startError && (
+              <p className="text-[11px] text-red-500">{startError}</p>
+            )}
             <button
               onClick={handleStartThread}
               disabled={creating || !scopeId || !selectedWorkspace}
               className="bg-rust text-paper flex items-center gap-1.5 rounded-md px-3 py-2 text-[12px] font-medium hover:bg-[color:var(--rust-hover)] disabled:opacity-50"
             >
               <IconPlus size={12} />
-              {creating ? "Starting…" : "Start thread"}
+              {creating
+                ? "Starting…"
+                : startError
+                  ? "Try again"
+                  : "Start thread"}
             </button>
           </div>
         )}

@@ -379,23 +379,46 @@ export async function POST(
             })
           }
 
-          const genResults = await runTasksWithConcurrency(
-            genTasks,
-            GENERATION_CONCURRENCY
-          )
-
+          // Run the generation agents; if they ALL transiently fail (the pool
+          // comes back empty — typically an Azure OpenAI 429/5xx burst that
+          // takes down the whole batch), retry the batch ONCE with fresh task
+          // ids before giving up. This is the root cause of the reported
+          // "hypotheses failed the first time, worked on the third try" bug:
+          // the single attempt was at the mercy of one transient hiccup.
           const pool: RankedHypothesis[] = []
-          for (const r of genResults) {
-            if (r.status === "success" && Array.isArray(r.output)) {
-              for (const item of r.output) {
-                pool.push({
-                  id: `h-${uuidv4()}`,
-                  text: item.hypothesis || "",
-                  explanation: item.explanation || "",
-                  rank: 0,
-                  feasibility: item.feasibility_score ?? 0,
-                  novelty: item.novelty_score ?? 0
-                })
+          for (let attempt = 1; attempt <= 2 && pool.length === 0; attempt++) {
+            if (attempt > 1) {
+              console.warn(
+                `[GENERATE] Hypothesis pool empty after attempt ${attempt - 1}; retrying the generation batch...`
+              )
+              sendProgress({
+                step: "generating",
+                message:
+                  "Retrying hypothesis generation after a transient error..."
+              })
+            }
+            // Fresh task ids on retry so worker-side dedup/caching can't
+            // short-circuit the second attempt.
+            const tasks =
+              attempt === 1
+                ? genTasks
+                : genTasks.map(t => ({ ...t, taskId: uuidv4() }))
+            const genResults = await runTasksWithConcurrency(
+              tasks,
+              GENERATION_CONCURRENCY
+            )
+            for (const r of genResults) {
+              if (r.status === "success" && Array.isArray(r.output)) {
+                for (const item of r.output) {
+                  pool.push({
+                    id: `h-${uuidv4()}`,
+                    text: item.hypothesis || "",
+                    explanation: item.explanation || "",
+                    rank: 0,
+                    feasibility: item.feasibility_score ?? 0,
+                    novelty: item.novelty_score ?? 0
+                  })
+                }
               }
             }
           }
@@ -403,7 +426,7 @@ export async function POST(
           if (pool.length === 0) {
             throw Object.assign(
               new Error(
-                "No hypotheses generated. Check that Azure OpenAI is configured."
+                "No hypotheses generated after a retry. Check that Azure OpenAI is configured and try again."
               ),
               { status: 502 }
             )
