@@ -124,6 +124,15 @@ export interface ProblemContext {
    */
   userProvidedPlan?: string
 
+  /**
+   * Whether the researcher wants replicates in the generated design. Only
+   * "yes" turns on a replicate scheme; "no" / unset → single run per
+   * condition (n=1). Drives the design-phase replicate directive.
+   */
+  includeReplicates?: "yes" | "no" | ""
+  /** Optional success criteria the researcher specified for the design. */
+  successCriteria?: string
+
   // ── Legacy v2 fields (kept so older saved designs still load) ──────────
   goal?: string
   variables?: string[]

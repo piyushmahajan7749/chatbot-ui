@@ -637,7 +637,11 @@ Return every hypothesis with its original index number, a score, and a one-sente
           const hypotheses: Hypothesis[] = topHypotheses.map(h => ({
             id: h.id,
             text: h.text,
-            reasoning: `Score: ${h.rank}/100 | Feasibility: ${(h.feasibility * 100).toFixed(0)}% | Novelty: ${(h.novelty * 100).toFixed(0)}%\n\n${h.explanation}`,
+            // Reasoning is just the scientific explanation — the internal
+            // rank / feasibility / novelty scores are NOT surfaced to the
+            // user (they're ranking signals only, and reading like grades on
+            // a hypothesis confused scientists).
+            reasoning: h.explanation,
             basedOnPaperIds: [],
             selected: false
           }))
@@ -740,6 +744,18 @@ Return every hypothesis with its original index number, a score, and a one-sente
             ? `\n\nUser-supplied draft procedure (treat this as the SCAFFOLDING to adopt; preserve structure/wording where reasonable, fill gaps, correct scientific errors, and complete missing sections such as material quantities, stats, safety):\n<user-plan>\n${userPlan}\n</user-plan>`
             : ""
 
+          // Replicates are OPT-IN. Previously the design phase baked a
+          // replicate scheme into every design regardless of the user's
+          // choice, so picking "No" still produced n=3 designs. Now we only
+          // include replicates when the researcher explicitly chose "yes";
+          // otherwise the design is a single run per condition (n=1). This
+          // directive is appended to the shared problemBlock so all four
+          // sub-phases (setup, materials, protocol, analysis) honour it.
+          const wantsReplicates = ctx.includeReplicates === "yes"
+          const replicateDirective = wantsReplicates
+            ? `\n\nREPLICATES: The researcher WANTS replicates. Include a sensible biological/technical replicate scheme (state n per group) and factor it into every vial-count, the conditions-table "n" column, all material totals, and the statistical power calculation.`
+            : `\n\nREPLICATES: The researcher does NOT want replicates — design a SINGLE run per condition (n = 1). Do NOT multiply any count by a replicate factor. State plainly in the replicates/conditions field: "No replicates — single run per condition (n = 1)". Every conditions-table "n" column = 1, and all material totals = conditions × 1 × volume-per-sample (dead-volume buffer only, no replicate multiplier). The statistics section must reflect n = 1 (no replicate-based power calc; note the single-run limitation).`
+
           for (let hypIdx = 0; hypIdx < selected.length; hypIdx++) {
             const hyp = selected[hypIdx]
             const hypPrefix = `[${hypIdx + 1}/${selected.length}]`
@@ -756,7 +772,8 @@ Return every hypothesis with its original index number, a score, and a one-sente
                 userSuppliedNote
               const problemBlock =
                 `Research problem: ${[ctx.title, ctx.problemStatement].filter(Boolean).join(" - ")}\nGoal: ${ctx.goal || "Not specified"}\nVariables: ${(ctx.variables ?? []).join(", ") || "Not specified"}\nConstraints: ${(ctx.constraints ?? []).join(", ") || "Not specified"}` +
-                userPlanBlock
+                userPlanBlock +
+                replicateDirective
 
               // ── Phase 1: Experimental Setup ────────────────────────
               console.log(
