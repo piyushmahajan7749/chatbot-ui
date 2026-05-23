@@ -1319,19 +1319,65 @@ export default function DesignDetailPage() {
     }
   }
 
-  const handleDownloadDesign = (d: GeneratedDesign) => {
-    const body = [
-      `# ${d.title}`,
-      "",
-      ...d.sections.flatMap(s => [`## ${s.heading}`, s.body, ""])
-    ]
-    const blob = new Blob([body.join("\n")], { type: "text/markdown" })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement("a")
-    a.href = url
-    a.download = `${d.title.slice(0, 40).replace(/[^a-z0-9\-]+/gi, "-")}.md`
-    a.click()
-    URL.revokeObjectURL(url)
+  const handleDownloadDesign = async (d: GeneratedDesign) => {
+    try {
+      // jsPDF is heavy; load it on demand so it stays out of the page bundle.
+      const { jsPDF } = await import("jspdf")
+      const doc = new jsPDF({ unit: "pt", format: "a4" })
+      const margin = 48
+      const pageWidth = doc.internal.pageSize.getWidth()
+      const pageHeight = doc.internal.pageSize.getHeight()
+      const maxWidth = pageWidth - margin * 2
+      let y = margin
+
+      const writeBlock = (
+        text: string,
+        opts: { size: number; bold?: boolean; gap?: number }
+      ) => {
+        doc.setFont("helvetica", opts.bold ? "bold" : "normal")
+        doc.setFontSize(opts.size)
+        const lineHeight = opts.size * 1.35
+        for (const line of doc.splitTextToSize(text, maxWidth)) {
+          if (y + lineHeight > pageHeight - margin) {
+            doc.addPage()
+            y = margin
+          }
+          doc.text(line, margin, y)
+          y += lineHeight
+        }
+        y += opts.gap ?? 6
+      }
+
+      // Light markdown → readable plain text. Table pipes are kept so the
+      // grid structure stays recognisable in the PDF.
+      const stripMd = (s: string) =>
+        s
+          .replace(/\*\*(.+?)\*\*/g, "$1")
+          .replace(/^#{1,6}\s+/gm, "")
+          .replace(/^[-*]\s+/gm, "• ")
+          .replace(/`{1,3}/g, "")
+
+      writeBlock(d.title || "Untitled design", {
+        size: 18,
+        bold: true,
+        gap: 14
+      })
+      for (const s of d.sections) {
+        writeBlock(s.heading, { size: 13, bold: true, gap: 4 })
+        writeBlock(stripMd(s.body || "").trim() || "—", { size: 10.5, gap: 14 })
+      }
+
+      const safeName =
+        d.title.slice(0, 40).replace(/[^a-z0-9\-]+/gi, "-") || "design"
+      doc.save(`${safeName}.pdf`)
+    } catch (err: any) {
+      console.error("[design] PDF download failed:", err)
+      toast({
+        title: "Download failed",
+        description: err?.message ?? "Couldn't generate the PDF.",
+        variant: "destructive"
+      })
+    }
   }
 
   // ── Tab configuration ─────────────────────────────────────────────────

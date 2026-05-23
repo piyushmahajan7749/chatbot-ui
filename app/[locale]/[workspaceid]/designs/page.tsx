@@ -61,10 +61,8 @@ import {
   getDesignProblemStatement,
   getDesignProgress
 } from "@/lib/design-status"
-import {
-  formatCreatedModifiedStacked,
-  formatShortDate
-} from "@/lib/format-date"
+import { formatCreatedModifiedStacked } from "@/lib/format-date"
+import { getTemplate } from "@/lib/report/templates"
 import { cn } from "@/lib/utils"
 
 interface ProjectLite {
@@ -519,6 +517,15 @@ const DesignSlab: FC<DesignSlabProps> = ({
     design.updated_at
   )
   const hasReport = !!reportForDesign
+  // 3 report states for a completed design:
+  //   reportReady   → a report with a generated draft exists ("View report")
+  //   reportPending → a report was saved (files uploaded) but not generated yet
+  //   neither       → no report at all ("Generate report")
+  const reportReady = !!reportForDesign?.report_draft
+  const reportPending = hasReport && !reportReady
+  const reportTemplateName = reportForDesign?.template_id
+    ? getTemplate(reportForDesign.template_id).name
+    : null
   return (
     <SlabRow
       onClick={onOpen}
@@ -615,7 +622,8 @@ const DesignSlab: FC<DesignSlabProps> = ({
             Stage: {progress.currentStageLabel}
           </span>
         )}
-        {hasReport ? (
+        {reportReady ? (
+          // State 1: completed report — open it. Badge shows the template used.
           <button
             type="button"
             data-slab-action
@@ -623,20 +631,44 @@ const DesignSlab: FC<DesignSlabProps> = ({
               e.stopPropagation()
               onOpenReport(reportForDesign.id)
             }}
-            title="Open the report generated from this design"
+            title={
+              reportTemplateName
+                ? `View the ${reportTemplateName} generated from this design`
+                : "Open the report generated from this design"
+            }
             className="bg-brick hover:bg-brick-hover ml-auto inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[10.5px] font-semibold text-white"
           >
             <IconFileText size={11} />
             View report
+            {reportTemplateName && (
+              <span className="font-normal opacity-80">
+                · {reportTemplateName}
+              </span>
+            )}
+          </button>
+        ) : reportPending ? (
+          // State 2: report saved (files uploaded) but not generated yet —
+          // open it on its inputs tab so the user can finish + generate.
+          <button
+            type="button"
+            data-slab-action
+            onClick={e => {
+              e.stopPropagation()
+              onOpenReport(reportForDesign.id)
+            }}
+            title="Report started — open it to add data files and generate"
+            className="ml-auto inline-flex items-center gap-1.5 rounded-full border border-amber-300 bg-amber-50 px-2.5 py-1 text-[10.5px] font-semibold text-amber-800 transition-colors hover:bg-amber-100"
+          >
+            <IconReportAnalytics size={11} />
+            Finish report
             <span className="font-normal opacity-80">
-              · {formatShortDate(reportForDesign.created_at)}
+              · pending{reportTemplateName ? ` · ${reportTemplateName}` : ""}
             </span>
           </button>
         ) : (
           isCompleted && (
-            /* Generate report is a standalone, labelled action — kept out of
-               the edit/duplicate/delete icon cluster (those act on the design
-               itself) and sat in the footer so it reads as the next step. */
+            // State 3: no report yet — prompt to generate one. Standalone
+            // labelled action, kept out of the edit/duplicate/delete cluster.
             <button
               type="button"
               data-slab-action
