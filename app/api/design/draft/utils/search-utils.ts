@@ -731,6 +731,15 @@ export async function searchOpenAlexEnhanced(
         search: query,
         per_page: Math.min(maxResults, 25),
         mailto,
+        // Bias OpenAlex toward PRIMARY research. Without this, broad
+        // biomedical queries (e.g. antibody formulation/aggregation) come
+        // back dominated by review articles, which the downstream review
+        // filter then drops — and when OpenAlex is the only live arm that
+        // leaves an all-reviews pool. `type:article|preprint` excludes
+        // `review` (and datasets/paratext) at the source. Valid OpenAlex
+        // filter syntax; the call is wrapped in try/catch so a bad filter
+        // degrades to [] rather than throwing.
+        filter: "type:article|preprint",
         // Trim the payload to fields we actually render. Without this
         // OpenAlex returns ~50 fields per work and the response can
         // balloon past 1 MB on a 25-result page.
