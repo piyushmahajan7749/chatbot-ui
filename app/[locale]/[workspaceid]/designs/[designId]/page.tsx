@@ -341,7 +341,7 @@ export default function DesignDetailPage() {
   const autoAction = searchParams.get("auto")
   const autoFiredRef = useRef(false)
   const { toast } = useToast()
-  const { profile, setUserInput, selectedWorkspace, chatSettings } =
+  const { profile, setUserInput, selectedWorkspace, chatSettings, setDesigns } =
     useContext(ChatbotUIContext)
   void profile
 
@@ -595,12 +595,29 @@ export default function DesignDetailPage() {
       schemaVersion: 2
     }
     latestContentRef.current = merged
+    const serialized = JSON.stringify(merged)
+    // Keep the shared context in sync so the Designs list + dashboard reflect
+    // the new status (e.g. "Completed" after the design phase is approved)
+    // immediately, instead of only after a full page refresh. getDesignProgress
+    // reads `content`, so updating it here flips the slab's status chip live.
+    setDesigns(prev =>
+      prev.map(d =>
+        d.id === designId
+          ? ({
+              ...d,
+              ...(extra?.name !== undefined ? { name: extra.name } : {}),
+              content: serialized,
+              updated_at: new Date().toISOString()
+            } as typeof d)
+          : d
+      )
+    )
     await fetch(`/api/design/${designId}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         ...(extra?.name !== undefined ? { name: extra.name } : {}),
-        content: JSON.stringify(merged)
+        content: serialized
       })
     })
   }

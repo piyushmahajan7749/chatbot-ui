@@ -11,15 +11,27 @@
 
 import { useEffect, useMemo, useState } from "react"
 import { useParams, useRouter } from "next/navigation"
+import { toast } from "sonner"
 
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger
+} from "@/components/ui/alert-dialog"
 import { EntityCard } from "@/components/cards/entity-card"
 import { SlabPager } from "@/components/ui/slab-pager"
-import { getChatsByWorkspaceId } from "@/db/chats"
+import { deleteChat, getChatsByWorkspaceId } from "@/db/chats"
 import { getFirstUserMessagePreviewsByChatIds } from "@/db/messages"
 import { getChatSourceTitlesByChatIds } from "@/db/message-file-items"
 import { formatShortDateEU } from "@/lib/format-date"
 import type { Tables } from "@/supabase/types"
-import { IconMessages, IconSearch } from "@tabler/icons-react"
+import { IconMessages, IconSearch, IconTrash } from "@tabler/icons-react"
 
 const PAGE_SIZE = 12
 
@@ -120,6 +132,18 @@ export default function ChatHistoryPage() {
     })
   }, [sortedChats, search, questionByChat])
 
+  const handleDeleteChat = async (chatId: string) => {
+    const prev = chats
+    setChats(c => c.filter(x => x.id !== chatId)) // optimistic
+    try {
+      await deleteChat(chatId)
+      toast.success("Chat deleted")
+    } catch (e: any) {
+      setChats(prev)
+      toast.error(`Couldn't delete chat: ${e?.message ?? "unknown"}`)
+    }
+  }
+
   const start = page * PAGE_SIZE
   const paged = filtered.slice(start, start + PAGE_SIZE)
 
@@ -133,8 +157,8 @@ export default function ChatHistoryPage() {
           Chats
         </h1>
         <p className="text-ink-500 mt-1 text-sm">
-          Your general chats. Chats opened inside a design to edit it stay with
-          that design.
+          Your conversations about your designs — search across all your work
+          and jump back into any thread.
         </p>
       </div>
 
@@ -196,6 +220,38 @@ export default function ChatHistoryPage() {
                     timestamp={shortDate(chat.updated_at || chat.created_at)}
                     onClick={() =>
                       router.push(`/${locale}/${workspaceId}/chat/${chat.id}`)
+                    }
+                    actions={
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                          <button
+                            type="button"
+                            title="Delete chat"
+                            className="text-ink-400 hover:bg-ink-100 rounded p-1 hover:text-red-500"
+                          >
+                            <IconTrash size={14} />
+                          </button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent onClick={e => e.stopPropagation()}>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>Delete chat?</AlertDialogTitle>
+                            <AlertDialogDescription>
+                              This permanently deletes &ldquo;
+                              {shortChatTitle(chat.name)}&rdquo; and its
+                              messages. This can&apos;t be undone.
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel>Cancel</AlertDialogCancel>
+                            <AlertDialogAction
+                              onClick={() => void handleDeleteChat(chat.id)}
+                              className="bg-red-600 hover:bg-red-700"
+                            >
+                              Delete
+                            </AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
                     }
                   />
                 )
