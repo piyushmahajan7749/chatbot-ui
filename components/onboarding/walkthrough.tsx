@@ -31,38 +31,36 @@ const STEPS: WalkthroughStep[] = [
   {
     eyebrow: "Step 1",
     title: "Welcome to Shadow AI",
-    body: "Your editorial research workspace. Design experiments, generate reports, and chat with every paper or design you bring in - grounded answers, citations clickable back to the source.",
+    body: "Shadow AI helps you design experiments end to end — from a research question to a ready-to-run protocol. Here's the 60-second tour.",
     icon: <IconSparkles size={28} />
   },
   {
     eyebrow: "Step 2",
-    title: "Design an experiment",
-    body: "Start with a research question. The agent pipeline scouts literature, generates hypotheses, and produces a structured design - all editable, all cited.",
+    title: "Start with a question",
+    body: "Type your research problem and Shadow AI runs the flow for you: it searches the literature, proposes hypotheses, then drafts a full experiment design. Every step is yours to review and edit.",
     icon: <IconFlask size={28} />,
     ctaPath: (locale, ws) => `/${locale}/${ws}/designs/new`,
-    ctaLabel: "Try designing one"
+    ctaLabel: "Start a design"
   },
   {
     eyebrow: "Step 3",
-    title: "Write a report",
-    body: "Drop in your protocol, reference docs, and data files. Pick a template - documentation, sharing with your PI, or a presentation update - and Shadow AI drafts every section.",
-    icon: <IconReport size={28} />,
-    ctaPath: (locale, ws) => `/${locale}/${ws}/reports`,
-    ctaLabel: "See reports"
+    title: "Literature → Hypotheses → Design",
+    body: "Work through three stages in order: review and pick the papers that matter, approve them to generate grounded hypotheses, then turn your chosen hypotheses into a step-by-step design. Approve each stage to move to the next.",
+    icon: <IconLayoutGrid size={28} />
   },
   {
     eyebrow: "Step 4",
-    title: "Chat with your workspace",
-    body: "Ask questions across everything: the whole workspace, one project, a specific design, a report, or a hand-picked set of files. Answers cite the source - click to jump back to it.",
-    icon: <IconMessage size={28} />,
-    ctaPath: (locale, ws) => `/${locale}/${ws}/chat`,
-    ctaLabel: "Open chat"
+    title: "Edit by chatting with your design",
+    body: "Open any design and hit Chat. Ask for changes in plain language — tweak the conditions, adjust the controls, expand the protocol — and the design updates in place. No forms to wrestle with.",
+    icon: <IconMessage size={28} />
   },
   {
     eyebrow: "Step 5",
-    title: "You're set",
-    body: "Everything lives under your home workspace. New designs, reports, and chats sync automatically. You can reopen this tour any time from the help menu.",
-    icon: <IconLayoutGrid size={28} />
+    title: "Generate a report, reuse past work",
+    body: "Once a design is complete, drop in your data files and generate a polished report. And from Chats you can ask across all your designs at once — compare approaches, spot trends, and pull in what you've done before.",
+    icon: <IconReport size={28} />,
+    ctaPath: (locale, ws) => `/${locale}/${ws}/chat`,
+    ctaLabel: "Try chatting across your work"
   }
 ]
 
