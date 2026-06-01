@@ -59,6 +59,8 @@ interface NavItemProps {
   onClick?: () => void
   collapsed?: boolean
   indent?: number
+  /** Optional data-tour selector handle so the product tour can highlight it. */
+  dataTour?: string
 }
 
 function NavItem({
@@ -68,13 +70,15 @@ function NavItem({
   badge,
   onClick,
   collapsed,
-  indent = 0
+  indent = 0,
+  dataTour
 }: NavItemProps) {
   return (
     <button
       type="button"
       onClick={onClick}
       title={collapsed ? label : undefined}
+      data-tour={dataTour}
       className={cn(
         "relative mx-2 my-px flex w-[calc(100%-1rem)] items-center gap-2.5 rounded-md px-2.5 py-2 text-left text-[14px] transition-colors",
         active
@@ -516,6 +520,7 @@ export const AppSidebar = ({ isCollapsed, onToggle }: AppSidebarProps) => {
               active={isActive("/designs")}
               onClick={() => wsId && router.push(`/${wsId}/designs`)}
               collapsed={isCollapsed}
+              dataTour="designs-nav"
             />
             {/* Reports + Chats are nested under Designs — everything in this
                 product hangs off a design, so they read as "Design Reports"
@@ -527,6 +532,7 @@ export const AppSidebar = ({ isCollapsed, onToggle }: AppSidebarProps) => {
               onClick={() => wsId && router.push(`/${wsId}/reports`)}
               collapsed={isCollapsed}
               indent={16}
+              dataTour="reports-nav"
             />
             <NavItem
               icon={<IconMessage size={16} />}
@@ -535,6 +541,7 @@ export const AppSidebar = ({ isCollapsed, onToggle }: AppSidebarProps) => {
               onClick={() => wsId && router.push(`/${wsId}/chat-history`)}
               collapsed={isCollapsed}
               indent={16}
+              dataTour="chats-nav"
             />
             {/* Library = papers saved from inside designs, grouped by design. */}
             <NavItem
@@ -544,6 +551,7 @@ export const AppSidebar = ({ isCollapsed, onToggle }: AppSidebarProps) => {
               onClick={() => wsId && router.push(`/${wsId}/library`)}
               collapsed={isCollapsed}
               indent={16}
+              dataTour="library-nav"
             />
           </NavSection>
 

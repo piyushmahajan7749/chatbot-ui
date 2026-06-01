@@ -6,7 +6,11 @@ import { FC, useContext, useEffect, useMemo, useState } from "react"
 
 import { getProjectsByWorkspaceId } from "@/db/projects"
 
-import { Walkthrough } from "@/components/onboarding/walkthrough"
+import {
+  TourOverlay,
+  type TourStep
+} from "@/components/onboarding/tour-overlay"
+import { markWalkthroughViewed } from "@/app/[locale]/onboarding/walkthrough-actions"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 // Chip primitive was used by the old multi-coloured tag row on
@@ -180,12 +184,64 @@ export default function WorkspacePage() {
   // which the typegen lags behind), so we read it through a cast and
   // default to `true` (tour already viewed) when undefined to avoid
   // re-prompting users that pre-date the migration.
-  const showWalkthrough =
+  const initiallyShouldTour =
     !!profile && (profile as any).viewed_walkthrough === false
+  const [tourOpen, setTourOpen] = useState(initiallyShouldTour)
+  useEffect(() => {
+    if (initiallyShouldTour) setTourOpen(true)
+  }, [initiallyShouldTour])
+  const dismissTour = () => {
+    setTourOpen(false)
+    // Persist in the background — failures just mean it re-appears, which is
+    // acceptable for first-run polish.
+    void markWalkthroughViewed().catch(() => undefined)
+  }
+  // Spotlight tour: each step (after the intro) targets a real UI element so
+  // a new scientist sees WHERE to click, not just what the feature does.
+  const TOUR_STEPS: TourStep[] = [
+    {
+      title: "Welcome to Shadow AI",
+      body: "I'm your experiment design and planning agent. Let me show you where everything is so you can plan your first experiment in a couple of clicks."
+    },
+    {
+      target: "[data-tour='new-design']",
+      side: "bottom",
+      title: "Start with your research question",
+      body: "Click here whenever you want to start a new experiment. Type your problem and I'll run the flow for you: Literature → Hypotheses → Design."
+    },
+    {
+      target: "[data-tour='designs-nav']",
+      side: "right",
+      title: "Your designs live here",
+      body: "Every experiment you start shows up under Designs. Open one any time to review the literature, pick hypotheses, and refine the design."
+    },
+    {
+      target: "[data-tour='chats-nav']",
+      side: "right",
+      title: "Chat across your past work",
+      body: "Want to compare designs or pull something from before? Open Design Chats to ask questions across everything you've designed."
+    },
+    {
+      target: "[data-tour='reports-nav']",
+      side: "right",
+      title: "Generate reports for finished designs",
+      body: "Once a design is complete, drop in your data files and generate a polished report — three templates to pick from."
+    },
+    {
+      target: "[data-tour='library-nav']",
+      side: "right",
+      title: "Save and reuse key papers",
+      body: "Star papers from inside any design — they collect here in your Library, grouped by the design they came from."
+    },
+    {
+      title: "You're ready.",
+      body: "Click New design when you're ready to start. You can replay this tour any time from Help."
+    }
+  ]
 
   return (
     <div className="bg-paper h-full overflow-auto px-10 pb-16 pt-7">
-      {showWalkthrough && <Walkthrough initialOpen />}
+      <TourOverlay steps={TOUR_STEPS} open={tourOpen} onClose={dismissTour} />
       <div className="mx-auto max-w-[1060px]">
         {/* Hero */}
         <div className="mb-7 flex items-end justify-between gap-5">
@@ -202,7 +258,12 @@ export default function WorkspacePage() {
             {/* New design opens the create-design page directly — the
                 multi-mode dropdown was removed; the page itself handles how
                 the user wants to start. */}
-            <Button variant="primary" size="lg" onClick={() => startDesign()}>
+            <Button
+              variant="primary"
+              size="lg"
+              onClick={() => startDesign()}
+              data-tour="new-design"
+            >
               <IconPlus size={14} stroke={2.4} /> New design
             </Button>
           </div>
