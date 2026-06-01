@@ -32,14 +32,14 @@ export const AuthHero: FC = () => {
           className="mb-8 max-w-[440px] drop-shadow-[0_0_40px_rgba(34,211,238,0.25)]"
         />
         <h2 className="font-display text-[28px] font-medium leading-tight tracking-[-0.01em] text-[#F4F1EA]">
-          Your research,{" "}
+          Plan experiments,{" "}
           <span className="bg-[linear-gradient(90deg,#22D3EE_0%,#E879F9_100%)] bg-clip-text text-transparent">
-            accelerated.
+            end to end.
           </span>
         </h2>
         <p className="mt-3 max-w-[420px] text-[14px] leading-relaxed text-[#A3A0C2]">
-          Design experiments, write reports, and chat with every paper in your
-          workspace - grounded in your data, cited back to the source.
+          Shadow AI is your experiment design and planning agent — turn a
+          research question into a citation-grounded, run-ready protocol.
         </p>
       </div>
 

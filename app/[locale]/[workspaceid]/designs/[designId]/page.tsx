@@ -53,6 +53,7 @@ import {
   type ProblemContext
 } from "@/lib/design-agent"
 import {
+  IconAlertTriangle,
   IconArrowLeft,
   IconArrowRight,
   IconBook,
@@ -376,6 +377,25 @@ export default function DesignDetailPage() {
     | "make-plan"
   >(null)
 
+  // Streaming agent runs (literature search / hypothesis generation / design
+  // generation) take 1–3 minutes and lose all progress if the tab closes
+  // mid-flight. While one of those phases is busy we attach a native
+  // `beforeunload` warning so the browser prompts before close/refresh/back.
+  // The in-page banner (rendered further down) handles the visual nudge.
+  const isAgentRunning =
+    busy === "literature" || busy === "hypotheses" || busy === "design"
+  useEffect(() => {
+    if (!isAgentRunning) return
+    const handler = (e: BeforeUnloadEvent) => {
+      e.preventDefault()
+      // Legacy browsers need a non-empty `returnValue` to trigger the prompt;
+      // modern ones ignore the string and use a built-in message.
+      e.returnValue = ""
+    }
+    window.addEventListener("beforeunload", handler)
+    return () => window.removeEventListener("beforeunload", handler)
+  }, [isAgentRunning])
+
   // Phase gating
   const [approvedPhases, setApprovedPhases] = useState<PhaseKey[]>([])
 
@@ -410,6 +430,12 @@ export default function DesignDetailPage() {
   // post-review-filter, pre top-N cut). Drives the "from N searched"
   // label under the surfaced-papers header. Sourced from the most
   // recent `papers_found` progress event that carried the count.
+  //
+  // Also persisted into content.literatureStats so the count survives
+  // navigation away from the design — the in-memory `literatureProgress`
+  // stream resets on remount, but the persisted value stays put.
+  const [persistedLitTotalCandidates, setPersistedLitTotalCandidates] =
+    useState<number | undefined>(undefined)
   const literatureTotalCandidates = useMemo(() => {
     for (let i = literatureProgress.length - 1; i >= 0; i--) {
       const ev = literatureProgress[i]
@@ -420,8 +446,8 @@ export default function DesignDetailPage() {
         return ev.totalCandidates
       }
     }
-    return undefined
-  }, [literatureProgress])
+    return persistedLitTotalCandidates
+  }, [literatureProgress, persistedLitTotalCandidates])
 
   // Hypotheses tab state
   const [hypotheses, setHypotheses] = useState<Hypothesis[]>([])
@@ -561,6 +587,10 @@ export default function DesignDetailPage() {
       setIncludeReplicates(repRaw === "yes" || repRaw === "no" ? repRaw : "")
 
       if (content?.papers) setPapers(content.papers)
+      // Restore the "from N searched" total from prior runs so the
+      // Literature header still reads correctly after coming back to the
+      // page (the progress-event stream resets on remount).
+      setPersistedLitTotalCandidates(content?.literatureStats?.totalCandidates)
       if (content?.hypotheses) setHypotheses(content.hypotheses)
       if (content?.designs) {
         setGeneratedDesigns(content.designs)
@@ -707,6 +737,28 @@ export default function DesignDetailPage() {
       )
       latestContentRef.current = content
       if (content.papers) setPapers(content.papers)
+      // Persist the "from N searched" total alongside the papers so the
+      // Literature header still shows it when the user navigates away and
+      // comes back. We pluck it from the just-streamed progress events; if
+      // nothing reported (legacy run, pre-warm only, etc.), the field stays
+      // undefined and the header gracefully drops the total.
+      let totalFromRun: number | undefined
+      for (let i = literatureProgress.length - 1; i >= 0; i--) {
+        const ev = literatureProgress[i]
+        if (
+          ev.step === "papers_found" &&
+          typeof ev.totalCandidates === "number"
+        ) {
+          totalFromRun = ev.totalCandidates
+          break
+        }
+      }
+      if (typeof totalFromRun === "number") {
+        setPersistedLitTotalCandidates(totalFromRun)
+        void persistContent({
+          literatureStats: { totalCandidates: totalFromRun }
+        })
+      }
     } catch (error: any) {
       toast({
         title: "Literature search failed",
@@ -831,6 +883,28 @@ export default function DesignDetailPage() {
       )
       latestContentRef.current = content
       if (content.papers) setPapers(content.papers)
+      // Persist the "from N searched" total alongside the papers so the
+      // Literature header still shows it when the user navigates away and
+      // comes back. We pluck it from the just-streamed progress events; if
+      // nothing reported (legacy run, pre-warm only, etc.), the field stays
+      // undefined and the header gracefully drops the total.
+      let totalFromRun: number | undefined
+      for (let i = literatureProgress.length - 1; i >= 0; i--) {
+        const ev = literatureProgress[i]
+        if (
+          ev.step === "papers_found" &&
+          typeof ev.totalCandidates === "number"
+        ) {
+          totalFromRun = ev.totalCandidates
+          break
+        }
+      }
+      if (typeof totalFromRun === "number") {
+        setPersistedLitTotalCandidates(totalFromRun)
+        void persistContent({
+          literatureStats: { totalCandidates: totalFromRun }
+        })
+      }
     } catch (error: any) {
       toast({
         title: "Literature search failed",
@@ -1841,6 +1915,25 @@ export default function DesignDetailPage() {
         )
       })()}
 
+      {/* Long agent runs (literature / hypotheses / design generation) take
+          1–3 minutes. Surface a clear "stay on this page" warning so the
+          scientist doesn't accidentally lose 90s of work mid-stream. Paired
+          with the beforeunload handler attached at mount-time. */}
+      {isAgentRunning && (
+        <div className="flex shrink-0 items-center gap-2 border-b border-amber-300 bg-amber-50 px-6 py-2 text-[12.5px] text-amber-900">
+          <IconAlertTriangle size={14} className="shrink-0" />
+          <span>
+            <b>Agent is working — keep this tab open.</b>{" "}
+            {busy === "literature"
+              ? "We're scouting the literature."
+              : busy === "hypotheses"
+                ? "We're generating hypotheses."
+                : "We're drafting your design."}{" "}
+            Closing or leaving this page will cancel the run and lose progress.
+          </span>
+        </div>
+      )}
+
       {/* Body: tab content on the left, design chat rail on the right */}
       <div className="flex min-h-0 flex-1 overflow-hidden">
         <div className="min-h-0 flex-1 overflow-auto">
@@ -2776,23 +2869,36 @@ function LiteratureTab(props: {
         )
       ) : (
         (() => {
-          // Sort mode controlled by the dropdown above the list (issue #14).
-          // "relevance" matches the existing behaviour; "recency" sorts by
-          // year of publication descending - scientists want the most
-          // recent work at the top when literature moves fast.
-          const ranked = [...papers].sort((a, b) => {
-            if (sortMode === "recency") {
-              const ya = Number(a.year) || 0
-              const yb = Number(b.year) || 0
-              if (yb !== ya) return yb - ya
-              // Fall through to relevance as the tiebreak.
-            }
-            const ra = a.relevanceScore ?? 0
-            const rb = b.relevanceScore ?? 0
-            if (rb !== ra) return rb - ra
-            if (a.userAdded !== b.userAdded) return a.userAdded ? -1 : 1
-            return 0
-          })
+          // Sort mode controlled by the dropdown above the list.
+          //   relevance → relevanceScore DESC, year DESC tiebreak
+          //   recency   → year DESC,         relevanceScore DESC tiebreak
+          // User-uploaded papers float to the top within a tie group.
+          //
+          // Papers without an explicit relevanceScore (pre-warm direct hits,
+          // user-uploaded PDFs) get a fallback derived from their arrival
+          // index — `1 - i/N` — so they sort in API order but DON'T all
+          // collapse to a 0-tie. Without this fallback, "Ranked by relevance"
+          // was a visible no-op whenever the lit-scout didn't run the LLM
+          // relevance judgement, and the user couldn't see the sort working.
+          const withFallbackScore = papers.map((p, i) => ({
+            paper: p,
+            score: p.relevanceScore ?? 1 - i / Math.max(papers.length, 1),
+            year: Number(p.year) || 0
+          }))
+          const ranked = [...withFallbackScore]
+            .sort((a, b) => {
+              if (sortMode === "recency") {
+                if (b.year !== a.year) return b.year - a.year
+                if (b.score !== a.score) return b.score - a.score
+              } else {
+                if (b.score !== a.score) return b.score - a.score
+                if (b.year !== a.year) return b.year - a.year
+              }
+              if (a.paper.userAdded !== b.paper.userAdded)
+                return a.paper.userAdded ? -1 : 1
+              return 0
+            })
+            .map(x => x.paper)
           const sourceLabel: Record<string, string> = {
             pubmed: "PubMed",
             arxiv: "arXiv",

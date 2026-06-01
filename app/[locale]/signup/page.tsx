@@ -120,7 +120,7 @@ export default async function SignupPage({
   return (
     <AuthShell
       title="Create your account"
-      subtitle="Free to start. 30 seconds to your first experiment."
+      subtitle="Free to start. From research question to a runnable design in minutes."
       footer={
         <span>
           Already have an account?{" "}

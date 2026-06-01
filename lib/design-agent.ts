@@ -319,6 +319,16 @@ export interface DesignContentV2 {
    * here before the new version overwrites `designs`.
    */
   designVersions?: DesignVersionSnapshot[]
+  /**
+   * Aggregate stats captured during the most recent literature search. Lives
+   * in the persisted content so the Literature tab can keep showing
+   * "from N searched" after the user navigates away and back — previously
+   * that number lived only on the in-memory progress stream and vanished
+   * on remount.
+   */
+  literatureStats?: {
+    totalCandidates?: number
+  }
 }
 
 export function emptyDesignContent(): DesignContentV2 {

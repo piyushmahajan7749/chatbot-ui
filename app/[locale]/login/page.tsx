@@ -82,7 +82,7 @@ export default async function Login({
   return (
     <AuthShell
       title="Welcome back"
-      subtitle="Sign in to your Shadow AI workspace."
+      subtitle="Sign in to keep planning experiments."
       footer={
         <span>
           New to Shadow AI?{" "}
