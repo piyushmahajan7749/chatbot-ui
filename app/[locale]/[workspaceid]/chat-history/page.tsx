@@ -1,15 +1,20 @@
 "use client"
 
 /**
- * Workspace Chats — the list of GENERAL chats (workspace-wide + project
- * level). Chats scoped to a single design or report are deliberately excluded:
- * those live inside the design/report's own chat rail and are not surfaced
- * here. Each slab shows the chat name, the question that was asked, and the
- * source the answer drew its information from. Search + page-number pagination
+ * Workspace Chats — the single feed of every conversation in the workspace.
+ *
+ * Includes BOTH general chats (workspace + project scope) AND chats opened
+ * inside a specific design's side-rail. The latter carry `scope='design'` +
+ * `scope_id=<designId>`; we resolve that id back to the design name and badge
+ * them with a "From design: X" chip so the scientist can see at a glance
+ * which conversation belongs to which design.
+ *
+ * Each slab shows the chat name, the first user question, and (for general
+ * chats) the source the answer drew from. Search + page-number pagination
  * only — no filters, no "start thread" (general chats begin from the chat UI).
  */
 
-import { useEffect, useMemo, useState } from "react"
+import { useContext, useEffect, useMemo, useState } from "react"
 import { useParams, useRouter } from "next/navigation"
 import { toast } from "sonner"
 
@@ -29,20 +34,17 @@ import { SlabPager } from "@/components/ui/slab-pager"
 import { deleteChat, getChatsByWorkspaceId } from "@/db/chats"
 import { getFirstUserMessagePreviewsByChatIds } from "@/db/messages"
 import { getChatSourceTitlesByChatIds } from "@/db/message-file-items"
+import { ChatbotUIContext } from "@/context/context"
 import { formatShortDateEU } from "@/lib/format-date"
 import type { Tables } from "@/supabase/types"
 import { IconMessages, IconSearch, IconTrash } from "@tabler/icons-react"
 
 const PAGE_SIZE = 12
 
-// Single-document chat rails (a chat pinned to one design/report for editing)
-// are stored on the chat row with these scopes; the general Chats page hides
-// them — they belong to their parent design/report, not the workspace feed.
-const EXCLUDED_SCOPES = new Set(["design", "report"])
-
 export default function ChatHistoryPage() {
   const params = useParams()
   const router = useRouter()
+  const { designs } = useContext(ChatbotUIContext)
 
   const workspaceId = params.workspaceid as string
   const locale = params.locale as string
@@ -64,13 +66,12 @@ export default function ChatHistoryPage() {
     getChatsByWorkspaceId(workspaceId)
       .then(rows => {
         if (cancelled) return
-        // General chats only: drop the per-design / per-report edit rails.
-        const general = (rows as Tables<"chats">[]).filter(
-          c => !c.scope || !EXCLUDED_SCOPES.has(c.scope)
-        )
-        setChats(general)
+        // Show every conversation, including per-design rails — scientists
+        // wanted a single hub to find any past chat across all their designs.
+        const all = rows as Tables<"chats">[]
+        setChats(all)
 
-        const ids = general.map(c => c.id)
+        const ids = all.map(c => c.id)
         void getFirstUserMessagePreviewsByChatIds(ids)
           .then(map => {
             if (!cancelled) setQuestionByChat(map)
@@ -199,23 +200,41 @@ export default function ChatHistoryPage() {
               {paged.map(chat => {
                 const question = questionByChat[chat.id] ?? ""
                 const source = sourceByChat[chat.id]
+                // Per-design rail chats carry scope='design', scope_id=<designId>.
+                // Resolve back to the design name so the slab badges "From
+                // design: X" instead of the generic source chip — that's how the
+                // scientist tells "I asked this inside design A" from "I asked
+                // this in the workspace chat" without opening the thread.
+                const designName =
+                  chat.scope === "design" && chat.scope_id
+                    ? designs.find(d => d.id === chat.scope_id)?.name
+                    : null
+                const badgeText =
+                  designName != null
+                    ? `From design: ${designName}`
+                    : source
+                      ? `from ${source}`
+                      : null
                 return (
                   <EntityCard
                     key={chat.id}
                     title={shortChatTitle(chat.name)}
                     description={question || undefined}
                     chips={
-                      source
+                      badgeText
                         ? [
                             {
-                              label: `from ${source}`,
+                              label: badgeText,
                               filled: true,
-                              accent: "sage-brand" as const
+                              accent:
+                                designName != null
+                                  ? ("orange-product" as const)
+                                  : ("sage-brand" as const)
                             }
                           ]
                         : []
                     }
-                    badges={source ? [`from ${source}`] : []}
+                    badges={badgeText ? [badgeText] : []}
                     timestampLabel=""
                     timestamp={shortDate(chat.updated_at || chat.created_at)}
                     onClick={() =>
