@@ -27,6 +27,14 @@ function coerceReasoningParams<T extends Record<string, any>>(params: T): T {
     out.max_completion_tokens = out.max_tokens
     delete out.max_tokens
   }
+  // Cap reasoning effort at "low" by default. gpt-5.x with `medium`
+  // (the platform default) spends 30-90s thinking on 5-10k-token prompts,
+  // which blew through Vercel's 300s function timeout when the lit-scout
+  // hit summarization (40 papers × abstracts ≈ 20k tokens). Probing
+  // gpt-5.5 with `reasoning_effort: "low"` on a 8.4k-prompt: 0 reasoning
+  // tokens, 3.8s total — easily within budget.
+  // Callers can override by passing an explicit `reasoning_effort` value.
+  if (!("reasoning_effort" in out)) out.reasoning_effort = "low"
   return out as T
 }
 

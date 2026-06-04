@@ -56,8 +56,6 @@ export async function semFilter(
   console.log(
     `🧪 [DEEPSCHOLAR][FILTER] Starting filter on ${papers.length} candidates`
   )
-  const filtered: SearchResult[] = []
-  let errorCount = 0
   // Capture the FIRST error to surface as a representative cause — when
   // every paper fails for the same reason (e.g. bad api-version → 404 on
   // every call), this gives operators something concrete to grep for in
@@ -68,7 +66,9 @@ export async function semFilter(
     message?: string
     param?: string
   } | null = null
-  for (const p of papers) {
+  let errorCount = 0
+
+  const judgeOne = async (p: SearchResult): Promise<SearchResult | null> => {
     const sys =
       "Return JSON with fields: relevance (0/1/2) and rationale. Consider strict topical relevance to problem/objectives/variables."
     const user = `Problem: ${userProblem}\nObjectives: ${objectives.join(", ")}\nVariables: ${variables.join(", ")}\n\nTitle: ${p.title}\nAbstract: ${p.abstract}`
@@ -87,7 +87,7 @@ export async function semFilter(
         typeof RelevanceSchema
       >
       const rel = Number(parsed.relevance)
-      if (rel > 0) filtered.push({ ...p, relevanceScore: rel })
+      return rel > 0 ? { ...p, relevanceScore: rel } : null
     } catch (e: any) {
       errorCount++
       if (!firstError) {
@@ -98,7 +98,22 @@ export async function semFilter(
           message: String(e?.message ?? e).slice(0, 240)
         }
       }
+      return null
     }
+  }
+
+  // PARALLELISE with a concurrency cap — gpt-5.5 reasoning calls take 1-2s
+  // each; running 75+ papers serially blew through Vercel's 300s function
+  // limit and the route timed out mid-stream (user-visible "no papers
+  // found"). 8 concurrent calls keeps total < 30s on a 75-paper pool and
+  // stays well under Azure's per-deployment rate limit. If Azure 429s
+  // appear in logs, lower the cap.
+  const CONCURRENCY = 8
+  const filtered: SearchResult[] = []
+  for (let i = 0; i < papers.length; i += CONCURRENCY) {
+    const batch = papers.slice(i, i + CONCURRENCY)
+    const results = await Promise.all(batch.map(judgeOne))
+    for (const r of results) if (r) filtered.push(r)
   }
   if (errorCount > 0) {
     // Loud, single summary line — easier to spot in Vercel logs than per-

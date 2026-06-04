@@ -31,7 +31,7 @@
       "maxDuration": 300
     },
     "app/api/design/[designid]/generate/route.ts": {
-      "maxDuration": 300
+      "maxDuration": 800
     },
     "app/api/design/extract-materials/route.ts": {
       "maxDuration": 240
