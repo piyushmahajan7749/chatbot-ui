@@ -406,9 +406,21 @@ export async function generateSearchQueriesWithLLM(
       source: "llm"
     }
   } catch (err: any) {
-    console.warn(
-      "⚠️ [QUERY_GEN_LLM] LLM call failed, will fall back to heuristic:",
-      err?.message ?? err
+    // Surface the full Azure error shape (status / code / param) so we can
+    // pinpoint things like `unsupported_value: temperature` or a 404 from
+    // a bad api-version — previously this was a silent `console.warn` with
+    // just `.message`, which masked the real cause when the lit-scout
+    // returned empty in production.
+    console.error(
+      "❌ [QUERY_GEN_LLM] Azure call failed (falling back to heuristic queries):",
+      {
+        status: err?.status,
+        code: err?.error?.code ?? err?.code,
+        param: err?.error?.param,
+        type: err?.error?.type,
+        message: err?.message,
+        model: getDesignDeployment()
+      }
     )
     return null
   }

@@ -57,6 +57,17 @@ export async function semFilter(
     `🧪 [DEEPSCHOLAR][FILTER] Starting filter on ${papers.length} candidates`
   )
   const filtered: SearchResult[] = []
+  let errorCount = 0
+  // Capture the FIRST error to surface as a representative cause — when
+  // every paper fails for the same reason (e.g. bad api-version → 404 on
+  // every call), this gives operators something concrete to grep for in
+  // Vercel logs instead of a silent empty result.
+  let firstError: {
+    status?: number
+    code?: string
+    message?: string
+    param?: string
+  } | null = null
   for (const p of papers) {
     const sys =
       "Return JSON with fields: relevance (0/1/2) and rationale. Consider strict topical relevance to problem/objectives/variables."
@@ -77,16 +88,32 @@ export async function semFilter(
       >
       const rel = Number(parsed.relevance)
       if (rel > 0) filtered.push({ ...p, relevanceScore: rel })
-    } catch (e) {
-      // On failure, keep conservative (drop)
+    } catch (e: any) {
+      errorCount++
+      if (!firstError) {
+        firstError = {
+          status: e?.status,
+          code: e?.error?.code ?? e?.code,
+          param: e?.error?.param,
+          message: String(e?.message ?? e).slice(0, 240)
+        }
+      }
     }
+  }
+  if (errorCount > 0) {
+    // Loud, single summary line — easier to spot in Vercel logs than per-
+    // paper errors, and surfaces the smoking-gun status / code / message.
+    console.error(
+      `❌ [DEEPSCHOLAR][FILTER] Azure relevance call failed on ${errorCount}/${papers.length} papers. First error:`,
+      firstError
+    )
   }
   const bySource: Record<string, number> = {}
   filtered.forEach(f => {
     bySource[f.source] = (bySource[f.source] || 0) + 1
   })
   console.log(
-    `✅ [DEEPSCHOLAR][FILTER] Kept ${filtered.length}/${papers.length} candidates`
+    `✅ [DEEPSCHOLAR][FILTER] Kept ${filtered.length}/${papers.length} candidates (${errorCount} LLM errors)`
   )
   Object.entries(bySource).forEach(([src, n]) =>
     console.log(`  📦 ${src}: ${n}`)
