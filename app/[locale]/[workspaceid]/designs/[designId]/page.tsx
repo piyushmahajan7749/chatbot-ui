@@ -2770,6 +2770,12 @@ function LiteratureTab(props: {
               ? "Literature approved. These papers were used to generate hypotheses."
               : "Review the papers surfaced by the literature agent. Select the ones to build hypotheses from."}
           </p>
+          {!isApproved && (
+            <p className="text-ink-400 mt-1 text-[11px] italic">
+              Tip: select <b>at least 1 paper</b> (or several) — your picks
+              become the basis for the hypotheses on the next step.
+            </p>
+          )}
         </div>
         <div className="flex items-center gap-2">
           {/* Sort dropdown (issue #14). Sits to the right of the header
@@ -3166,6 +3172,12 @@ function HypothesesTab(props: {
               ? "Hypotheses approved. The selected hypotheses were used to generate experiment designs."
               : "Review the hypotheses below and select one or more to carry into experimental design."}
           </p>
+          {!isApproved && (
+            <p className="text-ink-400 mt-1 text-[11px] italic">
+              Tip: choose <b>at least 1 hypothesis</b> (or several) — your picks
+              drive the design that gets generated next.
+            </p>
+          )}
         </div>
         {hypotheses.length > 0 && (
           <span

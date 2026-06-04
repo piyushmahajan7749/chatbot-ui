@@ -196,46 +196,59 @@ export default function WorkspacePage() {
     // acceptable for first-run polish.
     void markWalkthroughViewed().catch(() => undefined)
   }
-  // Spotlight tour: each step (after the intro) targets a real UI element so
-  // a new scientist sees WHERE to click, not just what the feature does.
+  // Spotlight tour: tight, scannable steps. Three "centered" steps in the
+  // middle (no target) walk through the Literature → Hypotheses → Design
+  // flow that happens after the user clicks New design.
   const TOUR_STEPS: TourStep[] = [
     {
       title: "Welcome to Shadow AI",
-      body: "I'm your experiment design and planning agent. Let me show you where everything is so you can plan your first experiment in a couple of clicks."
+      body: "Your experiment design and planning agent. Quick tour."
     },
     {
       target: "[data-tour='new-design']",
       side: "bottom",
-      title: "Start with your research question",
-      body: "Click here whenever you want to start a new experiment. Type your problem and I'll run the flow for you: Literature → Hypotheses → Design."
+      title: "Start a new experiment",
+      body: "Click here, type your research problem, and I take it from there."
+    },
+    {
+      title: "Step 1 — Literature",
+      body: "I scout the literature for you. Select one or more papers — your picks become the basis for the hypotheses."
+    },
+    {
+      title: "Step 2 — Hypotheses",
+      body: "From your chosen papers I draft testable hypotheses. Pick one or more to drive the design."
+    },
+    {
+      title: "Step 3 — Design",
+      body: "I generate a full experiment design. Edit any field directly, or chat with the design to update it in real time."
     },
     {
       target: "[data-tour='designs-nav']",
       side: "right",
-      title: "Your designs live here",
-      body: "Every experiment you start shows up under Designs. Open one any time to review the literature, pick hypotheses, and refine the design."
+      title: "All your designs",
+      body: "Every experiment you start lives here."
     },
     {
       target: "[data-tour='chats-nav']",
       side: "right",
-      title: "Chat across your past work",
-      body: "Want to compare designs or pull something from before? Open Design Chats to ask questions across everything you've designed."
+      title: "Chat across your work",
+      body: "Ask questions across all your past designs."
     },
     {
       target: "[data-tour='reports-nav']",
       side: "right",
-      title: "Generate reports for finished designs",
-      body: "Once a design is complete, drop in your data files and generate a polished report — three templates to pick from."
+      title: "Reports",
+      body: "Turn finished designs into polished reports."
     },
     {
       target: "[data-tour='library-nav']",
       side: "right",
-      title: "Save and reuse key papers",
-      body: "Star papers from inside any design — they collect here in your Library, grouped by the design they came from."
+      title: "Saved papers",
+      body: "Papers you've saved, grouped by design."
     },
     {
-      title: "You're ready.",
-      body: "Click New design when you're ready to start. You can replay this tour any time from Help."
+      title: "You're ready",
+      body: "Click New design to start. Replay this tour any time from Help."
     }
   ]
 
