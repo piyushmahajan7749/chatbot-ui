@@ -2,6 +2,7 @@ import React, { FC } from "react"
 import remarkGfm from "remark-gfm"
 import remarkMath from "remark-math"
 import { cn } from "@/lib/utils"
+import { DesignPatchBlock, extractDesignPatches } from "./design-patch-block"
 import { MessageCodeBlock } from "./message-codeblock"
 import { MessageMarkdownMemoized } from "./message-markdown-memoized"
 
@@ -122,14 +123,25 @@ export const MessageMarkdown: FC<MessageMarkdownProps> = ({
 
   const processedContent = preprocessContent(content)
 
-  return (
+  // Pull `<design-patch>…</design-patch>` blocks out of the assistant text and
+  // render them as interactive Approve / Reject cards. The block format is
+  // documented in components/messages/design-patch-block.tsx and the design
+  // detail page listens for the `design:apply-patch` window event that Approve
+  // fires. Messages with no patches go straight through unchanged.
+  const segments = extractDesignPatches(processedContent)
+  const hasPatch = segments.some(s => s.kind === "patch")
+
+  const markdownClassName = cn(
+    "prose prose-p:leading-relaxed prose-pre:p-0 min-w-full space-y-6 break-words",
+    isUser
+      ? "prose-invert prose-code:bg-blue-500/30 prose-code:text-white prose-a:text-blue-200 prose-strong:text-white prose-code:px-1 prose-code:py-0.5 prose-code:rounded prose-code:text-sm"
+      : "dark:prose-invert prose-code:bg-slate-100 prose-code:dark:bg-zinc-800 prose-code:px-1 prose-code:py-0.5 prose-code:rounded prose-code:text-sm"
+  )
+
+  const renderText = (text: string, key?: string | number) => (
     <MessageMarkdownMemoized
-      className={cn(
-        "prose prose-p:leading-relaxed prose-pre:p-0 min-w-full space-y-6 break-words",
-        isUser
-          ? "prose-invert prose-code:bg-blue-500/30 prose-code:text-white prose-a:text-blue-200 prose-strong:text-white prose-code:px-1 prose-code:py-0.5 prose-code:rounded prose-code:text-sm"
-          : "dark:prose-invert prose-code:bg-slate-100 prose-code:dark:bg-zinc-800 prose-code:px-1 prose-code:py-0.5 prose-code:rounded prose-code:text-sm"
-      )}
+      key={key}
+      className={markdownClassName}
       remarkPlugins={[remarkGfm, remarkMath]}
       components={{
         // Walk paragraph children, replacing `[N]` tokens inside any
@@ -223,7 +235,21 @@ export const MessageMarkdown: FC<MessageMarkdownProps> = ({
         }
       }}
     >
-      {processedContent}
+      {text}
     </MessageMarkdownMemoized>
+  )
+
+  if (!hasPatch) return renderText(processedContent)
+
+  return (
+    <>
+      {segments.map((seg, i) =>
+        seg.kind === "patch" ? (
+          <DesignPatchBlock key={`patch-${i}`} patch={seg.patch} />
+        ) : (
+          renderText(seg.value, `text-${i}`)
+        )
+      )}
+    </>
   )
 }

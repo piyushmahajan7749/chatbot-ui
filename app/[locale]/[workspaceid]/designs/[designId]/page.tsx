@@ -1721,7 +1721,7 @@ export default function DesignDetailPage() {
   // Tier-3 long-context dump: pass the full design (all hypotheses, all
   // papers, all generated designs). buildDesignChatContext caps at
   // ~75k tokens; if oversize, RAG fallback would kick in (not yet wired).
-  const chatContextPrompt = buildDesignChatContext({
+  const baseChatContextPrompt = buildDesignChatContext({
     title,
     problemStatement,
     objective,
@@ -1733,6 +1733,114 @@ export default function DesignDetailPage() {
     generatedDesigns,
     activeDesign
   })
+  // When the user asks for a change ("change the buffer to 20 mM",
+  // "swap the readout method") we want the assistant to PROPOSE an edit
+  // they can approve, not silently rewrite the design. The block below
+  // teaches the LLM a structured `<design-patch>` format; the chat
+  // renderer parses that block out and shows an Approve / Reject card
+  // (see components/messages/design-patch-block.tsx). On Approve, the
+  // card fires a `design:apply-patch` window event which the listener
+  // below applies to generatedDesigns + persists.
+  const chatContextPrompt = `${baseChatContextPrompt}
+
+## When the user asks you to change the design
+
+If the user requests an edit to the current design, do NOT silently rewrite it.
+Instead, after a brief explanation, emit ONE proposed edit inside a
+\`<design-patch>\` block containing valid JSON. Two shapes are supported:
+
+Find / replace within a section:
+<design-patch>
+{ "sectionHeading": "Materials & Setup", "find": "5 mM phosphate buffer", "replace": "20 mM phosphate buffer" }
+</design-patch>
+
+Or replace the section body entirely:
+<design-patch>
+{ "sectionHeading": "Statistical Analysis", "newBody": "..." }
+</design-patch>
+
+Rules:
+- \`sectionHeading\` MUST match exactly one of the section headings shown above.
+- Either \`find\`+\`replace\` OR \`newBody\` — not both.
+- Emit at most one \`<design-patch>\` per response. If multiple edits are
+  needed, ask the user to confirm the first before proposing the next.
+- Wrap the JSON in the tags exactly as shown; do not add markdown fencing.`
+
+  // ── Apply patches that the chat proposed and the user approved ────────
+  // The DesignPatchBlock card fires `design:apply-patch` on the window when
+  // the user clicks Approve. We listen for that and apply the patch to the
+  // active design (or the design at `designIndex` if specified), then
+  // persist + sync the shared context.
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const evt = e as CustomEvent<{
+        sectionHeading: string
+        find?: string
+        replace?: string
+        newBody?: string
+        designIndex?: number
+      }>
+      const patch = evt.detail
+      if (!patch?.sectionHeading) return
+      setGeneratedDesigns(prev => {
+        if (prev.length === 0) return prev
+        const idx =
+          typeof patch.designIndex === "number" && patch.designIndex >= 0
+            ? Math.min(patch.designIndex, prev.length - 1)
+            : Math.max(
+                0,
+                prev.findIndex(d => d.id === activeDesignId)
+              )
+        const target = prev[idx]
+        if (!target) return prev
+        const sectionIdx = target.sections.findIndex(
+          s => s.heading === patch.sectionHeading
+        )
+        if (sectionIdx === -1) {
+          toast({
+            title: "Couldn't apply edit",
+            description: `No section called "${patch.sectionHeading}" — the assistant may have hallucinated the heading.`,
+            variant: "destructive"
+          })
+          return prev
+        }
+        const section = target.sections[sectionIdx]
+        let nextBody: string
+        if (patch.newBody !== undefined) {
+          nextBody = patch.newBody
+        } else if (patch.find !== undefined && patch.replace !== undefined) {
+          if (!section.body.includes(patch.find)) {
+            toast({
+              title: "Couldn't apply edit",
+              description:
+                "The text to find wasn't present in the section anymore.",
+              variant: "destructive"
+            })
+            return prev
+          }
+          nextBody = section.body.split(patch.find).join(patch.replace)
+        } else {
+          return prev
+        }
+        const nextSections = [...target.sections]
+        nextSections[sectionIdx] = { ...section, body: nextBody }
+        const nextDesigns = [...prev]
+        nextDesigns[idx] = { ...target, sections: nextSections }
+        void persistContent({ designs: nextDesigns })
+        toast({
+          title: "Design updated",
+          description: `Applied edit to "${patch.sectionHeading}".`
+        })
+        return nextDesigns
+      })
+    }
+    window.addEventListener("design:apply-patch", handler as EventListener)
+    return () =>
+      window.removeEventListener("design:apply-patch", handler as EventListener)
+    // persistContent + toast are stable across renders; activeDesignId is
+    // the one piece that changes and we want the closure to see the latest.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeDesignId])
 
   if (loading) {
     return (
