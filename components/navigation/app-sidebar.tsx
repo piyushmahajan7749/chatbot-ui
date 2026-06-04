@@ -473,7 +473,7 @@ export const AppSidebar = ({ isCollapsed, onToggle }: AppSidebarProps) => {
             title={isCollapsed ? "Expand sidebar" : "Collapse sidebar"}
           >
             <IconChevronsLeft
-              size={14}
+              size={15}
               className={cn(
                 "transition-transform",
                 isCollapsed && "rotate-180"
