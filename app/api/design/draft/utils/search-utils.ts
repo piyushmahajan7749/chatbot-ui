@@ -1227,7 +1227,7 @@ Provide specific, actionable insights relevant to experimental design.`
         },
         { role: "user", content: synthesisPrompt }
       ],
-      // This deployment only supports temperature=1.
+      // Reasoning model — temperature is forced to 1 by the SDK shim.
       temperature: 1
     })
 

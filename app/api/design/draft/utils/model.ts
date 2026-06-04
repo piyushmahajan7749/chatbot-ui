@@ -46,13 +46,17 @@ export async function callModel(
   options: CallModelOptions = {}
 ): Promise<CallModelResult> {
   const {
-    // NOTE: Some Azure/OpenAI deployments only support temperature=1.
-    // We accept a temperature option for API compatibility, but force 1.
-    temperature: _temperature = 1,
+    // gpt-5.x reasoning models reject any value other than 1 with
+    // `unsupported_value: temperature does not support N. Only the default
+    // (1) value is supported.`. The shared SDK shim in lib/azure-openai.ts
+    // coerces this to 1 regardless of what callers pass, so the parameter
+    // here is API-compatible only — we keep `_temperature` ignored.
+    temperature: _temperature,
     maxTokens,
     timeoutMs = DEFAULT_TIMEOUT_MS,
     retries = MAX_RETRIES
   } = options
+  void _temperature
 
   const openai = getOpenAIClient()
   const model = getAzureOpenAIModel()
@@ -75,6 +79,8 @@ export async function callModel(
       const baseParams: any = {
         model,
         messages,
+        // Temperature is coerced to 1 by the SDK shim (reasoning-model
+        // constraint). Passing it explicitly here is harmless.
         temperature: 1,
         ...(typeof maxTokens === "number"
           ? { max_completion_tokens: maxTokens }

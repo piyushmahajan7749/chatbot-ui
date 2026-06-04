@@ -68,7 +68,7 @@ export async function semFilter(
           { role: "system", content: sys },
           { role: "user", content: user }
         ],
-        // This deployment only supports temperature=1.
+        // Reasoning model — temperature is forced to 1 by the SDK shim.
         temperature: 1,
         response_format: zodResponseFormat(RelevanceSchema, "rel")
       })
