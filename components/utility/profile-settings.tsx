@@ -23,7 +23,7 @@ import {
 } from "@tabler/icons-react"
 import Image from "next/image"
 import { useRouter } from "next/navigation"
-import { FC, useContext, useMemo, useRef, useState } from "react"
+import { FC, useContext, useEffect, useMemo, useRef, useState } from "react"
 import { toast } from "sonner"
 import { SIDEBAR_ICON_SIZE } from "../sidebar/sidebar-switcher"
 import { Button } from "../ui/button"
@@ -39,6 +39,8 @@ import {
   SheetTrigger
 } from "../ui/sheet"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../ui/tabs"
+import { UsageBillingPanel } from "../billing/usage-billing-panel"
+import { OPEN_BILLING_EVENT } from "@/lib/billing/handle-budget-error"
 import { TextareaAutosize } from "../ui/textarea-autosize"
 import { WithTooltip } from "../ui/with-tooltip"
 import { ThemeSwitcher } from "./theme-switcher"
@@ -78,6 +80,19 @@ export const ProfileSettings: FC<ProfileSettingsProps> = ({
     if (isControlled) controlledOnOpenChange?.(next)
     else setInternalOpen(next)
   }
+
+  // Active settings tab — controlled so the "out of credits" toast can deep-link
+  // straight to Usage & Billing via the OPEN_BILLING_EVENT window event.
+  const [activeTab, setActiveTab] = useState("profile")
+  useEffect(() => {
+    const openBilling = () => {
+      setActiveTab("billing")
+      setIsOpen(true)
+    }
+    window.addEventListener(OPEN_BILLING_EVENT, openBilling)
+    return () => window.removeEventListener(OPEN_BILLING_EVENT, openBilling)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const [displayName, setDisplayName] = useState(profile?.display_name || "")
   const [username, setUsername] = useState(profile?.username || "")
@@ -365,9 +380,10 @@ export const ProfileSettings: FC<ProfileSettingsProps> = ({
             </SheetTitle>
           </SheetHeader>
 
-          <Tabs defaultValue="profile">
-            <TabsList className="mt-4 grid w-full grid-cols-2">
+          <Tabs value={activeTab} onValueChange={setActiveTab}>
+            <TabsList className="mt-4 grid w-full grid-cols-3">
               <TabsTrigger value="profile">Profile</TabsTrigger>
+              <TabsTrigger value="billing">Usage</TabsTrigger>
               <TabsTrigger value="keys">API Keys</TabsTrigger>
             </TabsList>
 
@@ -755,6 +771,10 @@ export const ProfileSettings: FC<ProfileSettingsProps> = ({
                   </>
                 )}
               </div>
+            </TabsContent>
+
+            <TabsContent className="mt-4" value="billing">
+              <UsageBillingPanel />
             </TabsContent>
           </Tabs>
         </div>

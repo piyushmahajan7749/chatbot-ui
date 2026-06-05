@@ -3979,6 +3979,11 @@
     redux-thunk "^3.1.0"
     reselect "^5.1.0"
 
+"@revenuecat/purchases-js@^1.42.1":
+  version "1.42.1"
+  resolved "https://registry.npmjs.org/@revenuecat/purchases-js/-/purchases-js-1.42.1.tgz"
+  integrity sha512-bosW1ZSRav1NE7I52lZpBK1EuqDQBLPBorFNPoFwL8qz8oWzWimQnuarbnVjGef6sPbsgelk0ZzXLC7SZnL/Vw==
+
 "@rollup/plugin-babel@^5.2.0":
   version "5.3.1"
   resolved "https://registry.npmjs.org/@rollup/plugin-babel/-/plugin-babel-5.3.1.tgz"

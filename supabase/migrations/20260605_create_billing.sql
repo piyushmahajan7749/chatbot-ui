@@ -162,6 +162,34 @@ END;
 $$;
 
 -- ---------------------------------------------------------------------------
+-- add_custom_credits(): atomic top-up of the persistent credit balance.
+-- Called by the RevenueCat webhook on a NON_RENEWING_PURCHASE (credit pack).
+-- ---------------------------------------------------------------------------
+CREATE OR REPLACE FUNCTION add_custom_credits(
+  p_user_id UUID,
+  p_tokens BIGINT
+)
+RETURNS billing_accounts
+LANGUAGE plpgsql
+SECURITY DEFINER
+AS $$
+DECLARE
+  acct billing_accounts;
+BEGIN
+  INSERT INTO billing_accounts (user_id) VALUES (p_user_id)
+  ON CONFLICT (user_id) DO NOTHING;
+
+  UPDATE billing_accounts
+  SET custom_credit_tokens = custom_credit_tokens + GREATEST(0, p_tokens),
+      updated_at = now()
+  WHERE user_id = p_user_id
+  RETURNING * INTO acct;
+
+  RETURN acct;
+END;
+$$;
+
+-- ---------------------------------------------------------------------------
 -- Auto-provision a billing account whenever a profile is created, and
 -- backfill every existing user. (Profiles are themselves created by a trigger
 -- on auth.users — see 20240108234541_add_profiles.sql.)

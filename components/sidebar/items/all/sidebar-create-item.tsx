@@ -31,6 +31,7 @@ import {
 } from "@/db/storage/assistant-images"
 import { createTool } from "@/db/tools"
 import { convertBlobToBase64 } from "@/lib/blob-to-b64"
+import { handleBudgetError } from "@/lib/billing/handle-budget-error"
 import { Tables, TablesInsert } from "@/supabase/types"
 import { ContentType } from "@/types"
 import { FC, useContext, useRef, useState } from "react"
@@ -339,6 +340,7 @@ export const SidebarCreateItem: FC<SidebarCreateItemProps> = ({
             })
 
             if (!response.ok) {
+              if (await handleBudgetError(response)) return
               throw new Error(`Report generation failed: ${response.status}`)
             }
 
@@ -485,6 +487,10 @@ export const SidebarCreateItem: FC<SidebarCreateItemProps> = ({
             )
 
             if (!response.ok) {
+              if (await handleBudgetError(response)) {
+                setCreating(false)
+                return
+              }
               throw new Error(
                 `Error generating design draft: ${response.status}`
               )

@@ -7,6 +7,7 @@ import { createMessages, updateMessage } from "@/db/messages"
 import { uploadMessageImage } from "@/db/storage/message-images"
 import { buildFinalMessages } from "@/lib/build-prompt"
 import { consumeReadableStream } from "@/lib/consume-stream"
+import { handleBudgetError } from "@/lib/billing/handle-budget-error"
 import { Tables, TablesInsert } from "@/supabase/types"
 import {
   ChatFile,
@@ -284,6 +285,13 @@ export const fetchChatResponse = async (
   })
 
   if (!response.ok) {
+    // Out of credits → upgrade toast (instead of the generic error path).
+    if (await handleBudgetError(response)) {
+      setIsGenerating(false)
+      setChatMessages(prevMessages => prevMessages.slice(0, -2))
+      return response
+    }
+
     if (response.status === 404 && !isHosted) {
       toast.error(
         "Model not found. Make sure you have it downloaded via Ollama."
