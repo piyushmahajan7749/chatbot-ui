@@ -18,6 +18,7 @@ import {
   getDesignDeployment
 } from "@/lib/azure-openai"
 import { createClient } from "@/lib/supabase/server"
+import { recordCompletionUsage } from "@/lib/billing/account"
 
 export const runtime = "nodejs"
 
@@ -59,6 +60,14 @@ export async function POST(req: NextRequest) {
         { role: "user", content: message.slice(0, 600) }
       ]
     })
+    await recordCompletionUsage(
+      {
+        userId: session.user.id,
+        feature: "title",
+        model: getDesignDeployment()
+      },
+      completion
+    )
     let raw = completion.choices[0]?.message?.content ?? ""
     raw = raw.replace(/^[\s"'`*#-]+|[\s"'`*#-]+$/g, "").trim()
     if (!raw) {

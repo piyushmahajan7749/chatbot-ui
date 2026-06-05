@@ -18,6 +18,7 @@ import { checkPlan, checkHypothesis } from "@/app/api/design/draft/safety/gate"
 import { v4 as uuidv4 } from "uuid"
 import { callLiteratureScoutAgent } from "@/app/api/design/draft/agents"
 import { ExperimentDesignState } from "@/app/api/design/draft/types"
+import { meterRun } from "@/lib/billing/with-meter"
 
 const DEFAULT_CONCURRENCY = 4
 const INITIAL_ELO = 1500
@@ -86,6 +87,9 @@ export const processDesignDraft = inngest.createFunction(
       return fetchedPlan
     })
 
+    // Owner of this plan — used to attribute background AI token usage.
+    const billingUserId = (plan as { userId?: string }).userId || ""
+
     // Helper to ensure array
     const ensureArray = (value: unknown): string[] => {
       if (Array.isArray(value)) {
@@ -135,7 +139,10 @@ export const processDesignDraft = inngest.createFunction(
         )
       }
 
-      const result = await callLiteratureScoutAgent(state)
+      const result = await meterRun(
+        { userId: billingUserId, feature: "lit_search" },
+        () => callLiteratureScoutAgent(state)
+      )
 
       // Store literature context in the plan
       plan.literatureContext = result.output
@@ -190,9 +197,9 @@ export const processDesignDraft = inngest.createFunction(
         }
       })
 
-      const generationResults = await runTasksWithConcurrency(
-        generationTasks,
-        DEFAULT_CONCURRENCY
+      const generationResults = await meterRun(
+        { userId: billingUserId, feature: "design" },
+        () => runTasksWithConcurrency(generationTasks, DEFAULT_CONCURRENCY)
       )
 
       // Each result now contains an array of hypotheses
@@ -314,9 +321,9 @@ export const processDesignDraft = inngest.createFunction(
         }
       }
 
-      const rankingResults = await runTasksWithConcurrency(
-        rankingTasks,
-        DEFAULT_CONCURRENCY
+      const rankingResults = await meterRun(
+        { userId: billingUserId, feature: "design" },
+        () => runTasksWithConcurrency(rankingTasks, DEFAULT_CONCURRENCY)
       )
 
       // Update Elo scores - skip failed pairs instead of aborting the whole pipeline

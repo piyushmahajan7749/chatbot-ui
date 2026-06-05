@@ -4,6 +4,11 @@ import {
   getDesignDeployment
 } from "@/lib/azure-openai"
 import { requireUser } from "@/lib/server/require-user"
+import { assertBudget, recordCompletionUsage } from "@/lib/billing/account"
+import {
+  budgetErrorResponse,
+  isBudgetExceededError
+} from "@/lib/billing/errors"
 
 const openai = () => getAzureOpenAIForDesign()
 const MODEL_NAME = () => getDesignDeployment()
@@ -15,6 +20,12 @@ export async function POST(req: Request) {
     // useful error case below.
     const auth = await requireUser()
     if (auth.response) return auth.response
+
+    try {
+      await assertBudget(auth.user.id)
+    } catch (e) {
+      if (isBudgetExceededError(e)) return budgetErrorResponse(e.plan)
+    }
 
     const body = await req.json().catch(() => null)
     const sectionName = body?.sectionName
@@ -55,6 +66,11 @@ export async function POST(req: Request) {
       temperature: 0.3,
       max_tokens: 4096
     })
+
+    await recordCompletionUsage(
+      { userId: auth.user.id, feature: "report", model: MODEL_NAME() },
+      completion
+    )
 
     const newContent = completion.choices[0]?.message?.content?.trim()
 

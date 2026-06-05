@@ -2,6 +2,11 @@ import { NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { cookies } from "next/headers"
 import { getAzureOpenAI, getAzureOpenAIModel } from "@/lib/azure-openai"
+import { assertBudget, recordCompletionUsage } from "@/lib/billing/account"
+import {
+  budgetErrorResponse,
+  isBudgetExceededError
+} from "@/lib/billing/errors"
 
 export async function POST(request: Request) {
   try {
@@ -13,6 +18,12 @@ export async function POST(request: Request) {
 
     if (authError || !user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
+
+    try {
+      await assertBudget(user.id)
+    } catch (e) {
+      if (isBudgetExceededError(e)) return budgetErrorResponse(e.plan)
     }
 
     const { messages, dataCollectionId } = await request.json()
@@ -65,6 +76,11 @@ Important:
       temperature: 0.2,
       response_format: { type: "json_object" }
     })
+
+    await recordCompletionUsage(
+      { userId: user.id, feature: "data_collection", model: modelName },
+      completion
+    )
 
     const responseText = completion.choices[0]?.message?.content || ""
     let parsed: any

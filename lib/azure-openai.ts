@@ -1,4 +1,5 @@
 import { AzureOpenAI } from "openai"
+import { addTokensToActiveContext } from "@/lib/billing/usage-context"
 
 let _defaultClient: AzureOpenAI | null = null
 const _deploymentClients = new Map<string, AzureOpenAI>()
@@ -51,7 +52,30 @@ function wrapForReasoningModel(client: AzureOpenAI): AzureOpenAI {
         ) {
           return function (this: any, ...args: any[]) {
             if (args[0]) args[0] = coerceReasoningParams(args[0])
-            return v.apply(this === receiver ? target : this, args)
+            const result = v.apply(this === receiver ? target : this, args)
+            // Side-channel token metering: non-streaming create/parse resolve to
+            // a response carrying `usage`. Push it into the active usage context
+            // (no-op when there's no scope, e.g. edge chat or unmetered calls).
+            // This observer never alters the promise handed back to the caller.
+            if (
+              (key === "create" || key === "parse") &&
+              result &&
+              typeof (result as any).then === "function"
+            ) {
+              ;(result as Promise<any>).then(
+                res => {
+                  try {
+                    if (res?.usage) addTokensToActiveContext(res.usage)
+                  } catch {
+                    /* metering must never break the call */
+                  }
+                },
+                () => {
+                  /* swallow — caller handles the rejection */
+                }
+              )
+            }
+            return result
           }
         }
         return v

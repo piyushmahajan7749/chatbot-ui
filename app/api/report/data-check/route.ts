@@ -5,6 +5,11 @@ import {
 } from "@/lib/azure-openai"
 import { resolveSupabaseFilesToText } from "@/lib/report/file-content"
 import { requireUser } from "@/lib/server/require-user"
+import { assertBudget, recordCompletionUsage } from "@/lib/billing/account"
+import {
+  budgetErrorResponse,
+  isBudgetExceededError
+} from "@/lib/billing/errors"
 
 const openai = () => getAzureOpenAIForDesign()
 const MODEL_NAME = () => getDesignDeployment()
@@ -23,6 +28,12 @@ export async function POST(req: Request) {
   try {
     const auth = await requireUser()
     if (auth.response) return auth.response
+
+    try {
+      await assertBudget(auth.user.id)
+    } catch (e) {
+      if (isBudgetExceededError(e)) return budgetErrorResponse(e.plan)
+    }
 
     const body = (await req.json().catch(() => null)) as {
       objective?: string
@@ -84,6 +95,11 @@ Respond with STRICT JSON only, no prose, in this shape:
       max_tokens: 600,
       response_format: { type: "json_object" }
     })
+
+    await recordCompletionUsage(
+      { userId: auth.user.id, feature: "report", model: MODEL_NAME() },
+      completion
+    )
 
     const raw = completion.choices[0]?.message?.content?.trim() || "{}"
     let parsed: { complete?: boolean; missing?: unknown; reason?: unknown }

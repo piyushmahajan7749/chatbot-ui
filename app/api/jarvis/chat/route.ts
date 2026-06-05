@@ -49,6 +49,11 @@ import {
 } from "@/lib/jarvis/tools"
 import type { Episode } from "@/lib/jarvis/types"
 import { createClient } from "@/lib/supabase/server"
+import { assertBudget, recordUsage } from "@/lib/billing/account"
+import {
+  budgetErrorResponse,
+  isBudgetExceededError
+} from "@/lib/billing/errors"
 
 export const runtime = "nodejs"
 
@@ -70,6 +75,12 @@ export async function POST(req: NextRequest) {
   } = await supabase.auth.getSession()
   if (!session) {
     return new Response("unauthorized", { status: 401 })
+  }
+
+  try {
+    await assertBudget(session.user.id)
+  } catch (e) {
+    if (isBudgetExceededError(e)) return budgetErrorResponse(e.plan)
   }
 
   let body: ChatRequestBody
@@ -143,6 +154,11 @@ export async function POST(req: NextRequest) {
   const encoder = new TextEncoder()
   const stream = new ReadableStream({
     async start(controller) {
+      // Token usage accumulates across all tool-loop rounds (stream_options
+      // emits a final usage chunk per round); flushed once at the end.
+      let usagePrompt = 0
+      let usageCompletion = 0
+      let usageTotal = 0
       try {
         // Tool-calling loop. Cap at 3 rounds so a runaway model can't
         // pin the connection - 3 is enough for ("plan → run tool →
@@ -154,6 +170,7 @@ export async function POST(req: NextRequest) {
             model: deployment,
             temperature: 0.6,
             stream: true,
+            stream_options: { include_usage: true },
             messages,
             tools: JARVIS_TOOLS,
             tool_choice: "auto"
@@ -174,6 +191,22 @@ export async function POST(req: NextRequest) {
           let finishReason: string | null = null
 
           for await (const chunk of completion) {
+            // include_usage emits a final choices-less chunk carrying usage.
+            const u = (
+              chunk as {
+                usage?: {
+                  prompt_tokens?: number
+                  completion_tokens?: number
+                  total_tokens?: number
+                } | null
+              }
+            ).usage
+            if (u) {
+              usagePrompt += u.prompt_tokens || 0
+              usageCompletion += u.completion_tokens || 0
+              usageTotal += u.total_tokens || 0
+            }
+
             const choice = chunk.choices[0]
             if (!choice) continue
 
@@ -276,6 +309,16 @@ export async function POST(req: NextRequest) {
           encoder.encode(`${ACTION_DEMUX_MARKER}${errorEnvelope}\n`)
         )
       } finally {
+        if (usageTotal > 0) {
+          await recordUsage({
+            userId: session.user.id,
+            feature: "jarvis",
+            promptTokens: usagePrompt,
+            completionTokens: usageCompletion,
+            totalTokens: usageTotal,
+            model: deployment
+          })
+        }
         controller.close()
       }
     }

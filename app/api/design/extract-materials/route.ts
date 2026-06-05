@@ -8,6 +8,11 @@ import { getAzureOpenAI, getAzureOpenAIModel } from "@/lib/azure-openai"
 import { requireUser } from "@/lib/server/require-user"
 import { checkRateLimit } from "@/lib/server/rate-limit"
 import { UPLOAD_SIZE_LIMITS, enforceSize } from "@/lib/server/file-validation"
+import { assertBudget, recordCompletionUsage } from "@/lib/billing/account"
+import {
+  budgetErrorResponse,
+  isBudgetExceededError
+} from "@/lib/billing/errors"
 
 // Note: this route was previously `runtime = "edge"`, but auth / file-type
 // helpers rely on Node APIs (dns, crypto). Running on the Node runtime is
@@ -17,6 +22,12 @@ export async function POST(request: NextRequest) {
   try {
     const auth = await requireUser()
     if (auth.response) return auth.response
+
+    try {
+      await assertBudget(auth.user.id)
+    } catch (e) {
+      if (isBudgetExceededError(e)) return budgetErrorResponse(e.plan)
+    }
 
     const limited = await checkRateLimit({
       name: "extract-materials",
@@ -110,6 +121,11 @@ JSON array:`
       max_tokens: 2000,
       stream: false
     })
+
+    await recordCompletionUsage(
+      { userId: auth.user.id, feature: "design", model },
+      response
+    )
 
     const content = response.choices[0]?.message?.content?.trim() || ""
 

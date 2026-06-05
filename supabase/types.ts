@@ -1930,11 +1930,97 @@ export type Database = {
         }
         Relationships: []
       }
+      billing_accounts: {
+        Row: {
+          created_at: string
+          custom_credit_tokens: number
+          period_end: string
+          period_start: string
+          plan: string
+          rc_app_user_id: string | null
+          rc_entitlement: string | null
+          subscription_status: string
+          tokens_used_period: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          custom_credit_tokens?: number
+          period_end?: string
+          period_start?: string
+          plan?: string
+          rc_app_user_id?: string | null
+          rc_entitlement?: string | null
+          subscription_status?: string
+          tokens_used_period?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          custom_credit_tokens?: number
+          period_end?: string
+          period_start?: string
+          plan?: string
+          rc_app_user_id?: string | null
+          rc_entitlement?: string | null
+          subscription_status?: string
+          tokens_used_period?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      usage_events: {
+        Row: {
+          completion_tokens: number
+          created_at: string
+          feature: string
+          id: string
+          metadata: Json
+          model: string | null
+          prompt_tokens: number
+          total_tokens: number
+          user_id: string
+        }
+        Insert: {
+          completion_tokens?: number
+          created_at?: string
+          feature?: string
+          id?: string
+          metadata?: Json
+          model?: string | null
+          prompt_tokens?: number
+          total_tokens?: number
+          user_id: string
+        }
+        Update: {
+          completion_tokens?: number
+          created_at?: string
+          feature?: string
+          id?: string
+          metadata?: Json
+          model?: string | null
+          prompt_tokens?: number
+          total_tokens?: number
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
+      consume_tokens: {
+        Args: {
+          p_user_id: string
+          p_tokens: number
+          p_monthly_allowance: number
+        }
+        Returns: Database["public"]["Tables"]["billing_accounts"]["Row"]
+      }
       create_duplicate_messages_for_new_chat: {
         Args: { old_chat_id: string; new_user_id: string; new_chat_id: string }
         Returns: undefined

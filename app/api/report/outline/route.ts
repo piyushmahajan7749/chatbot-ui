@@ -12,6 +12,13 @@ import {
   resolveSupabaseFilesToText
 } from "@/lib/report/file-content"
 import { getServerProfile } from "@/lib/server/server-chat-helpers"
+import { requireUser } from "@/lib/server/require-user"
+import { assertBudget } from "@/lib/billing/account"
+import { meterRun } from "@/lib/billing/with-meter"
+import {
+  budgetErrorResponse,
+  isBudgetExceededError
+} from "@/lib/billing/errors"
 
 const openai = () => getAzureOpenAI()
 const MODEL_NAME = () => getAzureOpenAIModel()
@@ -850,6 +857,16 @@ function parseDataFromSummary(
 
 export async function POST(req: Request) {
   try {
+    const auth = await requireUser()
+    if (auth.response) return auth.response
+    const userId = auth.user.id
+
+    try {
+      await assertBudget(userId)
+    } catch (e) {
+      if (isBudgetExceededError(e)) return budgetErrorResponse(e.plan)
+    }
+
     const { protocol, papers, dataFiles, experimentObjective, designContext } =
       (await req.json()) as {
         protocol?: string[]
@@ -973,12 +990,17 @@ export async function POST(req: Request) {
 
     let finalState: ReportState | undefined
 
-    for await (const event of await app.stream(initialState)) {
-      for (const [key, value] of Object.entries(event)) {
-        finalState = value as ReportState
-        // console.log(`Updated state for ${key}:`, finalState)
+    // Meter every LLM call the LangGraph nodes make: the ALS scope is active
+    // for the whole graph run, so the azure-openai Proxy auto-captures each
+    // node's token usage and we flush once at the end.
+    await meterRun({ userId, feature: "report" }, async () => {
+      for await (const event of await app.stream(initialState)) {
+        for (const [key, value] of Object.entries(event)) {
+          finalState = value as ReportState
+          // console.log(`Updated state for ${key}:`, finalState)
+        }
       }
-    }
+    })
 
     if (finalState) {
       console.log("Final state:", finalState)

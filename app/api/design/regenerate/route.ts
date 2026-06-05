@@ -11,6 +11,11 @@ import {
 import { requireUser } from "@/lib/server/require-user"
 import { requireFirestoreOwner } from "@/lib/server/firestore-authz"
 import { checkRateLimit } from "@/lib/server/rate-limit"
+import { assertBudget, recordCompletionUsage } from "@/lib/billing/account"
+import {
+  budgetErrorResponse,
+  isBudgetExceededError
+} from "@/lib/billing/errors"
 // OpenAlex is a keyless free index (~250M works). Import the shared
 // implementation from search-utils rather than copy-pasting another
 // local fn into this already-overgrown file. The other source fns
@@ -771,6 +776,12 @@ export async function POST(req: NextRequest) {
     const auth = await requireUser()
     if (auth.response) return auth.response
 
+    try {
+      await assertBudget(auth.user.id)
+    } catch (e) {
+      if (isBudgetExceededError(e)) return budgetErrorResponse(e.plan)
+    }
+
     const limited = await checkRateLimit({
       name: "design-regenerate",
       identifier: auth.user.id,
@@ -1038,6 +1049,11 @@ Generate a comprehensive improved experimental design that transforms the feedba
         "experimentDesign"
       )
     })
+
+    await recordCompletionUsage(
+      { userId: auth.user.id, feature: "design", model: MODEL_NAME() },
+      completion
+    )
 
     const regeneratedDesign = completion.choices[0].message.parsed!
 

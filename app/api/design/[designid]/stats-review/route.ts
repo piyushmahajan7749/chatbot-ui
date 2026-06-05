@@ -9,6 +9,11 @@ import {
 } from "@/lib/azure-openai"
 import { adminDb } from "@/lib/firebase/admin"
 import { createClient } from "@/lib/supabase/server"
+import { assertBudget, recordCompletionUsage } from "@/lib/billing/account"
+import {
+  budgetErrorResponse,
+  isBudgetExceededError
+} from "@/lib/billing/errors"
 
 /**
  * Re-runs just the statistical-analysis portion of the phase-4 agent for
@@ -47,6 +52,12 @@ export async function POST(
     } = await supabase.auth.getUser()
     if (!user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
+
+    try {
+      await assertBudget(user.id)
+    } catch (e) {
+      if (isBudgetExceededError(e)) return budgetErrorResponse(e.plan)
     }
 
     const body = (await request.json().catch(() => ({}))) as {
@@ -136,6 +147,11 @@ Be concrete; refer back to specific groups and replicate counts visible in the p
       ],
       response_format: zodResponseFormat(statsSchema, "statsReview")
     })
+
+    await recordCompletionUsage(
+      { userId: user.id, feature: "design", model },
+      completion
+    )
 
     const parsed = completion.choices[0]?.message?.parsed
     if (!parsed?.statisticalAnalysis) {

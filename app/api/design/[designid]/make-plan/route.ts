@@ -9,6 +9,11 @@ import {
 } from "@/lib/azure-openai"
 import { adminDb } from "@/lib/firebase/admin"
 import { createClient } from "@/lib/supabase/server"
+import { assertBudget, recordCompletionUsage } from "@/lib/billing/account"
+import {
+  budgetErrorResponse,
+  isBudgetExceededError
+} from "@/lib/billing/errors"
 
 /**
  * Generates a timed, role-assigned execution plan for a single generated
@@ -46,6 +51,12 @@ export async function POST(
     } = await supabase.auth.getUser()
     if (!user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
+
+    try {
+      await assertBudget(user.id)
+    } catch (e) {
+      if (isBudgetExceededError(e)) return budgetErrorResponse(e.plan)
     }
 
     const body = (await request.json().catch(() => ({}))) as {
@@ -139,6 +150,11 @@ Be concrete: quote specific activity names, checkpoints, and read-outs from the 
       ],
       response_format: zodResponseFormat(planSchema, "executionPlan")
     })
+
+    await recordCompletionUsage(
+      { userId: user.id, feature: "design", model },
+      completion
+    )
 
     const parsed = completion.choices[0]?.message?.parsed
     if (!parsed?.executionPlan) {

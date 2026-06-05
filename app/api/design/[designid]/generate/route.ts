@@ -27,6 +27,12 @@ import {
 import { runTasksWithConcurrency } from "@/app/api/design/draft/worker"
 import type { ExperimentDesignState } from "@/app/api/design/draft/types"
 import type { AgentTask } from "@/app/api/design/draft/types/interfaces"
+import { assertBudget } from "@/lib/billing/account"
+import { meterRun } from "@/lib/billing/with-meter"
+import {
+  budgetErrorResponse,
+  isBudgetExceededError
+} from "@/lib/billing/errors"
 
 const FINAL_TOP_N = 5
 
@@ -1129,6 +1135,15 @@ Never use placeholder text like "TBD" - if a spec is reasonable to infer, infer 
       return cleaned
     }
 
+    // Pre-flight token gate. Block before opening the stream so the client gets
+    // a clean 402 (not a half-open SSE). In-flight work always finishes.
+    try {
+      await assertBudget(user.id)
+    } catch (e) {
+      if (isBudgetExceededError(e)) return budgetErrorResponse(e.plan)
+      // any other error: fail open, assertBudget already logged it
+    }
+
     if (wantsStream) {
       const encoder = new TextEncoder()
       const stream = new ReadableStream({
@@ -1142,7 +1157,10 @@ Never use placeholder text like "TBD" - if a spec is reasonable to infer, infer 
           }
           sendProgress = ev => send("progress", ev)
           try {
-            const cleaned = await runPhase()
+            const cleaned = await meterRun(
+              { userId: user.id, feature: "design" },
+              runPhase
+            )
             send("result", { content: cleaned, phase: body.phase })
           } catch (err: any) {
             console.error("❌ [DESIGN_GENERATE_STREAM] Error:", err)
@@ -1166,7 +1184,10 @@ Never use placeholder text like "TBD" - if a spec is reasonable to infer, infer 
     }
 
     try {
-      const cleaned = await runPhase()
+      const cleaned = await meterRun(
+        { userId: user.id, feature: "design" },
+        runPhase
+      )
       return NextResponse.json({ content: cleaned, phase: body.phase })
     } catch (err: any) {
       console.error("❌ [DESIGN_GENERATE] Error:", err)

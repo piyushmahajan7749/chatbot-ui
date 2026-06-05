@@ -8,10 +8,22 @@ import { ChatCompletionCreateParamsBase } from "openai/resources/chat/completion
 import { requireUser } from "@/lib/server/require-user"
 import { safeFetch, SafeFetchError } from "@/lib/server/safe-fetch"
 import { checkRateLimit } from "@/lib/server/rate-limit"
+import { assertBudget, recordCompletionUsage } from "@/lib/billing/account"
+import {
+  budgetErrorResponse,
+  isBudgetExceededError
+} from "@/lib/billing/errors"
+import { streamMeterCallbacks } from "@/lib/billing/stream-meter"
 
 export async function POST(request: Request) {
   const auth = await requireUser()
   if (auth.response) return auth.response
+
+  try {
+    await assertBudget(auth.user.id)
+  } catch (e) {
+    if (isBudgetExceededError(e)) return budgetErrorResponse(e.plan)
+  }
 
   const limited = await checkRateLimit({
     name: "chat-tools",
@@ -72,6 +84,11 @@ export async function POST(request: Request) {
       messages,
       tools: allTools.length > 0 ? allTools : undefined
     })
+
+    await recordCompletionUsage(
+      { userId: auth.user.id, feature: "tools", model: deployment },
+      firstResponse
+    )
 
     const message = firstResponse.choices[0].message
     messages.push(message)
@@ -214,7 +231,15 @@ export async function POST(request: Request) {
       stream: true
     })
 
-    const stream = OpenAIStream(secondResponse as any)
+    const stream = OpenAIStream(
+      secondResponse as any,
+      streamMeterCallbacks({
+        userId: auth.user.id,
+        feature: "tools",
+        model: deployment,
+        messages
+      })
+    )
 
     return new StreamingTextResponse(stream)
   } catch (error: any) {

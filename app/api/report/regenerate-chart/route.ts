@@ -7,6 +7,12 @@ import {
   getAzureOpenAIForDesign,
   getDesignDeployment
 } from "@/lib/azure-openai"
+import { requireUser } from "@/lib/server/require-user"
+import { assertBudget, recordCompletionUsage } from "@/lib/billing/account"
+import {
+  budgetErrorResponse,
+  isBudgetExceededError
+} from "@/lib/billing/errors"
 
 // chartType added so the user's "switch to pie chart" / "switch to line
 // chart" feedback can actually mutate the type, not just the labels.
@@ -179,6 +185,15 @@ function renderChart(chart: ChartData): string {
 
 export async function POST(req: Request) {
   try {
+    const auth = await requireUser()
+    if (auth.response) return auth.response
+
+    try {
+      await assertBudget(auth.user.id)
+    } catch (e) {
+      if (isBudgetExceededError(e)) return budgetErrorResponse(e.plan)
+    }
+
     const { currentChartData, userFeedback } = await req.json()
 
     if (!userFeedback) {
@@ -218,6 +233,11 @@ export async function POST(req: Request) {
       ],
       response_format: zodResponseFormat(ChartDataSchema, "chart")
     })
+
+    await recordCompletionUsage(
+      { userId: auth.user.id, feature: "report", model: getDesignDeployment() },
+      completion
+    )
 
     const parsed = completion.choices[0]?.message?.parsed
     if (!parsed) {

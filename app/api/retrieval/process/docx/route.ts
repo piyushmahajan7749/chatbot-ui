@@ -5,6 +5,7 @@ import {
   getAzureOpenAIEmbeddingsDeployment
 } from "@/lib/azure-openai"
 import { getServerProfile } from "@/lib/server/server-chat-helpers"
+import { recordCompletionUsage } from "@/lib/billing/account"
 import { Database } from "@/supabase/types"
 import { FileItemChunk } from "@/types"
 import { createClient } from "@supabase/supabase-js"
@@ -74,6 +75,15 @@ export async function POST(req: Request) {
         model: embeddingsDeployment,
         input: chunks.map(chunk => chunk.content)
       })
+
+      await recordCompletionUsage(
+        {
+          userId: profile.user_id,
+          feature: "embeddings",
+          model: embeddingsDeployment
+        },
+        response
+      )
 
       embeddings = response.data.map((item: any) => {
         return item.embedding

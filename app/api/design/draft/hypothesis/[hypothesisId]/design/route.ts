@@ -24,6 +24,12 @@ import {
 import { AgentPromptOverrides, AgentPromptUsage } from "@/types/design-prompts"
 import { designAgentPromptOrder } from "@/lib/design/prompt-schemas"
 import { requireUser } from "@/lib/server/require-user"
+import { assertBudget } from "@/lib/billing/account"
+import { meterRun } from "@/lib/billing/with-meter"
+import {
+  budgetErrorResponse,
+  isBudgetExceededError
+} from "@/lib/billing/errors"
 import { checkRateLimit } from "@/lib/server/rate-limit"
 
 const agentKeys = designAgentPromptOrder
@@ -126,6 +132,12 @@ export async function POST(
     const auth = await requireUser()
     if (auth.response) return auth.response
 
+    try {
+      await assertBudget(auth.user.id)
+    } catch (e) {
+      if (isBudgetExceededError(e)) return budgetErrorResponse(e.plan)
+    }
+
     const limited = await checkRateLimit({
       name: "hypothesis-design",
       identifier: auth.user.id,
@@ -170,9 +182,15 @@ export async function POST(
     }
 
     const stepTimings: { step: string; durationMs: number }[] = []
+    // Every step here runs an AI agent — wrap each in a metering scope so the
+    // azure-openai Proxy attributes its token usage to this user (feature
+    // "design"). meterRun is a no-op flush when a step makes no AI calls.
     const trackStep = async <T>(step: string, fn: () => Promise<T>) => {
       const start = Date.now()
-      const result = await fn()
+      const result = await meterRun(
+        { userId: auth.user.id, feature: "design" },
+        fn
+      )
       stepTimings.push({ step, durationMs: Date.now() - start })
       return result
     }

@@ -5,6 +5,11 @@ import { inngest } from "@/lib/inngest/client"
 import { saveResearchPlan } from "./utils/persistence-firestore"
 import { requireUser } from "@/lib/server/require-user"
 import { checkRateLimit } from "@/lib/server/rate-limit"
+import { assertBudget } from "@/lib/billing/account"
+import {
+  budgetErrorResponse,
+  isBudgetExceededError
+} from "@/lib/billing/errors"
 
 export async function POST(req: Request) {
   const requestStartTime = Date.now()
@@ -16,6 +21,14 @@ export async function POST(req: Request) {
     const auth = await requireUser()
     if (auth.response) return auth.response
     const user = auth.user
+
+    // Block enqueueing a research plan if the user is out of credits — the
+    // background pipeline (lib/inngest/functions.ts) is the heaviest AI path.
+    try {
+      await assertBudget(user.id)
+    } catch (e) {
+      if (isBudgetExceededError(e)) return budgetErrorResponse(e.plan)
+    }
 
     const limited = await checkRateLimit({
       name: "design-draft",
