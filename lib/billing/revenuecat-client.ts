@@ -28,7 +28,10 @@ export async function startRevenueCatCheckout(
     purchases = null
   }
   if (!purchases || configuredKey !== args.publicApiKey) {
-    purchases = Purchases.configure(args.publicApiKey, args.appUserId)
+    purchases = Purchases.configure({
+      apiKey: args.publicApiKey,
+      appUserId: args.appUserId
+    })
     configuredKey = args.publicApiKey
   }
 
