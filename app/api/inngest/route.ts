@@ -1,9 +1,6 @@
 import { serve } from "inngest/next"
 import { inngest } from "@/lib/inngest/client"
-import {
-  processDesignDraft,
-  processDesignGeneration
-} from "@/lib/inngest/functions"
+import { processDesignDraft, processDesignPhase } from "@/lib/inngest/functions"
 import {
   ragBackfillWorkspace,
   ragCronSweep,
@@ -30,7 +27,7 @@ export const { GET, POST, PUT } = serve({
   client: inngest,
   functions: [
     processDesignDraft,
-    processDesignGeneration,
+    processDesignPhase,
     ragDocChanged,
     ragCronSweep,
     ragBackfillWorkspace

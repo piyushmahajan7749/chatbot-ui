@@ -1145,18 +1145,26 @@ Never use placeholder text like "TBD" - if a spec is reasonable to infer, infer 
       // any other error: fail open, assertBudget already logged it
     }
 
-    // ── Design phase runs in the background ───────────────────────────────
-    // A full design is 4 sequential gpt-5.5 SOP sections (~2-3 min each) per
-    // hypothesis — far past Vercel's 300s function cap if run inline. Hand off
-    // to the Inngest worker (processDesignGeneration), which runs each section
-    // as its own step, and return 202. The client polls GET /api/design/[id]
-    // for `designJob` progress + completion. (The runPhase "design" case below
-    // is therefore unreachable — superseded by lib/design/design-sections.ts.)
-    if (body.phase === "design") {
+    // ── literature / hypotheses / design run in the background ────────────
+    // All three are slow gpt-5.5 pipelines that can exceed Vercel's 300s
+    // function cap (literature = multi-round search; hypotheses = 5-stage
+    // ~32-call pipeline; design = 4 SOP sections/hypothesis). Hand off to the
+    // Inngest worker (processDesignPhase), which runs each as <300s steps, and
+    // return 202. The client polls GET /api/design/[id] for `designJob`
+    // progress + completion. Only `simulation` (sync, no LLM) stays inline.
+    // The matching runPhase cases below are therefore unreachable for these
+    // phases — the real logic lives in lib/design/{literature,hypotheses}-phase
+    // + design-sections.ts.
+    if (
+      body.phase === "literature" ||
+      body.phase === "hypotheses" ||
+      body.phase === "design"
+    ) {
       try {
         await docRef.update({
           designJob: {
             state: "queued",
+            phase: body.phase,
             progress: [],
             queuedAt: new Date().toISOString()
           }
@@ -1171,8 +1179,11 @@ Never use placeholder text like "TBD" - if a spec is reasonable to infer, infer 
           data: {
             designId,
             userId: user.id,
+            phase: body.phase,
+            mode: body.mode,
             problem: body.problem ?? ctx,
             hypotheses: body.hypotheses ?? existing.hypotheses ?? [],
+            papers: body.papers ?? existing.papers ?? [],
             approvedPhases: body.approvedPhases
           }
         })

@@ -682,9 +682,13 @@ export default function DesignDetailPage() {
         )
           .then(jobContent => {
             latestContentRef.current = jobContent
+            // Apply whatever the resumed phase produced (literature → papers,
+            // hypotheses → hypotheses, design → designs).
+            if (jobContent.papers) setPapers(jobContent.papers)
+            if (jobContent.hypotheses) setHypotheses(jobContent.hypotheses)
             const designs = jobContent.designs ?? []
             setGeneratedDesigns(designs)
-            setActiveDesignId(designs[0]?.id ?? null)
+            if (designs.length) setActiveDesignId(designs[0]?.id ?? null)
           })
           .catch((err: any) => {
             toast({
@@ -823,7 +827,7 @@ export default function DesignDetailPage() {
     setBusy("literature")
     setLiteratureProgress([])
     try {
-      const content = await runPhaseStreaming(
+      const content = await runPhaseBackground(
         designId,
         {
           phase: "literature",
@@ -883,7 +887,7 @@ export default function DesignDetailPage() {
     setHypothesesProgress([])
     setHypothesesError(null)
     try {
-      const content = await runPhaseStreaming(
+      const content = await runPhaseBackground(
         designId,
         {
           phase: "hypotheses",
@@ -968,7 +972,7 @@ export default function DesignDetailPage() {
     setBusy("literature")
     setLiteratureProgress([])
     try {
-      const content = await runPhaseStreaming(
+      const content = await runPhaseBackground(
         designId,
         {
           phase: "literature",
@@ -1025,7 +1029,7 @@ export default function DesignDetailPage() {
     setHypothesesProgress([])
     setHypothesesError(null)
     try {
-      const content = await runPhaseStreaming(
+      const content = await runPhaseBackground(
         designId,
         {
           phase: "hypotheses",

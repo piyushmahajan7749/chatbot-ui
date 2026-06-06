@@ -37,8 +37,11 @@ import type {
   DesignContentV2,
   GeneratedDesign,
   Hypothesis as DesignHypothesis,
+  Paper as DesignPaper,
   ProblemContext
 } from "@/lib/design-agent"
+import { runLiteraturePhase } from "@/lib/design/literature-phase"
+import { runHypothesesPhase } from "@/lib/design/hypotheses-phase"
 
 const DEFAULT_CONCURRENCY = 4
 const INITIAL_ELO = 1500
@@ -457,28 +460,33 @@ export const processDesignDraft = inngest.createFunction(
 )
 
 // ───────────────────────────────────────────────────────────────────────────
-// Design generation (moved off the request path).
+// Design-creation pipeline (moved off the request path).
 //
-// The design phase builds a full experiment design per selected hypothesis via
-// 4 sequential gpt-5.5 SOP sections (~2–3 min each). 4 serial sections blew
-// Vercel's 300s function cap when run inline in /api/design/[id]/generate. Here
-// each section is its OWN step.run (each < 300s); Inngest persists state between
-// steps and runs them across separate invocations, so the whole 6–12 min job
-// has no single invocation over the limit. The client polls the design doc's
-// `designJob` field (set here) for progress + completion.
+// literature / hypotheses / design all run too long for a 300s serverless
+// request (gpt-5.5 is slow; design alone is 6-12 min). Each runs here as Inngest
+// steps — on Vercel every step.run is its own <300s invocation and Inngest
+// persists state between them, so the whole pipeline has no single invocation
+// over the cap. The client polls the design doc's `designJob` field
+// (state/phase/progress) and reads the resulting content. simulation stays
+// inline in the route (sync, no LLM).
 // ───────────────────────────────────────────────────────────────────────────
-interface DesignGenPayload {
+type DesignPhaseName = "literature" | "hypotheses" | "design"
+
+interface DesignPhasePayload {
   designId: string
   userId: string
+  phase: DesignPhaseName
   problem?: ProblemContext
   hypotheses?: DesignHypothesis[]
+  papers?: DesignPaper[]
+  mode?: "append" | "replace"
   approvedPhases?: string[]
 }
 
-export const processDesignGeneration = inngest.createFunction(
+export const processDesignPhase = inngest.createFunction(
   {
-    id: "process-design-generation",
-    name: "Generate experiment designs",
+    id: "process-design-phase",
+    name: "Run design-pipeline phase",
     retries: 1,
     // One ultimate-failure hook: flip the job to failed so the client stops polling.
     onFailure: async ({ event, error }) => {
@@ -495,16 +503,16 @@ export const processDesignGeneration = inngest.createFunction(
             "designJob.updatedAt": new Date().toISOString()
           })
       } catch (e) {
-        console.error("[design.generate] onFailure write failed", e)
+        console.error("[design.phase] onFailure write failed", e)
       }
     }
   },
   { event: "design/generate.requested" },
   async ({ event, step }) => {
-    const data = event.data as DesignGenPayload
-    const { designId, userId } = data
-    if (!designId || !userId) {
-      throw new Error("[design.generate] missing designId or userId")
+    const data = event.data as DesignPhasePayload
+    const { designId, userId, phase } = data
+    if (!designId || !userId || !phase) {
+      throw new Error("[design.phase] missing designId, userId, or phase")
     }
 
     const docRef = adminDb.collection("designs").doc(designId)
@@ -516,7 +524,7 @@ export const processDesignGeneration = inngest.createFunction(
           "designJob.updatedAt": new Date().toISOString()
         })
       } catch (e) {
-        console.warn("[design.generate] progress write failed", e)
+        console.warn("[design.phase] progress write failed", e)
       }
     }
 
@@ -533,94 +541,119 @@ export const processDesignGeneration = inngest.createFunction(
           ? JSON.parse(docData.content || "{}")
           : docData.content) ?? ({ schemaVersion: 2 } as DesignContentV2)
       const ctx: ProblemContext = data.problem ?? existing.problem ?? {}
+      await docRef.update({
+        designJob: {
+          state: "running",
+          phase,
+          progress: [],
+          startedAt: new Date().toISOString()
+        }
+      })
+      return { existing, ctx }
+    })
+
+    const { existing, ctx } = loaded as {
+      existing: DesignContentV2
+      ctx: ProblemContext
+    }
+
+    let patch: Partial<DesignContentV2> = {}
+
+    if (phase === "literature") {
+      patch = (await step.run("literature", () =>
+        meterRun({ userId, feature: "lit_search" }, () =>
+          runLiteraturePhase(
+            { ctx, existing, mode: data.mode },
+            ev => void pushProgress(ev as Record<string, unknown>)
+          )
+        )
+      )) as Partial<DesignContentV2>
+    } else if (phase === "hypotheses") {
+      patch = (await step.run("hypotheses", () =>
+        meterRun({ userId, feature: "design" }, () =>
+          runHypothesesPhase(
+            { ctx, existing, body: { papers: data.papers }, designId },
+            ev => void pushProgress(ev)
+          )
+        )
+      )) as Partial<DesignContentV2>
+    } else {
+      // design: one step per SOP section, per selected hypothesis.
       const hypotheses: DesignHypothesis[] =
         data.hypotheses ?? existing.hypotheses ?? []
       const selected = hypotheses.filter(h => h.selected)
       if (selected.length === 0) throw new Error("No hypotheses selected")
 
-      await docRef.update({
-        designJob: {
-          state: "running",
-          progress: [],
-          startedAt: new Date().toISOString()
-        }
-      })
-      return { existing, ctx, hypotheses, selected }
-    })
+      const designs: GeneratedDesign[] = []
+      for (let i = 0; i < selected.length; i++) {
+        const hyp = selected[i]
+        const blocks = buildDesignBlocks(ctx, existing, hyp) // pure, cheap
+        const label = `[${i + 1}/${selected.length}]`
+        const meter = <T>(fn: () => Promise<T>) =>
+          meterRun({ userId, feature: "design" }, fn)
 
-    const { existing, ctx, hypotheses, selected } = loaded as {
-      existing: DesignContentV2
-      ctx: ProblemContext
-      hypotheses: DesignHypothesis[]
-      selected: DesignHypothesis[]
+        const setup = (await step.run(`setup-${i}`, async () => {
+          const r = await meter(() => genSetup(blocks))
+          await pushProgress({
+            step: "hyp_setup",
+            message: `${label} Experimental setup`,
+            hypothesisIndex: i + 1,
+            totalHypotheses: selected.length
+          })
+          return r
+        })) as SetupSection
+
+        const materials = (await step.run(`materials-${i}`, async () => {
+          const r = await meter(() => genMaterials(blocks, setup))
+          await pushProgress({
+            step: "hyp_materials",
+            message: `${label} Materials & setup`,
+            hypothesisIndex: i + 1,
+            totalHypotheses: selected.length
+          })
+          return r
+        })) as MaterialsSection
+
+        const protocol = (await step.run(`protocol-${i}`, async () => {
+          const r = await meter(() => genProtocol(blocks, setup, materials))
+          await pushProgress({
+            step: "hyp_protocol",
+            message: `${label} Protocol & timeline`,
+            hypothesisIndex: i + 1,
+            totalHypotheses: selected.length
+          })
+          return r
+        })) as ProtocolSection
+
+        const analysis = (await step.run(`analysis-${i}`, async () => {
+          const r = await meter(() =>
+            genAnalysis(blocks, setup, materials, protocol)
+          )
+          await pushProgress({
+            step: "hyp_complete",
+            message: `${label} Design complete`,
+            hypothesisIndex: i + 1,
+            totalHypotheses: selected.length
+          })
+          return r
+        })) as AnalysisSection
+
+        designs.push(assembleDesign(hyp, setup, materials, protocol, analysis))
+      }
+      patch = { problem: ctx, hypotheses, designs }
     }
 
-    const designs: GeneratedDesign[] = []
-
-    for (let i = 0; i < selected.length; i++) {
-      const hyp = selected[i]
-      const blocks = buildDesignBlocks(ctx, existing, hyp) // pure, cheap
-      const label = `[${i + 1}/${selected.length}]`
-      const meter = <T>(fn: () => Promise<T>) =>
-        meterRun({ userId, feature: "design" }, fn)
-
-      const setup = (await step.run(`setup-${i}`, async () => {
-        const r = await meter(() => genSetup(blocks))
-        await pushProgress({
-          step: "hyp_setup",
-          message: `${label} Experimental setup`,
-          hypothesisIndex: i + 1,
-          totalHypotheses: selected.length
-        })
-        return r
-      })) as SetupSection
-
-      const materials = (await step.run(`materials-${i}`, async () => {
-        const r = await meter(() => genMaterials(blocks, setup))
-        await pushProgress({
-          step: "hyp_materials",
-          message: `${label} Materials & setup`,
-          hypothesisIndex: i + 1,
-          totalHypotheses: selected.length
-        })
-        return r
-      })) as MaterialsSection
-
-      const protocol = (await step.run(`protocol-${i}`, async () => {
-        const r = await meter(() => genProtocol(blocks, setup, materials))
-        await pushProgress({
-          step: "hyp_protocol",
-          message: `${label} Protocol & timeline`,
-          hypothesisIndex: i + 1,
-          totalHypotheses: selected.length
-        })
-        return r
-      })) as ProtocolSection
-
-      const analysis = (await step.run(`analysis-${i}`, async () => {
-        const r = await meter(() =>
-          genAnalysis(blocks, setup, materials, protocol)
-        )
-        await pushProgress({
-          step: "hyp_complete",
-          message: `${label} Design complete`,
-          hypothesisIndex: i + 1,
-          totalHypotheses: selected.length
-        })
-        return r
-      })) as AnalysisSection
-
-      designs.push(assembleDesign(hyp, setup, materials, protocol, analysis))
-    }
-
-    // Finalize: persist the designs onto the design doc + mark complete.
+    // Finalize: merge the phase patch into content, apply downstream clears,
+    // and mark the job complete. (Clears live here because `undefined` doesn't
+    // survive Inngest step-result serialization.)
     await step.run("finalize", async () => {
-      const next: DesignContentV2 = {
-        ...existing,
-        problem: ctx,
-        hypotheses,
-        designs,
-        schemaVersion: 2
+      const next: any = { ...existing, ...patch, schemaVersion: 2 }
+      if (phase === "literature" && data.mode !== "append") {
+        delete next.hypotheses
+        delete next.designs
+      }
+      if (phase === "hypotheses") {
+        delete next.designs
       }
       const cleaned = JSON.parse(JSON.stringify(next))
       await docRef.update({
@@ -631,6 +664,6 @@ export const processDesignGeneration = inngest.createFunction(
       })
     })
 
-    return { designId, designCount: designs.length }
+    return { designId, phase }
   }
 )
