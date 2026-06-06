@@ -19,84 +19,24 @@ import {
   budgetErrorResponse,
   isBudgetExceededError
 } from "@/lib/billing/errors"
+import {
+  ReportTheorySchema,
+  type ReportTheoryType,
+  VisualizationSchema,
+  type VisualizationType,
+  ReportExecutorSchema,
+  type ReportExecutorType,
+  DataAnalysisSchema,
+  type DataAnalysisType,
+  ReportOutputSchema,
+  type ReportOutputType
+} from "@/lib/report/schemas"
 
 const openai = () => getAzureOpenAI()
 const MODEL_NAME = () => getAzureOpenAIModel()
 
-type ReportTheoryType = z.infer<typeof ReportTheorySchema>
-
-const ReportTheorySchema = z
-  .object({
-    aim: z.string(),
-    introduction: z.string(),
-    principle: z.string()
-  })
-  .required()
-
-const VisualizationSchema = z.object({
-  chartTitle: z
-    .string()
-    .describe(
-      "A descriptive title for the chart, e.g. 'Mean Viscosity by Formulation'"
-    ),
-  chartType: z
-    .enum(["bar", "pie"])
-    .describe(
-      "Choose 'bar' for comparing a single numeric metric across conditions, 'pie' when showing proportion/share of a whole summing to ~100%."
-    ),
-  yAxisLabel: z
-    .string()
-    .describe("Label for the Y axis including units, e.g. 'Viscosity (mPa·s)'"),
-  data: z.array(
-    z.object({
-      label: z.string().describe("Short category/group name"),
-      value: z.number().describe("Numeric value to plot")
-    })
-  )
-})
-
-type VisualizationType = z.infer<typeof VisualizationSchema>
-type ReportExecutorType = z.infer<typeof ReportExecutorSchema>
-
-const ReportExecutorSchema = z
-  .object({
-    material: z.string(),
-    preparation: z.string(),
-    procedure: z.string(),
-    setup: z.string()
-  })
-  .required()
-
-type DataAnalysisType = z.infer<typeof DataAnalysisSchema>
-
-const DataAnalysisSchema = z
-  .object({
-    dataAnalysis: z.string(),
-    results: z.string(),
-    discussion: z.string(),
-    conclusion: z.string(),
-    nextSteps: z.string()
-  })
-  .required()
-
-type ReportOutputType = z.infer<typeof ReportOutputSchema>
-
-const ReportOutputSchema = z
-  .object({
-    aim: z.string(),
-    introduction: z.string(),
-    principle: z.string(),
-    material: z.string(),
-    preparation: z.string(),
-    procedure: z.string(),
-    setup: z.string(),
-    dataAnalysis: z.string(),
-    results: z.string(),
-    discussion: z.string(),
-    conclusion: z.string(),
-    nextSteps: z.string()
-  })
-  .required()
+// Report structured-output schemas live in @/lib/report/schemas (so the report
+// output contract is unit-tested). Imported below.
 
 // Define interfaces
 interface ReportState {
