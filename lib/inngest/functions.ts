@@ -19,6 +19,7 @@ import { v4 as uuidv4 } from "uuid"
 import { callLiteratureScoutAgent } from "@/app/api/design/draft/agents"
 import { ExperimentDesignState } from "@/app/api/design/draft/types"
 import { meterRun } from "@/lib/billing/with-meter"
+import { evaluateAccess, getPermissionForUser } from "@/lib/design/sharing"
 import { adminDb } from "@/lib/firebase/admin"
 import { FieldValue } from "firebase-admin/firestore"
 import {
@@ -475,6 +476,9 @@ type DesignPhaseName = "literature" | "hypotheses" | "design"
 interface DesignPhasePayload {
   designId: string
   userId: string
+  /** Actor's email — lets the worker resolve an editor invite addressed by
+   *  email when the permission row hasn't been linked to a user_id yet. */
+  userEmail?: string | null
   phase: DesignPhaseName
   problem?: ProblemContext
   hypotheses?: DesignHypothesis[]
@@ -533,7 +537,18 @@ export const processDesignPhase = inngest.createFunction(
       const snap = await docRef.get()
       if (!snap.exists) throw new Error(`Design ${designId} not found`)
       const docData = snap.data() as any
-      if (docData.user_id && docData.user_id !== userId) {
+      // Owner OR an invited editor (collaborator) may run a phase. The route
+      // already gated this, but the worker re-checks because it can be invoked
+      // directly via the event stream.
+      const permission = await getPermissionForUser(
+        designId,
+        userId,
+        data.userEmail ?? null
+      )
+      if (
+        docData.user_id &&
+        !evaluateAccess(docData, userId, permission).canEdit
+      ) {
         throw new Error("Forbidden: design belongs to another user")
       }
       const existing: DesignContentV2 =

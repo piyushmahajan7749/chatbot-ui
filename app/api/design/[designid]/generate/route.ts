@@ -34,6 +34,7 @@ import {
   isBudgetExceededError
 } from "@/lib/billing/errors"
 import { inngest } from "@/lib/inngest/client"
+import { evaluateAccess, getPermissionForUser } from "@/lib/design/sharing"
 
 const FINAL_TOP_N = 5
 
@@ -100,7 +101,15 @@ export async function POST(
     }
 
     const design = doc.data() as any
-    if (design?.user_id !== user.id) {
+    // Owner OR an invited editor (collaborator) may run the pipeline. Token
+    // usage is metered against the actor below (user.id), not the owner, so an
+    // editor can never drain the owner's credits.
+    const permission = await getPermissionForUser(
+      designId,
+      user.id,
+      user.email ?? null
+    )
+    if (!evaluateAccess(design, user.id, permission).canEdit) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 })
     }
 
@@ -1179,6 +1188,7 @@ Never use placeholder text like "TBD" - if a spec is reasonable to infer, infer 
           data: {
             designId,
             userId: user.id,
+            userEmail: user.email ?? null,
             phase: body.phase,
             mode: body.mode,
             problem: body.problem ?? ctx,

@@ -9,6 +9,7 @@ import {
 } from "@/lib/azure-openai"
 import { adminDb } from "@/lib/firebase/admin"
 import { createClient } from "@/lib/supabase/server"
+import { evaluateAccess, getPermissionForUser } from "@/lib/design/sharing"
 import { assertBudget, recordCompletionUsage } from "@/lib/billing/account"
 import {
   budgetErrorResponse,
@@ -75,7 +76,16 @@ export async function POST(
       return NextResponse.json({ error: "Design not found" }, { status: 404 })
     }
     const designData = doc.data() as any
-    if (designData.user_id && designData.user_id !== user.id) {
+    // Owner OR an invited editor (collaborator) may generate an execution plan.
+    const permission = await getPermissionForUser(
+      designId,
+      user.id,
+      user.email ?? null
+    )
+    if (
+      designData.user_id &&
+      !evaluateAccess(designData, user.id, permission).canEdit
+    ) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 })
     }
 
