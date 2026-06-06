@@ -30,6 +30,8 @@ import {
 // for the experiment-design pivot: chat lives next to the design so the user
 // can ask for edits while looking at it.
 import { ScopedChatRail } from "@/components/canvas/scoped-chat-rail"
+import ShareDialog from "@/components/design-flow/share-dialog"
+import type { Sharing } from "@/types/sharing"
 import { addPaperToLibrary } from "@/db/paper-library"
 import { supabase } from "@/lib/supabase/browser-client"
 import { ChatbotUIContext } from "@/context/context"
@@ -305,6 +307,17 @@ export default function DesignDetailPage() {
 
   const [design, setDesign] = useState<any>(null)
   const [loading, setLoading] = useState(true)
+  // Collaboration access. Derived from the GET design `_access` field. Defaults
+  // are permissive (canEdit=true, isOwner=true) so the owner's own designs never
+  // flicker into a read-only state before the fetch resolves; the fetch then
+  // narrows them for invited viewers/editors.
+  const [canEdit, setCanEdit] = useState(true)
+  const [isOwner, setIsOwner] = useState(true)
+  const [shareDialogOpen, setShareDialogOpen] = useState(false)
+  const [sharingState, setSharingState] = useState<{
+    sharing: Sharing
+    share_token: string | null
+  }>({ sharing: "private", share_token: null })
   // Default landing tab is "problem" - newly-created designs should drop the
   // user straight into editing instead of showing the Overview placeholder.
   // Initial tab honours `?tab=` from the new-design dialog so non-
@@ -505,6 +518,17 @@ export default function DesignDetailPage() {
       const data = await response.json()
       setDesign(data)
 
+      // Collaboration access for this viewer. The server returns `_access`
+      // {isOwner, role, canEdit} for any user allowed to read the design; an
+      // invited viewer gets canEdit=false (read-only), an editor canEdit=true.
+      const access = (data as any)?._access ?? {}
+      setCanEdit(access.canEdit ?? true)
+      setIsOwner(access.isOwner ?? true)
+      setSharingState({
+        sharing: (data as any)?.sharing ?? "private",
+        share_token: (data as any)?.share_token ?? null
+      })
+
       const content = parseContent(data.content)
       latestContentRef.current = content ?? { schemaVersion: 2 }
       const problem = content?.problem ?? {}
@@ -666,7 +690,8 @@ export default function DesignDetailPage() {
     }) as ProblemContext
 
   useEffect(() => {
-    if (loading || !design) return
+    // Read-only viewers must never trigger a (doomed) autosave PATCH.
+    if (loading || !design || !canEdit) return
     if (problemSaveTimer.current) clearTimeout(problemSaveTimer.current)
     problemSaveTimer.current = setTimeout(() => {
       persistContent({ problem: currentProblem() }, { name: title }).catch(
@@ -698,9 +723,26 @@ export default function DesignDetailPage() {
     domain !== "" &&
     phase !== ""
 
+  // Gate every mutation behind edit access. A read-only (viewer) collaborator
+  // is blocked here with a clear toast — the server also rejects the write, so
+  // this is the UX layer over the real (backend) guard.
+  const ensureCanEdit = () => {
+    if (!canEdit) {
+      toast({
+        title: "Read-only access",
+        description:
+          "You have view-only access to this design. Ask the owner for editor access to make changes.",
+        variant: "destructive"
+      })
+      return false
+    }
+    return true
+  }
+
   // ── Approve & Generate handlers ───────────────────────────────────────
 
   const handleApproveAndGenerateLiterature = async () => {
+    if (!ensureCanEdit()) return
     if (!problemValid) {
       toast({
         title: "Missing fields",
@@ -760,6 +802,7 @@ export default function DesignDetailPage() {
   }
 
   const handleApproveAndGenerateHypotheses = async () => {
+    if (!ensureCanEdit()) return
     if (selectedPapers.length === 0) {
       toast({
         title: "No papers selected",
@@ -802,6 +845,7 @@ export default function DesignDetailPage() {
   }
 
   const handleApproveAndGenerateDesign = async () => {
+    if (!ensureCanEdit()) return
     if (selectedHypotheses.length === 0) {
       toast({
         title: "No hypotheses selected",
@@ -842,6 +886,7 @@ export default function DesignDetailPage() {
   }
 
   const handleApproveDesignAndContinue = async () => {
+    if (!ensureCanEdit()) return
     const nextApproved: PhaseKey[] = [
       "problem",
       "literature",
@@ -857,6 +902,7 @@ export default function DesignDetailPage() {
   // ── Regenerate handlers ───────────────────────────────────────────────
 
   const handleGenerateMoreLiterature = async () => {
+    if (!ensureCanEdit()) return
     setBusy("literature")
     setLiteratureProgress([])
     try {
@@ -906,6 +952,7 @@ export default function DesignDetailPage() {
   }
 
   const handleRegenerateHypotheses = async () => {
+    if (!ensureCanEdit()) return
     const keep = clearDownstreamState("hypotheses")
     // Re-approve literature so a retry after a transient failure doesn't get
     // gated: clearDownstreamState keeps problem + literature, but be explicit.
@@ -944,6 +991,7 @@ export default function DesignDetailPage() {
   }
 
   const handleRegenerateDesign = async () => {
+    if (!ensureCanEdit()) return
     // Snapshot the current design set into history before regenerating so
     // the user can restore it later via the version switcher.
     let snapshotVersions = designVersions
@@ -999,6 +1047,7 @@ export default function DesignDetailPage() {
   }
 
   const handleRestoreDesignVersion = async (versionId: string) => {
+    if (!ensureCanEdit()) return
     const version = designVersions.find(v => v.id === versionId)
     if (!version) return
 
@@ -1038,6 +1087,7 @@ export default function DesignDetailPage() {
   // ── Revise handler ────────────────────────────────────────────────────
 
   const handleRevisePhase = async (phase: PhaseKey) => {
+    if (!ensureCanEdit()) return
     // A completed (Design-approved) design is locked: its scientific content
     // can't be edited in place. To change a hypothesis or an input, the user
     // duplicates it from the Designs list (the Duplicate icon reopens the copy
@@ -1061,6 +1111,7 @@ export default function DesignDetailPage() {
   // ── Per-item toggle helpers ───────────────────────────────────────────
 
   const handleTogglePaper = (id: string) => {
+    if (!ensureCanEdit()) return
     setPapers(prev => {
       const next = prev.map(p =>
         p.id === id ? { ...p, selected: !p.selected } : p
@@ -1130,6 +1181,7 @@ export default function DesignDetailPage() {
   }
 
   const handleUploadPdfs = (files: FileList | null) => {
+    if (!ensureCanEdit()) return
     if (!files || files.length === 0) return
     const added: Paper[] = Array.from(files)
       .filter(f => f.type === "application/pdf" || f.name.endsWith(".pdf"))
@@ -1159,6 +1211,7 @@ export default function DesignDetailPage() {
   const selectedPapers = useMemo(() => papers.filter(p => p.selected), [papers])
 
   const handleToggleHypothesis = (id: string) => {
+    if (!ensureCanEdit()) return
     setHypotheses(prev => {
       const next = prev.map(h =>
         h.id === id ? { ...h, selected: !h.selected } : h
@@ -1175,6 +1228,7 @@ export default function DesignDetailPage() {
    * the next phase.
    */
   const handleEditHypothesis = (id: string, nextText: string) => {
+    if (!ensureCanEdit()) return
     const trimmed = nextText.trim()
     if (!trimmed) return
     setHypotheses(prev => {
@@ -1190,6 +1244,7 @@ export default function DesignDetailPage() {
   )
 
   const handleSaveDesign = async (id: string) => {
+    if (!ensureCanEdit()) return
     setBusy("save")
     try {
       const next = generatedDesigns.map(d =>
@@ -1218,6 +1273,7 @@ export default function DesignDetailPage() {
    * Analysis section via the same edit path.
    */
   const handleReviewStatistics = async (targetGeneratedDesignId: string) => {
+    if (!ensureCanEdit()) return
     setBusy("stats-review")
     try {
       const res = await fetch(`/api/design/${designId}/stats-review`, {
@@ -1266,6 +1322,7 @@ export default function DesignDetailPage() {
     heading: string,
     body: string
   ) => {
+    if (!ensureCanEdit()) return
     const target = generatedDesigns.find(d => d.id === targetDesignId)
     if (!target) return
     const previousDesigns = generatedDesigns
@@ -1299,6 +1356,7 @@ export default function DesignDetailPage() {
    * "Execution Plan" (or replace if already present).
    */
   const handleMakePlan = async () => {
+    if (!ensureCanEdit()) return
     if (!activeDesign) return
     setBusy("make-plan")
     try {
@@ -1347,6 +1405,7 @@ export default function DesignDetailPage() {
     heading: string,
     nextBody: string
   ) => {
+    if (!ensureCanEdit()) return
     const target = generatedDesigns.find(d => d.id === designId)
     if (!target) return
     const sectionIndex = target.sections.findIndex(s => s.heading === heading)
@@ -1771,6 +1830,8 @@ Rules:
       }>
       const patch = evt.detail
       if (!patch?.sectionHeading) return
+      // Read-only collaborators can chat, but can't apply AI-suggested edits.
+      if (!canEdit) return
       setGeneratedDesigns(prev => {
         if (prev.length === 0) return prev
         const idx =
@@ -1828,8 +1889,9 @@ Rules:
       window.removeEventListener("design:apply-patch", handler as EventListener)
     // persistContent + toast are stable across renders; activeDesignId is
     // the one piece that changes and we want the closure to see the latest.
+    // canEdit is included so a permission change re-binds the (read-only) guard.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeDesignId])
+  }, [activeDesignId, canEdit])
 
   if (loading) {
     return (
@@ -1902,6 +1964,14 @@ Rules:
                     Locked
                   </span>
                 )}
+                {!canEdit && (
+                  <span
+                    className="border-ink-300 bg-ink-100 text-ink-600 rounded border px-2 py-0.5 normal-case tracking-normal"
+                    title="You have view-only access — ask the owner for editor access to make changes"
+                  >
+                    Read-only
+                  </span>
+                )}
                 {busy && (
                   <span className="bg-teal-journey-tint text-teal-journey border-teal-journey/30 rounded border px-2 py-0.5 normal-case tracking-normal">
                     Running {busy}...
@@ -1954,6 +2024,19 @@ Rules:
                 <IconSparkles size={14} className="shrink-0" />
                 {showRail ? "Hide chat" : "Chat"}
               </button>
+            )}
+            {/* Sharing is owner-only (the /share + /collaborators routes reject
+                non-owners), so only surface the button to the owner. */}
+            {isOwner && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShareDialogOpen(true)}
+                className="gap-1.5"
+                title="Share this design or invite collaborators"
+              >
+                <IconShare size={14} /> Share
+              </Button>
             )}
           </div>
         </div>
@@ -2070,6 +2153,7 @@ Rules:
                 onApproveAndGenerate={handleApproveAndGenerateLiterature}
                 canSubmit={problemValid}
                 isApproved={isPhaseApproved("problem")}
+                canEdit={canEdit}
                 isBusy={busy === "literature"}
                 onRevise={() => handleRevisePhase("problem")}
               />
@@ -2091,6 +2175,7 @@ Rules:
                 onSearchMore={handleGenerateMoreLiterature}
                 canGenerate={selectedPapers.length > 0}
                 isApproved={isPhaseApproved("literature")}
+                canEdit={canEdit}
                 isBusy={busy === "hypotheses" || busy === "literature"}
                 isSearching={busy === "literature"}
                 progress={literatureProgress}
@@ -2111,6 +2196,7 @@ Rules:
                 onRegenerate={handleRegenerateHypotheses}
                 canGenerate={selectedHypotheses.length > 0}
                 isApproved={isPhaseApproved("hypotheses")}
+                canEdit={canEdit}
                 isBusy={busy === "design" || busy === "hypotheses"}
                 isGenerating={busy === "hypotheses"}
                 progress={hypothesesProgress}
@@ -2131,6 +2217,7 @@ Rules:
                 onApproveAndContinue={handleApproveDesignAndContinue}
                 onRegenerate={handleRegenerateDesign}
                 isApproved={isPhaseApproved("design")}
+                canEdit={canEdit}
                 isBusy={busy === "design"}
                 isGenerating={busy === "design"}
                 progress={designProgress}
@@ -2184,6 +2271,25 @@ Rules:
           </div>
         )}
       </div>
+
+      {/* Owner-only share/collaborate dialog (link visibility, invite editors
+          by email, export). Non-owners can't manage sharing, so it's gated. */}
+      {isOwner && (
+        <ShareDialog
+          open={shareDialogOpen}
+          onOpenChange={setShareDialogOpen}
+          designId={designId}
+          design={{
+            id: designId,
+            name: title || design?.name,
+            description: design?.description,
+            content: design?.content,
+            sharing: sharingState.sharing,
+            share_token: sharingState.share_token
+          }}
+          onSharingChange={setSharingState}
+        />
+      )}
     </div>
   )
 }
@@ -2292,6 +2398,7 @@ function ProblemTab(props: {
   onApproveAndGenerate: () => void
   canSubmit: boolean
   isApproved: boolean
+  canEdit: boolean
   isBusy: boolean
   onRevise: () => void
 }) {
@@ -2323,6 +2430,7 @@ function ProblemTab(props: {
     onApproveAndGenerate,
     canSubmit,
     isApproved,
+    canEdit,
     isBusy,
     onRevise
   } = props
@@ -2348,7 +2456,7 @@ function ProblemTab(props: {
               value={title}
               onChange={e => setTitle(e.target.value)}
               placeholder="Short descriptive title"
-              disabled={isApproved}
+              disabled={isApproved || !canEdit}
             />
           </div>
 
@@ -2361,7 +2469,7 @@ function ProblemTab(props: {
               onChange={e => setProblemStatement(e.target.value)}
               placeholder="What is the specific research problem you're investigating?"
               rows={4}
-              disabled={isApproved}
+              disabled={isApproved || !canEdit}
             />
           </div>
 
@@ -2373,7 +2481,7 @@ function ProblemTab(props: {
               <Select
                 value={domain || undefined}
                 onValueChange={value => setDomain(value as DesignDomain)}
-                disabled={isApproved}
+                disabled={isApproved || !canEdit}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Select scientific domain" />
@@ -2395,7 +2503,7 @@ function ProblemTab(props: {
               <Select
                 value={phase || undefined}
                 onValueChange={value => setPhase(value as DesignPhase)}
-                disabled={isApproved}
+                disabled={isApproved || !canEdit}
               >
                 <SelectTrigger>
                   <SelectValue placeholder="Select development phase" />
@@ -2420,7 +2528,7 @@ function ProblemTab(props: {
               onChange={e => setObjective(e.target.value)}
               placeholder="What should this experiment achieve?"
               rows={3}
-              disabled={isApproved}
+              disabled={isApproved || !canEdit}
             />
           </div>
 
@@ -2437,7 +2545,7 @@ function ProblemTab(props: {
               onChange={e => setSuccessCriteria(e.target.value)}
               placeholder="What would count as a successful experiment? e.g. viscosity below 20 cP at 100 mg/mL; recovery > 95%."
               rows={2}
-              disabled={isApproved}
+              disabled={isApproved || !canEdit}
             />
           </div>
 
@@ -2452,7 +2560,7 @@ function ProblemTab(props: {
               onValueChange={value =>
                 setIncludeReplicates(value as "yes" | "no")
               }
-              disabled={isApproved}
+              disabled={isApproved || !canEdit}
             >
               <SelectTrigger>
                 <SelectValue placeholder="Select" />
@@ -2476,7 +2584,7 @@ function ProblemTab(props: {
                   onChange={e => setConstraintMaterial(e.target.value)}
                   placeholder="e.g. ≤ 500 mg API total; max 30 runs total (including replicates)"
                   rows={2}
-                  disabled={isApproved}
+                  disabled={isApproved || !canEdit}
                 />
                 <p className="text-ink-3 text-[11.5px]">
                   Include replicates in any run / condition budget you specify -
@@ -2491,7 +2599,7 @@ function ProblemTab(props: {
                   onChange={e => setConstraintTime(e.target.value)}
                   placeholder="e.g. Must complete within 2 weeks of receipt"
                   rows={2}
-                  disabled={isApproved}
+                  disabled={isApproved || !canEdit}
                 />
               </div>
               <div className="space-y-1.5">
@@ -2503,7 +2611,7 @@ function ProblemTab(props: {
                   onChange={e => setConstraintEquipment(e.target.value)}
                   placeholder="e.g. UPLC, plate reader, no DLS available"
                   rows={2}
-                  disabled={isApproved}
+                  disabled={isApproved || !canEdit}
                 />
               </div>
             </div>
@@ -2519,7 +2627,7 @@ function ProblemTab(props: {
                   onChange={e => setVariablesKnown(e.target.value)}
                   placeholder="Variables you want to vary or control - one per line (e.g. pH 5–7, polymer concentration 0.1–0.6%)"
                   rows={3}
-                  disabled={isApproved}
+                  disabled={isApproved || !canEdit}
                 />
               </div>
               <div className="space-y-1.5">
@@ -2529,7 +2637,7 @@ function ProblemTab(props: {
                   onChange={e => setVariablesUnknown(e.target.value)}
                   placeholder="Variables you suspect matter but don't fully characterize yet - one per line"
                   rows={3}
-                  disabled={isApproved}
+                  disabled={isApproved || !canEdit}
                 />
               </div>
             </div>
@@ -2540,7 +2648,7 @@ function ProblemTab(props: {
       <PhaseActionBar
         onApprove={onApproveAndGenerate}
         approveLabel="Approve & Start Literature Search"
-        approveDisabled={!canSubmit}
+        approveDisabled={!canSubmit || !canEdit}
         isBusy={isBusy}
         isApproved={isApproved}
       />
@@ -2781,6 +2889,7 @@ function LiteratureTab(props: {
   onSearchMore: () => void
   canGenerate: boolean
   isApproved: boolean
+  canEdit: boolean
   isBusy: boolean
   isSearching?: boolean
   progress?: LiteratureProgress[]
@@ -2805,6 +2914,7 @@ function LiteratureTab(props: {
     onSearchMore,
     canGenerate,
     isApproved,
+    canEdit,
     isBusy,
     isSearching,
     progress,
@@ -3063,7 +3173,7 @@ function LiteratureTab(props: {
                     checked={paper.selected}
                     onCheckedChange={() => onTogglePaper(paper.id)}
                     className="mt-1"
-                    disabled={isApproved}
+                    disabled={isApproved || !canEdit}
                   />
                   <div className="min-w-0 flex-1">
                     {/* Card layout per issue #15: an explicit, labelled
@@ -3190,7 +3300,7 @@ function LiteratureTab(props: {
         <PhaseActionBar
           onApprove={onApproveAndGenerate}
           approveLabel="Approve & Generate Hypotheses"
-          approveDisabled={!canGenerate}
+          approveDisabled={!canGenerate || !canEdit}
           onRegenerate={secondaryActionHandler}
           regenerateLabel={secondaryActionLabel}
           regenerateIcon={
@@ -3218,6 +3328,7 @@ function HypothesesTab(props: {
   onRegenerate: () => void
   canGenerate: boolean
   isApproved: boolean
+  canEdit: boolean
   isBusy: boolean
   isGenerating?: boolean
   progress?: PhaseProgress[]
@@ -3236,6 +3347,7 @@ function HypothesesTab(props: {
     onRegenerate,
     canGenerate,
     isApproved,
+    canEdit,
     isBusy,
     isGenerating,
     progress,
@@ -3335,7 +3447,7 @@ function HypothesesTab(props: {
                 checked={h.selected}
                 onCheckedChange={() => onToggle(h.id)}
                 className="mt-1"
-                disabled={isApproved}
+                disabled={isApproved || !canEdit}
               />
               <div className="min-w-0 flex-1">
                 {/* Issue #27 - render an auto-generated short title above
@@ -3348,7 +3460,7 @@ function HypothesesTab(props: {
                 </div>
                 <EditableHypothesis
                   text={h.text}
-                  disabled={isApproved}
+                  disabled={isApproved || !canEdit}
                   onSave={next => onEdit(h.id, next)}
                 />
                 {/* Cited-from chips: surface paper titles inline so the user
@@ -3463,7 +3575,7 @@ function HypothesesTab(props: {
       <PhaseActionBar
         onApprove={onApproveAndGenerate}
         approveLabel="Approve & Generate Design"
-        approveDisabled={!canGenerate}
+        approveDisabled={!canGenerate || !canEdit}
         onRegenerate={hypotheses.length > 0 ? onRegenerate : undefined}
         regenerateLabel="Regenerate Hypotheses"
         isBusy={isBusy}
@@ -3885,6 +3997,7 @@ function DesignTab(props: {
   onApproveAndContinue: () => void
   onRegenerate: () => void
   isApproved: boolean
+  canEdit: boolean
   isBusy: boolean
   isGenerating?: boolean
   progress?: PhaseProgress[]
@@ -3908,6 +4021,7 @@ function DesignTab(props: {
     onApproveAndContinue,
     onRegenerate,
     isApproved,
+    canEdit,
     isBusy,
     isGenerating,
     progress,
@@ -4109,7 +4223,9 @@ function DesignTab(props: {
                         key={sec.heading}
                         section={sec}
                         index={i}
-                        editable={!isApproved && Boolean(onEditSection)}
+                        editable={
+                          !isApproved && canEdit && Boolean(onEditSection)
+                        }
                         onSave={
                           onEditSection
                             ? async next =>
@@ -4139,7 +4255,7 @@ function DesignTab(props: {
       <PhaseActionBar
         onApprove={onApproveAndContinue}
         approveLabel="Approve & Finalize Design"
-        approveDisabled={designs.length === 0}
+        approveDisabled={designs.length === 0 || !canEdit}
         onRegenerate={designs.length > 0 ? onRegenerate : undefined}
         regenerateLabel="Regenerate Designs"
         isBusy={isBusy}
