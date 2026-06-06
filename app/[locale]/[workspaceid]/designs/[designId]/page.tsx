@@ -199,6 +199,71 @@ async function runPhaseStreaming(
   return finalContent
 }
 
+// Background (Inngest) design generation. The design phase runs 4 long gpt-5.5
+// sections per hypothesis — too slow for a 300s serverless function — so the
+// route enqueues an Inngest job (processDesignGeneration) and returns 202. Here
+// we poll the design doc's `designJob` for progress + completion. Mirrors
+// runPhaseStreaming's signature so the phase handlers swap in with one word.
+async function pollDesignJob(
+  designId: string,
+  onProgress: (ev: PhaseProgress) => void,
+  startIndex = 0
+): Promise<DesignContentV2> {
+  const POLL_MS = 4000
+  const MAX_MS = 20 * 60 * 1000
+  const startedAt = Date.now()
+  let seen = startIndex
+  // eslint-disable-next-line no-constant-condition
+  while (true) {
+    await new Promise(r => setTimeout(r, POLL_MS))
+    if (Date.now() - startedAt > MAX_MS) {
+      throw new Error("Design generation timed out. Please try again.")
+    }
+    let doc: any
+    try {
+      const res = await fetch(`/api/design/${designId}`)
+      if (!res.ok) continue // transient — keep polling
+      doc = await res.json()
+    } catch {
+      continue
+    }
+    const job = doc?.designJob
+    const progress: PhaseProgress[] = Array.isArray(job?.progress)
+      ? job.progress
+      : []
+    for (let i = seen; i < progress.length; i++) onProgress(progress[i])
+    seen = progress.length
+
+    if (job?.state === "failed") {
+      throw new Error(job?.error || "Design generation failed.")
+    }
+    if (job?.state === "complete") {
+      const content = parseContent(doc.content)
+      if (!content) throw new Error("Design completed but returned no content.")
+      return content
+    }
+  }
+}
+
+async function runPhaseBackground(
+  designId: string,
+  body: Record<string, unknown>,
+  onProgress: (ev: PhaseProgress) => void
+): Promise<DesignContentV2> {
+  const startRes = await fetch(`/api/design/${designId}/generate`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body)
+  })
+  if (!startRes.ok) {
+    const msg = await startRes.text().catch(() => "")
+    throw new Error(
+      msg || `Failed to start design generation (${startRes.status})`
+    )
+  }
+  return pollDesignJob(designId, onProgress)
+}
+
 function parseContent(raw: unknown): DesignContentV2 | null {
   if (!raw) return null
   try {
@@ -598,6 +663,38 @@ export default function DesignDetailPage() {
       }
       if (content?.designVersions) setDesignVersions(content.designVersions)
       if (content?.approvedPhases) setApprovedPhases(content.approvedPhases)
+
+      // Resume polling if a background design job is still running (e.g. the
+      // user refreshed mid-generation). The Inngest job keeps going server-side
+      // regardless — we just reattach the progress UI and apply the result.
+      const job = (data as any)?.designJob
+      if (job && (job.state === "queued" || job.state === "running")) {
+        const prior: PhaseProgress[] = Array.isArray(job.progress)
+          ? job.progress
+          : []
+        setBusy("design")
+        setActiveTab("design")
+        setDesignProgress(prior)
+        pollDesignJob(
+          designId,
+          ev => setDesignProgress(prev => [...prev, ev]),
+          prior.length
+        )
+          .then(jobContent => {
+            latestContentRef.current = jobContent
+            const designs = jobContent.designs ?? []
+            setGeneratedDesigns(designs)
+            setActiveDesignId(designs[0]?.id ?? null)
+          })
+          .catch((err: any) => {
+            toast({
+              title: "Design generation failed",
+              description: err?.message ?? "Try again in a moment.",
+              variant: "destructive"
+            })
+          })
+          .finally(() => setBusy(null))
+      }
     } catch (error) {
       console.error("Error fetching design:", error)
       toast({
@@ -827,7 +924,7 @@ export default function DesignDetailPage() {
     setBusy("design")
     setDesignProgress([])
     try {
-      const content = await runPhaseStreaming(
+      const content = await runPhaseBackground(
         designId,
         {
           phase: "design",
@@ -978,7 +1075,7 @@ export default function DesignDetailPage() {
     setBusy("design")
     setDesignProgress([])
     try {
-      const content = await runPhaseStreaming(
+      const content = await runPhaseBackground(
         designId,
         {
           phase: "design",

@@ -33,6 +33,7 @@ import {
   budgetErrorResponse,
   isBudgetExceededError
 } from "@/lib/billing/errors"
+import { inngest } from "@/lib/inngest/client"
 
 const FINAL_TOP_N = 5
 
@@ -1142,6 +1143,62 @@ Never use placeholder text like "TBD" - if a spec is reasonable to infer, infer 
     } catch (e) {
       if (isBudgetExceededError(e)) return budgetErrorResponse(e.plan)
       // any other error: fail open, assertBudget already logged it
+    }
+
+    // ── Design phase runs in the background ───────────────────────────────
+    // A full design is 4 sequential gpt-5.5 SOP sections (~2-3 min each) per
+    // hypothesis — far past Vercel's 300s function cap if run inline. Hand off
+    // to the Inngest worker (processDesignGeneration), which runs each section
+    // as its own step, and return 202. The client polls GET /api/design/[id]
+    // for `designJob` progress + completion. (The runPhase "design" case below
+    // is therefore unreachable — superseded by lib/design/design-sections.ts.)
+    if (body.phase === "design") {
+      try {
+        await docRef.update({
+          designJob: {
+            state: "queued",
+            progress: [],
+            queuedAt: new Date().toISOString()
+          }
+        })
+      } catch (e) {
+        console.warn("[DESIGN_GENERATE] could not set queued state", e)
+      }
+
+      try {
+        await inngest.send({
+          name: "design/generate.requested",
+          data: {
+            designId,
+            userId: user.id,
+            problem: body.problem ?? ctx,
+            hypotheses: body.hypotheses ?? existing.hypotheses ?? [],
+            approvedPhases: body.approvedPhases
+          }
+        })
+      } catch (err: any) {
+        console.error("❌ [DESIGN_GENERATE] Inngest send failed:", err)
+        await docRef
+          .update({
+            "designJob.state": "failed",
+            "designJob.error": "Background processor unavailable",
+            "designJob.updatedAt": new Date().toISOString()
+          })
+          .catch(() => {})
+        const devHint =
+          process.env.NODE_ENV !== "production"
+            ? " Start the Inngest dev server (INNGEST_USE_DEV_SERVER=true, npx inngest-cli@latest dev)."
+            : ""
+        return NextResponse.json(
+          {
+            queued: false,
+            error: `Failed to start design generation.${devHint}`
+          },
+          { status: 503 }
+        )
+      }
+
+      return NextResponse.json({ queued: true, designId }, { status: 202 })
     }
 
     if (wantsStream) {
