@@ -47,6 +47,22 @@ export const ragDocChanged = inngest.createFunction(
       )
     }
 
+    // `file` / `project_file` sources can only be indexed INLINE — their binary
+    // text is extracted in /api/retrieval/process and handed to indexDoc as a
+    // precomputed ExtractorResult. indexDoc() throws for them on this path
+    // ("requires a precomputed ExtractorResult"), so a changed-event for a file
+    // is unservable. Skip it cleanly instead of throwing + retrying 3× (this was
+    // spamming prod with thousands of indexDoc(file) errors via the hourly sweep
+    // + the admin reindex route).
+    if (data.sourceType === "file" || data.sourceType === "project_file") {
+      return {
+        skipped: true,
+        reason: "inline-indexed source type (not servable via rag.doc.changed)",
+        sourceType: data.sourceType,
+        sourceId: data.sourceId
+      }
+    }
+
     const result = await step.run("index-doc", async () => {
       return indexDoc({
         sourceType: data.sourceType,

@@ -195,25 +195,14 @@ export async function findStaleDocs(): Promise<StaleDocRef[]> {
     }
   }
 
-  // files (Postgres)
-  const supabase = getSupabaseAdmin()
-  const { data: staleFiles, error } = await supabase
-    .from("files")
-    .select("id")
-    .or("last_indexed_at.is.null,index_status.eq.stale,index_status.eq.failed")
-  if (error) throw error
-  for (const f of staleFiles ?? []) {
-    // workspace_id isn't a direct column on `files` - caller resolves
-    // through file_workspaces if needed. Stale sweep emits sourceId only;
-    // indexDoc is called via /api/retrieval/process or admin route which
-    // already has the precomputed text.
-    stale.push({
-      sourceType: "file",
-      sourceId: f.id,
-      workspaceId: "",
-      projectId: null
-    })
-  }
+  // NOTE: `file` / `project_file` sources are intentionally NOT swept here.
+  // They can only be (re)indexed inline via /api/retrieval/process, which holds
+  // the extracted text — indexDoc() throws for them on the rag.doc.changed path.
+  // Emitting changed-events for stale files just produced unservable events that
+  // failed + retried forever ("indexDoc(file) requires a precomputed
+  // ExtractorResult"). A stale/failed file is re-indexed on its next upload/
+  // re-process; auto-retrying that here would need a re-extract step we don't
+  // have. (ragDocChanged also skips these defensively.)
 
   return stale
 }
