@@ -4,19 +4,6 @@ import { addTokensToActiveContext } from "@/lib/billing/usage-context"
 let _defaultClient: AzureOpenAI | null = null
 const _deploymentClients = new Map<string, AzureOpenAI>()
 
-/**
- * gpt-5.x family models on Azure are reasoning-style: they reject any
- * `temperature` value other than 1 with HTTP 400
- * `unsupported_value: temperature does not support N`. The design
- * pipeline has ~18 call-sites that pass thoughtful 0.3 / 0.7 / 0.5
- * literals (carried over from gpt-4 days); rather than rewrite each
- * one, this Proxy intercepts every chat.completions.create and
- * beta.chat.completions.parse call and forces `temperature: 1` (also
- * strips legacy `max_tokens` in favour of `max_completion_tokens`,
- * which the new family requires). When/if we move back to a non-
- * reasoning model, delete the Proxy and the literals start meaning
- * what they say again.
- */
 function coerceReasoningParams<T extends Record<string, any>>(params: T): T {
   if (!params || typeof params !== "object") return params
   const out: any = { ...params }
