@@ -149,11 +149,13 @@ export async function POST(
     const origin =
       process.env.NEXT_PUBLIC_SITE_URL ||
       (h.get("origin") ?? (h.get("host") ? `https://${h.get("host")}` : ""))
-    const shareToken: string | null = auth.data.share_token ?? null
+    // Link invited collaborators to the workspace-agnostic resolver, which
+    // (once they're signed in) routes them INTO the editable design under their
+    // own workspace — an editor can edit, a viewer gets read-only. The old
+    // `/share/design/{token}` target was read-only, so invited editors could
+    // never actually edit. Default locale "en"; the resolver re-localizes.
     const designUrl = origin
-      ? shareToken
-        ? `${origin}/share/design/${shareToken}`
-        : `${origin}/login`
+      ? `${origin}/en/open/design/${params.designid}`
       : null
     const signupUrl = origin ? `${origin}/login?mode=signup` : null
 

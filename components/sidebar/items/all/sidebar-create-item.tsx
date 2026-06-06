@@ -426,7 +426,7 @@ export const SidebarCreateItem: FC<SidebarCreateItemProps> = ({
           setDesigns((prevItems: any) => [...prevItems, newDesign])
 
           // Generate a design URL to navigate to after creation
-          const designURL = `/${selectedWorkspace.id}/design/${newDesign.id}`
+          const designURL = `/${selectedWorkspace.id}/designs/${newDesign.id}`
           console.log("🔗 [SIDEBAR_CREATE] Design URL:", designURL)
 
           // Set localStorage flag to indicate this design is being generated

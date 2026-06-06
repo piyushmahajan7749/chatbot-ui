@@ -70,7 +70,7 @@ interface ProjectLite {
   name: string
 }
 
-type DesignsFilter = "all" | "in-progress" | "completed"
+type DesignsFilter = "all" | "in-progress" | "completed" | "shared"
 const PAGE_SIZE = 12
 
 export default function DesignsPage() {
@@ -95,6 +95,10 @@ export default function DesignsPage() {
   // The design currently being turned into a report (drives the modal).
   const [reportDesign, setReportDesign] = useState<any | null>(null)
   const [duplicatingId, setDuplicatingId] = useState<string | null>(null)
+  // Designs other users have shared with this user (scope=shared-with-me).
+  // Loaded once; surfaced under the "Shared with me" filter tab. Opening one
+  // routes into the normal editor, which gates edits by the user's role.
+  const [sharedDesigns, setSharedDesigns] = useState<any[]>([])
 
   // Most-recent report per source design, so each completed design's slab can
   // surface its report (and disable the generate button once one exists).
@@ -161,6 +165,24 @@ export default function DesignsPage() {
     }
   }, [selectedWorkspace?.id])
 
+  // Load designs shared with this user. Independent of the selected workspace
+  // (a shared design lives in the owner's workspace); best-effort, so a failure
+  // just leaves the "Shared with me" tab empty rather than breaking the page.
+  useEffect(() => {
+    let cancelled = false
+    void fetch("/api/designs?scope=shared-with-me")
+      .then(res => (res.ok ? res.json() : { designs: [] }))
+      .then(data => {
+        if (!cancelled) setSharedDesigns(data?.designs ?? [])
+      })
+      .catch((err: any) =>
+        console.warn("[DesignsPage] failed to load shared designs:", err)
+      )
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
   const projectName = (projectId: string | null | undefined) =>
     (projectId && projects.find(p => p.id === projectId)?.name) || null
 
@@ -177,7 +199,10 @@ export default function DesignsPage() {
   const filteredDesigns = useMemo(() => {
     const q = search.trim().toLowerCase()
     const nameById = new Map(projects.map(p => [p.id, p.name]))
-    return sortedDesigns.filter((d: any) => {
+    // "Shared with me" is its own source; the completion sub-filter only
+    // applies to the user's own designs.
+    const source = filter === "shared" ? sharedDesigns : sortedDesigns
+    return source.filter((d: any) => {
       const pn = d.project_id ? nameById.get(d.project_id) : undefined
       const progress = getDesignProgress(d)
       const isCompleted =
@@ -193,7 +218,7 @@ export default function DesignsPage() {
       }
       return true
     })
-  }, [sortedDesigns, search, projects, filter])
+  }, [sortedDesigns, sharedDesigns, search, projects, filter])
 
   // Snap page back when filters change so a "Completed (page 3 of 4)"
   // state doesn't strand the user on an empty page after the filter
@@ -251,6 +276,7 @@ export default function DesignsPage() {
     return !(p.isCompleted || (d.approved_phases ?? []).includes("design"))
   }).length
   const completedCount = totalAll - inProgressCount
+  const sharedCount = sharedDesigns.length
 
   const start = page * PAGE_SIZE
   const paged = filteredDesigns.slice(start, start + PAGE_SIZE)
@@ -318,7 +344,8 @@ export default function DesignsPage() {
                 counts={{
                   all: totalAll,
                   "in-progress": inProgressCount,
-                  completed: completedCount
+                  completed: completedCount,
+                  shared: sharedCount
                 }}
               />
             }
@@ -367,6 +394,7 @@ export default function DesignsPage() {
                         `/${locale}/${workspaceId}/reports/${reportId}`
                       )
                     }
+                    isShared={filter === "shared"}
                   />
                 ))}
               </div>
@@ -457,7 +485,12 @@ const FilterTabs: FC<FilterTabsProps> = ({ value, onChange, counts }) => {
   const tabs: { key: DesignsFilter; label: string }[] = [
     { key: "all", label: "All" },
     { key: "in-progress", label: "In progress" },
-    { key: "completed", label: "Completed" }
+    { key: "completed", label: "Completed" },
+    // Only surface "Shared with me" once at least one design has been shared
+    // with this user, so it doesn't clutter the bar for everyone else.
+    ...(counts.shared > 0
+      ? [{ key: "shared" as const, label: "Shared with me" }]
+      : [])
   ]
   return (
     <div className="border-line bg-paper-2 inline-flex overflow-hidden rounded-md border">
@@ -494,6 +527,9 @@ interface DesignSlabProps {
   onDuplicate: () => void
   onGenerateReport: () => void
   onOpenReport: (reportId: string) => void
+  /** A design shared WITH this user (they're not the owner). Hides owner-only
+   *  actions (rename/delete) — the server would reject them anyway. */
+  isShared?: boolean
 }
 
 const DesignSlab: FC<DesignSlabProps> = ({
@@ -506,7 +542,8 @@ const DesignSlab: FC<DesignSlabProps> = ({
   onDelete,
   onDuplicate,
   onGenerateReport,
-  onOpenReport
+  onOpenReport,
+  isShared = false
 }) => {
   const progress = getDesignProgress(design)
   const isCompleted =
@@ -545,46 +582,50 @@ const DesignSlab: FC<DesignSlabProps> = ({
           >
             <IconCopy size={14} className="text-ink-3" />
           </button>
-          <button
-            type="button"
-            onClick={onEdit}
-            data-slab-action
-            title="Edit name + description"
-            className="hover:bg-paper-2 rounded p-1.5"
-          >
-            <IconPencil size={14} className="text-ink-3" />
-          </button>
-          <AlertDialog>
-            <AlertDialogTrigger asChild>
-              <button
-                type="button"
-                data-slab-action
-                title="Delete design"
-                className="hover:bg-paper-2 rounded p-1.5"
-              >
-                <IconTrash size={14} className="text-destructive" />
-              </button>
-            </AlertDialogTrigger>
-            <AlertDialogContent>
-              <AlertDialogHeader>
-                <AlertDialogTitle>Delete design?</AlertDialogTitle>
-                <AlertDialogDescription>
-                  This permanently removes &ldquo;{design.name}&rdquo; and
-                  everything inside it (problem, literature, hypotheses,
-                  generated designs). Can&apos;t be undone.
-                </AlertDialogDescription>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                <AlertDialogAction
-                  onClick={onDelete}
-                  className="bg-destructive hover:bg-destructive/90"
+          {!isShared && (
+            <button
+              type="button"
+              onClick={onEdit}
+              data-slab-action
+              title="Edit name + description"
+              className="hover:bg-paper-2 rounded p-1.5"
+            >
+              <IconPencil size={14} className="text-ink-3" />
+            </button>
+          )}
+          {!isShared && (
+            <AlertDialog>
+              <AlertDialogTrigger asChild>
+                <button
+                  type="button"
+                  data-slab-action
+                  title="Delete design"
+                  className="hover:bg-paper-2 rounded p-1.5"
                 >
-                  Delete
-                </AlertDialogAction>
-              </AlertDialogFooter>
-            </AlertDialogContent>
-          </AlertDialog>
+                  <IconTrash size={14} className="text-destructive" />
+                </button>
+              </AlertDialogTrigger>
+              <AlertDialogContent>
+                <AlertDialogHeader>
+                  <AlertDialogTitle>Delete design?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                    This permanently removes &ldquo;{design.name}&rdquo; and
+                    everything inside it (problem, literature, hypotheses,
+                    generated designs). Can&apos;t be undone.
+                  </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                  <AlertDialogCancel>Cancel</AlertDialogCancel>
+                  <AlertDialogAction
+                    onClick={onDelete}
+                    className="bg-destructive hover:bg-destructive/90"
+                  >
+                    Delete
+                  </AlertDialogAction>
+                </AlertDialogFooter>
+              </AlertDialogContent>
+            </AlertDialog>
+          )}
         </>
       }
     >

@@ -110,7 +110,7 @@ export default function PublicDesignViewer({
       if (!res.ok) throw new Error(data.error || "Fork failed")
 
       toast.success("Copied to your workspace")
-      router.push(`/${params.locale}/${workspaceId}/design/${data.design.id}`)
+      router.push(`/${params.locale}/${workspaceId}/designs/${data.design.id}`)
     } catch (err: any) {
       toast.error(err?.message || "Fork failed")
     } finally {
