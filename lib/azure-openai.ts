@@ -28,6 +28,24 @@ function coerceReasoningParams<T extends Record<string, any>>(params: T): T {
     out.max_completion_tokens = out.max_tokens
     delete out.max_tokens
   }
+  // Floor `max_completion_tokens` for reasoning models. The design agents set
+  // tight caps (generation 1000, statCheck 1500, reportWriter 3000, …) tuned
+  // for gpt-4.1's OUTPUT-only budget. On gpt-5.x that same field also has to
+  // cover hidden reasoning tokens, so the structured JSON gets truncated
+  // mid-object → finish_reason:"length" → `.beta…parse()` throws
+  // "Could not parse response content as the length limit was reached", which
+  // made every hypothesis/design/report agent come back empty. Since the field
+  // is an upper BOUND (you only pay for tokens actually produced), raising a
+  // too-low cap can't increase cost — it only stops premature truncation.
+  // Callers wanting a smaller ceiling can set AZURE_OPENAI_MIN_COMPLETION_TOKENS.
+  if (
+    "max_completion_tokens" in out &&
+    typeof out.max_completion_tokens === "number"
+  ) {
+    const floor =
+      Number(process.env.AZURE_OPENAI_MIN_COMPLETION_TOKENS) || 16000
+    if (out.max_completion_tokens < floor) out.max_completion_tokens = floor
+  }
   // Cap reasoning effort at "low" by default. gpt-5.x with `medium`
   // (the platform default) spends 30-90s thinking on 5-10k-token prompts,
   // which blew through Vercel's 300s function timeout when the lit-scout
