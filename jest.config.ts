@@ -12,7 +12,14 @@ const config: Config = {
   testEnvironment: "jsdom",
   moduleNameMapper: {
     "^@/(.*)$": "<rootDir>/$1"
-  }
+  },
+  // Playwright specs live under __tests__/playwright-test and run via the
+  // Playwright runner — exclude them so `jest` (the CI gate) doesn't try to
+  // execute them (they fail under jest: no test/expect from @playwright/test).
+  testPathIgnorePatterns: [
+    "<rootDir>/node_modules/",
+    "<rootDir>/__tests__/playwright-test/"
+  ]
   // Add more setup options before each test is run
   // setupFilesAfterEnv: ['<rootDir>/jest.setup.ts'],
 }
