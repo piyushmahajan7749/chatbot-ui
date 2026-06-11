@@ -235,11 +235,23 @@ export default function ShareDialog({
         const next = prev.filter(p => p.email !== data.collaborator.email)
         return [data.collaborator, ...next]
       })
-      toast.success(
-        data.collaborator.user_id
-          ? `Invited ${email}`
-          : `Invite sent - ${email} will get access after signing up`
-      )
+      // The collaborator now HAS access (the permission row is the source of
+      // truth). Only claim the email was sent if it actually was — otherwise
+      // tell the user to share the link, so a silent Resend failure doesn't
+      // read as success.
+      if (data.emailDelivered) {
+        toast.success(
+          data.collaborator.user_id
+            ? `Invited ${email}`
+            : `Invite emailed to ${email} — they'll get access after signing up with that address`
+        )
+      } else {
+        toast.warning(
+          `${email} now has ${data.collaborator.role} access, but the invite email couldn't be sent${
+            data.emailError ? ` (${data.emailError})` : ""
+          }. Copy the share link from the Link tab and send it to them.`
+        )
+      }
     } catch (err: any) {
       toast.error(err?.message || "Failed to invite")
     } finally {

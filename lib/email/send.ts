@@ -21,8 +21,12 @@ export interface SendEmailResult {
   error?: string
 }
 
+// IMPORTANT: the sending domain here must be VERIFIED in the Resend account, or
+// Resend rejects the send (422 "domain is not verified") and nothing arrives.
+// Defaults to the app's own domain (shadowai.work); override with
+// EMAIL_FROM_ADDRESS once a different verified domain/subdomain is set up.
 const DEFAULT_FROM =
-  process.env.EMAIL_FROM_ADDRESS || "Shadow AI <notifications@shadow.ai>"
+  process.env.EMAIL_FROM_ADDRESS || "Shadow AI <notifications@shadowai.work>"
 
 export async function sendEmail(
   input: SendEmailInput

@@ -143,7 +143,11 @@ export async function POST(
   }
 
   // Best-effort invite email. Delivery failures are logged but never block the
-  // API response - the permission row is the source of truth for access.
+  // API response - the permission row is the source of truth for access. We DO
+  // report the delivery outcome so the UI can tell the user to share the link
+  // manually instead of falsely claiming "invite sent".
+  let emailDelivered = false
+  let emailError: string | undefined
   try {
     const h = headers()
     const origin =
@@ -159,7 +163,7 @@ export async function POST(
       : null
     const signupUrl = origin ? `${origin}/login?mode=signup` : null
 
-    await sendDesignInviteEmail({
+    const emailResult = await sendDesignInviteEmail({
       to: email,
       inviterName:
         (auth.user.user_metadata as any)?.full_name ||
@@ -172,11 +176,20 @@ export async function POST(
       signupUrl,
       isPending: !resolvedUserId
     })
-  } catch (err) {
+    emailDelivered = emailResult.delivered
+    emailError = emailResult.delivered
+      ? undefined
+      : (emailResult.error ?? "Email is not configured on the server")
+  } catch (err: any) {
     console.error("[COLLABORATORS] invite email failed", err)
+    emailError = err?.message ?? "Email send failed"
   }
 
-  return NextResponse.json({ collaborator: permission })
+  return NextResponse.json({
+    collaborator: permission,
+    emailDelivered,
+    emailError
+  })
 }
 
 export async function DELETE(
