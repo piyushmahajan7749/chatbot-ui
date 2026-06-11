@@ -55,6 +55,7 @@ import {
   type ProblemContext
 } from "@/lib/design-agent"
 import { buildDesignChatContext } from "@/lib/design/chat-context"
+import { applyDesignPatch } from "@/lib/design/apply-patch"
 import {
   IconAlertTriangle,
   IconArrowLeft,
@@ -1774,55 +1775,23 @@ Rules:
       // Read-only collaborators can chat, but can't apply AI-suggested edits.
       if (!canEdit) return
       setGeneratedDesigns(prev => {
-        if (prev.length === 0) return prev
-        const idx =
-          typeof patch.designIndex === "number" && patch.designIndex >= 0
-            ? Math.min(patch.designIndex, prev.length - 1)
-            : Math.max(
-                0,
-                prev.findIndex(d => d.id === activeDesignId)
-              )
-        const target = prev[idx]
-        if (!target) return prev
-        const sectionIdx = target.sections.findIndex(
-          s => s.heading === patch.sectionHeading
-        )
-        if (sectionIdx === -1) {
+        // applyDesignPatch handles design/section lookup + tolerant find/replace
+        // and returns either the new designs or a user-facing error.
+        const res = applyDesignPatch(prev, activeDesignId, patch)
+        if (res.error || !res.designs) {
           toast({
             title: "Couldn't apply edit",
-            description: `No section called "${patch.sectionHeading}" — the assistant may have hallucinated the heading.`,
+            description: res.error ?? "The edit couldn't be applied.",
             variant: "destructive"
           })
           return prev
         }
-        const section = target.sections[sectionIdx]
-        let nextBody: string
-        if (patch.newBody !== undefined) {
-          nextBody = patch.newBody
-        } else if (patch.find !== undefined && patch.replace !== undefined) {
-          if (!section.body.includes(patch.find)) {
-            toast({
-              title: "Couldn't apply edit",
-              description:
-                "The text to find wasn't present in the section anymore.",
-              variant: "destructive"
-            })
-            return prev
-          }
-          nextBody = section.body.split(patch.find).join(patch.replace)
-        } else {
-          return prev
-        }
-        const nextSections = [...target.sections]
-        nextSections[sectionIdx] = { ...section, body: nextBody }
-        const nextDesigns = [...prev]
-        nextDesigns[idx] = { ...target, sections: nextSections }
-        void persistContent({ designs: nextDesigns })
+        void persistContent({ designs: res.designs })
         toast({
           title: "Design updated",
-          description: `Applied edit to "${patch.sectionHeading}".`
+          description: `Applied edit to "${res.sectionHeading}".`
         })
-        return nextDesigns
+        return res.designs
       })
     }
     window.addEventListener("design:apply-patch", handler as EventListener)
