@@ -45,6 +45,13 @@ const SCOPE_LABELS: Record<ChatScope, string> = {
 // the persisted system prompt below the column limit (with a little headroom).
 // Without this, createChat throws `chats_prompt_check` and the chat won't open.
 const MAX_CHAT_PROMPT_CHARS = 99_000
+
+// Design/report chats dump the whole document into the system prompt (tier-3
+// long-context, up to ~25k tokens). The buildFinalMessages token budget must be
+// large enough to hold that PLUS the conversation, or it drops the user's turns
+// (the workspace default of 4096 is far too small). The model (gpt-5.x) has a
+// large window, so give these scopes a generous budget.
+const TIER3_CONTEXT_LENGTH = 128_000
 const clampPrompt = (s: string) =>
   s.length > MAX_CHAT_PROMPT_CHARS
     ? s.slice(0, MAX_CHAT_PROMPT_CHARS) + "\n\n…[context truncated]"
@@ -170,8 +177,10 @@ export function ScopedChatRail({
         temperature:
           chatSettings?.temperature ?? selectedWorkspace.default_temperature,
         context_length:
-          chatSettings?.contextLength ??
-          selectedWorkspace.default_context_length,
+          scope === "design" || scope === "report"
+            ? TIER3_CONTEXT_LENGTH
+            : (chatSettings?.contextLength ??
+              selectedWorkspace.default_context_length),
         embeddings_provider:
           chatSettings?.embeddingsProvider ??
           selectedWorkspace.embeddings_provider,
