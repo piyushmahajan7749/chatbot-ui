@@ -1,18 +1,19 @@
 "use client"
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { useCallback, useEffect, useMemo, useState } from "react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
-import { DesignReview } from "../../../[workspaceid]/design/components/design-review"
 import {
+  downloadDesignPdf,
   downloadJson,
   downloadMarkdown,
-  downloadPdfFromElement,
   type ExportableDesign
 } from "@/lib/design/export"
 import { toast } from "sonner"
 import { supabase } from "@/lib/supabase/browser-client"
 import { Copy, FileDown, Loader2 } from "lucide-react"
+import ReactMarkdown from "react-markdown"
+import remarkGfm from "remark-gfm"
 
 interface PublicDesign {
   id: string
@@ -35,7 +36,6 @@ export default function PublicDesignViewer({
   const [isLoading, setIsLoading] = useState(true)
   const [isForking, setIsForking] = useState(false)
   const [isExportingPdf, setIsExportingPdf] = useState(false)
-  const exportRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     let cancelled = false
@@ -129,13 +129,10 @@ export default function PublicDesignViewer({
   }, [])
 
   const handlePdf = useCallback(async () => {
-    if (!exportRef.current || !design) return
+    if (!design) return
     setIsExportingPdf(true)
     try {
-      await downloadPdfFromElement(
-        exportRef.current,
-        design as ExportableDesign
-      )
+      await downloadDesignPdf(design as ExportableDesign)
     } catch (err: any) {
       toast.error(err?.message || "PDF export failed")
     } finally {
@@ -216,34 +213,141 @@ export default function PublicDesignViewer({
       </header>
 
       <div className="flex-1 overflow-auto p-4">
-        <div ref={exportRef} className="mx-auto max-w-5xl">
-          <DesignReview
-            designData={{
-              name: design.name,
-              description: design.description
-            }}
-            planStatus={null}
-            topHypotheses={
-              parsedContent?.selectedHypothesis
-                ? [parsedContent.selectedHypothesis]
-                : []
-            }
-            logs={[]}
-            onGenerateDesign={async () => {}}
-            onCustomizePrompts={() => {}}
-            generatingHypothesisId={null}
-            selectedHypothesisId={parsedContent?.selectedHypothesisId ?? null}
-            generatedDesign={parsedContent?.generatedDesign ?? null}
-            generatedLiteratureSummary={
-              parsedContent?.generatedLiteratureSummary ?? null
-            }
-            generatedStatReview={parsedContent?.generatedStatReview ?? null}
-            designError={null}
-            onRegenerateDesign={async () => {}}
-            promptsUsed={parsedContent?.promptsUsed ?? null}
-            onLoadSavedDesign={async () => {}}
-            readOnly
-          />
+        <div className="mx-auto max-w-4xl space-y-8 pb-16">
+          {(() => {
+            // Render the CURRENT design schema (DesignContentV2): a problem
+            // block + hypotheses + each generated design's sections. (The old
+            // viewer read a long-gone shape, which is why this page was empty.)
+            const problem = parsedContent?.problem ?? {}
+            const hypotheses: any[] = Array.isArray(parsedContent?.hypotheses)
+              ? parsedContent.hypotheses
+              : []
+            const selectedHyps = hypotheses.filter((h: any) => h.selected)
+            const shownHyps = selectedHyps.length ? selectedHyps : hypotheses
+            const designs: any[] = Array.isArray(parsedContent?.designs)
+              ? parsedContent.designs
+              : []
+            const objective = problem.objective ?? problem.goal
+            const hasOverview = Boolean(
+              problem.problemStatement || objective || shownHyps.length
+            )
+            const mdClass =
+              "text-ink-700 text-sm leading-relaxed [&_h3]:mb-1 [&_h3]:mt-4 [&_h3]:font-semibold [&_ul]:my-2 [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:my-2 [&_ol]:list-decimal [&_ol]:pl-5 [&_p]:my-2 [&_table]:my-3 [&_table]:w-full [&_table]:border-collapse [&_table]:text-xs [&_th]:border [&_th]:px-2 [&_th]:py-1 [&_th]:text-left [&_td]:border [&_td]:px-2 [&_td]:py-1 [&_td]:align-top"
+
+            return (
+              <>
+                <section className="rounded-xl border p-5">
+                  <h2 className="mb-3 text-lg font-semibold">
+                    Research overview
+                  </h2>
+                  {!hasOverview ? (
+                    <p className="text-muted-foreground text-sm">
+                      No research details were shared.
+                    </p>
+                  ) : (
+                    <div className="space-y-3 text-sm">
+                      {problem.problemStatement && (
+                        <div>
+                          <div className="text-muted-foreground text-xs font-medium uppercase tracking-wide">
+                            Problem
+                          </div>
+                          <p className="mt-0.5 whitespace-pre-wrap">
+                            {problem.problemStatement}
+                          </p>
+                        </div>
+                      )}
+                      {objective && (
+                        <div>
+                          <div className="text-muted-foreground text-xs font-medium uppercase tracking-wide">
+                            Objective
+                          </div>
+                          <p className="mt-0.5 whitespace-pre-wrap">
+                            {objective}
+                          </p>
+                        </div>
+                      )}
+                      {(problem.domain || problem.phase) && (
+                        <div className="flex flex-wrap gap-2 text-xs">
+                          {problem.domain && (
+                            <span className="rounded-full border px-2 py-0.5">
+                              {problem.domain}
+                            </span>
+                          )}
+                          {problem.phase && (
+                            <span className="rounded-full border px-2 py-0.5">
+                              {problem.phase}
+                            </span>
+                          )}
+                        </div>
+                      )}
+                      {shownHyps.length > 0 && (
+                        <div>
+                          <div className="text-muted-foreground text-xs font-medium uppercase tracking-wide">
+                            Hypotheses
+                          </div>
+                          <ul className="mt-1 space-y-2">
+                            {shownHyps.map((h: any, i: number) => (
+                              <li
+                                key={h.id ?? i}
+                                className="rounded-md border p-2"
+                              >
+                                <div className="font-medium">{h.text}</div>
+                                {h.reasoning && (
+                                  <div className="text-muted-foreground mt-0.5 text-xs">
+                                    {h.reasoning}
+                                  </div>
+                                )}
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </section>
+
+                <section>
+                  <h2 className="mb-3 text-lg font-semibold">Design output</h2>
+                  {designs.length === 0 ? (
+                    <p className="text-muted-foreground text-sm">
+                      No design has been generated for this experiment yet.
+                    </p>
+                  ) : (
+                    <div className="space-y-6">
+                      {designs.map((d: any, di: number) => (
+                        <article
+                          key={d.id ?? di}
+                          className="rounded-xl border p-5"
+                        >
+                          {d.title && (
+                            <h3 className="mb-3 text-base font-semibold">
+                              {d.title}
+                            </h3>
+                          )}
+                          <div className="space-y-4">
+                            {(Array.isArray(d.sections) ? d.sections : []).map(
+                              (s: any, si: number) => (
+                                <div key={si}>
+                                  <div className="text-muted-foreground mb-1 text-xs font-semibold uppercase tracking-wide">
+                                    {s.heading}
+                                  </div>
+                                  <div className={mdClass}>
+                                    <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                                      {s.body || ""}
+                                    </ReactMarkdown>
+                                  </div>
+                                </div>
+                              )
+                            )}
+                          </div>
+                        </article>
+                      ))}
+                    </div>
+                  )}
+                </section>
+              </>
+            )
+          })()}
         </div>
       </div>
     </div>
