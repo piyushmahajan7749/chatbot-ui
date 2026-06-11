@@ -248,7 +248,7 @@ export default function WorkspacePage() {
     },
     {
       title: "You're ready",
-      body: "Click New design to start. Replay this tour any time from Help."
+      body: "Click New design to start your first experiment."
     }
   ]
 
@@ -372,7 +372,8 @@ function DesignsList({ items, wsId, onNew, projectNameOf }: DesignsListProps) {
             No designs yet
           </div>
           <div className="text-ink-3 mb-5 text-[13px]">
-            Describe your research question above, or create one from scratch.
+            Start from a research question and Shadow AI builds the full
+            experiment — click New design to begin.
           </div>
           <Button variant="primary" size="sm" onClick={onNew}>
             <IconPlus size={12} /> New design

@@ -158,8 +158,20 @@ export async function getUsageSummary(userId: string): Promise<UsageSummary> {
 }
 
 /**
- * Pre-flight gate. Throws BudgetExceededError if the user has no credits left.
- * Fails OPEN on infra errors — a billing/DB hiccup must not lock everyone out.
+ * Whether the over-budget HARD BLOCK (402) is enforced. Metering/recording
+ * always runs; this gate only controls whether running out of credits actually
+ * blocks a request. Default OFF so we can launch metering-only, validate the
+ * credit calibration against real usage_events, then flip enforcement on with a
+ * single env change (BILLING_ENFORCE=true) — no redeploy. Accepts 1/true/on/yes.
+ */
+export function isBillingEnforced(): boolean {
+  return /^(1|true|on|yes)$/i.test((process.env.BILLING_ENFORCE ?? "").trim())
+}
+
+/**
+ * Pre-flight gate. Throws BudgetExceededError if the user has no credits left
+ * AND enforcement is enabled. Fails OPEN on infra errors — a billing/DB hiccup
+ * must not lock everyone out.
  */
 export async function assertBudget(userId: string): Promise<void> {
   if (!userId) return // no identifiable user → can't meter; don't block
@@ -167,7 +179,14 @@ export async function assertBudget(userId: string): Promise<void> {
     const acct = await getOrCreateAccount(userId)
     const plan = getPlan(acct.plan)
     if (computeRemainingTokens(acct, plan) <= 0) {
-      throw new BudgetExceededError(plan.id)
+      if (isBillingEnforced()) {
+        throw new BudgetExceededError(plan.id)
+      }
+      // Metering-only mode: record that they're over, but don't block.
+      console.warn(
+        `[billing] user ${userId} is over budget (plan=${plan.id}) but ` +
+          `BILLING_ENFORCE is off — allowing the request (metering-only mode).`
+      )
     }
   } catch (e) {
     if (e instanceof BudgetExceededError) throw e
