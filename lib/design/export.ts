@@ -152,14 +152,96 @@ export function downloadJson(design: ExportableDesign) {
   )
 }
 
+// ── Markdown-table-aware block parsing (for the PDF) ────────────────────────
+export type PdfBlock =
+  | { type: "text"; text: string }
+  | { type: "table"; head: string[]; rows: string[][] }
+
+const isTableSeparatorRow = (line: string): boolean =>
+  line.includes("-") && /^\s*\|?[\s:|-]+\|?\s*$/.test(line)
+
+const splitTableCells = (line: string): string[] => {
+  let s = line.trim()
+  if (s.startsWith("|")) s = s.slice(1)
+  if (s.endsWith("|")) s = s.slice(0, -1)
+  return s.split("|").map(c => c.trim())
+}
+
+/**
+ * Split a section body into text runs and markdown tables. Tolerant of the
+ * model's slightly-malformed tables: a continuation line (no pipes, following a
+ * row) is folded back into the previous row's last cell, and ragged rows are
+ * padded / merged to the header's column count — so wide conditions / materials
+ * tables render as real grids instead of mangled pipe-soup.
+ */
+export function parseMarkdownBlocks(body: string): PdfBlock[] {
+  const lines = body.split("\n")
+  const blocks: PdfBlock[] = []
+  let buf: string[] = []
+  const flush = () => {
+    const t = buf.join("\n").trim()
+    if (t) blocks.push({ type: "text", text: t })
+    buf = []
+  }
+  let i = 0
+  while (i < lines.length) {
+    const line = lines[i]
+    const next = lines[i + 1] ?? ""
+    if (line.includes("|") && isTableSeparatorRow(next)) {
+      flush()
+      const head = splitTableCells(line)
+      const cols = head.length
+      i += 2 // skip header + separator
+      const rows: string[][] = []
+      while (i < lines.length) {
+        const l = lines[i]
+        if (l.trim() === "") break
+        const cells = splitTableCells(l)
+        // A genuine row has >= 2 cells (>= 1 internal pipe). A continuation of a
+        // wrapped cell yields a single cell — even if it carries the row's stray
+        // trailing pipe — so fold it (sans pipe) into the last cell instead of
+        // mistaking it for a new row.
+        if (cells.length >= 2) {
+          rows.push(cells)
+        } else if (rows.length) {
+          const last = rows[rows.length - 1]
+          last[last.length - 1] =
+            `${last[last.length - 1]} ${cells.join(" ")}`.trim()
+        } else {
+          head[head.length - 1] =
+            `${head[head.length - 1]} ${cells.join(" ")}`.trim()
+        }
+        i++
+      }
+      const norm = rows.map(r =>
+        r.length === cols
+          ? r
+          : r.length < cols
+            ? [...r, ...Array(cols - r.length).fill("")]
+            : [...r.slice(0, cols - 1), r.slice(cols - 1).join(" ")]
+      )
+      blocks.push({ type: "table", head, rows: norm })
+    } else {
+      buf.push(line)
+      i++
+    }
+  }
+  flush()
+  return blocks
+}
+
 /**
  * Text-based PDF of the design (problem + each generated design's sections).
  * Uses jsPDF's text engine (real selectable text, proper margins + pagination)
  * rather than an html2canvas screenshot — neater, sharper, and it works off the
- * stored content so it needs no on-screen element/ref to capture.
+ * stored content so it needs no on-screen element/ref to capture. Markdown
+ * tables are rendered as real tables via jspdf-autotable.
  */
 export async function downloadDesignPdf(design: ExportableDesign) {
-  const { jsPDF } = await import("jspdf")
+  const [{ jsPDF }, { default: autoTable }] = await Promise.all([
+    import("jspdf"),
+    import("jspdf-autotable")
+  ])
   const doc = new jsPDF({ unit: "pt", format: "a4" })
   const margin = 48
   const pageWidth = doc.internal.pageSize.getWidth()
@@ -220,7 +302,40 @@ export async function downloadDesignPdf(design: ExportableDesign) {
     writeBlock(d.title || "Design", { size: 15, bold: true, gap: 8 })
     ;(Array.isArray(d.sections) ? d.sections : []).forEach((s: any) => {
       writeBlock(s.heading, { size: 13, bold: true, gap: 4 })
-      writeBlock(stripMd(s.body || "").trim() || "—", { size: 10.5, gap: 14 })
+      const blocks = parseMarkdownBlocks(s.body || "")
+      if (blocks.length === 0) {
+        writeBlock("—", { size: 10.5, gap: 10 })
+      }
+      for (const block of blocks) {
+        if (block.type === "text") {
+          const t = stripMd(block.text).trim()
+          if (t) writeBlock(t, { size: 10.5, gap: 10 })
+        } else {
+          autoTable(doc, {
+            startY: y,
+            margin: { left: margin, right: margin },
+            tableWidth: maxWidth,
+            head: [block.head.map(stripMd)],
+            body: block.rows.map(r => r.map(stripMd)),
+            styles: {
+              fontSize: 8,
+              cellPadding: 3,
+              overflow: "linebreak",
+              valign: "top",
+              lineColor: [220, 220, 220],
+              lineWidth: 0.5
+            },
+            headStyles: {
+              fillColor: [243, 243, 243],
+              textColor: 30,
+              fontStyle: "bold"
+            }
+          })
+          const finalY = (doc as any).lastAutoTable?.finalY
+          y = (typeof finalY === "number" ? finalY : y) + 14
+        }
+      }
+      y += 4
     })
   })
 
