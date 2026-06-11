@@ -40,6 +40,16 @@ const SCOPE_LABELS: Record<ChatScope, string> = {
   report: "Report Chat"
 }
 
+// `chats.prompt` has a DB CHECK (char_length(prompt) <= 100000). The design
+// scope injects the whole experiment as context, which can be large, so clamp
+// the persisted system prompt below the column limit (with a little headroom).
+// Without this, createChat throws `chats_prompt_check` and the chat won't open.
+const MAX_CHAT_PROMPT_CHARS = 99_000
+const clampPrompt = (s: string) =>
+  s.length > MAX_CHAT_PROMPT_CHARS
+    ? s.slice(0, MAX_CHAT_PROMPT_CHARS) + "\n\n…[context truncated]"
+    : s
+
 /**
  * Right-rail chat with a single pinned thread per (scope, scope_id).
  *
@@ -123,7 +133,7 @@ export function ScopedChatRail({
     const current = pinnedChat.prompt ?? ""
     if (current.includes(trimmed)) return
     const base = chatSettings?.prompt ?? selectedWorkspace?.default_prompt ?? ""
-    const merged = `${base ? base.trim() + "\n\n" : ""}${trimmed}`
+    const merged = clampPrompt(`${base ? base.trim() + "\n\n" : ""}${trimmed}`)
     void updateChat(pinnedChat.id, { prompt: merged })
       .then(updated => setPinnedChat(updated))
       .catch(err => console.warn("Failed to refresh chat context:", err))
@@ -142,10 +152,11 @@ export function ScopedChatRail({
 
       const basePrompt =
         chatSettings?.prompt ?? selectedWorkspace.default_prompt ?? ""
-      const prompt =
+      const prompt = clampPrompt(
         contextPrompt && contextPrompt.trim()
           ? `${basePrompt ? basePrompt.trim() + "\n\n" : ""}${contextPrompt.trim()}`
           : basePrompt
+      )
 
       const chat = await createChat({
         user_id: user.id,

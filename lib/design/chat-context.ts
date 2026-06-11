@@ -9,12 +9,19 @@
  * Hard cap at TIER3_MAX_CHARS to leave room for chat history + the user's
  * question + the model's response. If the design exceeds the cap we truncate.
  *
+ * The cap is bounded by a HARD DB limit: this context is persisted into
+ * `chats.prompt`, whose column has `CHECK (char_length(prompt) <= 100000)`. A
+ * larger dump makes the chat-row INSERT fail with `chats_prompt_check` (the
+ * "can't open the design chat" bug). So the cap stays comfortably under 100k,
+ * leaving headroom for the workspace/base system prompt that gets prepended.
+ * ScopedChatRail additionally hard-clamps the merged prompt as a final guard.
+ *
  * Extracted from the design page so it can be unit-tested (it's the seam that
  * guarantees the design chat actually has the experiment's context).
  */
 import type { GeneratedDesign, Hypothesis, Paper } from "@/lib/design-agent"
 
-export const TIER3_MAX_CHARS = 300_000
+export const TIER3_MAX_CHARS = 90_000
 
 export interface DesignChatContextInput {
   title: string

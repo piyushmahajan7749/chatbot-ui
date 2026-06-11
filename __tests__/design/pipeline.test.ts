@@ -160,7 +160,10 @@ import {
   genAnalysis,
   assembleDesign
 } from "@/lib/design/design-sections"
-import { buildDesignChatContext } from "@/lib/design/chat-context"
+import {
+  buildDesignChatContext,
+  TIER3_MAX_CHARS
+} from "@/lib/design/chat-context"
 
 const CTX: any = {
   title: "Reduce mAb aggregation",
@@ -324,5 +327,39 @@ describe("design chat context", () => {
     expect(ctx).toContain("Buffer effects") // cited paper
     expect(ctx).toContain("Weigh 0.776 g histidine") // active design body
     expect(ctx).toContain("Active design: pH study")
+  })
+
+  // Regression: the context is persisted into chats.prompt, whose column has
+  // CHECK (char_length(prompt) <= 100000). A larger dump made the chat-row
+  // INSERT fail with `chats_prompt_check` ("can't open the design chat").
+  it("caps the context below the chats.prompt DB limit (chats_prompt_check)", () => {
+    // The cap itself must stay under the 100k column limit (with base-prompt headroom).
+    expect(TIER3_MAX_CHARS).toBeLessThanOrEqual(100_000)
+
+    // A pathologically large design (many long sections) must still be truncated
+    // to within the cap, never produce a prompt the DB would reject.
+    const huge: any = {
+      id: "big",
+      hypothesisId: "h1",
+      title: "Huge design",
+      saved: true,
+      sections: Array.from({ length: 60 }, (_, i) => ({
+        heading: `Section ${i}`,
+        body: "x".repeat(5000)
+      }))
+    }
+    const ctx = buildDesignChatContext({
+      title: "T",
+      problemStatement: "P",
+      objective: "O",
+      domain: "d",
+      phase: "p",
+      selectedHypotheses: [],
+      hypotheses: [],
+      papers: [],
+      generatedDesigns: [huge],
+      activeDesign: huge
+    })
+    expect(ctx.length).toBeLessThanOrEqual(TIER3_MAX_CHARS + 32) // +marker slack
   })
 })
