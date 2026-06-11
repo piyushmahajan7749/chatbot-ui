@@ -20,113 +20,83 @@ function parsedContent(design: ExportableDesign): any {
   return raw
 }
 
-function renderList(items: any): string {
-  if (!Array.isArray(items) || items.length === 0) return ""
-  return items
-    .map(item => `- ${typeof item === "string" ? item : JSON.stringify(item)}`)
-    .join("\n")
+// ── New-schema (DesignContentV2) renderers ──────────────────────────────────
+// Designs are stored as { problem, papers[], hypotheses[], designs[] } where
+// each generated design is { title, sections: [{ heading, body }] }. The old
+// exporters read a long-gone shape (generatedDesign/selectedHypothesis), which
+// is why Markdown / JSON / the public share page all came back empty.
+
+function problemLines(content: any): string[] {
+  const p = content?.problem ?? {}
+  const out: string[] = []
+  if (p.title) out.push(`**Title:** ${p.title}`)
+  if (p.problemStatement) out.push(`**Problem:** ${p.problemStatement}`)
+  const objective = p.objective ?? p.goal
+  if (objective) out.push(`**Objective:** ${objective}`)
+  if (p.domain) out.push(`**Domain:** ${p.domain}`)
+  if (p.phase) out.push(`**Phase:** ${p.phase}`)
+  return out
 }
 
-function renderHypothesis(hyp: any): string {
-  if (!hyp) return ""
-  const lines: string[] = []
-  if (hyp.content) lines.push(`**Hypothesis:** ${hyp.content}`)
-  if (hyp.rationale) lines.push(`\n**Rationale:** ${hyp.rationale}`)
-  if (hyp.scores) {
-    lines.push(
-      `\n**Scores:** rigor ${hyp.scores.rigor ?? "-"}, feasibility ${hyp.scores.feasibility ?? "-"}, novelty ${hyp.scores.novelty ?? "-"}`
-    )
-  }
-  return lines.join("\n")
+function hypothesisLines(content: any): string[] {
+  const hyps = Array.isArray(content?.hypotheses) ? content.hypotheses : []
+  if (!hyps.length) return []
+  const out: string[] = ["## Hypotheses"]
+  hyps.forEach((h: any, i: number) => {
+    const tag = h.selected ? " [selected]" : ""
+    out.push("", `${i + 1}.${tag} ${h.text ?? ""}`)
+    if (h.reasoning) out.push(`   Reasoning: ${h.reasoning}`)
+  })
+  return out
 }
 
-function renderLiterature(lit: any): string {
-  if (!lit) return ""
-  const lines: string[] = []
-  if (lit.summary) lines.push(lit.summary)
-  const citations = lit.citationsDetailed || lit.citations || []
-  if (Array.isArray(citations) && citations.length > 0) {
-    lines.push("\n### Citations")
-    citations.forEach((c: any, i: number) => {
-      const idx = c.index ?? i + 1
-      const title = c.title ?? "Untitled"
-      const url = c.url ? ` - ${c.url}` : ""
-      const year = c.year ? ` (${c.year})` : ""
-      lines.push(`${idx}. ${title}${year}${url}`)
-    })
-  }
-  return lines.join("\n")
-}
-
-function renderDesign(d: any): string {
-  if (!d) return ""
-  const sections: string[] = []
-  if (d.overview) sections.push(`### Overview\n\n${d.overview}`)
-  if (d.objective) sections.push(`### Objective\n\n${d.objective}`)
-  if (d.procedure && Array.isArray(d.procedure)) {
-    sections.push(
-      "### Procedure\n\n" +
-        d.procedure
-          .map(
-            (step: any, i: number) =>
-              `${i + 1}. ${step.title ?? step.name ?? "Step"}${step.description ? `\n   ${step.description}` : ""}`
-          )
-          .join("\n")
+function literatureLines(content: any): string[] {
+  const papers = Array.isArray(content?.papers) ? content.papers : []
+  const cited = papers.filter((p: any) => p.selected)
+  const use = cited.length ? cited : papers
+  if (!use.length) return []
+  const out: string[] = ["## Literature"]
+  use.forEach((p: any, i: number) => {
+    const meta = [
+      Array.isArray(p.authors) ? p.authors.join(", ") : "",
+      p.year ?? "",
+      p.journal ?? ""
+    ]
+      .filter(Boolean)
+      .join(" · ")
+    out.push(
+      "",
+      `${i + 1}. ${p.title ?? "Untitled"}${meta ? ` — ${meta}` : ""}`
     )
-  }
-  if (d.materials) {
-    const mat = Array.isArray(d.materials)
-      ? renderList(d.materials)
-      : String(d.materials)
-    sections.push(`### Materials\n\n${mat}`)
-  }
-  if (d.controls) {
-    const ctrl = Array.isArray(d.controls)
-      ? renderList(d.controls)
-      : String(d.controls)
-    sections.push(`### Controls\n\n${ctrl}`)
-  }
-  if (d.statisticalReview || d.statistics) {
-    const sr = d.statisticalReview || d.statistics
-    sections.push(
-      `### Statistical Review\n\n${typeof sr === "string" ? sr : JSON.stringify(sr, null, 2)}`
-    )
-  }
-  return sections.join("\n\n")
+    if (p.summary) out.push(`   ${p.summary}`)
+  })
+  return out
 }
 
 export function designToMarkdown(design: ExportableDesign): string {
   const content = parsedContent(design)
-  const title = design.name || "Untitled design"
-  const lines: string[] = [`# ${title}`]
+  const lines: string[] = [
+    `# ${design.name || content?.problem?.title || "Untitled design"}`
+  ]
   if (design.description) lines.push("", design.description)
-
   if (!content) return lines.join("\n")
 
-  const selected = content.selectedHypothesis
-  if (selected) {
-    lines.push("", "## Selected hypothesis", "", renderHypothesis(selected))
-  }
+  const probs = problemLines(content)
+  if (probs.length) lines.push("", "## Research problem", "", ...probs)
 
-  const lit = content.generatedLiteratureSummary
-  if (lit) {
-    lines.push("", "## Literature review", "", renderLiterature(lit))
-  }
+  const hyps = hypothesisLines(content)
+  if (hyps.length) lines.push("", ...hyps)
 
-  const dsg = content.generatedDesign
-  if (dsg) {
-    lines.push("", "## Experimental design", "", renderDesign(dsg))
-  }
+  const lit = literatureLines(content)
+  if (lit.length) lines.push("", ...lit)
 
-  const stats = content.generatedStatReview
-  if (stats) {
-    lines.push(
-      "",
-      "## Statistical review",
-      "",
-      typeof stats === "string" ? stats : JSON.stringify(stats, null, 2)
-    )
-  }
+  const designs = Array.isArray(content.designs) ? content.designs : []
+  designs.forEach((d: any) => {
+    lines.push("", `## Design: ${d.title ?? "Untitled"}`)
+    ;(Array.isArray(d.sections) ? d.sections : []).forEach((s: any) => {
+      lines.push("", `### ${s.heading}`, "", s.body ?? "")
+    })
+  })
 
   return lines.join("\n")
 }
@@ -180,6 +150,81 @@ export function downloadJson(design: ExportableDesign) {
     safeFilename(design.name, "json"),
     "application/json;charset=utf-8"
   )
+}
+
+/**
+ * Text-based PDF of the design (problem + each generated design's sections).
+ * Uses jsPDF's text engine (real selectable text, proper margins + pagination)
+ * rather than an html2canvas screenshot — neater, sharper, and it works off the
+ * stored content so it needs no on-screen element/ref to capture.
+ */
+export async function downloadDesignPdf(design: ExportableDesign) {
+  const { jsPDF } = await import("jspdf")
+  const doc = new jsPDF({ unit: "pt", format: "a4" })
+  const margin = 48
+  const pageWidth = doc.internal.pageSize.getWidth()
+  const pageHeight = doc.internal.pageSize.getHeight()
+  const maxWidth = pageWidth - margin * 2
+  let y = margin
+
+  const writeBlock = (
+    text: string,
+    opts: { size: number; bold?: boolean; gap?: number }
+  ) => {
+    doc.setFont("helvetica", opts.bold ? "bold" : "normal")
+    doc.setFontSize(opts.size)
+    const lineHeight = opts.size * 1.35
+    for (const line of doc.splitTextToSize(text || " ", maxWidth)) {
+      if (y + lineHeight > pageHeight - margin) {
+        doc.addPage()
+        y = margin
+      }
+      doc.text(line, margin, y)
+      y += lineHeight
+    }
+    y += opts.gap ?? 6
+  }
+
+  // Light markdown → readable plain text (keep table pipes for legibility).
+  const stripMd = (s: string) =>
+    s
+      .replace(/\*\*(.+?)\*\*/g, "$1")
+      .replace(/^#{1,6}\s+/gm, "")
+      .replace(/^[-*]\s+/gm, "• ")
+      .replace(/`{1,3}/g, "")
+
+  const content = parsedContent(design) ?? {}
+
+  writeBlock(design.name || content?.problem?.title || "Untitled design", {
+    size: 18,
+    bold: true,
+    gap: 14
+  })
+
+  const probs = problemLines(content).map(stripMd)
+  if (probs.length) {
+    writeBlock("Research problem", { size: 13, bold: true, gap: 4 })
+    probs.forEach(p => writeBlock(p, { size: 10.5, gap: 2 }))
+    y += 8
+  }
+
+  const designs = Array.isArray(content.designs) ? content.designs : []
+  if (designs.length === 0) {
+    writeBlock("No generated design yet.", { size: 10.5 })
+  }
+  designs.forEach((d: any, di: number) => {
+    if (di > 0) {
+      doc.addPage()
+      y = margin
+    }
+    writeBlock(d.title || "Design", { size: 15, bold: true, gap: 8 })
+    ;(Array.isArray(d.sections) ? d.sections : []).forEach((s: any) => {
+      writeBlock(s.heading, { size: 13, bold: true, gap: 4 })
+      writeBlock(stripMd(s.body || "").trim() || "—", { size: 10.5, gap: 14 })
+    })
+  })
+
+  doc.save(safeFilename(design.name, "pdf"))
 }
 
 /**

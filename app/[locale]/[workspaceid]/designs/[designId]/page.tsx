@@ -67,7 +67,6 @@ import {
   IconCheck,
   IconChevronDown,
   IconClipboardText,
-  IconDownload,
   IconFlask,
   IconInfoCircle,
   IconLayoutGrid,
@@ -1441,67 +1440,6 @@ export default function DesignDetailPage() {
     }
   }
 
-  const handleDownloadDesign = async (d: GeneratedDesign) => {
-    try {
-      // jsPDF is heavy; load it on demand so it stays out of the page bundle.
-      const { jsPDF } = await import("jspdf")
-      const doc = new jsPDF({ unit: "pt", format: "a4" })
-      const margin = 48
-      const pageWidth = doc.internal.pageSize.getWidth()
-      const pageHeight = doc.internal.pageSize.getHeight()
-      const maxWidth = pageWidth - margin * 2
-      let y = margin
-
-      const writeBlock = (
-        text: string,
-        opts: { size: number; bold?: boolean; gap?: number }
-      ) => {
-        doc.setFont("helvetica", opts.bold ? "bold" : "normal")
-        doc.setFontSize(opts.size)
-        const lineHeight = opts.size * 1.35
-        for (const line of doc.splitTextToSize(text, maxWidth)) {
-          if (y + lineHeight > pageHeight - margin) {
-            doc.addPage()
-            y = margin
-          }
-          doc.text(line, margin, y)
-          y += lineHeight
-        }
-        y += opts.gap ?? 6
-      }
-
-      // Light markdown → readable plain text. Table pipes are kept so the
-      // grid structure stays recognisable in the PDF.
-      const stripMd = (s: string) =>
-        s
-          .replace(/\*\*(.+?)\*\*/g, "$1")
-          .replace(/^#{1,6}\s+/gm, "")
-          .replace(/^[-*]\s+/gm, "• ")
-          .replace(/`{1,3}/g, "")
-
-      writeBlock(d.title || "Untitled design", {
-        size: 18,
-        bold: true,
-        gap: 14
-      })
-      for (const s of d.sections) {
-        writeBlock(s.heading, { size: 13, bold: true, gap: 4 })
-        writeBlock(stripMd(s.body || "").trim() || "—", { size: 10.5, gap: 14 })
-      }
-
-      const safeName =
-        d.title.slice(0, 40).replace(/[^a-z0-9\-]+/gi, "-") || "design"
-      doc.save(`${safeName}.pdf`)
-    } catch (err: any) {
-      console.error("[design] PDF download failed:", err)
-      toast({
-        title: "Download failed",
-        description: err?.message ?? "Couldn't generate the PDF.",
-        variant: "destructive"
-      })
-    }
-  }
-
   // ── Tab configuration ─────────────────────────────────────────────────
 
   const tabDefs = useMemo(() => {
@@ -2119,9 +2057,14 @@ Rules:
         <div className="min-h-0 flex-1 overflow-auto">
           <div
             className={
-              activeTab === "overview" || activeTab === "design"
-                ? "mx-auto max-w-6xl p-6"
-                : "mx-auto max-w-4xl p-6"
+              // Design tab fills the full width (the section text needs the
+              // room); overview stays a centered reading column; the form-style
+              // tabs (problem/literature/hypotheses) stay narrower.
+              activeTab === "design"
+                ? "w-full p-6"
+                : activeTab === "overview"
+                  ? "mx-auto max-w-6xl p-6"
+                  : "mx-auto max-w-4xl p-6"
             }
           >
             {activeTab === "problem" && (
@@ -2213,7 +2156,6 @@ Rules:
                 onSelect={setActiveDesignId}
                 activeDesign={activeDesign}
                 onSave={handleSaveDesign}
-                onDownload={handleDownloadDesign}
                 onApproveAndContinue={handleApproveDesignAndContinue}
                 onRegenerate={handleRegenerateDesign}
                 isApproved={isPhaseApproved("design")}
@@ -3993,7 +3935,6 @@ function DesignTab(props: {
   onSelect: (id: string) => void
   activeDesign?: GeneratedDesign
   onSave: (id: string) => void
-  onDownload: (d: GeneratedDesign) => void
   onApproveAndContinue: () => void
   onRegenerate: () => void
   isApproved: boolean
@@ -4017,7 +3958,6 @@ function DesignTab(props: {
     onSelect,
     activeDesign,
     onSave,
-    onDownload,
     onApproveAndContinue,
     onRegenerate,
     isApproved,
@@ -4240,11 +4180,7 @@ function DesignTab(props: {
                     ))}
                   </div>
 
-                  <DesignActionsBar
-                    design={activeDesign}
-                    onSave={onSave}
-                    onDownload={onDownload}
-                  />
+                  <DesignActionsBar design={activeDesign} onSave={onSave} />
                 </CardContent>
               </Card>
             </div>
@@ -4268,81 +4204,14 @@ function DesignTab(props: {
 function DesignActionsBar(props: {
   design: GeneratedDesign
   onSave: (id: string) => void
-  onDownload: (d: GeneratedDesign) => void
 }) {
-  const { design, onSave, onDownload } = props
+  const { design, onSave } = props
 
-  // Issue #30 - replaced the Reddit / ResearchGate share targets with
-  // surfaces scientists would actually use to send work to a teammate:
-  // a mailto: email draft prefilled with the design title + a snippet,
-  // and a Google Drive shortcut.
-  const shareTo = (target: "email" | "drive" | "copy-link") => {
-    const title = design.title || "Experiment design"
-    const firstBody = design.sections?.[0]?.body ?? ""
-    const snippet = firstBody.slice(0, 600)
-    const url = typeof window !== "undefined" ? window.location.href : ""
-    if (target === "email") {
-      // mailto: respects each user's default mail client (Gmail / Outlook /
-      // Apple Mail). Keep the body short - long bodies trip a "URI too
-      // long" failure in Outlook.
-      const subject = encodeURIComponent(`Experiment design: ${title}`)
-      const body = encodeURIComponent(
-        `Hi,\n\nSharing this experiment design with you:\n${url}\n\n${snippet}\n\n- Sent from Shadow AI`
-      )
-      window.location.href = `mailto:?subject=${subject}&body=${body}`
-    } else if (target === "drive") {
-      // Opens Google Drive at My Drive so the user can drop the downloaded
-      // export into the right folder. A native "Save to Drive" needs the
-      // Drive Picker SDK + an OAuth client id (see FOR_PIYUSH.md).
-      window.open(
-        "https://drive.google.com/drive/my-drive",
-        "_blank",
-        "noopener"
-      )
-    } else {
-      void navigator.clipboard?.writeText(url)
-    }
-  }
-
+  // Download + Share moved out of this bar: Save is the only per-design action
+  // here now. Export (Markdown / JSON / PDF) and sharing/collaborators live in
+  // the top-right Share dialog so there's a single place to manage them.
   return (
     <div className="border-ink-100 mt-4 flex flex-wrap items-center justify-end gap-2 border-t pt-3">
-      <Button
-        size="sm"
-        variant="outline"
-        onClick={() => onDownload(design)}
-        className="gap-1.5"
-      >
-        <IconDownload size={14} />
-        Download
-      </Button>
-      <Popover>
-        <PopoverTrigger asChild>
-          <Button size="sm" variant="outline" className="gap-1.5">
-            <IconShare size={14} />
-            Share
-          </Button>
-        </PopoverTrigger>
-        <PopoverContent className="w-52 p-2" align="end">
-          <button
-            onClick={() => shareTo("email")}
-            className="hover:bg-ink-100 block w-full rounded-md px-2 py-1.5 text-left text-xs"
-          >
-            Share via email
-          </button>
-          <button
-            onClick={() => shareTo("drive")}
-            className="hover:bg-ink-100 block w-full rounded-md px-2 py-1.5 text-left text-xs"
-          >
-            Open Google Drive
-          </button>
-          <button
-            onClick={() => shareTo("copy-link")}
-            className="hover:bg-ink-100 block w-full rounded-md px-2 py-1.5 text-left text-xs"
-          >
-            Copy link to clipboard
-          </button>
-        </PopoverContent>
-      </Popover>
       <Button
         size="sm"
         onClick={() => onSave(design.id)}

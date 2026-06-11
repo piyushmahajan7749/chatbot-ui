@@ -37,9 +37,9 @@ import type {
   Sharing
 } from "@/types/sharing"
 import {
+  downloadDesignPdf,
   downloadJson,
   downloadMarkdown,
-  downloadPdfFromElement,
   type ExportableDesign
 } from "@/lib/design/export"
 
@@ -63,8 +63,7 @@ export default function ShareDialog({
   onOpenChange,
   designId,
   design,
-  onSharingChange,
-  pdfTargetRef
+  onSharingChange
 }: ShareDialogProps) {
   const [sharing, setSharing] = useState<Sharing>(design.sharing ?? "private")
   const [shareToken, setShareToken] = useState<string | null>(
@@ -269,20 +268,15 @@ export default function ShareDialog({
   )
 
   const handleExportPdf = useCallback(async () => {
-    const target = pdfTargetRef?.current
-    if (!target) {
-      toast.error("Nothing to export yet")
-      return
-    }
     setIsExportingPdf(true)
     try {
-      await downloadPdfFromElement(target, design)
+      await downloadDesignPdf(design)
     } catch (err: any) {
       toast.error(err?.message || "PDF export failed")
     } finally {
       setIsExportingPdf(false)
     }
-  }, [pdfTargetRef, design])
+  }, [design])
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -475,7 +469,7 @@ export default function ShareDialog({
               <Button
                 variant="outline"
                 onClick={handleExportPdf}
-                disabled={isExportingPdf || !pdfTargetRef?.current}
+                disabled={isExportingPdf}
               >
                 {isExportingPdf ? (
                   <Loader2 className="mr-2 size-4 animate-spin" />
@@ -485,11 +479,6 @@ export default function ShareDialog({
                 PDF
               </Button>
             </div>
-            {!pdfTargetRef?.current && (
-              <p className="text-muted-foreground text-xs">
-                PDF export captures the rendered design view.
-              </p>
-            )}
           </TabsContent>
         </Tabs>
       </DialogContent>
