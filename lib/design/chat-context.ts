@@ -73,27 +73,10 @@ export function buildDesignChatContext(input: DesignChatContextInput): string {
     })
   }
 
-  if (input.papers?.length) {
-    lines.push("", "## Cited literature")
-    input.papers.forEach((p, i) => {
-      const meta = [
-        p.authors?.length ? p.authors.join(", ") : "",
-        (p as any).year ?? "",
-        (p as any).journal ?? ""
-      ]
-        .filter(Boolean)
-        .join(" · ")
-      lines.push(
-        `${i + 1}. ${p.title}${meta ? ` - ${meta}` : ""}${
-          p.sourceUrl ? ` (${p.sourceUrl})` : ""
-        }`
-      )
-      if (p.summary) lines.push(`   ${p.summary}`)
-    })
-  }
-
-  // All generated designs - the active one first, full body. Other designs
-  // included as alternates so the model can compare/contrast.
+  // Generated designs come BEFORE the literature: the design is what the chat
+  // is about, so if the dump exceeds the cap it must be the papers that get
+  // truncated, never the design itself. Active design first (full body), then
+  // alternates so the model can compare/contrast.
   const ordered = input.activeDesign
     ? [
         input.activeDesign,
@@ -113,6 +96,25 @@ export function buildDesignChatContext(input: DesignChatContextInput): string {
       lines.push(sec.body.trim())
     })
   })
+
+  if (input.papers?.length) {
+    lines.push("", "## Cited literature")
+    input.papers.forEach((p, i) => {
+      const meta = [
+        p.authors?.length ? p.authors.join(", ") : "",
+        (p as any).year ?? "",
+        (p as any).journal ?? ""
+      ]
+        .filter(Boolean)
+        .join(" · ")
+      lines.push(
+        `${i + 1}. ${p.title}${meta ? ` - ${meta}` : ""}${
+          p.sourceUrl ? ` (${p.sourceUrl})` : ""
+        }`
+      )
+      if (p.summary) lines.push(`   ${p.summary}`)
+    })
+  }
 
   let context = lines.join("\n")
 

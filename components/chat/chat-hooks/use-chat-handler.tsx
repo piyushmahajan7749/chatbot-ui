@@ -238,17 +238,25 @@ export const useChatHandler = () => {
       // (PR-8 wires the >150k-token gate).
       let retrievedFileItems: any[] = []
 
-      if (useRetrieval && selectedWorkspace) {
+      // Design/report chats are "tier-3": the entire document is already in the
+      // system prompt (ScopedChatRail dumps it into chat.prompt). Running
+      // workspace RAG for them just adds latency + the misleading "Searching
+      // files…" indicator and can inject irrelevant chunks. Skip it for those
+      // scopes; project/workspace chats still retrieve.
+      const chatScope = (currentChat?.scope ?? null) as
+        | "project"
+        | "design"
+        | "report"
+        | null
+      const skipRetrieval = chatScope === "design" || chatScope === "report"
+
+      if (useRetrieval && selectedWorkspace && !skipRetrieval) {
         setToolInUse("retrieval")
 
         retrievedFileItems = await handleRetrieval(
           userInput,
           selectedWorkspace.id,
-          (currentChat?.scope ?? null) as
-            | "project"
-            | "design"
-            | "report"
-            | null,
+          chatScope,
           currentChat?.scope_id ?? null,
           newMessageFiles,
           chatFiles,

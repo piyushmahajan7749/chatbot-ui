@@ -243,7 +243,16 @@ export function ScopedChatRail({
               </button>
             </div>
             <div className="relative min-h-0 flex-1">
-              <ChatUI variant="panel" chatId={pinnedChat.id} />
+              {/* Key on the prompt length so that when the context sync below
+                  rewrites chat.prompt (design dump), ChatUI remounts and
+                  re-fetches the FRESH prompt into chatSettings — otherwise it
+                  keeps the stale prompt it loaded first and answers without the
+                  design context. */}
+              <ChatUI
+                key={`${pinnedChat.id}:${(pinnedChat.prompt ?? "").length}`}
+                variant="panel"
+                chatId={pinnedChat.id}
+              />
             </div>
           </div>
         ) : (
