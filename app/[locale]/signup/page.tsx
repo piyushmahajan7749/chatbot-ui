@@ -8,6 +8,8 @@ import { AuthShell } from "@/components/auth/auth-shell"
 import { SignupForm } from "./signup-form"
 import { createClient } from "@/lib/supabase/server"
 import { friendlyAuthError } from "@/lib/auth/friendly-errors"
+import { attributeReferral } from "@/lib/affiliate/service"
+import { REFERRAL_COOKIE } from "@/lib/affiliate/constants"
 
 export const metadata: Metadata = {
   title: "Create your account"
@@ -29,6 +31,10 @@ export default async function SignupPage({
     session = null
   }
   if (session) return redirect("/")
+
+  // Show a perk banner when the visitor arrived through a creator's referral
+  // link (?ref=... was captured into a cookie by middleware).
+  const invitedByReferral = Boolean(cookieStore.get(REFERRAL_COOKIE)?.value)
 
   // Whitelist gate honoured for B2C closed-beta; B2C open path is just env unset.
   const getEnvVarOrEdgeConfigValue = async (name: string) => {
@@ -100,6 +106,22 @@ export default async function SignupPage({
       )
     }
 
+    // Influencer referral attribution: if this signup came in via a ?ref code
+    // (captured into a cookie by middleware), record it. Best-effort — never
+    // blocks the signup.
+    const refCode = cookieStore.get(REFERRAL_COOKIE)?.value
+    if (data?.user && refCode) {
+      try {
+        await attributeReferral({
+          referredUserId: data.user.id,
+          rawCode: refCode
+        })
+        cookieStore.delete(REFERRAL_COOKIE)
+      } catch (refErr) {
+        console.error("[signup] referral attribution failed", refErr)
+      }
+    }
+
     // If the Supabase project requires email confirmation, signUp
     // returns a user but no session - tell the user to check their
     // inbox rather than silently dropping them at /login.
@@ -133,6 +155,13 @@ export default async function SignupPage({
         </span>
       }
     >
+      {invitedByReferral && (
+        <p className="bg-paper-2 text-ink-2 border-line mb-4 rounded-md border p-3 text-center text-[12.5px]">
+          🎁 You were invited by a creator — you’ll get bonus credits when you
+          subscribe.
+        </p>
+      )}
+
       <SignupForm
         action={signUp}
         defaultEmail={searchParams?.email ?? ""}

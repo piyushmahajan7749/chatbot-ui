@@ -3,6 +3,11 @@ import { createClient } from "@/lib/supabase/middleware"
 import { i18nRouter } from "next-i18n-router"
 import { NextResponse, type NextRequest } from "next/server"
 import i18nConfig from "./i18nConfig"
+import { normalizeCode } from "@/lib/affiliate/codes"
+import {
+  REFERRAL_COOKIE,
+  REFERRAL_COOKIE_MAX_AGE_SECONDS
+} from "@/lib/affiliate/constants"
 
 const DEBUG = process.env.NEXT_PUBLIC_DEBUG_AUTH === "1"
 
@@ -38,6 +43,23 @@ export async function middleware(request: NextRequest) {
     // so logged-in users get stuck on the marketing page at /.
     const { supabase, response } = createClient(request)
     const pathname = stripLocale(request.nextUrl.pathname, i18nConfig.locales)
+
+    // Capture an influencer referral code (?ref=CODE) into a cookie so the
+    // attribution survives until the viewer signs up. Set it on `response`,
+    // whose cookies are copied onto whatever we ultimately return (a redirect
+    // via redirectWith, or the i18n rewrite below).
+    const refParam = request.nextUrl.searchParams.get("ref")
+    if (refParam) {
+      const code = normalizeCode(refParam)
+      if (code) {
+        response.cookies.set(REFERRAL_COOKIE, code, {
+          maxAge: REFERRAL_COOKIE_MAX_AGE_SECONDS,
+          httpOnly: true,
+          sameSite: "lax",
+          path: "/"
+        })
+      }
+    }
 
     const isRoot = pathname === "/" || pathname === ""
     const isLogin = pathname === "/login" || pathname.startsWith("/login/")

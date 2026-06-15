@@ -40,6 +40,7 @@ import {
 } from "../ui/sheet"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../ui/tabs"
 import { UsageBillingPanel } from "../billing/usage-billing-panel"
+import { AffiliatePanel } from "../billing/affiliate-panel"
 import { OPEN_BILLING_EVENT } from "@/lib/billing/handle-budget-error"
 import { TextareaAutosize } from "../ui/textarea-autosize"
 import { WithTooltip } from "../ui/with-tooltip"
@@ -773,8 +774,9 @@ export const ProfileSettings: FC<ProfileSettingsProps> = ({
               </div>
             </TabsContent>
 
-            <TabsContent className="mt-4" value="billing">
+            <TabsContent className="mt-4 space-y-5" value="billing">
               <UsageBillingPanel />
+              <AffiliatePanel />
             </TabsContent>
           </Tabs>
         </div>

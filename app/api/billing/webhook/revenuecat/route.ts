@@ -5,6 +5,7 @@ import {
   verifyRevenueCatWebhookAuth
 } from "@/lib/billing/revenuecat"
 import { getPlan } from "@/lib/billing/plans"
+import { recordReferralConversion } from "@/lib/affiliate/service"
 
 /**
  * POST /api/billing/webhook/revenuecat
@@ -87,6 +88,17 @@ export async function POST(req: Request) {
           .update(update)
           .eq("user_id", userId)
         if (error) throw error
+
+        // Influencer affiliate: book commission + grant the referred viewer's
+        // bonus credits on their first paid purchase. Idempotent (the RPC
+        // no-ops on renewals / already-converted referrals) and best-effort, so
+        // it never fails the webhook.
+        if (action.plan !== "free") {
+          await recordReferralConversion({
+            referredUserId: userId,
+            plan: action.plan
+          })
+        }
         break
       }
       case "downgrade": {
