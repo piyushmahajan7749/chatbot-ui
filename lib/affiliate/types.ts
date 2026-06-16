@@ -7,6 +7,20 @@
 export type AffiliateStatus = "active" | "disabled"
 export type ReferralStatus = "signed_up" | "converted" | "reversed"
 export type PayoutStatus = "pending" | "paid"
+export type ApplicationStatus = "pending" | "approved" | "rejected"
+
+export interface ApplicationRow {
+  user_id: string
+  handle: string
+  platform: string | null
+  audience: string | null
+  pitch: string | null
+  status: ApplicationStatus
+  review_note: string | null
+  reviewed_at: string | null
+  created_at: string
+  updated_at: string
+}
 
 export interface AffiliateRow {
   user_id: string
@@ -52,3 +66,15 @@ export interface AffiliateDashboard {
     commissionPendingUsd: number
   }
 }
+
+/** Application state shown to a non-affiliate (drives the apply/pending card). */
+export interface AffiliateNotYet {
+  isAffiliate: false
+  application: {
+    status: ApplicationStatus
+    reviewNote: string | null
+  } | null
+}
+
+/** The /api/affiliate/me payload: the dashboard, or the application state. */
+export type AffiliateMe = AffiliateDashboard | AffiliateNotYet

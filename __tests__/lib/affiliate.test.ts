@@ -9,6 +9,7 @@ import {
   aggregateReferrals,
   commissionCentsFor
 } from "@/lib/affiliate/service"
+import { submitApplication } from "@/lib/affiliate/applications"
 import { isValidCode, normalizeCode, suggestCode } from "@/lib/affiliate/codes"
 import type { ReferralRow } from "@/lib/affiliate/types"
 
@@ -91,5 +92,19 @@ describe("referral codes", () => {
   })
   it("suggests a valid code even from an empty seed", () => {
     expect(isValidCode(suggestCode(""))).toBe(true)
+  })
+})
+
+describe("submitApplication validation", () => {
+  // These short-circuit before any DB call, so they're safe without env.
+  it("requires a signed-in user", async () => {
+    const r = await submitApplication({ userId: "", handle: "Ada" })
+    expect(r.ok).toBe(false)
+    expect(r.error).toMatch(/signed in/i)
+  })
+  it("requires a handle of at least 2 chars", async () => {
+    const r = await submitApplication({ userId: "u1", handle: "a" })
+    expect(r.ok).toBe(false)
+    expect(r.error).toMatch(/handle/i)
   })
 })
