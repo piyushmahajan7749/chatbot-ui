@@ -57,7 +57,7 @@ import {
   uploadProjectFile,
   type ProjectFileMeta
 } from "@/db/project-files"
-import { getPaperLibrary } from "@/db/paper-library"
+import { getPaperLibrary, removePaperFromLibrary } from "@/db/paper-library"
 import type { PaperLibraryEntry } from "@/lib/paper-library/types"
 
 interface StudioCanvasProps {
@@ -560,6 +560,22 @@ export function StudioCanvas({
     }
   }
 
+  const handleRemovePaper = async (paperId: string) => {
+    const prev = papers
+    setPapers(p => p.filter(x => x.id !== paperId)) // optimistic
+    try {
+      await removePaperFromLibrary(paperId)
+      toast({ title: "Removed from library" })
+    } catch (err: any) {
+      setPapers(prev) // roll back
+      toast({
+        title: "Couldn't remove paper",
+        description: err?.message ?? "Try again in a moment.",
+        variant: "destructive"
+      })
+    }
+  }
+
   // Children override: used when the page-level route wants to render its own
   // content inside the StudioLayout shell (e.g. Design editor).
   if (children) {
@@ -834,6 +850,7 @@ export function StudioCanvas({
               papers={filteredPapers}
               rawPaperCount={papers.length}
               designNameById={designNameById}
+              onRemovePaper={handleRemovePaper}
               files={filteredFiles}
               rawFileCount={files.length}
               searching={search.trim() !== ""}
@@ -1014,6 +1031,7 @@ function FilesTab(props: {
   papers: PaperLibraryEntry[]
   rawPaperCount: number
   designNameById: Map<string, string>
+  onRemovePaper: (id: string) => void
   files: ProjectFileMeta[]
   rawFileCount: number
   searching: boolean
@@ -1048,6 +1066,8 @@ function FilesTab(props: {
           rawCount={props.rawPaperCount}
           searching={props.searching}
           designNameById={props.designNameById}
+          getTimeAgo={props.getTimeAgo}
+          onRemove={props.onRemovePaper}
         />
       ) : (
         <FilesGrid
@@ -1102,8 +1122,11 @@ function SavedPapersList(props: {
   rawCount: number
   searching: boolean
   designNameById: Map<string, string>
+  getTimeAgo: (d: string | null) => string
+  onRemove: (id: string) => void
 }) {
-  const { papers, rawCount, searching, designNameById } = props
+  const { papers, rawCount, searching, designNameById, getTimeAgo, onRemove } =
+    props
 
   if (papers.length === 0) {
     if (searching && rawCount > 0) {
@@ -1143,53 +1166,66 @@ function SavedPapersList(props: {
         const designNames = (paper.source_design_ids ?? [])
           .map(id => designNameById.get(id))
           .filter((n): n is string => Boolean(n))
+        const savedAt = getTimeAgo(paper.created_at || paper.updated_at)
         return (
           <div
             key={paper.id}
             className="border-ink-200 rounded-2xl border bg-white p-4"
           >
-            <div className="flex flex-wrap items-baseline gap-2">
-              <span className="text-brick font-mono text-[11px] font-semibold">
-                #{idx + 1}
-              </span>
-              <h4 className="text-ink-900 flex-1 text-sm font-semibold leading-snug">
-                {paper.title}
-              </h4>
-            </div>
-            {authorStr && (
-              <p className="text-ink-600 mt-1 text-xs">{authorStr}</p>
-            )}
-            <p className="text-ink-500 mt-1 text-xs">
-              {paper.year ? `${paper.year} · ` : ""}
-              {paper.source
-                ? (PAPER_SOURCE_LABEL[paper.source] ?? paper.source)
-                : "Unknown source"}
-            </p>
-            <div className="mt-2 flex flex-wrap items-center gap-1.5">
-              {designNames.length > 0 ? (
-                designNames.map(name => (
-                  <span
-                    key={name}
-                    className="bg-teal-journey-tint text-teal-journey inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10.5px] font-medium"
-                  >
-                    <IconFlask size={10} /> Saved under {name}
+            <div className="flex items-start gap-3">
+              <div className="min-w-0 flex-1">
+                <div className="flex flex-wrap items-baseline gap-2">
+                  <span className="text-brick font-mono text-[11px] font-semibold">
+                    #{idx + 1}
                   </span>
-                ))
-              ) : (
-                <span className="bg-ink-100 text-ink-500 rounded-full px-2 py-0.5 text-[10.5px] font-medium">
-                  Saved paper
-                </span>
-              )}
-              {paper.url && (
-                <a
-                  href={paper.url}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="text-brick inline-flex items-center gap-1 text-[11px] font-medium hover:underline"
-                >
-                  Open <IconExternalLink size={11} />
-                </a>
-              )}
+                  <h4 className="text-ink-900 flex-1 text-sm font-semibold leading-snug">
+                    {paper.title}
+                  </h4>
+                </div>
+                {authorStr && (
+                  <p className="text-ink-600 mt-1 text-xs">{authorStr}</p>
+                )}
+                <p className="text-ink-500 mt-1 text-xs">
+                  {paper.year ? `${paper.year} · ` : ""}
+                  {paper.source
+                    ? (PAPER_SOURCE_LABEL[paper.source] ?? paper.source)
+                    : "Unknown source"}
+                  {savedAt ? ` · Saved ${savedAt}` : ""}
+                </p>
+                <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                  {designNames.length > 0 ? (
+                    designNames.map(name => (
+                      <span
+                        key={name}
+                        className="bg-teal-journey-tint text-teal-journey inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10.5px] font-medium"
+                      >
+                        <IconFlask size={10} /> Saved under {name}
+                      </span>
+                    ))
+                  ) : (
+                    <span className="bg-ink-100 text-ink-500 rounded-full px-2 py-0.5 text-[10.5px] font-medium">
+                      Saved paper
+                    </span>
+                  )}
+                  {paper.url && (
+                    <a
+                      href={paper.url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-brick inline-flex items-center gap-1 text-[11px] font-medium hover:underline"
+                    >
+                      Open <IconExternalLink size={11} />
+                    </a>
+                  )}
+                </div>
+              </div>
+              <button
+                onClick={() => onRemove(paper.id)}
+                title="Remove from library"
+                className="text-ink-400 shrink-0 rounded p-1 hover:text-red-500"
+              >
+                <IconTrash size={15} />
+              </button>
             </div>
           </div>
         )
@@ -1257,12 +1293,20 @@ function FilesGrid(props: {
     return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
   }
 
+  // File format: prefer the extension, fall back to the mime subtype.
+  const formatOf = (name: string, mime: string): string => {
+    const ext = name.includes(".") ? name.split(".").pop() : ""
+    if (ext) return ext.toUpperCase()
+    const sub = mime.split("/")[1]
+    return sub ? sub.toUpperCase() : "FILE"
+  }
+
   return (
     <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
       {files.map(file => (
         <div
           key={file.id}
-          className="border-ink-200 hover:border-sage-brand/50 group relative flex flex-col gap-2 rounded-2xl border bg-white p-4 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md"
+          className="border-ink-200 hover:border-sage-brand/50 relative flex flex-col gap-2 rounded-2xl border bg-white p-4 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md"
         >
           <div className="flex items-start gap-2">
             <div className="bg-sage-brand-tint text-sage-brand rounded-md p-2">
@@ -1277,26 +1321,29 @@ function FilesGrid(props: {
             </button>
           </div>
           <div className="text-ink-400 flex items-center justify-between text-[10px]">
-            <span>{formatSize(file.size)}</span>
+            <span>
+              {formatOf(file.name, file.mime_type)}
+              {file.size ? ` · ${formatSize(file.size)}` : ""}
+            </span>
             <span>{getTimeAgo(file.created_at)}</span>
           </div>
           <span className="bg-sage-brand-tint text-sage-brand w-fit rounded-full px-2 py-0.5 text-[10px] font-medium">
             Uploaded{props.projectName ? ` to ${props.projectName}` : ""}
           </span>
-          <div className="mt-auto flex items-center justify-end gap-1 pt-1 opacity-0 transition-opacity group-hover:opacity-100">
+          <div className="mt-auto flex items-center justify-end gap-1 pt-1">
             <button
               onClick={() => props.onOpenFile(file)}
               title="Open file"
               className="text-ink-400 hover:text-ink-700 rounded p-1"
             >
-              <IconDownload size={14} />
+              <IconDownload size={15} />
             </button>
             <button
               onClick={() => props.onDeleteFile(file)}
               title="Delete file"
               className="text-ink-400 rounded p-1 hover:text-red-500"
             >
-              <IconTrash size={14} />
+              <IconTrash size={15} />
             </button>
           </div>
         </div>

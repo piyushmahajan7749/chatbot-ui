@@ -340,16 +340,16 @@ function detectReviewArticle(
   publicationTypes: string[]
 ): boolean {
   const REVIEW_TYPE_RE =
-    /\b(review|systematic.review|meta.analysis|narrative.review|scoping.review)\b/i
+    /\b(review|systematic.review|meta.analysis|narrative.review|scoping.review|perspective|commentary|editorial|opinion)\b/i
   if (publicationTypes.some(t => REVIEW_TYPE_RE.test(t))) return true
 
   const titleStr = (title ?? "").toLowerCase()
-  // Title heuristic - match whole-word "review" / "meta-analysis"
-  // anywhere in the title. "A review of …" / "Systematic review …" /
-  // "… : a meta-analysis" all hit. Avoid "peer-reviewed" by requiring a
-  // word boundary on both sides.
+  // Title heuristic - match whole-word review/theory markers anywhere in the
+  // title. "A review of …" / "Systematic review …" / "… : a meta-analysis" /
+  // "Perspectives on …" / "Current opinion …" all hit. Word boundaries avoid
+  // "peer-reviewed" / "overviewing".
   if (
-    /\b(review|meta-analysis|systematic review|scoping review|narrative review|umbrella review)\b/.test(
+    /\b(review|meta-analysis|systematic review|scoping review|narrative review|umbrella review|mini-?review|perspective|perspectives|commentary|opinion|state of the art|current trends|advances in|recent advances|an overview)\b/.test(
       titleStr
     )
   ) {
@@ -358,7 +358,7 @@ function detectReviewArticle(
 
   const abstractHead = (abstract ?? "").slice(0, 200).toLowerCase()
   if (
-    /^(?:this|the present|in this) (?:review|meta-analysis|systematic review)/.test(
+    /^(?:this|the present|in this|here we) (?:review|meta-analysis|systematic review|perspective|overview|article reviews|paper reviews)/.test(
       abstractHead
     )
   ) {

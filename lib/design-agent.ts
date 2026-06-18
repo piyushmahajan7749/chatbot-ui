@@ -132,6 +132,23 @@ export interface ProblemContext {
   includeReplicates?: "yes" | "no" | ""
   /** Optional success criteria the researcher specified for the design. */
   successCriteria?: string
+  /**
+   * Mandatory free-text operating parameters captured on the Problem step —
+   * molecule operating concentration range, buffer systems, temperatures, pH,
+   * sample matrix, equipment on hand, etc. Threaded into the literature,
+   * hypotheses, and design prompts to keep their output specific.
+   */
+  additionalDetails?: string
+  /**
+   * Extra design directives collected in the pre-generation popup (molecule
+   * concentration, number/type of conditions, free-form notes). Drives how the
+   * design phase builds conditions + calculations so output is user-specific.
+   */
+  designSpec?: {
+    moleculeConcentration?: string
+    conditions?: string
+    notes?: string
+  }
 
   // ── Legacy v2 fields (kept so older saved designs still load) ──────────
   goal?: string

@@ -51,7 +51,14 @@ export async function runHypothesesPhase(
   const litCtx = existing.literatureContext
   const planMeta = {
     title: ctx.title || "Untitled",
-    description: ctx.problemStatement || ctx.goal || "",
+    description: [
+      ctx.problemStatement || ctx.goal || "",
+      ctx.additionalDetails
+        ? `Operating parameters (be specific to these — use concrete concentrations, buffers, temperatures, and ranges, not generic language): ${ctx.additionalDetails}`
+        : ""
+    ]
+      .filter(Boolean)
+      .join("\n\n"),
     constraints: {
       variables: (ctx as { variables?: string[] }).variables,
       constraints: (ctx as { constraints?: string[] }).constraints
@@ -156,12 +163,12 @@ export async function runHypothesesPhase(
         {
           role: "system",
           content: `You are a scientific hypothesis ranking agent. You will receive a numbered list of hypotheses and must score each one from 0-100 based on:
-- Scientific rigor and testability (30%)
-- Feasibility and practicality (25%)
-- Novelty and potential impact (25%)
-- Clarity and specificity (20%)
+- Quantitative specificity (35%) — a strong hypothesis names the SPECIFIC variable, direction, magnitude, and conditions (e.g. concentrations with units, temperatures, pH, timepoints). HEAVILY penalise vague, hand-wavy, or purely qualitative statements ("X may improve stability") that lack concrete, testable quantities.
+- Scientific rigor and testability (25%)
+- Feasibility and practicality (20%)
+- Novelty and potential impact (20%)
 
-Return every hypothesis with its original index number, a score, and a one-sentence reasoning.`
+Reward hypotheses that read as crisp, falsifiable, quantitative predictions tied to the researcher's stated operating parameters. Return every hypothesis with its original index number, a score, and a one-sentence reasoning.`
         },
         {
           role: "user",

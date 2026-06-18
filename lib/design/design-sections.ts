@@ -106,10 +106,36 @@ export function buildDesignBlocks(
   const hypBlock =
     `Hypothesis: ${hyp.text}\nExplanation: ${hyp.reasoning}` + userSuppliedNote
 
+  // Researcher-supplied operating parameters (mandatory Problem field) +
+  // pre-generation design spec (molecule concentration, condition count,
+  // notes). These are AUTHORITATIVE — the design must use these exact numbers,
+  // not invent generic placeholders.
+  const additional = (ctx.additionalDetails || "").trim()
+  const spec = ctx.designSpec
+  const specLines = [
+    spec?.moleculeConcentration
+      ? `- Molecule / operating concentration: ${spec.moleculeConcentration}`
+      : "",
+    spec?.conditions
+      ? `- Number / type of conditions to design: ${spec.conditions}`
+      : "",
+    spec?.notes ? `- Additional design instructions: ${spec.notes}` : ""
+  ]
+    .filter(Boolean)
+    .join("\n")
+  const directivesBlock =
+    additional || specLines
+      ? `\n\nRESEARCHER-SUPPLIED SPECIFICS (authoritative — use these EXACT values; do not substitute generic placeholders, and do not leave ranges vague):${additional ? `\nOperating parameters: ${additional}` : ""}${specLines ? `\n${specLines}` : ""}`
+      : ""
+
+  const formatDirective = `\n\nOUTPUT FORMATTING (strict):\n- Write every procedure / list as DISTINCT point-wise lines. NEVER pack multiple actions into one run-on sentence. If a step has branches, split them into their own numbered sub-lines (4a, 4b, 4c …), one action per line.\n- Every conditions table must be a well-formed Markdown table with a header row and one row per arm; all numbers carry units; include explicit baseline + control rows.\n- For every calculation, show it LINE BY LINE: each line = one arithmetic step with the numbers and units, followed by a short rationale for where each number comes from (e.g. "moles = 0.020 M × 0.250 L = 5.0e-3 mol — 20 mM target × 250 mL batch volume"). Never present a bare result without its derivation.`
+
   const problemBlock =
     `Research problem: ${[ctx.title, ctx.problemStatement].filter(Boolean).join(" - ")}\nGoal: ${ctx.goal || "Not specified"}\nVariables: ${((ctx as { variables?: string[] }).variables ?? []).join(", ") || "Not specified"}\nConstraints: ${((ctx as { constraints?: string[] }).constraints ?? []).join(", ") || "Not specified"}` +
+    directivesBlock +
     userPlanBlock +
-    replicateDirective
+    replicateDirective +
+    formatDirective
 
   return { problemBlock, hypBlock, litBlock, papersBlock }
 }
@@ -225,7 +251,7 @@ export async function genProtocol(
         role: "system",
         content: `You are an experimental protocol writer producing SOP-grade Markdown. All three fields must be scannable and copy-exec ready.
 
-- **stepByStepProcedure** - A single numbered Markdown list. Each step begins with a **bold imperative verb** ("**Weigh**", "**Dissolve**", "**Filter**", "**Incubate**", "**Aliquot**") followed by concrete quantities + times + temperatures + equipment. Group steps under Markdown sub-headings like \`### Day 1 - Buffer prep\`, \`### Day 2 - Formulation\`, \`### Day 3–28 - Stress incubation\`, \`### Day 28 - Readouts\`. Use sub-steps (3a, 3b) for branching. Include a short **"Checkpoint"** bold callout after each major phase listing what the operator should verify before continuing (e.g. *Checkpoint: pH reads 6.00 ± 0.05 on calibrated meter; monomer content by SEC ≥ 99% pre-stress*).
+- **stepByStepProcedure** - A single numbered Markdown list. Each step begins with a **bold imperative verb** ("**Weigh**", "**Dissolve**", "**Filter**", "**Incubate**", "**Aliquot**") followed by concrete quantities + times + temperatures + equipment. Group steps under Markdown sub-headings like \`### Day 1 - Buffer prep\`, \`### Day 2 - Formulation\`, \`### Day 3–28 - Stress incubation\`, \`### Day 28 - Readouts\`. When a step has multiple actions or branches, ALWAYS split them into separate sub-step lines (\`4a.\`, \`4b.\`, \`4c.\` …) — each on its OWN line, one action per line. NEVER combine several actions into one run-on sentence. Include a short **"Checkpoint"** bold callout after each major phase listing what the operator should verify before continuing (e.g. *Checkpoint: pH reads 6.00 ± 0.05 on calibrated meter; monomer content by SEC ≥ 99% pre-stress*).
 
 - **timeline** - Markdown table:
   \`| Day | Activity | Duration | Notes |\`

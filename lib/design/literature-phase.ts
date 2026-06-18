@@ -20,6 +20,17 @@ import type {
 } from "@/lib/design-agent"
 
 function toAgentState(ctx: ProblemContext): ExperimentDesignState {
+  // Fold the researcher's operating parameters into the search context so the
+  // scout targets papers matching their specific system (concentrations,
+  // buffers, temperatures) rather than generic background.
+  const considerations = [
+    ...((ctx as { constraints?: string[] }).constraints ?? [])
+  ]
+  if (ctx.additionalDetails?.trim()) {
+    considerations.push(
+      `Operating parameters to match: ${ctx.additionalDetails.trim()}`
+    )
+  }
   return {
     problem:
       [ctx.title, ctx.problemStatement].filter(Boolean).join(" - ") ||
@@ -30,7 +41,7 @@ function toAgentState(ctx: ProblemContext): ExperimentDesignState {
       unknown: []
     },
     constraints: { material: "", time: "", equipment: "" },
-    specialConsiderations: (ctx as { constraints?: string[] }).constraints ?? []
+    specialConsiderations: considerations
   }
 }
 

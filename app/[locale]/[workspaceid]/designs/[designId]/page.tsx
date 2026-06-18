@@ -31,6 +31,14 @@ import {
 // can ask for edits while looking at it.
 import { ScopedChatRail } from "@/components/canvas/scoped-chat-rail"
 import ShareDialog from "@/components/design-flow/share-dialog"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle
+} from "@/components/ui/dialog"
 import type { Sharing } from "@/types/sharing"
 import { addPaperToLibrary } from "@/db/paper-library"
 import { supabase } from "@/lib/supabase/browser-client"
@@ -386,6 +394,18 @@ export default function DesignDetailPage() {
   const [includeReplicates, setIncludeReplicates] = useState<"" | "yes" | "no">(
     ""
   )
+  // Mandatory free-text field. Captures concrete operating parameters the
+  // hypothesis + design agents need to stay specific — molecule operating
+  // concentration range, buffer systems, temperatures, etc.
+  const [additionalDetails, setAdditionalDetails] = useState("")
+
+  // Pre-generation "design spec" popup — collected right before the design is
+  // generated so the researcher controls concentration, condition count, etc.,
+  // and the output is specific to their use case (fewer post-hoc edits).
+  const [designSpecOpen, setDesignSpecOpen] = useState(false)
+  const [specConcentration, setSpecConcentration] = useState("")
+  const [specConditions, setSpecConditions] = useState("")
+  const [specNotes, setSpecNotes] = useState("")
 
   // Literature tab state
   const [papers, setPapers] = useState<Paper[]>([])
@@ -565,6 +585,9 @@ export default function DesignDetailPage() {
       const repRaw =
         ((problem as any).includeReplicates as string | undefined) ?? ""
       setIncludeReplicates(repRaw === "yes" || repRaw === "no" ? repRaw : "")
+      setAdditionalDetails(
+        ((problem as any).additionalDetails as string | undefined) ?? ""
+      )
 
       if (content?.papers) setPapers(content.papers)
       // Restore the "from N searched" total from prior runs so the
@@ -689,7 +712,10 @@ export default function DesignDetailPage() {
       ...(successCriteria.trim()
         ? { successCriteria: successCriteria.trim() }
         : {}),
-      ...(includeReplicates ? { includeReplicates } : {})
+      ...(includeReplicates ? { includeReplicates } : {}),
+      ...(additionalDetails.trim()
+        ? { additionalDetails: additionalDetails.trim() }
+        : {})
     }) as ProblemContext
 
   useEffect(() => {
@@ -717,14 +743,16 @@ export default function DesignDetailPage() {
     variablesKnown,
     variablesUnknown,
     successCriteria,
-    includeReplicates
+    includeReplicates,
+    additionalDetails
   ])
 
   const problemValid =
     problemStatement.trim() !== "" &&
     objective.trim() !== "" &&
     domain !== "" &&
-    phase !== ""
+    phase !== "" &&
+    additionalDetails.trim() !== ""
 
   // Gate every mutation behind edit access. A read-only (viewer) collaborator
   // is blocked here with a clear toast — the server also rejects the write, so
@@ -749,7 +777,8 @@ export default function DesignDetailPage() {
     if (!problemValid) {
       toast({
         title: "Missing fields",
-        description: "Problem statement and goal are required.",
+        description:
+          "Problem statement, goal, domain, phase, and additional details are all required.",
         variant: "destructive"
       })
       return
@@ -847,7 +876,10 @@ export default function DesignDetailPage() {
     }
   }
 
-  const handleApproveAndGenerateDesign = async () => {
+  // Step 1: validate + open the design-spec popup. The popup collects extra
+  // parameters (concentration, condition count, notes) so the generated design
+  // is specific to the researcher's use case rather than generic.
+  const handleApproveAndGenerateDesign = () => {
     if (!ensureCanEdit()) return
     if (selectedHypotheses.length === 0) {
       toast({
@@ -857,17 +889,36 @@ export default function DesignDetailPage() {
       })
       return
     }
+    setDesignSpecOpen(true)
+  }
+
+  // Step 2: run generation with the popup's design spec merged into the problem
+  // context (buildDesignBlocks treats designSpec as authoritative).
+  const runDesignGeneration = async () => {
+    if (!ensureCanEdit()) return
+    setDesignSpecOpen(false)
     const nextApproved: PhaseKey[] = ["problem", "literature", "hypotheses"]
     setApprovedPhases(nextApproved)
     setActiveTab("design")
     setBusy("design")
     setDesignProgress([])
     try {
+      const designSpec = {
+        ...(specConcentration.trim()
+          ? { moleculeConcentration: specConcentration.trim() }
+          : {}),
+        ...(specConditions.trim() ? { conditions: specConditions.trim() } : {}),
+        ...(specNotes.trim() ? { notes: specNotes.trim() } : {})
+      }
+      const problem = {
+        ...currentProblem(),
+        ...(Object.keys(designSpec).length ? { designSpec } : {})
+      }
       const content = await runPhaseBackground(
         designId,
         {
           phase: "design",
-          problem: currentProblem(),
+          problem,
           hypotheses,
           approvedPhases: nextApproved
         },
@@ -2090,6 +2141,8 @@ Rules:
                     setSuccessCriteria={setSuccessCriteria}
                     includeReplicates={includeReplicates}
                     setIncludeReplicates={setIncludeReplicates}
+                    additionalDetails={additionalDetails}
+                    setAdditionalDetails={setAdditionalDetails}
                     onApproveAndGenerate={handleApproveAndGenerateLiterature}
                     canSubmit={problemValid}
                     isApproved={isPhaseApproved("problem")}
@@ -2243,6 +2296,59 @@ Rules:
           onSharingChange={setSharingState}
         />
       )}
+
+      {/* Pre-generation design-spec popup — gives the researcher control over
+          the key parameters so the generated design is specific, not vague. */}
+      <Dialog open={designSpecOpen} onOpenChange={setDesignSpecOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Before we generate the design</DialogTitle>
+            <DialogDescription>
+              A few specifics so the design is tailored to your system — this
+              keeps the output concrete and means fewer edits later. All
+              optional, but the more you give, the more specific the design.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-1">
+            <div className="space-y-1.5">
+              <Label>Molecule / operating concentration</Label>
+              <Input
+                value={specConcentration}
+                onChange={e => setSpecConcentration(e.target.value)}
+                placeholder="e.g. mAb at 50 mg/mL; arginine 0–150 mM"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Number / type of conditions</Label>
+              <Input
+                value={specConditions}
+                onChange={e => setSpecConditions(e.target.value)}
+                placeholder="e.g. 5 arginine levels × 2 temperatures; full factorial"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Anything else the design must respect</Label>
+              <Textarea
+                value={specNotes}
+                onChange={e => setSpecNotes(e.target.value)}
+                placeholder="Buffer system, pH, readouts, timepoints, equipment limits, must-have controls…"
+                rows={3}
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDesignSpecOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              variant="primary"
+              onClick={() => void runDesignGeneration()}
+            >
+              Generate design
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
@@ -2348,6 +2454,8 @@ function ProblemTab(props: {
   setSuccessCriteria: (v: string) => void
   includeReplicates: "" | "yes" | "no"
   setIncludeReplicates: (v: "" | "yes" | "no") => void
+  additionalDetails: string
+  setAdditionalDetails: (v: string) => void
   onApproveAndGenerate: () => void
   canSubmit: boolean
   isApproved: boolean
@@ -2380,6 +2488,8 @@ function ProblemTab(props: {
     setSuccessCriteria,
     includeReplicates,
     setIncludeReplicates,
+    additionalDetails,
+    setAdditionalDetails,
     onApproveAndGenerate,
     canSubmit,
     isApproved,
@@ -2424,6 +2534,23 @@ function ProblemTab(props: {
               rows={4}
               disabled={isApproved || !canEdit}
             />
+          </div>
+
+          <div className="space-y-1.5">
+            <Label>
+              Additional details <span className="text-red-500">*</span>
+            </Label>
+            <Textarea
+              value={additionalDetails}
+              onChange={e => setAdditionalDetails(e.target.value)}
+              placeholder="Concrete operating parameters so the design stays specific — e.g. molecule operating concentration range (1–10 mM), buffer systems (20 mM L-histidine, pH 6.0), temperatures, pH, ionic strength, sample matrix, equipment on hand."
+              rows={4}
+              disabled={isApproved || !canEdit}
+            />
+            <p className="text-ink-400 text-xs">
+              These specifics keep the hypotheses and the generated design
+              precise to your system, not generic.
+            </p>
           </div>
 
           <div className="grid gap-4 md:grid-cols-2">
@@ -2886,14 +3013,19 @@ function LiteratureTab(props: {
   // The lit-scout returns up to 40 ranked papers per run. We initially
   // surface 10 - enough to scan without overwhelming the scientist -
   // and let them click "Show more" to reveal the next 10 from the
-  // already-ranked pool. Pure client-side pagination, no extra API
-  // call. Resets whenever the papers array identity changes (e.g.
-  // after a real re-search or after problem revision).
+  // already-ranked pool. Pure client-side pagination, no extra API call.
+  //
+  // Reset the page size only when the SET of papers actually changes (a real
+  // re-search), keyed on the paper ids — NOT on every `papers` array identity
+  // change. Toggling a paper's `selected` flag rebuilds the array with the same
+  // ids; keying on identity used to collapse the list back to 10 on every
+  // select, so a paper picked after "Show more" vanished until you paged again.
   const PAGE_SIZE = 10
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE)
+  const paperIdsKey = useMemo(() => papers.map(p => p.id).join(","), [papers])
   useEffect(() => {
     setVisibleCount(PAGE_SIZE)
-  }, [papers])
+  }, [paperIdsKey])
   const handleShowMore = () => {
     setVisibleCount(c => Math.min(c + PAGE_SIZE, papers.length))
   }
@@ -3555,7 +3687,7 @@ function EditableHypothesis(props: {
   }, [props.text, editing])
   if (!editing) {
     return (
-      <div className="group flex items-start gap-1.5">
+      <div className="flex items-start gap-1.5">
         <p className="text-ink-900 flex-1 text-sm leading-relaxed">
           {props.text}
         </p>
@@ -3566,11 +3698,11 @@ function EditableHypothesis(props: {
               e.stopPropagation()
               setEditing(true)
             }}
-            className="text-ink-3 hover:text-ink opacity-0 transition-opacity group-hover:opacity-100"
+            className="text-ink-3 hover:text-ink hover:border-ink-300 flex shrink-0 items-center gap-1 rounded-md border border-transparent px-1.5 py-0.5 text-[11px] font-medium transition-colors"
             aria-label="Edit hypothesis"
-            title="Edit"
+            title="Edit hypothesis text"
           >
-            <IconPencil size={14} />
+            <IconPencil size={13} /> Edit
           </button>
         )}
       </div>
