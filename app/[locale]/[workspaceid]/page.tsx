@@ -1,6 +1,11 @@
 "use client"
 
-import { IconFileText, IconFlask, IconPlus } from "@tabler/icons-react"
+import {
+  IconFileText,
+  IconFlask,
+  IconMessage,
+  IconPlus
+} from "@tabler/icons-react"
 import { useRouter } from "next/navigation"
 import { FC, useContext, useEffect, useMemo, useState } from "react"
 
@@ -87,11 +92,11 @@ const Stat: FC<StatProps> = ({ label, value, sub, active, onClick }) => (
   </button>
 )
 
-type ListKind = "designs" | "reports"
+type ListKind = "designs" | "reports" | "chats"
 
 export default function WorkspacePage() {
   const router = useRouter()
-  const { selectedWorkspace, profile, designs, reports } =
+  const { selectedWorkspace, profile, designs, reports, chats } =
     useContext(ChatbotUIContext)
   // Legacy `query` state from the removed Quick-start input - the
   // Jarvis hero owns the prompt textarea now, so this state is no
@@ -153,6 +158,48 @@ export default function WorkspacePage() {
   // design rather than a project.
   const designNameOf = (id: string | null | undefined) =>
     (id && designs.find(d => d.id === id)?.name) || null
+
+  const sortedChats = useMemo(
+    () =>
+      [...chats].sort(
+        (a, b) =>
+          new Date(b.updated_at || b.created_at).getTime() -
+          new Date(a.updated_at || a.created_at).getTime()
+      ),
+    [chats]
+  )
+
+  // A chat carries no "in progress / completed" status, so its slab is
+  // attributed instead: the project it belongs to + which design it was held
+  // with. A project-scoped chat spans every design → "All designs".
+  const chatAttribution = (
+    c: (typeof chats)[number]
+  ): { project: string | null; scopeLabel: string } => {
+    if (c.scope === "design") {
+      const d = designs.find(x => x.id === c.scope_id)
+      return {
+        project: projectName(d?.project_id ?? c.project_id),
+        scopeLabel: d?.name ?? "Design"
+      }
+    }
+    if (c.scope === "project") {
+      return {
+        project: projectName(c.project_id ?? c.scope_id),
+        scopeLabel: "All designs"
+      }
+    }
+    if (c.scope === "report") {
+      const r = reports.find(x => x.id === c.scope_id)
+      const d = r
+        ? designs.find(x => x.id === (r as any).source_design_id)
+        : null
+      return {
+        project: projectName(c.project_id ?? d?.project_id),
+        scopeLabel: r?.name ?? "Report"
+      }
+    }
+    return { project: projectName(c.project_id), scopeLabel: "General" }
+  }
 
   // In-progress heuristic: touched in the last 14 days (in lieu of loading
   // approvedPhases from Firestore for every design). Completed = total − active.
@@ -223,28 +270,8 @@ export default function WorkspacePage() {
       body: "I generate a full experiment design. Edit any field directly, or chat with the design to update it in real time."
     },
     {
-      target: "[data-tour='designs-nav']",
-      side: "right",
-      title: "All your designs",
-      body: "Every experiment you start lives here."
-    },
-    {
-      target: "[data-tour='chats-nav']",
-      side: "right",
-      title: "Chat across your work",
-      body: "Ask questions across all your past designs."
-    },
-    {
-      target: "[data-tour='reports-nav']",
-      side: "right",
-      title: "Reports",
-      body: "Turn finished designs into polished reports."
-    },
-    {
-      target: "[data-tour='library-nav']",
-      side: "right",
-      title: "Saved papers",
-      body: "Papers you've saved, grouped by design."
+      title: "Everything lives in projects",
+      body: "Each project holds its own Designs, Reports, Chats, and Files — open a project from the sidebar to find them all in one place."
     },
     {
       title: "You're ready",
@@ -283,7 +310,7 @@ export default function WorkspacePage() {
         </div>
 
         {/* Stats - clicking switches the list shown below */}
-        <div className="mb-7 grid grid-cols-2 gap-3.5">
+        <div className="mb-7 grid grid-cols-3 gap-3.5">
           <Stat
             label="Total designs"
             value={designs.length}
@@ -306,6 +333,13 @@ export default function WorkspacePage() {
             active={activeList === "reports"}
             onClick={() => setActiveList("reports")}
           />
+          <Stat
+            label="Total chats"
+            value={chats.length}
+            sub={chats.length === 0 ? "none yet" : "across your projects"}
+            active={activeList === "chats"}
+            onClick={() => setActiveList("chats")}
+          />
         </div>
 
         {/* Active list */}
@@ -322,6 +356,13 @@ export default function WorkspacePage() {
             items={sortedReports}
             wsId={wsId}
             designNameOf={designNameOf}
+          />
+        )}
+        {activeList === "chats" && (
+          <ChatsList
+            items={sortedChats}
+            wsId={wsId}
+            attributionOf={chatAttribution}
           />
         )}
       </div>
@@ -531,6 +572,83 @@ function ReportsList({ items, wsId, designNameOf }: ReportsListProps) {
                     }
                   >
                     {reportCompleted ? "Completed" : "In progress"}
+                  </span>
+                </div>
+              </SlabRow>
+            )
+          })}
+        </div>
+      </SlabPager>
+    </>
+  )
+}
+
+interface ChatsListProps {
+  items: Array<{
+    id: string
+    name: string
+    updated_at?: string | null
+    created_at: string
+    scope?: string | null
+    scope_id?: string | null
+    project_id?: string | null
+  }>
+  wsId?: string
+  attributionOf: (c: any) => { project: string | null; scopeLabel: string }
+}
+
+function ChatsList({ items, wsId, attributionOf }: ChatsListProps) {
+  const router = useRouter()
+  const [page, setPage] = useState(0)
+  if (items.length === 0) {
+    return (
+      <>
+        <ListHeader title="Chats" count={0} />
+        <Card className="p-10 text-center">
+          <IconMessage size={28} className="text-ink-3 mx-auto mb-3" />
+          <div className="text-ink mb-1 text-[14px] font-semibold">
+            No chats yet
+          </div>
+          <div className="text-ink-3 text-[13px]">
+            Open a design or project and start a chat — your conversations show
+            up here, attributed to the design they were held with.
+          </div>
+        </Card>
+      </>
+    )
+  }
+  const start = page * DASH_PAGE_SIZE
+  const paged = items.slice(start, start + DASH_PAGE_SIZE)
+  return (
+    <>
+      <ListHeader title="Chats" count={items.length} />
+      <SlabPager
+        total={items.length}
+        page={page}
+        pageSize={DASH_PAGE_SIZE}
+        onPageChange={setPage}
+      >
+        <div className="flex flex-col gap-2.5">
+          {paged.map(c => {
+            const { project, scopeLabel } = attributionOf(c)
+            const dateLines = formatCreatedModifiedStacked(
+              c.created_at,
+              c.updated_at
+            )
+            return (
+              <SlabRow
+                key={c.id}
+                onClick={() => wsId && router.push(`/${wsId}/chat/${c.id}`)}
+                dateLines={dateLines}
+              >
+                <div className="text-ink truncate text-[15px] font-semibold">
+                  {c.name || "Untitled chat"}
+                </div>
+                <div className="mt-2 flex flex-wrap items-center gap-2">
+                  {project && <span className={CHIP_PROJECT}>{project}</span>}
+                  <span className={CHIP_STAGE}>
+                    <IconFlask size={10} className="-mt-px mr-1 inline" />
+                    {scopeLabel}
                   </span>
                 </div>
               </SlabRow>

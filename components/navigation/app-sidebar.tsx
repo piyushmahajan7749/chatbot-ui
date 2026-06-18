@@ -1,13 +1,10 @@
 "use client"
 
 import {
-  IconBook,
-  IconBookmark,
   IconBuilding,
   IconChevronDown,
   IconChevronsLeft,
   IconDotsVertical,
-  IconFlask,
   IconFolder,
   IconHome,
   IconLayoutGrid,
@@ -407,13 +404,18 @@ export const AppSidebar = ({ isCollapsed, onToggle }: AppSidebarProps) => {
     return (parts[0][0] + parts[1][0]).toUpperCase()
   })()
 
-  // Recent shows GENERAL chats only — per-design / per-report edit rails live
-  // with their parent, not in the workspace feed.
+  // Recents is now the only recent-activity surface in the sidebar (the old
+  // Designs/Reports/Chats sections are gone), so show the most recent chats
+  // across every scope — they remain reachable from their project too.
   const recentChats = useMemo(
     () =>
-      chats
-        .filter(c => !c.scope || !["design", "report"].includes(c.scope))
-        .slice(0, 3),
+      [...chats]
+        .sort(
+          (a, b) =>
+            new Date(b.updated_at || b.created_at).getTime() -
+            new Date(a.updated_at || a.created_at).getTime()
+        )
+        .slice(0, 5),
     [chats]
   )
 
@@ -502,7 +504,11 @@ export const AppSidebar = ({ isCollapsed, onToggle }: AppSidebarProps) => {
 
         {/* Nav sections */}
         <div className="flex-1 overflow-y-auto pb-3">
-          <NavSection label="Workspace" collapsed={isCollapsed}>
+          {/* Streamlined nav: Dashboard, Projects, Recents. Designs / Reports
+              / Chats / Library are no longer top-level — each project owns its
+              own Designs / Reports / Chats / Files tabs, so the sidebar no
+              longer offers redundant routes to the same content. */}
+          <div className="mt-3">
             <NavItem
               icon={<IconLayoutGrid size={16} />}
               label="Dashboard"
@@ -514,46 +520,7 @@ export const AppSidebar = ({ isCollapsed, onToggle }: AppSidebarProps) => {
               onClick={() => wsId && router.push(`/${wsId}`)}
               collapsed={isCollapsed}
             />
-            <NavItem
-              icon={<IconFlask size={16} />}
-              label="Designs"
-              active={isActive("/designs")}
-              onClick={() => wsId && router.push(`/${wsId}/designs`)}
-              collapsed={isCollapsed}
-              dataTour="designs-nav"
-            />
-            {/* Reports + Chats are nested under Designs — everything in this
-                product hangs off a design, so they read as "Design Reports"
-                and "Design Chats" indented beneath it. */}
-            <NavItem
-              icon={<IconBook size={16} />}
-              label="Design Reports"
-              active={isActive("/reports")}
-              onClick={() => wsId && router.push(`/${wsId}/reports`)}
-              collapsed={isCollapsed}
-              indent={16}
-              dataTour="reports-nav"
-            />
-            <NavItem
-              icon={<IconMessage size={16} />}
-              label="Design Chats"
-              active={isActive("/chat-history")}
-              onClick={() => wsId && router.push(`/${wsId}/chat-history`)}
-              collapsed={isCollapsed}
-              indent={16}
-              dataTour="chats-nav"
-            />
-            {/* Library = papers saved from inside designs, grouped by design. */}
-            <NavItem
-              icon={<IconBookmark size={16} />}
-              label="Library"
-              active={isActive("/library")}
-              onClick={() => wsId && router.push(`/${wsId}/library`)}
-              collapsed={isCollapsed}
-              indent={16}
-              dataTour="library-nav"
-            />
-          </NavSection>
+          </div>
 
           <NavSection
             label="Projects"
@@ -605,7 +572,7 @@ export const AppSidebar = ({ isCollapsed, onToggle }: AppSidebarProps) => {
           </NavSection>
 
           {recentChats.length > 0 && !isCollapsed && (
-            <NavSection label="Recent" collapsed={isCollapsed}>
+            <NavSection label="Recents" collapsed={isCollapsed}>
               {recentChats.map(c => {
                 const question = recentMeta.questions[c.id]
                 const source = recentMeta.sources[c.id]

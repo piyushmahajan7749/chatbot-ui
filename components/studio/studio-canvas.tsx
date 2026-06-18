@@ -21,10 +21,12 @@ import type { Tables } from "@/supabase/types"
 import { Project } from "@/types/project"
 import { ProjectSettingsModal } from "./project-settings-modal"
 import {
+  IconBookmark,
   IconClipboardText,
   IconDotsVertical,
   IconDownload,
   IconEdit,
+  IconExternalLink,
   IconFile,
   IconFileText,
   IconFlask,
@@ -55,6 +57,8 @@ import {
   uploadProjectFile,
   type ProjectFileMeta
 } from "@/db/project-files"
+import { getPaperLibrary } from "@/db/paper-library"
+import type { PaperLibraryEntry } from "@/lib/paper-library/types"
 
 interface StudioCanvasProps {
   children?: React.ReactNode
@@ -93,6 +97,12 @@ export function StudioCanvas({
   const [reports, setReports] = useState<ReportRow[]>([])
   const [chats, setChats] = useState<ChatRow[]>([])
   const [files, setFiles] = useState<ProjectFileMeta[]>([])
+  // Saved papers (bookmarked inside this project's designs) shown in the Files
+  // tab's "Saved papers" sub-tab, alongside uploaded files.
+  const [papers, setPapers] = useState<PaperLibraryEntry[]>([])
+  const [filesSubTab, setFilesSubTab] = useState<"papers" | "uploaded">(
+    "papers"
+  )
   const [loading, setLoading] = useState(true)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [search, setSearch] = useState("")
@@ -160,17 +170,25 @@ export function StudioCanvas({
       }
       setProject(projectData)
 
-      const [projectDesigns, projectReports, workspaceChats, projectFiles] =
-        await Promise.all([
-          getDesignsByProject(actualProjectId).catch(() => []),
-          profile
-            ? getReportsByProject(profile.user_id, actualProjectId).catch(
-                () => []
-              )
-            : Promise.resolve([] as ReportRow[]),
-          getChatsByWorkspaceId(actualWorkspaceId).catch(() => []),
-          getProjectFiles(actualProjectId).catch(() => [])
-        ])
+      const [
+        projectDesigns,
+        projectReports,
+        workspaceChats,
+        projectFiles,
+        workspacePapers
+      ] = await Promise.all([
+        getDesignsByProject(actualProjectId).catch(() => []),
+        profile
+          ? getReportsByProject(profile.user_id, actualProjectId).catch(
+              () => []
+            )
+          : Promise.resolve([] as ReportRow[]),
+        getChatsByWorkspaceId(actualWorkspaceId).catch(() => []),
+        getProjectFiles(actualProjectId).catch(() => []),
+        getPaperLibrary(actualWorkspaceId).catch(
+          () => [] as PaperLibraryEntry[]
+        )
+      ])
 
       setDesigns(projectDesigns as DesignRow[])
       setReports(projectReports as ReportRow[])
@@ -180,6 +198,14 @@ export function StudioCanvas({
         )
       )
       setFiles(projectFiles)
+
+      // Keep only papers saved from a design that belongs to THIS project.
+      const designIds = new Set((projectDesigns as DesignRow[]).map(d => d.id))
+      setPapers(
+        (workspacePapers as PaperLibraryEntry[]).filter(p =>
+          (p.source_design_ids ?? []).some(id => designIds.has(id))
+        )
+      )
     } catch (error) {
       console.error("Error fetching project data:", error)
       toast({
@@ -415,6 +441,24 @@ export function StudioCanvas({
     if (!q) return files
     return files.filter(f => f.name.toLowerCase().includes(q))
   }, [files, search])
+
+  const filteredPapers = useMemo(() => {
+    const q = search.trim().toLowerCase()
+    if (!q) return papers
+    return papers.filter(
+      p =>
+        p.title?.toLowerCase().includes(q) ||
+        (p.authors ?? []).some(a => a.toLowerCase().includes(q)) ||
+        p.journal?.toLowerCase().includes(q)
+    )
+  }, [papers, search])
+
+  // design id → name, so a saved paper can show which design it came from.
+  const designNameById = useMemo(() => {
+    const m = new Map<string, string>()
+    for (const d of designs) m.set(d.id, d.name)
+    return m
+  }, [designs])
 
   const handleUploadFiles = async (list: FileList | null) => {
     console.log("[project-files] upload triggered", {
@@ -710,7 +754,11 @@ export function StudioCanvas({
             },
             {
               key: "files",
-              label: `Files${files.length ? ` (${files.length})` : ""}`,
+              label: `Files${
+                files.length + papers.length
+                  ? ` (${files.length + papers.length})`
+                  : ""
+              }`,
               accent: "sage-brand",
               icon: <IconFile size={14} />
             }
@@ -780,15 +828,21 @@ export function StudioCanvas({
           )}
 
           {activeTab === "files" && (
-            <FilesGrid
+            <FilesTab
+              subTab={filesSubTab}
+              onSubTab={setFilesSubTab}
+              papers={filteredPapers}
+              rawPaperCount={papers.length}
+              designNameById={designNameById}
               files={filteredFiles}
-              rawCount={files.length}
+              rawFileCount={files.length}
               searching={search.trim() !== ""}
               getTimeAgo={getTimeAgo}
               onOpenFile={handleOpenFile}
               onDeleteFile={handleDeleteFile}
               onUpload={() => fileInputRef.current?.click()}
               uploading={uploadingFiles}
+              projectName={project.name}
             />
           )}
         </div>
@@ -951,6 +1005,199 @@ function ChatsGrid(props: {
   )
 }
 
+// The Files tab splits into two sub-tabs: papers SAVED from this project's
+// designs (data carries source_design_ids → label by design) and files the
+// user UPLOADED to the project (project-level only — no per-design link).
+function FilesTab(props: {
+  subTab: "papers" | "uploaded"
+  onSubTab: (t: "papers" | "uploaded") => void
+  papers: PaperLibraryEntry[]
+  rawPaperCount: number
+  designNameById: Map<string, string>
+  files: ProjectFileMeta[]
+  rawFileCount: number
+  searching: boolean
+  getTimeAgo: (d: string | null) => string
+  onOpenFile: (f: ProjectFileMeta) => void
+  onDeleteFile: (f: ProjectFileMeta) => void
+  onUpload: () => void
+  uploading: boolean
+  projectName: string
+}) {
+  const { subTab, onSubTab } = props
+  return (
+    <div className="space-y-4">
+      <div className="border-ink-200 inline-flex rounded-lg border bg-white p-0.5">
+        <SubTabButton
+          active={subTab === "papers"}
+          onClick={() => onSubTab("papers")}
+          icon={<IconBookmark size={14} />}
+          label={`Saved papers${props.rawPaperCount ? ` (${props.rawPaperCount})` : ""}`}
+        />
+        <SubTabButton
+          active={subTab === "uploaded"}
+          onClick={() => onSubTab("uploaded")}
+          icon={<IconUpload size={14} />}
+          label={`Uploaded files${props.rawFileCount ? ` (${props.rawFileCount})` : ""}`}
+        />
+      </div>
+
+      {subTab === "papers" ? (
+        <SavedPapersList
+          papers={props.papers}
+          rawCount={props.rawPaperCount}
+          searching={props.searching}
+          designNameById={props.designNameById}
+        />
+      ) : (
+        <FilesGrid
+          files={props.files}
+          rawCount={props.rawFileCount}
+          searching={props.searching}
+          getTimeAgo={props.getTimeAgo}
+          onOpenFile={props.onOpenFile}
+          onDeleteFile={props.onDeleteFile}
+          onUpload={props.onUpload}
+          uploading={props.uploading}
+          projectName={props.projectName}
+        />
+      )}
+    </div>
+  )
+}
+
+function SubTabButton(props: {
+  active: boolean
+  onClick: () => void
+  icon: React.ReactNode
+  label: string
+}) {
+  return (
+    <button
+      onClick={props.onClick}
+      className={
+        props.active
+          ? "bg-brick flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-semibold text-white"
+          : "text-ink-500 hover:text-ink-800 flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-semibold"
+      }
+    >
+      {props.icon}
+      {props.label}
+    </button>
+  )
+}
+
+const PAPER_SOURCE_LABEL: Record<string, string> = {
+  pubmed: "PubMed",
+  arxiv: "arXiv",
+  semantic_scholar: "Semantic Scholar",
+  scholar: "Google Scholar",
+  tavily: "Web",
+  openalex: "OpenAlex",
+  user: "Uploaded"
+}
+
+function SavedPapersList(props: {
+  papers: PaperLibraryEntry[]
+  rawCount: number
+  searching: boolean
+  designNameById: Map<string, string>
+}) {
+  const { papers, rawCount, searching, designNameById } = props
+
+  if (papers.length === 0) {
+    if (searching && rawCount > 0) {
+      return (
+        <div className="flex h-full flex-col items-center justify-center gap-2 py-12 text-center">
+          <p className="text-ink-500 text-sm">No papers match your search.</p>
+        </div>
+      )
+    }
+    return (
+      <div className="flex flex-col items-center justify-center gap-3 py-12 text-center">
+        <div className="bg-sage-brand-tint rounded-full p-4">
+          <IconBookmark size={28} className="text-sage-brand" />
+        </div>
+        <p className="text-ink-700 text-sm font-semibold">
+          No saved papers yet
+        </p>
+        <p className="text-ink-400 max-w-sm text-xs">
+          Open a design&apos;s literature search and use the save icon on any
+          paper. Saved papers appear here, labelled by the design they came
+          from.
+        </p>
+      </div>
+    )
+  }
+
+  return (
+    <div className="flex flex-col gap-2.5">
+      {papers.map((paper, idx) => {
+        const authorList = paper.authors ?? []
+        const authorStr =
+          authorList.length === 0
+            ? ""
+            : authorList.length <= 4
+              ? authorList.join(", ")
+              : `${authorList.slice(0, 4).join(", ")} et al.`
+        const designNames = (paper.source_design_ids ?? [])
+          .map(id => designNameById.get(id))
+          .filter((n): n is string => Boolean(n))
+        return (
+          <div
+            key={paper.id}
+            className="border-ink-200 rounded-2xl border bg-white p-4"
+          >
+            <div className="flex flex-wrap items-baseline gap-2">
+              <span className="text-brick font-mono text-[11px] font-semibold">
+                #{idx + 1}
+              </span>
+              <h4 className="text-ink-900 flex-1 text-sm font-semibold leading-snug">
+                {paper.title}
+              </h4>
+            </div>
+            {authorStr && (
+              <p className="text-ink-600 mt-1 text-xs">{authorStr}</p>
+            )}
+            <p className="text-ink-500 mt-1 text-xs">
+              {paper.year ? `${paper.year} · ` : ""}
+              {paper.source
+                ? (PAPER_SOURCE_LABEL[paper.source] ?? paper.source)
+                : "Unknown source"}
+            </p>
+            <div className="mt-2 flex flex-wrap items-center gap-1.5">
+              {designNames.length > 0 ? (
+                designNames.map(name => (
+                  <span
+                    key={name}
+                    className="bg-teal-journey-tint text-teal-journey inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10.5px] font-medium"
+                  >
+                    <IconFlask size={10} /> Saved under {name}
+                  </span>
+                ))
+              ) : (
+                <span className="bg-ink-100 text-ink-500 rounded-full px-2 py-0.5 text-[10.5px] font-medium">
+                  Saved paper
+                </span>
+              )}
+              {paper.url && (
+                <a
+                  href={paper.url}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-brick inline-flex items-center gap-1 text-[11px] font-medium hover:underline"
+                >
+                  Open <IconExternalLink size={11} />
+                </a>
+              )}
+            </div>
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
 function FilesGrid(props: {
   files: ProjectFileMeta[]
   rawCount: number
@@ -960,6 +1207,7 @@ function FilesGrid(props: {
   onDeleteFile: (f: ProjectFileMeta) => void
   onUpload: () => void
   uploading: boolean
+  projectName?: string
 }) {
   const { files, rawCount, searching, getTimeAgo } = props
 
@@ -1032,6 +1280,9 @@ function FilesGrid(props: {
             <span>{formatSize(file.size)}</span>
             <span>{getTimeAgo(file.created_at)}</span>
           </div>
+          <span className="bg-sage-brand-tint text-sage-brand w-fit rounded-full px-2 py-0.5 text-[10px] font-medium">
+            Uploaded{props.projectName ? ` to ${props.projectName}` : ""}
+          </span>
           <div className="mt-auto flex items-center justify-end gap-1 pt-1 opacity-0 transition-opacity group-hover:opacity-100">
             <button
               onClick={() => props.onOpenFile(file)}
