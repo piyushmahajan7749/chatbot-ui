@@ -1,64 +1,44 @@
 "use client"
 
-import { useContext, useEffect, useMemo, useRef, useState } from "react"
+import { useContext, useEffect, useMemo, useState } from "react"
 import { useParams, useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
-import { EntityCard } from "@/components/cards/entity-card"
 import { Skeleton } from "@/components/ui/skeleton"
 import { ErrorBoundary } from "@/components/ui/error-boundary"
-import { AccentTabs } from "@/components/canvas/accent-tabs"
+import { SlabRow } from "@/components/ui/slab-row"
 import { getProjectById, updateProject, deleteProject } from "@/db/projects"
 import { getDesignsByProject } from "@/db/designs"
 import { deleteDesign as deleteDesignFirestore } from "@/db/designs-firestore"
-import {
-  deleteReport as deleteReportFirestore,
-  getReportsByProject
-} from "@/db/reports-firestore"
-import { createChat, deleteChat, getChatsByWorkspaceId } from "@/db/chats"
 import type { Tables } from "@/supabase/types"
 import { Project } from "@/types/project"
 import { ProjectSettingsModal } from "./project-settings-modal"
+import { getDesignProgress } from "@/lib/design-status"
+import { formatCreatedModifiedStacked } from "@/lib/format-date"
 import {
-  IconBookmark,
-  IconClipboardText,
+  IconAdjustmentsHorizontal,
+  IconArrowsSort,
   IconDotsVertical,
-  IconDownload,
   IconEdit,
-  IconExternalLink,
-  IconFile,
-  IconFileText,
   IconFlask,
-  IconMessage,
-  IconMessagePlus,
-  IconPhoto,
   IconPlus,
-  IconReport,
   IconSearch,
-  IconSparkles,
-  IconTable,
-  IconTrash,
-  IconUpload
+  IconTrash
 } from "@tabler/icons-react"
 import {
   DropdownMenu,
+  DropdownMenuCheckboxItem,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu"
 import { useToast } from "@/app/hooks/use-toast"
 import { ChatbotUIContext } from "@/context/context"
-import { supabase } from "@/lib/supabase/browser-client"
-import {
-  deleteProjectFile,
-  getProjectFiles,
-  getProjectFileSignedUrl,
-  uploadProjectFile,
-  type ProjectFileMeta
-} from "@/db/project-files"
-import { getPaperLibrary, removePaperFromLibrary } from "@/db/paper-library"
-import type { PaperLibraryEntry } from "@/lib/paper-library/types"
 
 interface StudioCanvasProps {
   children?: React.ReactNode
@@ -72,74 +52,65 @@ interface StudioCanvasProps {
 type DesignRow = Tables<"designs"> & {
   description?: string
   content?: unknown
+  approved_phases?: string[] | null
+  current_stage?: string | null
 }
 
-type ReportRow = Tables<"reports">
-type ChatRow = Tables<"chats">
+type SortKey = "updated" | "created" | "name"
+type FilterKey = "all" | "completed" | "in_progress"
 
-type TabKey = "designs" | "reports" | "chats" | "files"
+const SORT_LABEL: Record<SortKey, string> = {
+  updated: "Last updated",
+  created: "Date created",
+  name: "Name (A–Z)"
+}
+const FILTER_LABEL: Record<FilterKey, string> = {
+  all: "All designs",
+  completed: "Completed",
+  in_progress: "In progress"
+}
+
+const STATUS_COMPLETED =
+  "rounded-full border border-transparent bg-[#DDE9DF] px-2 py-0.5 text-[10.5px] font-medium text-[#1F4A2C]"
+const STATUS_IN_PROGRESS =
+  "rounded-full border border-amber-300/40 bg-amber-100/70 px-2 py-0.5 text-[10.5px] font-medium text-amber-800"
+const CHIP_STAGE =
+  "rounded-full border border-purple-persona/30 bg-purple-persona-tint px-2 py-0.5 text-[10.5px] font-medium text-purple-persona"
 
 export function StudioCanvas({
   children,
   projectId,
-  workspaceId,
-  showRail,
-  onToggleRail
+  workspaceId
 }: StudioCanvasProps) {
   const params = useParams()
   const router = useRouter()
   const { toast } = useToast()
-  const { profile, selectedWorkspace, chatSettings } =
-    useContext(ChatbotUIContext)
+  const { profile } = useContext(ChatbotUIContext)
+  void profile
 
   const [project, setProject] = useState<Project | null>(null)
   const [designs, setDesigns] = useState<DesignRow[]>([])
-  const [reports, setReports] = useState<ReportRow[]>([])
-  const [chats, setChats] = useState<ChatRow[]>([])
-  const [files, setFiles] = useState<ProjectFileMeta[]>([])
-  // Saved papers (bookmarked inside this project's designs) shown in the Files
-  // tab's "Saved papers" sub-tab, alongside uploaded files.
-  const [papers, setPapers] = useState<PaperLibraryEntry[]>([])
-  const [filesSubTab, setFilesSubTab] = useState<"papers" | "uploaded">(
-    "papers"
-  )
   const [loading, setLoading] = useState(true)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [search, setSearch] = useState("")
-  // Allow callers to deep-link a tab via the URL hash (e.g. cancel from
-  // /reports/new sends users back to `#reports`). Hash-based - no
-  // useSearchParams hook needed; safe on first render via window check.
-  const initialTab: TabKey =
-    typeof window !== "undefined" &&
-    (window.location.hash === "#reports" ||
-      window.location.hash === "#chats" ||
-      window.location.hash === "#files")
-      ? (window.location.hash.slice(1) as TabKey)
-      : "designs"
-  const [activeTab, setActiveTab] = useState<TabKey>(initialTab)
-  const [creatingChat, setCreatingChat] = useState(false)
-  const [uploadingFiles, setUploadingFiles] = useState(false)
-  const fileInputRef = useRef<HTMLInputElement | null>(null)
+  const [sortKey, setSortKey] = useState<SortKey>("updated")
+  const [filterKey, setFilterKey] = useState<FilterKey>("all")
 
   const actualProjectId = projectId || (params.projectId as string)
   const actualWorkspaceId = workspaceId || (params.workspaceid as string)
   const locale = params.locale as string
 
   useEffect(() => {
-    if (actualProjectId && actualWorkspaceId) {
-      void fetchProjectData()
-    }
+    if (actualProjectId && actualWorkspaceId) void fetchProjectData()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [actualProjectId, actualWorkspaceId])
 
-  // Re-fetch designs/reports/chats when the tab regains focus so returning
-  // from a design page shows any newly created/saved designs immediately.
+  // Re-fetch designs when the tab regains focus so returning from a design
+  // page shows newly created / saved designs immediately.
   useEffect(() => {
-    if (!actualProjectId || !actualWorkspaceId) return
+    if (!actualProjectId) return
     const onFocus = () => {
-      if (document.visibilityState === "visible") {
-        void fetchProjectData()
-      }
+      if (document.visibilityState === "visible") void fetchProjectData()
     }
     document.addEventListener("visibilitychange", onFocus)
     window.addEventListener("focus", onFocus)
@@ -148,17 +119,11 @@ export function StudioCanvas({
       window.removeEventListener("focus", onFocus)
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [actualProjectId, actualWorkspaceId])
-
-  // Reset search when switching tabs so the placeholder matches the context.
-  useEffect(() => {
-    setSearch("")
-  }, [activeTab])
+  }, [actualProjectId])
 
   const fetchProjectData = async () => {
     try {
       setLoading(true)
-
       const projectData = await getProjectById(actualProjectId)
       if (!projectData) {
         toast({
@@ -169,43 +134,10 @@ export function StudioCanvas({
         return
       }
       setProject(projectData)
-
-      const [
-        projectDesigns,
-        projectReports,
-        workspaceChats,
-        projectFiles,
-        workspacePapers
-      ] = await Promise.all([
-        getDesignsByProject(actualProjectId).catch(() => []),
-        profile
-          ? getReportsByProject(profile.user_id, actualProjectId).catch(
-              () => []
-            )
-          : Promise.resolve([] as ReportRow[]),
-        getChatsByWorkspaceId(actualWorkspaceId).catch(() => []),
-        getProjectFiles(actualProjectId).catch(() => []),
-        getPaperLibrary(actualWorkspaceId).catch(
-          () => [] as PaperLibraryEntry[]
-        )
-      ])
-
+      const projectDesigns = await getDesignsByProject(actualProjectId).catch(
+        () => []
+      )
       setDesigns(projectDesigns as DesignRow[])
-      setReports(projectReports as ReportRow[])
-      setChats(
-        (workspaceChats as ChatRow[]).filter(
-          c => c.project_id === actualProjectId
-        )
-      )
-      setFiles(projectFiles)
-
-      // Keep only papers saved from a design that belongs to THIS project.
-      const designIds = new Set((projectDesigns as DesignRow[]).map(d => d.id))
-      setPapers(
-        (workspacePapers as PaperLibraryEntry[]).filter(p =>
-          (p.source_design_ids ?? []).some(id => designIds.has(id))
-        )
-      )
     } catch (error) {
       console.error("Error fetching project data:", error)
       toast({
@@ -224,82 +156,10 @@ export function StudioCanvas({
     )
   }
 
-  const handleNewReport = () => {
-    router.push(
-      `/${locale}/${actualWorkspaceId}/reports/new?projectId=${actualProjectId}`
-    )
+  const handleOpenDesign = (id: string) => {
+    router.push(`/${locale}/${actualWorkspaceId}/designs/${id}`)
   }
 
-  const handleNewChat = async () => {
-    if (!selectedWorkspace || !project) return
-    setCreatingChat(true)
-    try {
-      const {
-        data: { user }
-      } = await supabase.auth.getUser()
-      if (!user) throw new Error("Not signed in")
-
-      const chat = await createChat({
-        user_id: user.id,
-        workspace_id: selectedWorkspace.id,
-        name: `${project.name} chat`,
-        scope: "project",
-        scope_id: project.id,
-        project_id: project.id,
-        model: chatSettings?.model ?? selectedWorkspace.default_model,
-        prompt: chatSettings?.prompt ?? selectedWorkspace.default_prompt ?? "",
-        temperature:
-          chatSettings?.temperature ?? selectedWorkspace.default_temperature,
-        context_length:
-          chatSettings?.contextLength ??
-          selectedWorkspace.default_context_length,
-        embeddings_provider:
-          chatSettings?.embeddingsProvider ??
-          selectedWorkspace.embeddings_provider,
-        include_profile_context:
-          chatSettings?.includeProfileContext ??
-          selectedWorkspace.include_profile_context,
-        include_workspace_instructions:
-          chatSettings?.includeWorkspaceInstructions ??
-          selectedWorkspace.include_workspace_instructions,
-        sharing: "private"
-      })
-      router.push(`/${locale}/${actualWorkspaceId}/chat/${chat.id}`)
-    } catch (error) {
-      console.error("Failed to create project chat:", error)
-      toast({
-        title: "Error",
-        description: "Failed to start a new chat.",
-        variant: "destructive"
-      })
-    } finally {
-      setCreatingChat(false)
-    }
-  }
-
-  const handleProjectUpdate = async (updates: Partial<Project>) => {
-    if (!project) return
-    try {
-      const updatedProject = await updateProject(project.id, updates)
-      setProject(updatedProject)
-      toast({
-        title: "Project updated",
-        description: "Your project has been updated successfully."
-      })
-      setSettingsOpen(false)
-    } catch (error) {
-      toast({
-        title: "Error",
-        description: "Failed to update project.",
-        variant: "destructive"
-      })
-    }
-  }
-
-  // Per-sub-item delete handlers (#13). Each removes the item from
-  // its source-of-truth + drops it from the local list state. Confirm
-  // is handled inline in the kebab menu via window.confirm - cheaper
-  // than wiring per-row AlertDialog given how many items can render.
   const handleDeleteDesign = async (id: string) => {
     if (!window.confirm("Delete this design? This cannot be undone.")) return
     try {
@@ -315,31 +175,17 @@ export function StudioCanvas({
     }
   }
 
-  const handleDeleteReportItem = async (id: string) => {
-    if (!window.confirm("Delete this report? This cannot be undone.")) return
+  const handleProjectUpdate = async (updates: Partial<Project>) => {
+    if (!project) return
     try {
-      await deleteReportFirestore(id)
-      setReports(prev => prev.filter(r => r.id !== id))
-      toast({ title: "Report deleted" })
-    } catch (err: any) {
+      const updated = await updateProject(project.id, updates)
+      setProject(updated)
+      toast({ title: "Project updated" })
+      setSettingsOpen(false)
+    } catch {
       toast({
-        title: "Couldn't delete report",
-        description: err?.message ?? "Try again in a moment.",
-        variant: "destructive"
-      })
-    }
-  }
-
-  const handleDeleteChatItem = async (id: string) => {
-    if (!window.confirm("Delete this chat? This cannot be undone.")) return
-    try {
-      await deleteChat(id)
-      setChats(prev => prev.filter(c => c.id !== id))
-      toast({ title: "Chat deleted" })
-    } catch (err: any) {
-      toast({
-        title: "Couldn't delete chat",
-        description: err?.message ?? "Try again in a moment.",
+        title: "Error",
+        description: "Failed to update project.",
         variant: "destructive"
       })
     }
@@ -349,12 +195,9 @@ export function StudioCanvas({
     if (!project) return
     try {
       await deleteProject(project.id)
-      toast({
-        title: "Project deleted",
-        description: "Your project has been deleted successfully."
-      })
+      toast({ title: "Project deleted" })
       router.push(`/${locale}/${actualWorkspaceId}/projects`)
-    } catch (error) {
+    } catch {
       toast({
         title: "Error",
         description: "Failed to delete project.",
@@ -363,221 +206,47 @@ export function StudioCanvas({
     }
   }
 
-  const getTimeAgo = (date: string | null): string => {
-    if (!date) return ""
-    const diff = Date.now() - new Date(date).getTime()
-    const minutes = Math.floor(diff / 60000)
-    if (minutes < 1) return "Just now"
-    if (minutes < 60) return `${minutes}m ago`
-    const hours = Math.floor(minutes / 60)
-    if (hours < 24) return `${hours}h ago`
-    const days = Math.floor(hours / 24)
-    if (days < 30) return `${days}d ago`
-    return new Date(date).toLocaleDateString()
+  const statusOf = (d: DesignRow) => {
+    const progress = getDesignProgress(d as any)
+    const isCompleted =
+      progress.isCompleted || (d.approved_phases ?? []).includes("design")
+    return { isCompleted, stageLabel: progress.currentStageLabel }
   }
 
-  const chipsFor = (d: DesignRow) => {
-    let parsed: any = null
-    if (d.content) {
-      try {
-        parsed =
-          typeof d.content === "string" ? JSON.parse(d.content) : d.content
-      } catch {
-        parsed = null
+  const visibleDesigns = useMemo(() => {
+    const q = search.trim().toLowerCase()
+    let list = designs.filter(d => {
+      if (q) {
+        const hit =
+          d.name?.toLowerCase().includes(q) ||
+          (d.description && d.description.toLowerCase().includes(q))
+        if (!hit) return false
       }
-    }
-    return [
-      {
-        label: "Problem",
-        filled: !!d.description,
-        accent: "teal-journey" as const
-      },
-      {
-        label: "Literature",
-        filled: !!parsed?.papers || !!parsed?.generatedLiteratureSummary,
-        accent: "orange-product" as const
-      },
-      {
-        label: "Hypothesis",
-        filled: !!parsed?.hypotheses || !!parsed?.selectedHypothesis,
-        accent: "purple-persona" as const
-      },
-      {
-        label: "Final",
-        filled: !!parsed?.designs || !!parsed?.generatedDesign,
-        accent: "sage-brand" as const
+      if (filterKey !== "all") {
+        const { isCompleted } = statusOf(d)
+        if (filterKey === "completed" && !isCompleted) return false
+        if (filterKey === "in_progress" && isCompleted) return false
       }
-    ]
-  }
-
-  const filteredDesigns = useMemo(() => {
-    const q = search.trim().toLowerCase()
-    if (!q) return designs
-    return designs.filter(
-      d =>
-        d.name.toLowerCase().includes(q) ||
-        (d.description && d.description.toLowerCase().includes(q))
-    )
-  }, [designs, search])
-
-  const filteredReports = useMemo(() => {
-    const q = search.trim().toLowerCase()
-    if (!q) return reports
-    return reports.filter(
-      r =>
-        r.name.toLowerCase().includes(q) ||
-        (r.description && r.description.toLowerCase().includes(q))
-    )
-  }, [reports, search])
-
-  const filteredChats = useMemo(() => {
-    const q = search.trim().toLowerCase()
-    if (!q) return chats
-    return chats.filter(c => c.name.toLowerCase().includes(q))
-  }, [chats, search])
-
-  const filteredFiles = useMemo(() => {
-    const q = search.trim().toLowerCase()
-    if (!q) return files
-    return files.filter(f => f.name.toLowerCase().includes(q))
-  }, [files, search])
-
-  const filteredPapers = useMemo(() => {
-    const q = search.trim().toLowerCase()
-    if (!q) return papers
-    return papers.filter(
-      p =>
-        p.title?.toLowerCase().includes(q) ||
-        (p.authors ?? []).some(a => a.toLowerCase().includes(q)) ||
-        p.journal?.toLowerCase().includes(q)
-    )
-  }, [papers, search])
-
-  // design id → name, so a saved paper can show which design it came from.
-  const designNameById = useMemo(() => {
-    const m = new Map<string, string>()
-    for (const d of designs) m.set(d.id, d.name)
-    return m
-  }, [designs])
-
-  const handleUploadFiles = async (list: FileList | null) => {
-    console.log("[project-files] upload triggered", {
-      count: list?.length ?? 0,
-      hasProfile: !!profile,
-      actualWorkspaceId,
-      actualProjectId
+      return true
     })
+    list = [...list].sort((a, b) => {
+      if (sortKey === "name") return (a.name || "").localeCompare(b.name || "")
+      const ax = new Date(
+        (sortKey === "created" ? a.created_at : a.updated_at || a.created_at) ||
+          0
+      ).getTime()
+      const bx = new Date(
+        (sortKey === "created" ? b.created_at : b.updated_at || b.created_at) ||
+          0
+      ).getTime()
+      return bx - ax
+    })
+    return list
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [designs, search, sortKey, filterKey])
 
-    if (!list || list.length === 0) {
-      console.warn("[project-files] no files in selection")
-      return
-    }
-
-    // Surface the silent-prereq failure mode the user just hit. Without
-    // these values the upload route has no tenancy info; previously we
-    // bailed silently which looked like a no-op.
-    if (!profile) {
-      toast({
-        title: "Not signed in",
-        description: "Reload the page and sign in before uploading.",
-        variant: "destructive"
-      })
-      return
-    }
-    if (!actualWorkspaceId || !actualProjectId) {
-      toast({
-        title: "Project not loaded yet",
-        description:
-          "Wait for the project to finish loading, then try the upload again.",
-        variant: "destructive"
-      })
-      return
-    }
-
-    setUploadingFiles(true)
-    let uploaded = 0
-    try {
-      for (const file of Array.from(list)) {
-        try {
-          console.log("[project-files] uploading:", {
-            name: file.name,
-            size: file.size,
-            type: file.type
-          })
-          const record = await uploadProjectFile({
-            file,
-            projectId: actualProjectId,
-            workspaceId: actualWorkspaceId,
-            userId: profile.user_id
-          })
-          console.log("[project-files] upload OK:", record.id)
-          setFiles(prev => [record, ...prev])
-          uploaded++
-        } catch (err: any) {
-          console.error("[project-files] upload FAILED:", file.name, err)
-          toast({
-            title: `Couldn't upload ${file.name}`,
-            description: err?.message ?? "Unsupported file or upload failed.",
-            variant: "destructive"
-          })
-        }
-      }
-      if (uploaded > 0) {
-        toast({
-          title: `Uploaded ${uploaded} file${uploaded === 1 ? "" : "s"}`,
-          description: "Files are now available in the Files tab."
-        })
-        setActiveTab("files")
-      }
-    } finally {
-      setUploadingFiles(false)
-    }
-  }
-
-  const handleDeleteFile = async (f: ProjectFileMeta) => {
-    try {
-      await deleteProjectFile(f.id, f.storage_path)
-      setFiles(prev => prev.filter(x => x.id !== f.id))
-    } catch (err: any) {
-      toast({
-        title: "Failed to delete file",
-        description: err?.message ?? "Try again in a moment.",
-        variant: "destructive"
-      })
-    }
-  }
-
-  const handleOpenFile = async (f: ProjectFileMeta) => {
-    try {
-      const url = await getProjectFileSignedUrl(f.storage_path)
-      window.open(url, "_blank", "noopener,noreferrer")
-    } catch (err: any) {
-      toast({
-        title: "Unable to open file",
-        description: err?.message ?? "Try again in a moment.",
-        variant: "destructive"
-      })
-    }
-  }
-
-  const handleRemovePaper = async (paperId: string) => {
-    const prev = papers
-    setPapers(p => p.filter(x => x.id !== paperId)) // optimistic
-    try {
-      await removePaperFromLibrary(paperId)
-      toast({ title: "Removed from library" })
-    } catch (err: any) {
-      setPapers(prev) // roll back
-      toast({
-        title: "Couldn't remove paper",
-        description: err?.message ?? "Try again in a moment.",
-        variant: "destructive"
-      })
-    }
-  }
-
-  // Children override: used when the page-level route wants to render its own
-  // content inside the StudioLayout shell (e.g. Design editor).
+  // Children override: the design editor route renders its own content inside
+  // the StudioLayout shell.
   if (children) {
     return <div className="bg-ink-50 h-full">{children}</div>
   }
@@ -589,12 +258,10 @@ export function StudioCanvas({
           <Skeleton className="mb-2 h-8 w-64" />
           <Skeleton className="h-5 w-96" />
         </div>
-        <div className="flex-1 overflow-auto p-6">
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {[...Array(6)].map((_, i) => (
-              <Skeleton key={i} className="h-40 w-full rounded-2xl" />
-            ))}
-          </div>
+        <div className="flex-1 space-y-3 overflow-auto p-6">
+          {[...Array(5)].map((_, i) => (
+            <Skeleton key={i} className="h-20 w-full rounded-lg" />
+          ))}
         </div>
       </div>
     )
@@ -607,60 +274,6 @@ export function StudioCanvas({
       </div>
     )
   }
-
-  const toolbarCopy: Record<TabKey, { placeholder: string; cta: JSX.Element }> =
-    {
-      designs: {
-        placeholder: "Search designs…",
-        cta: (
-          <Button
-            onClick={handleNewDesign}
-            className="bg-brick hover:bg-brick-hover shrink-0 gap-2"
-          >
-            <IconPlus size={16} />
-            New Design
-          </Button>
-        )
-      },
-      reports: {
-        placeholder: "Search reports…",
-        cta: (
-          <Button
-            onClick={handleNewReport}
-            className="bg-brick hover:bg-brick-hover shrink-0 gap-2"
-          >
-            <IconPlus size={16} />
-            New Report
-          </Button>
-        )
-      },
-      chats: {
-        placeholder: "Search chats…",
-        cta: (
-          <Button
-            onClick={handleNewChat}
-            disabled={creatingChat || !selectedWorkspace}
-            className="bg-brick hover:bg-brick-hover shrink-0 gap-2"
-          >
-            <IconMessagePlus size={16} />
-            {creatingChat ? "Starting…" : "New Chat"}
-          </Button>
-        )
-      },
-      files: {
-        placeholder: "Search files…",
-        cta: (
-          <Button
-            onClick={() => fileInputRef.current?.click()}
-            disabled={uploadingFiles}
-            className="bg-brick hover:bg-brick-hover shrink-0 gap-2"
-          >
-            <IconUpload size={16} />
-            {uploadingFiles ? "Uploading…" : "Upload Files"}
-          </Button>
-        )
-      }
-    }
 
   return (
     <ErrorBoundary>
@@ -681,6 +294,7 @@ export function StudioCanvas({
                   size="sm"
                   onClick={() => setSettingsOpen(true)}
                   className="text-ink-400 hover:text-ink-700"
+                  title="Project settings"
                 >
                   <IconEdit size={16} />
                 </Button>
@@ -700,171 +314,159 @@ export function StudioCanvas({
                 </div>
               )}
             </div>
-
-            <div className="flex shrink-0 items-center gap-2">
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept=".pdf,.jpg,.jpeg,.png,.webp,.gif,.csv,.docx,.doc,application/pdf,image/jpeg,image/png,image/webp,image/gif,text/csv,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-                multiple
-                className="hidden"
-                onChange={e => {
-                  void handleUploadFiles(e.target.files)
-                  e.currentTarget.value = ""
-                }}
-              />
-              <button
-                onClick={() => fileInputRef.current?.click()}
-                disabled={uploadingFiles}
-                aria-label="Upload files"
-                className="border-ink-200 text-ink-700 hover:bg-ink-100 flex h-9 items-center gap-2 rounded-full border bg-white px-4 text-xs font-semibold uppercase tracking-wide shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md disabled:opacity-60"
-              >
-                <IconUpload size={14} className="shrink-0" />
-                {uploadingFiles ? "Uploading…" : "Upload Files"}
-              </button>
-
-              {/* Chat: launches a full-screen project-scoped chat. The
-                  previous side-rail toggle (#16) was confusing - the
-                  chat felt cramped and had inconsistent scope vs the
-                  full-screen path. Now this button mirrors the in-grid
-                  "Start a Chat" CTA: create-or-reuse a project chat,
-                  then route to /chat/<id>. The side rail still exists
-                  for in-design quick threads (different surface). */}
-              <button
-                onClick={handleNewChat}
-                disabled={creatingChat}
-                aria-label="Open project chat"
-                className={
-                  "from-brick to-brick-hover flex h-9 items-center gap-2 rounded-full bg-gradient-to-r px-4 text-xs font-semibold uppercase tracking-wide text-white shadow-sm ring-1 ring-inset ring-white/20 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md active:translate-y-0 disabled:opacity-60"
-                }
-              >
-                <IconSparkles size={14} className="shrink-0" />
-                {creatingChat ? "Starting…" : "Chat"}
-              </button>
-            </div>
+            <Button
+              onClick={handleNewDesign}
+              className="bg-brick hover:bg-brick-hover shrink-0 gap-2"
+            >
+              <IconPlus size={16} />
+              New Design
+            </Button>
           </div>
         </div>
 
-        {/* Tab bar */}
-        <AccentTabs
-          activeKey={activeTab}
-          onChange={key => setActiveTab(key as TabKey)}
-          tabs={[
-            {
-              key: "designs",
-              label: `Designs${designs.length ? ` (${designs.length})` : ""}`,
-              accent: "teal-journey",
-              icon: <IconClipboardText size={14} />
-            },
-            {
-              key: "reports",
-              label: `Reports${reports.length ? ` (${reports.length})` : ""}`,
-              accent: "orange-product",
-              icon: <IconReport size={14} />
-            },
-            {
-              key: "chats",
-              label: `Chats${chats.length ? ` (${chats.length})` : ""}`,
-              accent: "purple-persona",
-              icon: <IconMessage size={14} />
-            },
-            {
-              key: "files",
-              label: `Files${
-                files.length + papers.length
-                  ? ` (${files.length + papers.length})`
-                  : ""
-              }`,
-              accent: "sage-brand",
-              icon: <IconFile size={14} />
-            }
-          ]}
-        />
-
-        {/* Toolbar */}
+        {/* Toolbar: search · sort · filter */}
         <div className="border-ink-200 shrink-0 border-b bg-white px-6 py-3">
           <div className="flex items-center gap-3">
             <div className="border-ink-200 flex min-w-[240px] flex-1 items-center gap-2 rounded-md border px-3 py-1.5">
               <IconSearch size={14} className="text-ink-400 shrink-0" />
               <Input
-                placeholder={toolbarCopy[activeTab].placeholder}
+                placeholder="Search designs…"
                 value={search}
                 onChange={e => setSearch(e.target.value)}
                 className="border-none p-0 shadow-none focus-visible:ring-0"
               />
             </div>
-            {toolbarCopy[activeTab].cta}
+
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" className="gap-2">
+                  <IconArrowsSort size={15} />
+                  {SORT_LABEL[sortKey]}
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-44">
+                <DropdownMenuLabel>Sort by</DropdownMenuLabel>
+                <DropdownMenuRadioGroup
+                  value={sortKey}
+                  onValueChange={v => setSortKey(v as SortKey)}
+                >
+                  {(Object.keys(SORT_LABEL) as SortKey[]).map(k => (
+                    <DropdownMenuRadioItem key={k} value={k}>
+                      {SORT_LABEL[k]}
+                    </DropdownMenuRadioItem>
+                  ))}
+                </DropdownMenuRadioGroup>
+              </DropdownMenuContent>
+            </DropdownMenu>
+
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="outline" className="gap-2">
+                  <IconAdjustmentsHorizontal size={15} />
+                  {FILTER_LABEL[filterKey]}
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-44">
+                <DropdownMenuLabel>Filter</DropdownMenuLabel>
+                {(Object.keys(FILTER_LABEL) as FilterKey[]).map(k => (
+                  <DropdownMenuCheckboxItem
+                    key={k}
+                    checked={filterKey === k}
+                    onCheckedChange={() => setFilterKey(k)}
+                  >
+                    {FILTER_LABEL[k]}
+                  </DropdownMenuCheckboxItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         </div>
 
-        {/* Tab content */}
+        {/* Vertical designs list */}
         <div className="min-h-0 flex-1 overflow-auto p-6">
-          {activeTab === "designs" && (
-            <DesignsGrid
-              designs={filteredDesigns}
-              rawCount={designs.length}
-              searching={search.trim() !== ""}
-              chipsFor={chipsFor}
-              getTimeAgo={getTimeAgo}
-              onOpenDesign={id =>
-                router.push(`/${locale}/${actualWorkspaceId}/designs/${id}`)
-              }
-              onNewDesign={handleNewDesign}
-              onDeleteDesign={handleDeleteDesign}
-            />
-          )}
-
-          {activeTab === "reports" && (
-            <ReportsGrid
-              reports={filteredReports}
-              rawCount={reports.length}
-              searching={search.trim() !== ""}
-              getTimeAgo={getTimeAgo}
-              onOpenReport={id =>
-                router.push(`/${locale}/${actualWorkspaceId}/reports/${id}`)
-              }
-              onNewReport={handleNewReport}
-              onDeleteReport={handleDeleteReportItem}
-            />
-          )}
-
-          {activeTab === "chats" && (
-            <ChatsGrid
-              chats={filteredChats}
-              rawCount={chats.length}
-              searching={search.trim() !== ""}
-              getTimeAgo={getTimeAgo}
-              onOpenChat={id =>
-                router.push(`/${locale}/${actualWorkspaceId}/chat/${id}`)
-              }
-              onNewChat={handleNewChat}
-              creatingChat={creatingChat}
-              onDeleteChat={handleDeleteChatItem}
-            />
-          )}
-
-          {activeTab === "files" && (
-            <FilesTab
-              subTab={filesSubTab}
-              onSubTab={setFilesSubTab}
-              papers={filteredPapers}
-              rawPaperCount={papers.length}
-              designNameById={designNameById}
-              onRemovePaper={handleRemovePaper}
-              files={filteredFiles}
-              rawFileCount={files.length}
-              searching={search.trim() !== ""}
-              getTimeAgo={getTimeAgo}
-              onOpenFile={handleOpenFile}
-              onDeleteFile={handleDeleteFile}
-              onUpload={() => fileInputRef.current?.click()}
-              uploading={uploadingFiles}
-              projectName={project.name}
-            />
+          {visibleDesigns.length === 0 ? (
+            <EmptyDesigns hasAny={designs.length > 0} onNew={handleNewDesign} />
+          ) : (
+            <div className="mx-auto flex max-w-[960px] flex-col gap-2.5">
+              <div className="text-ink-400 mb-1 text-xs">
+                {visibleDesigns.length} of {designs.length} design
+                {designs.length === 1 ? "" : "s"}
+              </div>
+              {visibleDesigns.map(d => {
+                const { isCompleted, stageLabel } = statusOf(d)
+                const dateLines = formatCreatedModifiedStacked(
+                  d.created_at,
+                  d.updated_at
+                )
+                return (
+                  <SlabRow
+                    key={d.id}
+                    onClick={() => handleOpenDesign(d.id)}
+                    dateLines={dateLines}
+                    actions={
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="text-ink-400 hover:text-ink-700 size-7"
+                            aria-label="Design actions"
+                            onClick={e => e.stopPropagation()}
+                          >
+                            <IconDotsVertical size={15} />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent
+                          align="end"
+                          className="w-36"
+                          onClick={e => e.stopPropagation()}
+                        >
+                          <DropdownMenuItem
+                            onSelect={() => handleOpenDesign(d.id)}
+                            className="cursor-pointer"
+                          >
+                            <IconEdit size={14} className="mr-2" />
+                            Open / edit
+                          </DropdownMenuItem>
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem
+                            onSelect={() => handleDeleteDesign(d.id)}
+                            className="text-destructive focus:text-destructive cursor-pointer"
+                          >
+                            <IconTrash size={14} className="mr-2" />
+                            Delete
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    }
+                  >
+                    <div className="text-ink-900 truncate text-[15px] font-semibold">
+                      {d.name || "Untitled Design"}
+                    </div>
+                    {d.description && (
+                      <div className="text-ink-500 mt-1 line-clamp-1 text-[12.5px]">
+                        {d.description}
+                      </div>
+                    )}
+                    <div className="mt-2 flex flex-wrap items-center gap-2">
+                      <span
+                        className={
+                          isCompleted ? STATUS_COMPLETED : STATUS_IN_PROGRESS
+                        }
+                      >
+                        {isCompleted ? "Completed" : "In progress"}
+                      </span>
+                      {!isCompleted && stageLabel && (
+                        <span className={CHIP_STAGE}>Stage: {stageLabel}</span>
+                      )}
+                    </div>
+                  </SlabRow>
+                )
+              })}
+            </div>
           )}
         </div>
 
-        {/* Project settings modal */}
         <ProjectSettingsModal
           project={project}
           isOpen={settingsOpen}
@@ -877,564 +479,32 @@ export function StudioCanvas({
   )
 }
 
-// ── Tab grids ──────────────────────────────────────────────────────────
-
-function DesignsGrid(props: {
-  designs: DesignRow[]
-  rawCount: number
-  searching: boolean
-  chipsFor: (d: DesignRow) => any
-  getTimeAgo: (d: string | null) => string
-  onOpenDesign: (id: string) => void
-  onNewDesign: () => void
-  onDeleteDesign: (id: string) => void
-}) {
-  const { designs, rawCount, searching, chipsFor, getTimeAgo } = props
-  if (designs.length === 0) {
-    return (
-      <EmptyState
-        searching={searching}
-        searchEmpty="No designs match your search."
-        listEmpty="No designs yet"
-        icon={<IconFlask size={28} className="text-teal-journey" />}
-        tint="bg-teal-journey-tint"
-        description="Kick off your research by starting a Design. You can move through Problem, Literature, Hypothesis, and Final Design in a guided flow."
-        ctaLabel="Start your first Design"
-        onCta={props.onNewDesign}
-        hasRaw={rawCount > 0}
-      />
-    )
-  }
-  return (
-    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-      {designs.map(design => (
-        <EntityCard
-          key={design.id}
-          title={design.name || "Untitled Design"}
-          description={design.description || undefined}
-          chips={chipsFor(design)}
-          timestampLabel="Updated"
-          timestamp={getTimeAgo(design.updated_at || design.created_at)}
-          onClick={() => props.onOpenDesign(design.id)}
-          actions={
-            <ItemKebab
-              onOpen={() => props.onOpenDesign(design.id)}
-              onDelete={() => props.onDeleteDesign(design.id)}
-            />
-          }
-        />
-      ))}
-    </div>
-  )
-}
-
-function ReportsGrid(props: {
-  reports: ReportRow[]
-  rawCount: number
-  searching: boolean
-  getTimeAgo: (d: string | null) => string
-  onOpenReport: (id: string) => void
-  onNewReport: () => void
-  onDeleteReport: (id: string) => void
-}) {
-  const { reports, rawCount, searching, getTimeAgo } = props
-  if (reports.length === 0) {
-    return (
-      <EmptyState
-        searching={searching}
-        searchEmpty="No reports match your search."
-        listEmpty="No reports yet"
-        icon={<IconReport size={28} className="text-orange-product" />}
-        tint="bg-orange-product-tint"
-        description="Summarize findings from this project into a shareable report."
-        ctaLabel="Create a Report"
-        onCta={props.onNewReport}
-        hasRaw={rawCount > 0}
-      />
-    )
-  }
-  return (
-    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-      {reports.map(report => (
-        <EntityCard
-          key={report.id}
-          title={report.name || "Untitled Report"}
-          description={report.description || undefined}
-          timestampLabel="Updated"
-          timestamp={getTimeAgo(report.updated_at || report.created_at)}
-          onClick={() => props.onOpenReport(report.id)}
-          actions={
-            <ItemKebab
-              onOpen={() => props.onOpenReport(report.id)}
-              onDelete={() => props.onDeleteReport(report.id)}
-            />
-          }
-        />
-      ))}
-    </div>
-  )
-}
-
-function ChatsGrid(props: {
-  chats: ChatRow[]
-  rawCount: number
-  searching: boolean
-  getTimeAgo: (d: string | null) => string
-  onOpenChat: (id: string) => void
-  onNewChat: () => void
-  creatingChat: boolean
-  onDeleteChat: (id: string) => void
-}) {
-  const { chats, rawCount, searching, getTimeAgo } = props
-  if (chats.length === 0) {
-    return (
-      <EmptyState
-        searching={searching}
-        searchEmpty="No chats match your search."
-        listEmpty="No project chats yet"
-        icon={<IconMessage size={28} className="text-purple-persona" />}
-        tint="bg-purple-persona-tint"
-        description="Start a project-scoped chat to ask questions across this project's files and designs."
-        ctaLabel={props.creatingChat ? "Starting…" : "Start a Chat"}
-        onCta={props.onNewChat}
-        hasRaw={rawCount > 0}
-      />
-    )
-  }
-  return (
-    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-      {chats.map(chat => (
-        <EntityCard
-          key={chat.id}
-          title={chat.name || "Untitled Chat"}
-          timestampLabel="Updated"
-          timestamp={getTimeAgo(chat.updated_at || chat.created_at)}
-          onClick={() => props.onOpenChat(chat.id)}
-          actions={
-            <ItemKebab
-              onOpen={() => props.onOpenChat(chat.id)}
-              onDelete={() => props.onDeleteChat(chat.id)}
-            />
-          }
-        />
-      ))}
-    </div>
-  )
-}
-
-// The Files tab splits into two sub-tabs: papers SAVED from this project's
-// designs (data carries source_design_ids → label by design) and files the
-// user UPLOADED to the project (project-level only — no per-design link).
-function FilesTab(props: {
-  subTab: "papers" | "uploaded"
-  onSubTab: (t: "papers" | "uploaded") => void
-  papers: PaperLibraryEntry[]
-  rawPaperCount: number
-  designNameById: Map<string, string>
-  onRemovePaper: (id: string) => void
-  files: ProjectFileMeta[]
-  rawFileCount: number
-  searching: boolean
-  getTimeAgo: (d: string | null) => string
-  onOpenFile: (f: ProjectFileMeta) => void
-  onDeleteFile: (f: ProjectFileMeta) => void
-  onUpload: () => void
-  uploading: boolean
-  projectName: string
-}) {
-  const { subTab, onSubTab } = props
-  return (
-    <div className="space-y-4">
-      <div className="border-ink-200 inline-flex rounded-lg border bg-white p-0.5">
-        <SubTabButton
-          active={subTab === "papers"}
-          onClick={() => onSubTab("papers")}
-          icon={<IconBookmark size={14} />}
-          label={`Saved papers${props.rawPaperCount ? ` (${props.rawPaperCount})` : ""}`}
-        />
-        <SubTabButton
-          active={subTab === "uploaded"}
-          onClick={() => onSubTab("uploaded")}
-          icon={<IconUpload size={14} />}
-          label={`Uploaded files${props.rawFileCount ? ` (${props.rawFileCount})` : ""}`}
-        />
-      </div>
-
-      {subTab === "papers" ? (
-        <SavedPapersList
-          papers={props.papers}
-          rawCount={props.rawPaperCount}
-          searching={props.searching}
-          designNameById={props.designNameById}
-          getTimeAgo={props.getTimeAgo}
-          onRemove={props.onRemovePaper}
-        />
-      ) : (
-        <FilesGrid
-          files={props.files}
-          rawCount={props.rawFileCount}
-          searching={props.searching}
-          getTimeAgo={props.getTimeAgo}
-          onOpenFile={props.onOpenFile}
-          onDeleteFile={props.onDeleteFile}
-          onUpload={props.onUpload}
-          uploading={props.uploading}
-          projectName={props.projectName}
-        />
-      )}
-    </div>
-  )
-}
-
-function SubTabButton(props: {
-  active: boolean
-  onClick: () => void
-  icon: React.ReactNode
-  label: string
-}) {
-  return (
-    <button
-      onClick={props.onClick}
-      className={
-        props.active
-          ? "bg-brick flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-semibold text-white"
-          : "text-ink-500 hover:text-ink-800 flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-semibold"
-      }
-    >
-      {props.icon}
-      {props.label}
-    </button>
-  )
-}
-
-const PAPER_SOURCE_LABEL: Record<string, string> = {
-  pubmed: "PubMed",
-  arxiv: "arXiv",
-  semantic_scholar: "Semantic Scholar",
-  scholar: "Google Scholar",
-  tavily: "Web",
-  openalex: "OpenAlex",
-  user: "Uploaded"
-}
-
-function SavedPapersList(props: {
-  papers: PaperLibraryEntry[]
-  rawCount: number
-  searching: boolean
-  designNameById: Map<string, string>
-  getTimeAgo: (d: string | null) => string
-  onRemove: (id: string) => void
-}) {
-  const { papers, rawCount, searching, designNameById, getTimeAgo, onRemove } =
-    props
-
-  if (papers.length === 0) {
-    if (searching && rawCount > 0) {
-      return (
-        <div className="flex h-full flex-col items-center justify-center gap-2 py-12 text-center">
-          <p className="text-ink-500 text-sm">No papers match your search.</p>
-        </div>
-      )
-    }
-    return (
-      <div className="flex flex-col items-center justify-center gap-3 py-12 text-center">
-        <div className="bg-sage-brand-tint rounded-full p-4">
-          <IconBookmark size={28} className="text-sage-brand" />
-        </div>
-        <p className="text-ink-700 text-sm font-semibold">
-          No saved papers yet
-        </p>
-        <p className="text-ink-400 max-w-sm text-xs">
-          Open a design&apos;s literature search and use the save icon on any
-          paper. Saved papers appear here, labelled by the design they came
-          from.
-        </p>
-      </div>
-    )
-  }
-
-  return (
-    <div className="flex flex-col gap-2.5">
-      {papers.map((paper, idx) => {
-        const authorList = paper.authors ?? []
-        const authorStr =
-          authorList.length === 0
-            ? ""
-            : authorList.length <= 4
-              ? authorList.join(", ")
-              : `${authorList.slice(0, 4).join(", ")} et al.`
-        const designNames = (paper.source_design_ids ?? [])
-          .map(id => designNameById.get(id))
-          .filter((n): n is string => Boolean(n))
-        const savedAt = getTimeAgo(paper.created_at || paper.updated_at)
-        return (
-          <div
-            key={paper.id}
-            className="border-ink-200 rounded-2xl border bg-white p-4"
-          >
-            <div className="flex items-start gap-3">
-              <div className="min-w-0 flex-1">
-                <div className="flex flex-wrap items-baseline gap-2">
-                  <span className="text-brick font-mono text-[11px] font-semibold">
-                    #{idx + 1}
-                  </span>
-                  <h4 className="text-ink-900 flex-1 text-sm font-semibold leading-snug">
-                    {paper.title}
-                  </h4>
-                </div>
-                {authorStr && (
-                  <p className="text-ink-600 mt-1 text-xs">{authorStr}</p>
-                )}
-                <p className="text-ink-500 mt-1 text-xs">
-                  {paper.year ? `${paper.year} · ` : ""}
-                  {paper.source
-                    ? (PAPER_SOURCE_LABEL[paper.source] ?? paper.source)
-                    : "Unknown source"}
-                  {savedAt ? ` · Saved ${savedAt}` : ""}
-                </p>
-                <div className="mt-2 flex flex-wrap items-center gap-1.5">
-                  {designNames.length > 0 ? (
-                    designNames.map(name => (
-                      <span
-                        key={name}
-                        className="bg-teal-journey-tint text-teal-journey inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10.5px] font-medium"
-                      >
-                        <IconFlask size={10} /> Saved under {name}
-                      </span>
-                    ))
-                  ) : (
-                    <span className="bg-ink-100 text-ink-500 rounded-full px-2 py-0.5 text-[10.5px] font-medium">
-                      Saved paper
-                    </span>
-                  )}
-                  {paper.url && (
-                    <a
-                      href={paper.url}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="text-brick inline-flex items-center gap-1 text-[11px] font-medium hover:underline"
-                    >
-                      Open <IconExternalLink size={11} />
-                    </a>
-                  )}
-                </div>
-              </div>
-              <button
-                onClick={() => onRemove(paper.id)}
-                title="Remove from library"
-                className="text-ink-400 shrink-0 rounded p-1 hover:text-red-500"
-              >
-                <IconTrash size={15} />
-              </button>
-            </div>
-          </div>
-        )
-      })}
-    </div>
-  )
-}
-
-function FilesGrid(props: {
-  files: ProjectFileMeta[]
-  rawCount: number
-  searching: boolean
-  getTimeAgo: (d: string | null) => string
-  onOpenFile: (f: ProjectFileMeta) => void
-  onDeleteFile: (f: ProjectFileMeta) => void
-  onUpload: () => void
-  uploading: boolean
-  projectName?: string
-}) {
-  const { files, rawCount, searching, getTimeAgo } = props
-
-  if (files.length === 0) {
-    if (searching && rawCount > 0) {
-      return (
-        <div className="flex h-full flex-col items-center justify-center gap-2 text-center">
-          <p className="text-ink-500 text-sm">No files match your search.</p>
-        </div>
-      )
-    }
-    return (
-      <div className="flex h-full flex-col items-center justify-center gap-3 text-center">
-        <div className="bg-sage-brand-tint rounded-full p-4">
-          <IconFile size={28} className="text-sage-brand" />
-        </div>
-        <p className="text-ink-700 text-sm font-semibold">No files yet</p>
-        <p className="text-ink-400 max-w-sm text-xs">
-          Upload supporting materials (PDF, JPEG/PNG/WebP/GIF, CSV, DOCX) to
-          share context across designs and chats in this project.
-        </p>
-        <Button
-          onClick={props.onUpload}
-          disabled={props.uploading}
-          className="bg-brick hover:bg-brick-hover mt-2 gap-2"
-        >
-          <IconUpload size={16} />
-          {props.uploading ? "Uploading…" : "Upload Files"}
-        </Button>
-      </div>
-    )
-  }
-
-  const iconFor = (mime: string, name: string) => {
-    if (mime.startsWith("image/")) return <IconPhoto size={18} />
-    if (mime === "application/pdf" || name.toLowerCase().endsWith(".pdf"))
-      return <IconFileText size={18} />
-    if (mime.includes("csv") || name.toLowerCase().endsWith(".csv"))
-      return <IconTable size={18} />
-    return <IconFile size={18} />
-  }
-
-  const formatSize = (bytes: number): string => {
-    if (!bytes) return ""
-    if (bytes < 1024) return `${bytes} B`
-    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`
-    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
-  }
-
-  // File format: prefer the extension, fall back to the mime subtype.
-  const formatOf = (name: string, mime: string): string => {
-    const ext = name.includes(".") ? name.split(".").pop() : ""
-    if (ext) return ext.toUpperCase()
-    const sub = mime.split("/")[1]
-    return sub ? sub.toUpperCase() : "FILE"
-  }
-
-  return (
-    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-      {files.map(file => (
-        <div
-          key={file.id}
-          className="border-ink-200 hover:border-sage-brand/50 relative flex flex-col gap-2 rounded-2xl border bg-white p-4 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md"
-        >
-          <div className="flex items-start gap-2">
-            <div className="bg-sage-brand-tint text-sage-brand rounded-md p-2">
-              {iconFor(file.mime_type, file.name)}
-            </div>
-            <button
-              onClick={() => props.onOpenFile(file)}
-              title={file.name}
-              className="text-ink-900 line-clamp-3 min-w-0 flex-1 break-words text-left text-sm font-semibold leading-snug hover:underline"
-            >
-              {file.name}
-            </button>
-          </div>
-          <div className="text-ink-400 flex items-center justify-between text-[10px]">
-            <span>
-              {formatOf(file.name, file.mime_type)}
-              {file.size ? ` · ${formatSize(file.size)}` : ""}
-            </span>
-            <span>{getTimeAgo(file.created_at)}</span>
-          </div>
-          <span className="bg-sage-brand-tint text-sage-brand w-fit rounded-full px-2 py-0.5 text-[10px] font-medium">
-            Uploaded{props.projectName ? ` to ${props.projectName}` : ""}
-          </span>
-          <div className="mt-auto flex items-center justify-end gap-1 pt-1">
-            <button
-              onClick={() => props.onOpenFile(file)}
-              title="Open file"
-              className="text-ink-400 hover:text-ink-700 rounded p-1"
-            >
-              <IconDownload size={15} />
-            </button>
-            <button
-              onClick={() => props.onDeleteFile(file)}
-              title="Delete file"
-              className="text-ink-400 rounded p-1 hover:text-red-500"
-            >
-              <IconTrash size={15} />
-            </button>
-          </div>
-        </div>
-      ))}
-    </div>
-  )
-}
-
-function EmptyState(props: {
-  searching: boolean
-  searchEmpty: string
-  listEmpty: string
-  icon: React.ReactNode
-  tint: string
-  description: string
-  ctaLabel: string
-  onCta: () => void
-  hasRaw: boolean
-}) {
-  const {
-    searching,
-    searchEmpty,
-    listEmpty,
-    icon,
-    tint,
-    description,
-    ctaLabel,
-    onCta,
-    hasRaw
-  } = props
-
-  if (searching && hasRaw) {
+function EmptyDesigns(props: { hasAny: boolean; onNew: () => void }) {
+  if (props.hasAny) {
     return (
       <div className="flex h-full flex-col items-center justify-center gap-2 text-center">
-        <p className="text-ink-500 text-sm">{searchEmpty}</p>
+        <p className="text-ink-500 text-sm">No designs match your search.</p>
       </div>
     )
   }
-
   return (
     <div className="flex h-full flex-col items-center justify-center gap-3 text-center">
-      <div className={`${tint} rounded-full p-4`}>{icon}</div>
-      <p className="text-ink-700 text-sm font-semibold">{listEmpty}</p>
-      <p className="text-ink-400 max-w-sm text-xs">{description}</p>
+      <div className="bg-teal-journey-tint rounded-full p-4">
+        <IconFlask size={28} className="text-teal-journey" />
+      </div>
+      <p className="text-ink-700 text-sm font-semibold">No designs yet</p>
+      <p className="text-ink-400 max-w-sm text-xs">
+        Kick off your research by starting a Design. Move through Problem,
+        Literature, Hypothesis, and Final Design in a guided flow — reports,
+        chats, and files live inside each design.
+      </p>
       <Button
-        onClick={onCta}
+        onClick={props.onNew}
         className="bg-brick hover:bg-brick-hover mt-2 gap-2"
       >
         <IconPlus size={16} />
-        {ctaLabel}
+        Start your first Design
       </Button>
     </div>
-  )
-}
-
-/**
- * Per-card kebab menu - Open + Delete actions. Edit is implicit via
- * Open (each entity has its own edit-in-place affordances). Stops
- * propagation so the wrapping card's onClick doesn't also fire.
- */
-function ItemKebab(props: { onOpen: () => void; onDelete: () => void }) {
-  return (
-    <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button
-          variant="ghost"
-          size="icon"
-          className="text-ink-400 hover:text-ink-700 size-7"
-          aria-label="More actions"
-          onClick={e => e.stopPropagation()}
-        >
-          <IconDotsVertical size={14} />
-        </Button>
-      </DropdownMenuTrigger>
-      <DropdownMenuContent
-        align="end"
-        className="w-36"
-        onClick={e => e.stopPropagation()}
-      >
-        <DropdownMenuItem onSelect={props.onOpen} className="cursor-pointer">
-          <IconEdit size={14} className="mr-2" />
-          Open / edit
-        </DropdownMenuItem>
-        <DropdownMenuItem
-          onSelect={props.onDelete}
-          className="text-destructive focus:text-destructive cursor-pointer"
-        >
-          <IconTrash size={14} className="mr-2" />
-          Delete
-        </DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
   )
 }

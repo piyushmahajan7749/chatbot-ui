@@ -32,6 +32,12 @@ import {
 import { ScopedChatRail } from "@/components/canvas/scoped-chat-rail"
 import ShareDialog from "@/components/design-flow/share-dialog"
 import {
+  DesignChatsView,
+  DesignFilesView,
+  DesignReportsView,
+  type DesignSubViewContext
+} from "@/components/design-flow/design-sub-views"
+import {
   Dialog,
   DialogContent,
   DialogDescription,
@@ -341,6 +347,12 @@ export default function DesignDetailPage() {
       : "problem"
   })()
   const [activeTab, setActiveTab] = useState(initialTab)
+  // Secondary tab bar inside an opened design: the design flow itself, plus its
+  // scoped Reports / Chats / Files. Reports/chats/files now live under the
+  // design (not the project), so they only appear once a design is opened.
+  const [designSubTab, setDesignSubTab] = useState<
+    "design" | "reports" | "chats" | "files"
+  >("design")
   const [busy, setBusy] = useState<
     | null
     | "literature"
@@ -2021,262 +2033,313 @@ Rules:
         </div>
       </div>
 
-      {/* Horizontal split directly under the top header so the design chat rail
+      {/* Secondary tab bar: the design flow + its scoped Reports / Chats /
+          Files. These live under the design now, not the project. */}
+      <div className="border-ink-200 shrink-0 border-b bg-white px-6">
+        <div className="flex items-center gap-1">
+          {(
+            [
+              ["design", "Design"],
+              ["reports", "Reports"],
+              ["chats", "Chats"],
+              ["files", "Files"]
+            ] as const
+          ).map(([key, label]) => (
+            <button
+              key={key}
+              type="button"
+              onClick={() => setDesignSubTab(key)}
+              className={cn(
+                "relative -mb-px border-b-2 px-3.5 py-2.5 text-[13px] font-medium transition-colors",
+                designSubTab === key
+                  ? "border-brick text-ink-900"
+                  : "text-ink-500 hover:text-ink-800 border-transparent"
+              )}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {designSubTab !== "design" ? (
+        <div className="min-h-0 flex-1 overflow-auto p-6">
+          {(() => {
+            const subCtx: DesignSubViewContext = {
+              designId,
+              designName: title || design?.name || "Design",
+              workspaceId,
+              locale,
+              projectId: design?.project_id ?? null,
+              userId: profile?.user_id ?? null,
+              selectedWorkspace,
+              chatSettings
+            }
+            if (designSubTab === "reports")
+              return <DesignReportsView ctx={subCtx} />
+            if (designSubTab === "chats")
+              return <DesignChatsView ctx={subCtx} />
+            return <DesignFilesView ctx={subCtx} />
+          })()}
+        </div>
+      ) : (
+        /* Horizontal split directly under the top header so the design chat rail
           spans the FULL height beneath it (it was cramped when it only filled
           the area below the stepper/tabs). Left column = stepper + tabs +
-          content; right column = the resizable chat rail. */}
-      <div className="flex min-h-0 flex-1 overflow-hidden">
-        <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
-          {/* Stage stepper - 5-stage editorial rail */}
-          {(() => {
-            const tabToStage: Record<string, DesignStageId> = {
-              overview: "overview",
-              problem: "problem",
-              literature: "lit",
-              hypotheses: "hyp",
-              design: "design"
-            }
-            const stageToTab: Record<DesignStageId, string> = {
-              overview: "overview",
-              problem: "problem",
-              lit: "literature",
-              hyp: "hypotheses",
-              design: "design"
-            }
-            const completedStages: DesignStageId[] = approvedPhases
-              .filter(p => p !== "simulation")
-              .map(p => {
-                if (p === "literature") return "lit"
-                if (p === "hypotheses") return "hyp"
-                return p as DesignStageId
-              })
-            const meta: Partial<Record<DesignStageId, string>> = {
-              overview:
-                title || design?.name
-                  ? ((title || design?.name) as string)
-                  : "untitled",
-              problem: title ? "defined" : "not defined",
-              lit:
-                papers.length > 0
-                  ? `${papers.length} paper${papers.length === 1 ? "" : "s"}`
-                  : "no papers",
-              hyp:
-                hypotheses.length > 0
-                  ? `${hypotheses.length === 1 ? "1 hypothesis" : `${hypotheses.length} hypotheses`}`
-                  : "no hypotheses",
-              design:
-                generatedDesigns.length > 0
-                  ? `${generatedDesigns.length} design${generatedDesigns.length === 1 ? "" : "s"}`
-                  : "no designs"
-            }
-            const currentStage = tabToStage[activeTab] || "overview"
-            return (
-              <Stepper
-                current={currentStage}
-                completed={completedStages}
-                meta={meta}
-                onGoto={id => handleTabChange(stageToTab[id] as any)}
-              />
-            )
-          })()}
+          content; right column = the resizable chat rail. */
+        <div className="flex min-h-0 flex-1 overflow-hidden">
+          <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
+            {/* Stage stepper - 5-stage editorial rail */}
+            {(() => {
+              const tabToStage: Record<string, DesignStageId> = {
+                overview: "overview",
+                problem: "problem",
+                literature: "lit",
+                hypotheses: "hyp",
+                design: "design"
+              }
+              const stageToTab: Record<DesignStageId, string> = {
+                overview: "overview",
+                problem: "problem",
+                lit: "literature",
+                hyp: "hypotheses",
+                design: "design"
+              }
+              const completedStages: DesignStageId[] = approvedPhases
+                .filter(p => p !== "simulation")
+                .map(p => {
+                  if (p === "literature") return "lit"
+                  if (p === "hypotheses") return "hyp"
+                  return p as DesignStageId
+                })
+              const meta: Partial<Record<DesignStageId, string>> = {
+                overview:
+                  title || design?.name
+                    ? ((title || design?.name) as string)
+                    : "untitled",
+                problem: title ? "defined" : "not defined",
+                lit:
+                  papers.length > 0
+                    ? `${papers.length} paper${papers.length === 1 ? "" : "s"}`
+                    : "no papers",
+                hyp:
+                  hypotheses.length > 0
+                    ? `${hypotheses.length === 1 ? "1 hypothesis" : `${hypotheses.length} hypotheses`}`
+                    : "no hypotheses",
+                design:
+                  generatedDesigns.length > 0
+                    ? `${generatedDesigns.length} design${generatedDesigns.length === 1 ? "" : "s"}`
+                    : "no designs"
+              }
+              const currentStage = tabToStage[activeTab] || "overview"
+              return (
+                <Stepper
+                  current={currentStage}
+                  completed={completedStages}
+                  meta={meta}
+                  onGoto={id => handleTabChange(stageToTab[id] as any)}
+                />
+              )
+            })()}
 
-          {/* Long agent runs (literature / hypotheses / design generation) take
+            {/* Long agent runs (literature / hypotheses / design generation) take
           1–3 minutes. Surface a clear "stay on this page" warning so the
           scientist doesn't accidentally lose 90s of work mid-stream. Paired
           with the beforeunload handler attached at mount-time. */}
-          {isAgentRunning && (
-            <div className="flex shrink-0 items-center gap-2 border-b border-amber-300 bg-amber-50 px-6 py-2 text-[12.5px] text-amber-900">
-              <IconAlertTriangle size={14} className="shrink-0" />
-              <span>
-                <b>Agent is working — keep this tab open.</b>{" "}
-                {busy === "literature"
-                  ? "We're scouting the literature."
-                  : busy === "hypotheses"
-                    ? "We're generating hypotheses."
-                    : "We're drafting your design."}{" "}
-                Closing or leaving this page will cancel the run and lose
-                progress.
-              </span>
-            </div>
-          )}
+            {isAgentRunning && (
+              <div className="flex shrink-0 items-center gap-2 border-b border-amber-300 bg-amber-50 px-6 py-2 text-[12.5px] text-amber-900">
+                <IconAlertTriangle size={14} className="shrink-0" />
+                <span>
+                  <b>Agent is working — keep this tab open.</b>{" "}
+                  {busy === "literature"
+                    ? "We're scouting the literature."
+                    : busy === "hypotheses"
+                      ? "We're generating hypotheses."
+                      : "We're drafting your design."}{" "}
+                  Closing or leaving this page will cancel the run and lose
+                  progress.
+                </span>
+              </div>
+            )}
 
-          {/* Body: tab content on the left, design chat rail on the right */}
-          <div className="flex min-h-0 flex-1 overflow-hidden">
-            <div className="min-h-0 flex-1 overflow-auto">
-              <div
-                className={
-                  // Design tab fills the full width (the section text needs the
-                  // room); overview stays a centered reading column; the form-style
-                  // tabs (problem/literature/hypotheses) stay narrower.
-                  activeTab === "design"
-                    ? "w-full p-6"
-                    : activeTab === "overview"
-                      ? "mx-auto max-w-6xl p-6"
-                      : "mx-auto max-w-4xl p-6"
-                }
-              >
-                {activeTab === "problem" && (
-                  <ProblemTab
-                    title={title}
-                    setTitle={setTitle}
-                    problemStatement={problemStatement}
-                    setProblemStatement={setProblemStatement}
-                    domain={domain}
-                    setDomain={setDomain}
-                    phase={phase}
-                    setPhase={setPhase}
-                    objective={objective}
-                    setObjective={setObjective}
-                    constraintMaterial={constraintMaterial}
-                    setConstraintMaterial={setConstraintMaterial}
-                    constraintTime={constraintTime}
-                    setConstraintTime={setConstraintTime}
-                    constraintEquipment={constraintEquipment}
-                    setConstraintEquipment={setConstraintEquipment}
-                    variablesKnown={variablesKnown}
-                    setVariablesKnown={setVariablesKnown}
-                    variablesUnknown={variablesUnknown}
-                    setVariablesUnknown={setVariablesUnknown}
-                    successCriteria={successCriteria}
-                    setSuccessCriteria={setSuccessCriteria}
-                    includeReplicates={includeReplicates}
-                    setIncludeReplicates={setIncludeReplicates}
-                    additionalDetails={additionalDetails}
-                    setAdditionalDetails={setAdditionalDetails}
-                    onApproveAndGenerate={handleApproveAndGenerateLiterature}
-                    canSubmit={problemValid}
-                    isApproved={isPhaseApproved("problem")}
-                    canEdit={canEdit}
-                    isBusy={busy === "literature"}
-                    onRevise={() => handleRevisePhase("problem")}
-                  />
-                )}
+            {/* Body: tab content on the left, design chat rail on the right */}
+            <div className="flex min-h-0 flex-1 overflow-hidden">
+              <div className="min-h-0 flex-1 overflow-auto">
+                <div
+                  className={
+                    // Design tab fills the full width (the section text needs the
+                    // room); overview stays a centered reading column; the form-style
+                    // tabs (problem/literature/hypotheses) stay narrower.
+                    activeTab === "design"
+                      ? "w-full p-6"
+                      : activeTab === "overview"
+                        ? "mx-auto max-w-6xl p-6"
+                        : "mx-auto max-w-4xl p-6"
+                  }
+                >
+                  {activeTab === "problem" && (
+                    <ProblemTab
+                      title={title}
+                      setTitle={setTitle}
+                      problemStatement={problemStatement}
+                      setProblemStatement={setProblemStatement}
+                      domain={domain}
+                      setDomain={setDomain}
+                      phase={phase}
+                      setPhase={setPhase}
+                      objective={objective}
+                      setObjective={setObjective}
+                      constraintMaterial={constraintMaterial}
+                      setConstraintMaterial={setConstraintMaterial}
+                      constraintTime={constraintTime}
+                      setConstraintTime={setConstraintTime}
+                      constraintEquipment={constraintEquipment}
+                      setConstraintEquipment={setConstraintEquipment}
+                      variablesKnown={variablesKnown}
+                      setVariablesKnown={setVariablesKnown}
+                      variablesUnknown={variablesUnknown}
+                      setVariablesUnknown={setVariablesUnknown}
+                      successCriteria={successCriteria}
+                      setSuccessCriteria={setSuccessCriteria}
+                      includeReplicates={includeReplicates}
+                      setIncludeReplicates={setIncludeReplicates}
+                      additionalDetails={additionalDetails}
+                      setAdditionalDetails={setAdditionalDetails}
+                      onApproveAndGenerate={handleApproveAndGenerateLiterature}
+                      canSubmit={problemValid}
+                      isApproved={isPhaseApproved("problem")}
+                      canEdit={canEdit}
+                      isBusy={busy === "literature"}
+                      onRevise={() => handleRevisePhase("problem")}
+                    />
+                  )}
 
-                {activeTab === "literature" && (
-                  <LiteratureTab
-                    papers={papers}
-                    onTogglePaper={handleTogglePaper}
-                    onUploadPdfs={handleUploadPdfs}
-                    onApproveAndGenerate={handleApproveAndGenerateHypotheses}
-                    // `handleGenerateMoreLiterature` was the pre-2026-05-19
-                    // "Generate more" handler that re-ran the entire search.
-                    // We've switched the in-tab button to local pagination
-                    // ("Show more" = next 10 of the already-ranked pool),
-                    // which is way faster + matches user expectation. Kept
-                    // as `onSearchMore` so a future "search again" UI can
-                    // re-wire it without re-implementing the full search.
-                    onSearchMore={handleGenerateMoreLiterature}
-                    canGenerate={selectedPapers.length > 0}
-                    isApproved={isPhaseApproved("literature")}
-                    canEdit={canEdit}
-                    isBusy={busy === "hypotheses" || busy === "literature"}
-                    isSearching={busy === "literature"}
-                    progress={literatureProgress}
-                    totalCandidates={literatureTotalCandidates}
-                    onRevise={() => handleRevisePhase("literature")}
-                    onSavePaper={handleSavePaper}
-                    savedPaperIds={savedPaperIds}
-                  />
-                )}
+                  {activeTab === "literature" && (
+                    <LiteratureTab
+                      papers={papers}
+                      onTogglePaper={handleTogglePaper}
+                      onUploadPdfs={handleUploadPdfs}
+                      onApproveAndGenerate={handleApproveAndGenerateHypotheses}
+                      // `handleGenerateMoreLiterature` was the pre-2026-05-19
+                      // "Generate more" handler that re-ran the entire search.
+                      // We've switched the in-tab button to local pagination
+                      // ("Show more" = next 10 of the already-ranked pool),
+                      // which is way faster + matches user expectation. Kept
+                      // as `onSearchMore` so a future "search again" UI can
+                      // re-wire it without re-implementing the full search.
+                      onSearchMore={handleGenerateMoreLiterature}
+                      canGenerate={selectedPapers.length > 0}
+                      isApproved={isPhaseApproved("literature")}
+                      canEdit={canEdit}
+                      isBusy={busy === "hypotheses" || busy === "literature"}
+                      isSearching={busy === "literature"}
+                      progress={literatureProgress}
+                      totalCandidates={literatureTotalCandidates}
+                      onRevise={() => handleRevisePhase("literature")}
+                      onSavePaper={handleSavePaper}
+                      savedPaperIds={savedPaperIds}
+                    />
+                  )}
 
-                {activeTab === "hypotheses" && (
-                  <HypothesesTab
-                    hypotheses={hypotheses}
-                    papers={papers}
-                    onToggle={handleToggleHypothesis}
-                    onEdit={handleEditHypothesis}
-                    onApproveAndGenerate={handleApproveAndGenerateDesign}
-                    onRegenerate={handleRegenerateHypotheses}
-                    canGenerate={selectedHypotheses.length > 0}
-                    isApproved={isPhaseApproved("hypotheses")}
-                    canEdit={canEdit}
-                    isBusy={busy === "design" || busy === "hypotheses"}
-                    isGenerating={busy === "hypotheses"}
-                    progress={hypothesesProgress}
-                    onRevise={() => handleRevisePhase("hypotheses")}
-                    genError={hypothesesError}
-                  />
-                )}
+                  {activeTab === "hypotheses" && (
+                    <HypothesesTab
+                      hypotheses={hypotheses}
+                      papers={papers}
+                      onToggle={handleToggleHypothesis}
+                      onEdit={handleEditHypothesis}
+                      onApproveAndGenerate={handleApproveAndGenerateDesign}
+                      onRegenerate={handleRegenerateHypotheses}
+                      canGenerate={selectedHypotheses.length > 0}
+                      isApproved={isPhaseApproved("hypotheses")}
+                      canEdit={canEdit}
+                      isBusy={busy === "design" || busy === "hypotheses"}
+                      isGenerating={busy === "hypotheses"}
+                      progress={hypothesesProgress}
+                      onRevise={() => handleRevisePhase("hypotheses")}
+                      genError={hypothesesError}
+                    />
+                  )}
 
-                {activeTab === "design" && (
-                  <DesignTab
-                    designs={generatedDesigns}
-                    hypotheses={hypotheses}
-                    activeId={activeDesignId}
-                    onSelect={setActiveDesignId}
-                    activeDesign={activeDesign}
-                    onSave={handleSaveDesign}
-                    onApproveAndContinue={handleApproveDesignAndContinue}
-                    onRegenerate={handleRegenerateDesign}
-                    isApproved={isPhaseApproved("design")}
-                    canEdit={canEdit}
-                    isBusy={busy === "design"}
-                    isGenerating={busy === "design"}
-                    progress={designProgress}
-                    onRevise={() => handleRevisePhase("design")}
-                    designVersions={designVersions}
-                    onRestoreVersion={handleRestoreDesignVersion}
-                    onEditSection={handleEditSection}
-                  />
-                )}
+                  {activeTab === "design" && (
+                    <DesignTab
+                      designs={generatedDesigns}
+                      hypotheses={hypotheses}
+                      activeId={activeDesignId}
+                      onSelect={setActiveDesignId}
+                      activeDesign={activeDesign}
+                      onSave={handleSaveDesign}
+                      onApproveAndContinue={handleApproveDesignAndContinue}
+                      onRegenerate={handleRegenerateDesign}
+                      isApproved={isPhaseApproved("design")}
+                      canEdit={canEdit}
+                      isBusy={busy === "design"}
+                      isGenerating={busy === "design"}
+                      progress={designProgress}
+                      onRevise={() => handleRevisePhase("design")}
+                      designVersions={designVersions}
+                      onRestoreVersion={handleRestoreDesignVersion}
+                      onEditSection={handleEditSection}
+                    />
+                  )}
 
-                {activeTab === "overview" && (
-                  <OverviewTab
-                    title={title}
-                    problemStatement={problemStatement}
-                    domain={domain}
-                    phase={phase}
-                    objective={objective}
-                    constraintMaterial={constraintMaterial}
-                    constraintTime={constraintTime}
-                    constraintEquipment={constraintEquipment}
-                    variablesKnown={variablesKnown}
-                    variablesUnknown={variablesUnknown}
-                    papers={papers}
-                    hypotheses={hypotheses}
-                    designs={generatedDesigns}
-                    approvedPhases={approvedPhases}
-                    activeDesign={activeDesign}
-                    onGoToTab={setActiveTab}
-                  />
-                )}
+                  {activeTab === "overview" && (
+                    <OverviewTab
+                      title={title}
+                      problemStatement={problemStatement}
+                      domain={domain}
+                      phase={phase}
+                      objective={objective}
+                      constraintMaterial={constraintMaterial}
+                      constraintTime={constraintTime}
+                      constraintEquipment={constraintEquipment}
+                      variablesKnown={variablesKnown}
+                      variablesUnknown={variablesUnknown}
+                      papers={papers}
+                      hypotheses={hypotheses}
+                      designs={generatedDesigns}
+                      approvedPhases={approvedPhases}
+                      activeDesign={activeDesign}
+                      onGoToTab={setActiveTab}
+                    />
+                  )}
+                </div>
               </div>
             </div>
+            {/* ↑ body (content area) ─── ↓ close the left column */}
           </div>
-          {/* ↑ body (content area) ─── ↓ close the left column */}
-        </div>
-        {showRail && designGenerated && (
-          <div
-            className="border-ink-200 relative flex shrink-0 border-l"
-            style={{ width: railWidth }}
-          >
-            {/* Drag handle on the rail's left edge — resize horizontally. */}
+          {showRail && designGenerated && (
             <div
-              onMouseDown={startRailResize}
-              className="hover:bg-brick/40 absolute left-0 top-0 z-20 h-full w-1.5 -translate-x-1/2 cursor-col-resize"
-              title="Drag to resize the chat"
-            />
-            <div className="min-h-0 min-w-0 flex-1">
-              <ScopedChatRail
-                scope="design"
-                scopeId={designId}
-                scopeName={title || design?.name || "Design"}
-                autoStart
-                contextPrompt={chatContextPrompt}
-                headerSlot={
-                  <button
-                    onClick={toggleChatRail}
-                    title="Close chat"
-                    className="text-ink-3 hover:bg-paper-2 hover:text-ink rounded p-1"
-                  >
-                    <IconX size={16} />
-                  </button>
-                }
+              className="border-ink-200 relative flex shrink-0 border-l"
+              style={{ width: railWidth }}
+            >
+              {/* Drag handle on the rail's left edge — resize horizontally. */}
+              <div
+                onMouseDown={startRailResize}
+                className="hover:bg-brick/40 absolute left-0 top-0 z-20 h-full w-1.5 -translate-x-1/2 cursor-col-resize"
+                title="Drag to resize the chat"
               />
+              <div className="min-h-0 min-w-0 flex-1">
+                <ScopedChatRail
+                  scope="design"
+                  scopeId={designId}
+                  scopeName={title || design?.name || "Design"}
+                  autoStart
+                  contextPrompt={chatContextPrompt}
+                  headerSlot={
+                    <button
+                      onClick={toggleChatRail}
+                      title="Close chat"
+                      className="text-ink-3 hover:bg-paper-2 hover:text-ink rounded p-1"
+                    >
+                      <IconX size={16} />
+                    </button>
+                  }
+                />
+              </div>
             </div>
-          </div>
-        )}
-      </div>
+          )}
+        </div>
+      )}
 
       {/* Owner-only share/collaborate dialog (link visibility, invite editors
           by email, export). Non-owners can't manage sharing, so it's gated. */}
