@@ -14,7 +14,7 @@ import { getMessageImageFromStorage } from "@/db/storage/message-images"
 import { convertBlobToBase64 } from "@/lib/blob-to-b64"
 import useHotkey from "@/lib/hooks/use-hotkey"
 import { LLMID, MessageImage } from "@/types"
-import { useParams, useRouter } from "next/navigation"
+import { useParams, useRouter, useSearchParams } from "next/navigation"
 import { IconArrowLeft } from "@tabler/icons-react"
 import { FC, useContext, useEffect, useState } from "react"
 import { ChatHelp } from "./chat-help"
@@ -444,9 +444,17 @@ const ChatAnswerStyleToggle: FC = () => {
 const ChatBackNav: FC = () => {
   const router = useRouter()
   const params = useParams() as { locale?: string; workspaceid?: string }
+  const searchParams = useSearchParams()
   const { selectedChat } = useContext(ChatbotUIContext)
 
   const handleBack = () => {
+    // Explicit return path from the rail's Expand wins — independent of whether
+    // selectedChat has loaded yet (fixes back going to the project / chat list).
+    const ret = searchParams?.get("ret")
+    if (ret && ret.startsWith("/")) {
+      router.push(ret)
+      return
+    }
     const ws = params.workspaceid
     const locale = params.locale
     if (!ws || !locale) {

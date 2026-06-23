@@ -621,16 +621,40 @@ export default function DesignDetailPage() {
       if (content?.designVersions) setDesignVersions(content.designVersions)
       if (content?.approvedPhases) setApprovedPhases(content.approvedPhases)
 
-      // Resume polling if a background design job is still running (e.g. the
-      // user refreshed mid-generation). The Inngest job keeps going server-side
-      // regardless — we just reattach the progress UI and apply the result.
+      // Resume polling ONLY if a background job is genuinely still in flight.
+      // Guards against the "stuck generating" bug: a worker that died/timed out
+      // without writing a terminal state leaves designJob.state = "running"
+      // forever, so every reopen used to force busy + poll for 20 minutes even
+      // though the content was already complete. We now skip the resume when:
+      //   • the job is stale (last touched > STALE_MS ago — worker is dead), or
+      //   • the output this job was producing is ALREADY present in content.
       const job = (data as any)?.designJob
-      if (job && (job.state === "queued" || job.state === "running")) {
+      const jobActive =
+        job && (job.state === "queued" || job.state === "running")
+      const STALE_MS = 12 * 60 * 1000 // > realistic max generation time
+      const lastTouch: string | undefined = job?.updatedAt || job?.startedAt
+      const jobAgeMs = lastTouch
+        ? Date.now() - new Date(lastTouch).getTime()
+        : Number.POSITIVE_INFINITY
+      const jobStale = !(jobAgeMs < STALE_MS)
+      const jobPhase: string | undefined = job?.phase
+      const outputAlreadyPresent =
+        (jobPhase === "design" && (content?.designs?.length ?? 0) > 0) ||
+        (jobPhase === "hypotheses" && (content?.hypotheses?.length ?? 0) > 0) ||
+        (jobPhase === "literature" && (content?.papers?.length ?? 0) > 0)
+
+      if (jobActive && !jobStale && !outputAlreadyPresent) {
         const prior: PhaseProgress[] = Array.isArray(job.progress)
           ? job.progress
           : []
-        setBusy("design")
-        setActiveTab("design")
+        const resumeBusy =
+          jobPhase === "literature" ||
+          jobPhase === "hypotheses" ||
+          jobPhase === "design"
+            ? (jobPhase as "literature" | "hypotheses" | "design")
+            : "design"
+        setBusy(resumeBusy)
+        setActiveTab(resumeBusy)
         setDesignProgress(prior)
         pollDesignJob(
           designId,

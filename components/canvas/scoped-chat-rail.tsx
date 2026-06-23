@@ -206,7 +206,20 @@ export function ScopedChatRail({
   const openPinnedThread = () => {
     if (!pinnedChat || !selectedWorkspace) return
     const locale = (params.locale as string) ?? "en"
-    router.push(`/${locale}/${selectedWorkspace.id}/chat/${pinnedChat.id}`)
+    const ws = selectedWorkspace.id
+    // Pass an explicit return path so the full-screen chat's Back button comes
+    // straight back HERE (the design/report/project being edited) regardless of
+    // whether selectedChat has finished loading on the chat page.
+    const retPath =
+      scope === "design" && scopeId
+        ? `/${locale}/${ws}/designs/${scopeId}`
+        : scope === "report" && scopeId
+          ? `/${locale}/${ws}/reports/${scopeId}`
+          : scope === "project" && scopeId
+            ? `/${locale}/${ws}/projects/${scopeId}`
+            : ""
+    const qs = retPath ? `?ret=${encodeURIComponent(retPath)}` : ""
+    router.push(`/${locale}/${ws}/chat/${pinnedChat.id}${qs}`)
   }
 
   return (
