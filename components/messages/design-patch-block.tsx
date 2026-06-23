@@ -19,11 +19,12 @@
  * re-renders and duplicate copies — fixes the "asks to approve twice" bug.
  */
 
-import { useEffect, useMemo, useState } from "react"
+import { useContext, useEffect, useMemo, useState } from "react"
 import ReactMarkdown from "react-markdown"
 import remarkGfm from "remark-gfm"
+import { toast } from "sonner"
 
-import { IconCheck, IconEdit, IconX } from "@tabler/icons-react"
+import { IconCheck, IconEdit, IconLoader2, IconX } from "@tabler/icons-react"
 
 import {
   Dialog,
@@ -32,6 +33,7 @@ import {
   DialogHeader,
   DialogTitle
 } from "@/components/ui/dialog"
+import { ChatbotUIContext } from "@/context/context"
 import { cn } from "@/lib/utils"
 
 export interface DesignPatch {
@@ -81,10 +83,18 @@ const mdComponents = {
 
 export function DesignPatchBlock({ patch }: DesignPatchBlockProps) {
   const sig = useMemo(() => patchSignature(patch), [patch])
+  const { selectedChat } = useContext(ChatbotUIContext)
+  // The design this chat is scoped to (design-scoped chats carry scope_id =
+  // designId). Lets us apply the edit server-side from ANYWHERE the chat shows
+  // — including the full-screen chat page, where the design editor isn't
+  // mounted to catch a window event.
+  const designId =
+    selectedChat?.scope === "design" ? (selectedChat?.scope_id ?? null) : null
   const [state, setState] = useState<"pending" | "applied" | "rejected">(
     appliedSignatures.has(sig) ? "applied" : "pending"
   )
   const [open, setOpen] = useState(false)
+  const [busy, setBusy] = useState(false)
 
   // Keep duplicate copies of the same patch in sync — once one is applied,
   // every other card showing the same change flips to "Applied".
@@ -101,16 +111,54 @@ export function DesignPatchBlock({ patch }: DesignPatchBlockProps) {
       )
   }, [sig])
 
-  const handleApprove = () => {
+  const markApplied = () => {
     appliedSignatures.add(sig)
-    window.dispatchEvent(
-      new CustomEvent<DesignPatch>("design:apply-patch", { detail: patch })
-    )
     window.dispatchEvent(
       new CustomEvent<string>("design:patch-applied", { detail: sig })
     )
     setState("applied")
     setOpen(false)
+  }
+
+  const handleApprove = async () => {
+    if (busy) return
+    // Preferred path: apply + persist server-side, so it works from anywhere
+    // and the change is saved even when the design editor isn't mounted.
+    if (designId) {
+      setBusy(true)
+      try {
+        const res = await fetch(`/api/design/${designId}/apply-patch`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ patch, activeDesignId: null })
+        })
+        const json = await res.json().catch(() => ({}))
+        if (!res.ok) {
+          toast.error(json?.error ?? "Couldn't apply the edit.")
+          return
+        }
+        toast.success(
+          `Design updated${json?.sectionHeading ? ` — “${json.sectionHeading}”` : ""}`
+        )
+        // Sync any open editor live (no navigation).
+        window.dispatchEvent(
+          new CustomEvent("design:content-updated", {
+            detail: { designId, designs: json?.designs }
+          })
+        )
+        markApplied()
+      } catch {
+        toast.error("Couldn't apply the edit. Try again.")
+      } finally {
+        setBusy(false)
+      }
+      return
+    }
+    // Fallback: design editor is mounted (in-rail) — let it apply via event.
+    window.dispatchEvent(
+      new CustomEvent<DesignPatch>("design:apply-patch", { detail: patch })
+    )
+    markApplied()
   }
 
   const isWholeReplace = !!patch.newBody && !patch.find
@@ -223,10 +271,15 @@ export function DesignPatchBlock({ patch }: DesignPatchBlockProps) {
             <button
               type="button"
               onClick={handleApprove}
-              className="inline-flex h-9 items-center gap-1.5 rounded-md bg-emerald-600 px-4 text-[13px] font-semibold text-white hover:bg-emerald-700"
+              disabled={busy}
+              className="inline-flex h-9 items-center gap-1.5 rounded-md bg-emerald-600 px-4 text-[13px] font-semibold text-white hover:bg-emerald-700 disabled:opacity-60"
             >
-              <IconCheck size={14} />
-              Approve &amp; apply
+              {busy ? (
+                <IconLoader2 size={14} className="animate-spin" />
+              ) : (
+                <IconCheck size={14} />
+              )}
+              {busy ? "Applying…" : "Approve & apply"}
             </button>
           </DialogFooter>
         </DialogContent>

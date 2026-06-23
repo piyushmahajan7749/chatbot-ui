@@ -1910,6 +1910,31 @@ Rules:
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeDesignId, canEdit])
 
+  // Live-sync: when a chat patch was applied + persisted server-side (via the
+  // apply-patch endpoint — e.g. approved from the full-screen chat), reflect it
+  // in the open editor. No persist here; the server already saved it.
+  useEffect(() => {
+    const onUpdated = (e: Event) => {
+      const detail = (
+        e as CustomEvent<{ designId?: string; designs?: GeneratedDesign[] }>
+      ).detail
+      if (!detail || detail.designId !== designId) return
+      if (Array.isArray(detail.designs)) {
+        generatedDesignsRef.current = detail.designs
+        setGeneratedDesigns(detail.designs)
+      }
+    }
+    window.addEventListener(
+      "design:content-updated",
+      onUpdated as EventListener
+    )
+    return () =>
+      window.removeEventListener(
+        "design:content-updated",
+        onUpdated as EventListener
+      )
+  }, [designId])
+
   if (loading) {
     return (
       <div className="bg-ink-50 flex h-full items-center justify-center">
