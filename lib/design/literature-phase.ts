@@ -144,10 +144,17 @@ export async function runLiteraturePhase(
       userAdded: false,
       selected: false,
       authors: c.authors?.length ? c.authors : undefined,
-      year: c.year ? String(c.year) : undefined,
+      // Defensive: extract a clean 4-digit year even if an upstream path
+      // delivered a full date string, so the "latest" sort has real years.
+      year: (() => {
+        const m = (c.year ?? "").toString().match(/\b(19|20)\d{2}\b/)
+        return m ? m[0] : undefined
+      })(),
       journal: c.journal || undefined,
       source: c.source || undefined,
-      relevanceScore: normalized
+      relevanceScore: normalized,
+      citationCount:
+        typeof c.citationCount === "number" ? c.citationCount : undefined
     }
   })
 

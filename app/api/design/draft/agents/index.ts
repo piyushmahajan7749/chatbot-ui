@@ -49,6 +49,16 @@ import {
 import { SearchResult } from "../types"
 import { AgentPromptOverrides, AgentPromptUsage } from "@/types/design-prompts"
 
+// Pull a clean 4-digit publication year out of whatever date shape the upstream
+// source returned ("2021", "2021-05-12", "May 2021", ISO strings, …). Returns
+// "" when none is present. Without this the UI's `Number(year)` collapsed every
+// full-date string to NaN→0, so the "latest" sort matched "relevance".
+function parsePubYear(raw: unknown): string {
+  const s = (raw ?? "").toString()
+  const m = s.match(/\b(19|20)\d{2}\b/)
+  return m ? m[0] : ""
+}
+
 function buildCitationsDetailed(searchResults?: any): CitationItem[] {
   if (!searchResults) return []
   const collect = (list: any[], source: CitationItem["source"]) =>
@@ -58,7 +68,9 @@ function buildCitationsDetailed(searchResults?: any): CitationItem[] {
       url: p.url,
       source,
       authors: p.authors || [],
-      year: (p.publishedDate || "").toString(),
+      year: parsePubYear(p.publishedDate),
+      citationCount:
+        typeof p.citationCount === "number" ? p.citationCount : undefined,
       journal: p.journal,
       doi: p.doi,
       apa: undefined,

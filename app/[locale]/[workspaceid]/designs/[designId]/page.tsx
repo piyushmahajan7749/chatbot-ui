@@ -3264,15 +3264,22 @@ function LiteratureTab(props: {
           const withFallbackScore = papers.map((p, i) => ({
             paper: p,
             score: p.relevanceScore ?? 1 - i / Math.max(papers.length, 1),
-            year: Number(p.year) || 0
+            year: Number(p.year) || 0,
+            cites: p.citationCount ?? 0
           }))
+          // relevance → score, then citations, then year.
+          // recency   → year, then citations, then score.
+          // Citations is a real secondary signal so the two modes stay distinct
+          // even when years tie or relevance scores are sparse.
           const ranked = [...withFallbackScore]
             .sort((a, b) => {
               if (sortMode === "recency") {
                 if (b.year !== a.year) return b.year - a.year
+                if (b.cites !== a.cites) return b.cites - a.cites
                 if (b.score !== a.score) return b.score - a.score
               } else {
                 if (b.score !== a.score) return b.score - a.score
+                if (b.cites !== a.cites) return b.cites - a.cites
                 if (b.year !== a.year) return b.year - a.year
               }
               if (a.paper.userAdded !== b.paper.userAdded)
@@ -3373,13 +3380,18 @@ function LiteratureTab(props: {
                         </p>
                       ) : null
                     })()}
-                    {paper.year && (
+                    {(paper.year ||
+                      paper.journal ||
+                      typeof paper.citationCount === "number") && (
                       <p className="text-ink-2 mt-1 text-[12px]">
                         <span className="text-ink-3 mr-1.5 font-mono text-[10.5px] uppercase tracking-wide">
                           Year
                         </span>
-                        {paper.year}
+                        {paper.year || "n/a"}
                         {paper.journal ? ` · ${paper.journal}` : ""}
+                        {typeof paper.citationCount === "number"
+                          ? ` · ${paper.citationCount.toLocaleString()} citation${paper.citationCount === 1 ? "" : "s"}`
+                          : ""}
                       </p>
                     )}
                     <p className="text-ink-2 mt-2 text-[12.5px] leading-relaxed">

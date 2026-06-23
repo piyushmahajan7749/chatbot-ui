@@ -31,6 +31,8 @@ export interface Paper {
    * Normalized to [0, 1] in the API layer so UI can compare across sources.
    */
   relevanceScore?: number
+  /** Citation count (impact). Used as a secondary key in the lit-list sort. */
+  citationCount?: number
 }
 
 export interface Hypothesis {
