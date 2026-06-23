@@ -125,14 +125,19 @@ export function buildDesignBlocks(
     .join("\n")
   const directivesBlock =
     additional || specLines
-      ? `\n\nRESEARCHER-SUPPLIED SPECIFICS (authoritative — use these EXACT values; do not substitute generic placeholders, and do not leave ranges vague):${additional ? `\nOperating parameters: ${additional}` : ""}${specLines ? `\n${specLines}` : ""}`
+      ? `\n\nRESEARCHER-SUPPLIED SPECIFICS (authoritative for the DESIGN — use these EXACT values; do not substitute generic placeholders, and do not leave ranges vague). These cover working concentrations, stock concentrations, how much material is available (use it to bound condition counts + material calcs), and any specific conditions to incorporate (e.g. stress temperatures, rotation/agitation speed):${additional ? `\nOperating parameters: ${additional}` : ""}${specLines ? `\n${specLines}` : ""}`
       : ""
 
-  const formatDirective = `\n\nOUTPUT FORMATTING (strict):\n- Write every procedure / list as DISTINCT point-wise lines. NEVER pack multiple actions into one run-on sentence. If a step has branches, split them into their own numbered sub-lines (4a, 4b, 4c …), one action per line.\n- Every conditions table must be a well-formed Markdown table with a header row and one row per arm; all numbers carry units; include explicit baseline + control rows.\n- For every calculation, show it LINE BY LINE: each line = one arithmetic step with the numbers and units, followed by a short rationale for where each number comes from (e.g. "moles = 0.020 M × 0.250 L = 5.0e-3 mol — 20 mM target × 250 mL batch volume"). Never present a bare result without its derivation.`
+  // A stated number of conditions/runs is an UPPER BOUND (a budget), not a
+  // target — unless the researcher explicitly said "exactly N".
+  const conditionsCeilingNote = `\n\nCONDITION COUNT: If the researcher gives a maximum number of conditions / runs, treat it as an UPPER BOUND ("up to N") — a budget, NOT a quota. Use the SMALLEST well-chosen condition set that cleanly tests the hypothesis; only approach the maximum when the extra arms are scientifically justified. Do not pad the design with filler conditions to hit the number. Only design exactly N conditions when the researcher explicitly said "exactly N".`
+
+  const formatDirective = `\n\nOUTPUT FORMATTING (strict — optimise for at-a-glance readability, not walls of text):\n- Write every procedure / list as DISTINCT point-wise lines. NEVER pack multiple actions into one run-on sentence. If a step has branches, split them into their own numbered sub-lines (4a, 4b, 4c …), one action per line.\n- Use Markdown TABLES wherever data is tabular — the conditions matrix, material quantities, and especially CALCULATIONS. A reader should follow the logic by scanning columns, not parsing prose.\n- Conditions table: well-formed Markdown table, header row, one row per arm, all numbers with units, explicit baseline + control rows.\n- Calculations: present each as a compact table (e.g. \`| Quantity | Value | How it's derived |\`) OR as short labelled lines — one arithmetic step per row, numbers + units, and a brief note on where each number comes from (e.g. moles = 0.020 M × 0.250 L = 5.0e-3 mol — "20 mM target × 250 mL batch"). Never bury a calculation inside a paragraph, and never give a bare result without its derivation. Keep surrounding prose to one short lead-in sentence per block.`
 
   const problemBlock =
     `Research problem: ${[ctx.title, ctx.problemStatement].filter(Boolean).join(" - ")}\nGoal: ${ctx.goal || "Not specified"}\nVariables: ${((ctx as { variables?: string[] }).variables ?? []).join(", ") || "Not specified"}\nConstraints: ${((ctx as { constraints?: string[] }).constraints ?? []).join(", ") || "Not specified"}` +
     directivesBlock +
+    conditionsCeilingNote +
     userPlanBlock +
     replicateDirective +
     formatDirective
@@ -203,21 +208,21 @@ export async function genMaterials(
    - Include every buffer, excipient, consumable, and sample-handling item needed end-to-end.
    - After the table, add a bullet list **"Raw-material totals"** consolidating bulk-ordered items (e.g. *L-arginine·HCl powder: ~12 g covering all formulation prep + 2× overage*).
 
-3. **materialPreparation** - For EACH buffer, stock solution, or reagent that must be prepared, write a Markdown sub-section like:
+3. **materialPreparation** - For EACH buffer, stock solution, or reagent that must be prepared, write a Markdown sub-section. Keep prose minimal — put the numbers in a TABLE so the logic is scannable. Use exactly this shape:
    \`### Buffer name (e.g. 20 mM Histidine, pH 6.0)\`
-   - **Volume needed:** 250 mL (covers X mL × Y conditions × 1.2 dead-volume)
-   - **Target concentration / pH:** 20 mM, pH 6.0 at 25 °C
-   - **Stock used:** histidine base (MW 155.16), 1 N HCl for pH, WFI
-   - **Calculation:** show the math step by step using \`C1V1 = C2V2\` where applicable, e.g.
-     - moles needed = 0.020 M × 0.250 L = 5.0 × 10⁻³ mol
-     - mass = 5.0 × 10⁻³ × 155.16 = 0.776 g histidine base
-   - **Step-by-step prep:**
+   One short lead-in line (target conc / pH / volume needed). Then a **calculation table**:
+   \`| Quantity | Value | How it's derived |\`
+   e.g.
+   \`| Batch volume | 250 mL | X mL/condition × Y conditions × 1.2 dead-volume |\`
+   \`| Moles histidine | 5.0e-3 mol | 0.020 M × 0.250 L |\`
+   \`| Mass histidine | 0.776 g | 5.0e-3 mol × 155.16 g/mol (MW) |\`
+   Then a numbered **prep** list, one action per line:
      1. Weigh 0.776 g L-histidine base on analytical balance.
      2. Dissolve in 200 mL WFI in a 250 mL volumetric flask.
      3. Titrate to pH 6.0 at 25 °C with 1 N HCl (expect ~3–4 mL).
      4. QS to 250 mL with WFI. Invert 10× to mix.
-     5. Filter through 0.22 µm PES. Label with date + initials + lot. Store 2–8 °C, use within 14 days.
-   Do one subsection per buffer/reagent. Be quantitative.
+     5. Filter through 0.22 µm PES. Label (date + initials + lot). Store 2–8 °C, use within 14 days.
+   One subsection per buffer/reagent. Every derived number must show its derivation in the table — never a bare value, and never a wall of prose.
 
 4. **setupInstructions** - Numbered Markdown list describing workstation / equipment setup (balance calibration, pH-meter cal, biosafety cabinet setup, vial labeling scheme, temperature blocks). Each step has a bolded lead-in verb.
 

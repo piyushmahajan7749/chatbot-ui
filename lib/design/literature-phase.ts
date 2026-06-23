@@ -27,8 +27,12 @@ function toAgentState(ctx: ProblemContext): ExperimentDesignState {
     ...((ctx as { constraints?: string[] }).constraints ?? [])
   ]
   if (ctx.additionalDetails?.trim()) {
+    // Loose context only — bias the search toward the researcher's system but
+    // do NOT require papers to match these exact values (they mainly drive the
+    // hypotheses + design). Finding methodologically strong primary research in
+    // the same area matters more than matching every parameter.
     considerations.push(
-      `Operating parameters to match: ${ctx.additionalDetails.trim()}`
+      `Background context (use to bias relevance, do NOT over-filter to these exact values): ${ctx.additionalDetails.trim()}`
     )
   }
   return {
@@ -159,13 +163,41 @@ export async function runLiteraturePhase(
     })
   }
 
+  // Drop metadata-less junk hits — the "Abstract not available / Authors
+  // Unknown / Source Web" rows the scientist flagged. A paper is junk when it
+  // has no usable title AND no authors AND no real abstract; we keep anything
+  // with at least real authors or a real summary so we don't over-prune.
+  const JUNK_TEXT = new Set([
+    "abstract not available.",
+    "abstract not available",
+    "no abstract",
+    "unknown",
+    "untitled",
+    "citation from literature search",
+    ""
+  ])
+  const isJunk = (p: Paper): boolean => {
+    const title = (p.title || "").trim().toLowerCase()
+    const summary = (p.summary || "").trim().toLowerCase()
+    const hasAuthors = (p.authors?.length ?? 0) > 0
+    const hasRealSummary = summary.length > 0 && !JUNK_TEXT.has(summary)
+    const hasRealTitle =
+      title.length > 0 && !JUNK_TEXT.has(title) && !title.startsWith("paper ")
+    if (!hasRealTitle && !hasAuthors && !hasRealSummary) return true
+    // No title at all, or a placeholder title, with nothing else to show.
+    if (!hasRealTitle && !hasRealSummary) return true
+    return false
+  }
+  const qualityPapers = newPapers.filter(p => p.userAdded || !isJunk(p))
+
   let papers: Paper[]
+  const sourceNewPapers = qualityPapers
   if (appendMode) {
     const seenUrls = new Set(
       existingPapers.map(p => (p.sourceUrl || "").toLowerCase()).filter(Boolean)
     )
     const seenTitles = new Set(existingPapers.map(p => p.title.toLowerCase()))
-    const appended = newPapers.filter(p => {
+    const appended = sourceNewPapers.filter(p => {
       const url = (p.sourceUrl || "").toLowerCase()
       const title = p.title.toLowerCase()
       if (url && seenUrls.has(url)) return false
@@ -176,7 +208,7 @@ export async function runLiteraturePhase(
     })
     papers = [...existingPapers, ...appended]
   } else {
-    papers = newPapers
+    papers = sourceNewPapers
   }
 
   const literatureContext: StoredLiteratureContext = {
