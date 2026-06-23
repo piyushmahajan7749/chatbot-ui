@@ -11,20 +11,36 @@ import { SlabRow } from "@/components/ui/slab-row"
 import { getProjectById, updateProject, deleteProject } from "@/db/projects"
 import { getDesignsByProject } from "@/db/designs"
 import { deleteDesign as deleteDesignFirestore } from "@/db/designs-firestore"
+import { createReport, getReportsByProject } from "@/db/reports-firestore"
+import { createChat } from "@/db/chats"
+import { uploadProjectFile } from "@/db/project-files"
 import type { Tables } from "@/supabase/types"
 import { Project } from "@/types/project"
 import { ProjectSettingsModal } from "./project-settings-modal"
 import { getDesignProgress } from "@/lib/design-status"
 import { formatCreatedModifiedStacked } from "@/lib/format-date"
+import { Label } from "@/components/ui/label"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle
+} from "@/components/ui/dialog"
 import {
   IconAdjustmentsHorizontal,
   IconArrowsSort,
   IconDotsVertical,
   IconEdit,
   IconFlask,
+  IconLoader2,
   IconPlus,
+  IconReport,
   IconSearch,
-  IconTrash
+  IconSparkles,
+  IconTrash,
+  IconUpload
 } from "@tabler/icons-react"
 import {
   DropdownMenu,
@@ -85,16 +101,24 @@ export function StudioCanvas({
   const params = useParams()
   const router = useRouter()
   const { toast } = useToast()
-  const { profile } = useContext(ChatbotUIContext)
-  void profile
+  const { profile, selectedWorkspace, chatSettings } =
+    useContext(ChatbotUIContext)
 
   const [project, setProject] = useState<Project | null>(null)
   const [designs, setDesigns] = useState<DesignRow[]>([])
+  // designId → its reports (to show "report ready / in progress" on the slab).
+  const [reportsByDesign, setReportsByDesign] = useState<
+    Record<string, Tables<"reports">[]>
+  >({})
   const [loading, setLoading] = useState(true)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [search, setSearch] = useState("")
   const [sortKey, setSortKey] = useState<SortKey>("updated")
   const [filterKey, setFilterKey] = useState<FilterKey>("all")
+  const [startingChat, setStartingChat] = useState(false)
+  // The design we're generating a report for (drives the report popup).
+  const [reportDialogDesign, setReportDialogDesign] =
+    useState<DesignRow | null>(null)
 
   const actualProjectId = projectId || (params.projectId as string)
   const actualWorkspaceId = workspaceId || (params.workspaceid as string)
@@ -134,10 +158,22 @@ export function StudioCanvas({
         return
       }
       setProject(projectData)
-      const projectDesigns = await getDesignsByProject(actualProjectId).catch(
-        () => []
-      )
+      const [projectDesigns, projectReports] = await Promise.all([
+        getDesignsByProject(actualProjectId).catch(() => []),
+        profile
+          ? getReportsByProject(profile.user_id, actualProjectId).catch(
+              () => []
+            )
+          : Promise.resolve([] as Tables<"reports">[])
+      ])
       setDesigns(projectDesigns as DesignRow[])
+      const byDesign: Record<string, Tables<"reports">[]> = {}
+      for (const r of projectReports as Tables<"reports">[]) {
+        const did = (r as any).source_design_id as string | null
+        if (!did) continue
+        ;(byDesign[did] ||= []).push(r)
+      }
+      setReportsByDesign(byDesign)
     } catch (error) {
       console.error("Error fetching project data:", error)
       toast({
@@ -206,11 +242,66 @@ export function StudioCanvas({
     }
   }
 
+  // Full-screen chat across ALL designs in this project (project-scoped chat).
+  const handleStartProjectChat = async () => {
+    if (!selectedWorkspace || !profile || !project) return
+    setStartingChat(true)
+    try {
+      const cs = chatSettings
+      const ws = selectedWorkspace
+      const chat = await createChat({
+        user_id: profile.user_id,
+        workspace_id: ws.id,
+        name: `${project.name} chat`,
+        scope: "project",
+        scope_id: project.id,
+        project_id: project.id,
+        model: cs?.model ?? ws.default_model,
+        prompt: cs?.prompt ?? ws.default_prompt ?? "",
+        temperature: cs?.temperature ?? ws.default_temperature,
+        context_length: cs?.contextLength ?? ws.default_context_length,
+        embeddings_provider: cs?.embeddingsProvider ?? ws.embeddings_provider,
+        include_profile_context:
+          cs?.includeProfileContext ?? ws.include_profile_context,
+        include_workspace_instructions:
+          cs?.includeWorkspaceInstructions ?? ws.include_workspace_instructions,
+        sharing: "private"
+      })
+      router.push(`/${locale}/${actualWorkspaceId}/chat/${chat.id}`)
+    } catch (err: any) {
+      toast({
+        title: "Couldn't start chat",
+        description: err?.message ?? "Try again in a moment.",
+        variant: "destructive"
+      })
+      setStartingChat(false)
+    }
+  }
+
   const statusOf = (d: DesignRow) => {
     const progress = getDesignProgress(d as any)
     const isCompleted =
       progress.isCompleted || (d.approved_phases ?? []).includes("design")
     return { isCompleted, stageLabel: progress.currentStageLabel }
+  }
+
+  // Report state for a design's slab: a report with a generated draft is
+  // "ready"; one without is still "in progress".
+  const reportStatusOf = (
+    designId: string
+  ): { status: "ready" | "in_progress"; report: Tables<"reports"> } | null => {
+    const list = reportsByDesign[designId] ?? []
+    if (list.length === 0) return null
+    const drafted = list.find(r => {
+      const d = (r as any).report_draft
+      return (
+        (typeof d === "string" && d.trim().length > 0) ||
+        (!!d && typeof d === "object" && Object.keys(d).length > 0)
+      )
+    })
+    return drafted
+      ? { status: "ready", report: drafted }
+      : { status: "in_progress", report: list[0] }
   }
 
   const visibleDesigns = useMemo(() => {
@@ -314,13 +405,29 @@ export function StudioCanvas({
                 </div>
               )}
             </div>
-            <Button
-              onClick={handleNewDesign}
-              className="bg-brick hover:bg-brick-hover shrink-0 gap-2"
-            >
-              <IconPlus size={16} />
-              New Design
-            </Button>
+            <div className="flex shrink-0 items-center gap-2">
+              <Button
+                variant="outline"
+                onClick={handleStartProjectChat}
+                disabled={startingChat || !selectedWorkspace}
+                className="gap-2"
+                title="Chat across all designs in this project"
+              >
+                {startingChat ? (
+                  <IconLoader2 size={16} className="animate-spin" />
+                ) : (
+                  <IconSparkles size={16} />
+                )}
+                Start chat
+              </Button>
+              <Button
+                onClick={handleNewDesign}
+                className="bg-brick hover:bg-brick-hover gap-2"
+              >
+                <IconPlus size={16} />
+                New Design
+              </Button>
+            </div>
           </div>
         </div>
 
@@ -459,6 +566,47 @@ export function StudioCanvas({
                       {!isCompleted && stageLabel && (
                         <span className={CHIP_STAGE}>Stage: {stageLabel}</span>
                       )}
+                      {(() => {
+                        const rep = reportStatusOf(d.id)
+                        if (rep) {
+                          return (
+                            <button
+                              data-slab-action
+                              onClick={e => {
+                                e.stopPropagation()
+                                router.push(
+                                  `/${locale}/${actualWorkspaceId}/reports/${rep.report.id}`
+                                )
+                              }}
+                              className={
+                                rep.status === "ready"
+                                  ? "inline-flex items-center gap-1 rounded-full border border-[#1F4A2C]/20 bg-[#DDE9DF] px-2 py-0.5 text-[10.5px] font-medium text-[#1F4A2C] hover:opacity-80"
+                                  : "inline-flex items-center gap-1 rounded-full border border-amber-300/40 bg-amber-100/70 px-2 py-0.5 text-[10.5px] font-medium text-amber-800 hover:opacity-80"
+                              }
+                              title="Open report"
+                            >
+                              <IconReport size={11} />
+                              {rep.status === "ready"
+                                ? "Report ready"
+                                : "Report in progress"}
+                            </button>
+                          )
+                        }
+                        return (
+                          <button
+                            data-slab-action
+                            onClick={e => {
+                              e.stopPropagation()
+                              setReportDialogDesign(d)
+                            }}
+                            className="text-ink-600 border-ink-200 hover:bg-ink-50 inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10.5px] font-medium"
+                            title="Generate a report for this design"
+                          >
+                            <IconReport size={11} />
+                            Report
+                          </button>
+                        )
+                      })()}
                     </div>
                   </SlabRow>
                 )
@@ -474,8 +622,148 @@ export function StudioCanvas({
           onUpdate={handleProjectUpdate}
           onDelete={handleProjectDelete}
         />
+
+        {reportDialogDesign && (
+          <ReportDialog
+            design={reportDialogDesign}
+            projectId={actualProjectId}
+            workspaceId={actualWorkspaceId}
+            userId={profile?.user_id ?? ""}
+            locale={locale}
+            onClose={() => setReportDialogDesign(null)}
+          />
+        )}
       </div>
     </ErrorBoundary>
+  )
+}
+
+/**
+ * Generate-a-report popup launched from a design slab. Optionally takes a
+ * supporting document to upload for this design, then creates a report linked
+ * to the design (source_design_id) and opens the report editor.
+ */
+function ReportDialog(props: {
+  design: DesignRow
+  projectId: string
+  workspaceId: string
+  userId: string
+  locale: string
+  onClose: () => void
+}) {
+  const router = useRouter()
+  const { toast } = useToast()
+  const [name, setName] = useState(`${props.design.name || "Design"} report`)
+  const [file, setFile] = useState<File | null>(null)
+  const [busy, setBusy] = useState(false)
+
+  const submit = async () => {
+    const trimmed = name.trim()
+    if (!trimmed) {
+      toast({ title: "Please name the report", variant: "destructive" })
+      return
+    }
+    if (!props.userId) return
+    setBusy(true)
+    try {
+      // Optional supporting document → upload to the project first.
+      if (file) {
+        try {
+          await uploadProjectFile({
+            file,
+            projectId: props.projectId,
+            workspaceId: props.workspaceId,
+            userId: props.userId
+          })
+        } catch (err: any) {
+          toast({
+            title: `Couldn't upload ${file.name}`,
+            description: err?.message ?? "The report was still created.",
+            variant: "destructive"
+          })
+        }
+      }
+      const created = await createReport(
+        {
+          user_id: props.userId,
+          name: trimmed,
+          description: "",
+          sharing: "private",
+          project_id: props.projectId,
+          source_design_id: props.design.id,
+          source_design_name: props.design.name
+        },
+        props.workspaceId,
+        { protocol: [], papers: [], dataFiles: [] },
+        []
+      )
+      router.push(`/${props.locale}/${props.workspaceId}/reports/${created.id}`)
+    } catch (err: any) {
+      toast({
+        title: "Couldn't create the report",
+        description: err?.message ?? "Try again in a moment.",
+        variant: "destructive"
+      })
+      setBusy(false)
+    }
+  }
+
+  return (
+    <Dialog open onOpenChange={o => !o && props.onClose()}>
+      <DialogContent className="max-w-md">
+        <DialogHeader>
+          <DialogTitle>Generate a report</DialogTitle>
+          <DialogDescription>
+            Create a report for{" "}
+            <b className="text-ink-700">{props.design.name || "this design"}</b>
+            . Optionally attach a supporting document.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="space-y-4 py-1">
+          <div className="space-y-1.5">
+            <Label htmlFor="report-name">Report name</Label>
+            <Input
+              id="report-name"
+              value={name}
+              onChange={e => setName(e.target.value)}
+              placeholder="e.g. Formulation stability report"
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor="report-doc">Supporting document (optional)</Label>
+            <input
+              id="report-doc"
+              type="file"
+              accept=".pdf,.doc,.docx,.csv,.png,.jpg,.jpeg,.webp"
+              onChange={e => setFile(e.target.files?.[0] ?? null)}
+              className="text-ink-600 file:bg-ink-50 file:text-ink-700 hover:file:bg-ink-100 block w-full text-xs file:mr-3 file:cursor-pointer file:rounded-md file:border-0 file:px-3 file:py-1.5 file:text-xs file:font-medium"
+            />
+            {file && (
+              <p className="text-ink-400 flex items-center gap-1 text-[11px]">
+                <IconUpload size={11} /> {file.name}
+              </p>
+            )}
+          </div>
+        </div>
+        <DialogFooter>
+          <Button variant="outline" onClick={props.onClose} disabled={busy}>
+            Cancel
+          </Button>
+          <Button
+            onClick={submit}
+            disabled={busy}
+            className="bg-brick hover:bg-brick-hover gap-2"
+          >
+            {busy ? (
+              <IconLoader2 size={15} className="animate-spin" />
+            ) : (
+              <IconReport size={15} />
+            )}
+            Create report
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   )
 }
 
