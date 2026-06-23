@@ -435,16 +435,16 @@ const ChatAnswerStyleToggle: FC = () => {
 }
 
 /**
- * Back arrow in the chat header. The scientist's mental model is "I
- * was on the chats list, I opened a chat, now I want to go back to
- * the chats list" - so the back button always returns to
- * `/[ws]/chat-history` regardless of scope (#24, #31). Previously it
- * routed to /projects or to the scoped parent (design / report /
- * project canvas), which is what was bouncing the user off-trail.
+ * Back arrow in the chat header. Returns to the chat's SCOPED parent — a
+ * design-scoped chat goes back to that design, a report chat to that report, a
+ * project chat to that project. Unscoped chats fall back to browser history.
+ * (Previously it always went to /chat-history, which now redirects to /projects
+ * and bounced the user off the design they were editing.)
  */
 const ChatBackNav: FC = () => {
   const router = useRouter()
   const params = useParams() as { locale?: string; workspaceid?: string }
+  const { selectedChat } = useContext(ChatbotUIContext)
 
   const handleBack = () => {
     const ws = params.workspaceid
@@ -453,7 +453,24 @@ const ChatBackNav: FC = () => {
       router.back()
       return
     }
-    router.push(`/${locale}/${ws}/chat-history`)
+    const base = `/${locale}/${ws}`
+    const scope = selectedChat?.scope
+    const scopeId = selectedChat?.scope_id
+    const projectId = selectedChat?.project_id
+    if (scope === "design" && scopeId) {
+      router.push(`${base}/designs/${scopeId}`)
+      return
+    }
+    if (scope === "report" && scopeId) {
+      router.push(`${base}/reports/${scopeId}`)
+      return
+    }
+    if (scope === "project" && (projectId || scopeId)) {
+      router.push(`${base}/projects/${projectId || scopeId}`)
+      return
+    }
+    // Unscoped / general chat — go back where they came from.
+    router.back()
   }
 
   return (

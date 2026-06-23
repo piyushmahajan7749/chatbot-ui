@@ -461,6 +461,13 @@ export default function DesignDetailPage() {
   const [generatedDesigns, setGeneratedDesigns] = useState<GeneratedDesign[]>(
     []
   )
+  // Always-current mirror of generatedDesigns so the chat apply-patch handler
+  // (a window-event closure) reads the latest designs without restale binding —
+  // and so a chat edit never clobbers / loses the design.
+  const generatedDesignsRef = useRef<GeneratedDesign[]>([])
+  useEffect(() => {
+    generatedDesignsRef.current = generatedDesigns
+  }, [generatedDesigns])
   const [activeDesignId, setActiveDesignId] = useState<string | null>(null)
   const [designProgress, setDesignProgress] = useState<PhaseProgress[]>([])
   const [designVersions, setDesignVersions] = useState<DesignVersionSnapshot[]>(
@@ -1837,32 +1844,45 @@ Rules:
       if (!patch?.sectionHeading) return
       // Read-only collaborators can chat, but can't apply AI-suggested edits.
       if (!canEdit) return
-      setGeneratedDesigns(prev => {
-        // applyDesignPatch handles design/section lookup + tolerant find/replace
-        // and returns either the new designs or a user-facing error.
-        const res = applyDesignPatch(prev, activeDesignId, patch)
-        if (res.error || !res.designs) {
+
+      // Apply against the LIVE designs (via ref), update state, then persist —
+      // awaited with explicit error handling so a failed save can't silently
+      // lose the edit. No side effects inside the setState updater.
+      const res = applyDesignPatch(
+        generatedDesignsRef.current,
+        activeDesignId,
+        patch
+      )
+      if (res.error || !res.designs) {
+        toast({
+          title: "Couldn't apply edit",
+          description: res.error ?? "The edit couldn't be applied.",
+          variant: "destructive"
+        })
+        return
+      }
+      const nextDesigns = res.designs
+      generatedDesignsRef.current = nextDesigns
+      setGeneratedDesigns(nextDesigns)
+      void persistContent({ designs: nextDesigns })
+        .then(() =>
           toast({
-            title: "Couldn't apply edit",
-            description: res.error ?? "The edit couldn't be applied.",
+            title: "Design updated",
+            description: `Applied edit to "${res.sectionHeading}".`
+          })
+        )
+        .catch(() =>
+          toast({
+            title: "Edit applied locally — save failed",
+            description:
+              "Your change is showing, but couldn't be saved. Try the edit again or reload.",
             variant: "destructive"
           })
-          return prev
-        }
-        void persistContent({ designs: res.designs })
-        toast({
-          title: "Design updated",
-          description: `Applied edit to "${res.sectionHeading}".`
-        })
-        return res.designs
-      })
+        )
     }
     window.addEventListener("design:apply-patch", handler as EventListener)
     return () =>
       window.removeEventListener("design:apply-patch", handler as EventListener)
-    // persistContent + toast are stable across renders; activeDesignId is
-    // the one piece that changes and we want the closure to see the latest.
-    // canEdit is included so a permission change re-binds the (read-only) guard.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeDesignId, canEdit])
 

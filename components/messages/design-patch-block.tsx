@@ -1,25 +1,37 @@
 "use client"
 
 /**
- * Inline "proposed edit" card rendered by the chat when the assistant
- * suggests a change to a design. The block lives in the assistant's reply as:
+ * Inline "proposed edit" chip rendered by the chat when the assistant suggests
+ * a change to a design. The assistant emits:
  *
  *   <design-patch>
  *   { "sectionHeading": "Materials", "find": "5 mM phosphate buffer",
  *     "replace": "20 mM phosphate buffer", "designIndex": 0 }
  *   </design-patch>
  *
- * Approve dispatches a `design:apply-patch` CustomEvent on `window` carrying
- * the parsed patch payload — the design detail page listens for it and
- * applies the change to its generatedDesigns state + persists. Using a window
- * event instead of prop drilling keeps MessageMarkdown / ChatUI / the rail
- * agnostic of design-specific state.
+ * The chip shows a one-line summary + "Review change" button that opens a
+ * popup with the change rendered READABLY (markdown → tables/bold), so the
+ * scientist can read the proposed design before approving. Approving dispatches
+ * a `design:apply-patch` CustomEvent that the design page applies + persists.
+ *
+ * Applied patches are tracked by signature in a module-level set (+ a
+ * `design:patch-applied` broadcast) so a patch stays "Applied" across
+ * re-renders and duplicate copies — fixes the "asks to approve twice" bug.
  */
 
-import { useState } from "react"
+import { useEffect, useMemo, useState } from "react"
+import ReactMarkdown from "react-markdown"
+import remarkGfm from "remark-gfm"
 
 import { IconCheck, IconEdit, IconX } from "@tabler/icons-react"
 
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle
+} from "@/components/ui/dialog"
 import { cn } from "@/lib/utils"
 
 export interface DesignPatch {
@@ -36,21 +48,69 @@ interface DesignPatchBlockProps {
   patch: DesignPatch
 }
 
-export function DesignPatchBlock({ patch }: DesignPatchBlockProps) {
-  const [state, setState] = useState<"pending" | "applied" | "rejected">(
-    "pending"
+/** Stable signature for a patch, used to dedupe + remember applied state. */
+export function patchSignature(p: DesignPatch): string {
+  return JSON.stringify({
+    h: (p.sectionHeading || "").trim(),
+    f: p.find ?? null,
+    r: p.replace ?? null,
+    b: p.newBody ?? null,
+    i: p.designIndex ?? null
+  })
+}
+
+// Survives re-renders within a session so an applied patch can't re-prompt.
+const appliedSignatures = new Set<string>()
+
+const mdComponents = {
+  table: (props: any) => (
+    <div className="my-2 overflow-x-auto">
+      <table className="w-full border-collapse text-[12.5px]" {...props} />
+    </div>
+  ),
+  th: (props: any) => (
+    <th
+      className="border-line bg-paper-2 border px-2 py-1 text-left font-semibold"
+      {...props}
+    />
+  ),
+  td: (props: any) => (
+    <td className="border-line border px-2 py-1 align-top" {...props} />
   )
+}
+
+export function DesignPatchBlock({ patch }: DesignPatchBlockProps) {
+  const sig = useMemo(() => patchSignature(patch), [patch])
+  const [state, setState] = useState<"pending" | "applied" | "rejected">(
+    appliedSignatures.has(sig) ? "applied" : "pending"
+  )
+  const [open, setOpen] = useState(false)
+
+  // Keep duplicate copies of the same patch in sync — once one is applied,
+  // every other card showing the same change flips to "Applied".
+  useEffect(() => {
+    const onApplied = (e: Event) => {
+      const detail = (e as CustomEvent<string>).detail
+      if (detail === sig) setState("applied")
+    }
+    window.addEventListener("design:patch-applied", onApplied as EventListener)
+    return () =>
+      window.removeEventListener(
+        "design:patch-applied",
+        onApplied as EventListener
+      )
+  }, [sig])
 
   const handleApprove = () => {
-    if (state !== "pending") return
+    appliedSignatures.add(sig)
     window.dispatchEvent(
       new CustomEvent<DesignPatch>("design:apply-patch", { detail: patch })
     )
+    window.dispatchEvent(
+      new CustomEvent<string>("design:patch-applied", { detail: sig })
+    )
     setState("applied")
-  }
-  const handleReject = () => {
-    if (state !== "pending") return
-    setState("rejected")
+    setOpen(false)
   }
 
   const isWholeReplace = !!patch.newBody && !patch.find
@@ -58,91 +118,129 @@ export function DesignPatchBlock({ patch }: DesignPatchBlockProps) {
   return (
     <div
       className={cn(
-        "border-orange-product/40 bg-orange-product-tint/40 my-3 rounded-xl border p-3",
+        "border-orange-product/40 bg-orange-product-tint/40 my-3 flex items-center gap-3 rounded-xl border px-3 py-2.5",
         state === "applied" && "border-emerald-300 bg-emerald-50",
         state === "rejected" && "opacity-50 grayscale"
       )}
     >
-      <div className="text-orange-product mb-2 flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-[0.12em]">
-        <IconEdit size={12} />
-        Proposed edit
-        <span className="text-ink-3 ml-auto font-mono font-normal normal-case tracking-normal">
-          Section: <b className="text-ink">{patch.sectionHeading}</b>
+      <div className="text-orange-product flex size-7 shrink-0 items-center justify-center rounded-full bg-white/70">
+        <IconEdit size={14} />
+      </div>
+      <div className="min-w-0 flex-1">
+        <div className="text-ink text-[12.5px] font-semibold">
+          Proposed edit
+        </div>
+        <div className="text-ink-3 truncate text-[11.5px]">
+          Section: <b className="text-ink-2">{patch.sectionHeading}</b>
+        </div>
+      </div>
+      {state === "applied" ? (
+        <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2.5 py-1 text-[11px] font-semibold text-emerald-700">
+          <IconCheck size={12} /> Applied
         </span>
-      </div>
+      ) : state === "rejected" ? (
+        <span className="text-ink-3 bg-paper-2 inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-semibold">
+          Dismissed
+        </span>
+      ) : (
+        <div className="flex shrink-0 items-center gap-1.5">
+          <button
+            type="button"
+            onClick={() => setState("rejected")}
+            className="text-ink-3 hover:bg-paper-2 hover:text-ink inline-flex h-7 items-center gap-1 rounded-md px-2 text-[11.5px] font-medium"
+          >
+            <IconX size={12} />
+            Dismiss
+          </button>
+          <button
+            type="button"
+            onClick={() => setOpen(true)}
+            className="bg-ink text-paper inline-flex h-7 items-center gap-1 rounded-md px-2.5 text-[11.5px] font-semibold hover:opacity-90"
+          >
+            Review change
+          </button>
+        </div>
+      )}
 
-      <div className="space-y-2 text-[12.5px]">
-        {isWholeReplace ? (
-          <div>
-            <div className="text-ink-3 mb-0.5 text-[10.5px] font-semibold uppercase tracking-wider">
-              New body
-            </div>
-            <pre className="bg-paper-2 text-ink whitespace-pre-wrap break-words rounded-md p-2 font-mono text-[11.5px]">
-              {patch.newBody}
-            </pre>
-          </div>
-        ) : (
-          <div className="grid gap-2 sm:grid-cols-2">
-            <div>
-              <div className="text-ink-3 mb-0.5 text-[10.5px] font-semibold uppercase tracking-wider">
-                Find
+      {/* Readable review popup */}
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent className="max-h-[85vh] max-w-2xl overflow-hidden">
+          <DialogHeader>
+            <DialogTitle className="text-base">
+              Review proposed edit ·{" "}
+              <span className="text-ink-2">{patch.sectionHeading}</span>
+            </DialogTitle>
+          </DialogHeader>
+          <div className="max-h-[60vh] space-y-4 overflow-y-auto pr-1">
+            {isWholeReplace ? (
+              <div>
+                <div className="text-ink-3 mb-1 text-[11px] font-semibold uppercase tracking-wider">
+                  New section content
+                </div>
+                <div className="border-line rounded-lg border bg-white p-3 text-[13px] leading-relaxed">
+                  <ReactMarkdown
+                    remarkPlugins={[remarkGfm]}
+                    components={mdComponents}
+                  >
+                    {patch.newBody || ""}
+                  </ReactMarkdown>
+                </div>
               </div>
-              <pre className="whitespace-pre-wrap break-words rounded-md border border-red-200 bg-red-50 p-2 font-mono text-[11.5px] text-red-900">
-                {patch.find}
-              </pre>
-            </div>
-            <div>
-              <div className="text-ink-3 mb-0.5 text-[10.5px] font-semibold uppercase tracking-wider">
-                Replace with
-              </div>
-              <pre className="whitespace-pre-wrap break-words rounded-md border border-emerald-200 bg-emerald-50 p-2 font-mono text-[11.5px] text-emerald-900">
-                {patch.replace}
-              </pre>
-            </div>
+            ) : (
+              <>
+                <div>
+                  <div className="mb-1 text-[11px] font-semibold uppercase tracking-wider text-red-700">
+                    Current
+                  </div>
+                  <pre className="whitespace-pre-wrap break-words rounded-lg border border-red-200 bg-red-50 p-3 font-mono text-[12px] text-red-900">
+                    {patch.find}
+                  </pre>
+                </div>
+                <div>
+                  <div className="mb-1 text-[11px] font-semibold uppercase tracking-wider text-emerald-700">
+                    Proposed
+                  </div>
+                  <div className="rounded-lg border border-emerald-200 bg-emerald-50/50 p-3 text-[13px] leading-relaxed">
+                    <ReactMarkdown
+                      remarkPlugins={[remarkGfm]}
+                      components={mdComponents}
+                    >
+                      {patch.replace || ""}
+                    </ReactMarkdown>
+                  </div>
+                </div>
+              </>
+            )}
           </div>
-        )}
-      </div>
-
-      <div className="mt-3 flex items-center justify-end gap-2">
-        {state === "applied" ? (
-          <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2.5 py-1 text-[11px] font-semibold text-emerald-700">
-            <IconCheck size={12} /> Applied
-          </span>
-        ) : state === "rejected" ? (
-          <span className="text-ink-3 bg-paper-2 inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-semibold">
-            Rejected
-          </span>
-        ) : (
-          <>
+          <DialogFooter>
             <button
               type="button"
-              onClick={handleReject}
-              className="text-ink-3 hover:bg-paper-2 hover:text-ink inline-flex h-7 items-center gap-1 rounded-md px-2.5 text-[11.5px] font-medium"
+              onClick={() => setOpen(false)}
+              className="text-ink-2 hover:bg-paper-2 inline-flex h-9 items-center rounded-md px-3 text-[13px] font-medium"
             >
-              <IconX size={12} />
-              Reject
+              Cancel
             </button>
             <button
               type="button"
               onClick={handleApprove}
-              className="inline-flex h-7 items-center gap-1 rounded-md bg-emerald-600 px-2.5 text-[11.5px] font-semibold text-white hover:bg-emerald-700"
+              className="inline-flex h-9 items-center gap-1.5 rounded-md bg-emerald-600 px-4 text-[13px] font-semibold text-white hover:bg-emerald-700"
             >
-              <IconCheck size={12} />
+              <IconCheck size={14} />
               Approve &amp; apply
             </button>
-          </>
-        )}
-      </div>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }
 
 /**
- * Pull patch blocks out of a raw assistant message. Returns an ordered list
- * of segments — each is either a plain-text chunk (to be rendered via the
- * normal markdown pipeline) or a parsed patch (to be rendered as a
- * DesignPatchBlock). Malformed JSON inside a `<design-patch>` tag falls
- * through to a text segment so the user still sees what the assistant said.
+ * Pull patch blocks out of a raw assistant message. Returns ordered segments —
+ * plain text (rendered via the normal markdown pipeline) or a parsed patch.
+ * Identical patches that repeat within the SAME message are de-duplicated to a
+ * single card (the model sometimes echoes the change twice). Malformed JSON
+ * falls through to a text segment so the user still sees what was said.
  */
 export function extractDesignPatches(
   content: string
@@ -153,6 +251,7 @@ export function extractDesignPatches(
   const out: Array<
     { kind: "text"; value: string } | { kind: "patch"; patch: DesignPatch }
   > = []
+  const seen = new Set<string>()
   let lastIndex = 0
   let m: RegExpExecArray | null
   while ((m = regex.exec(content)) !== null) {
@@ -167,7 +266,12 @@ export function extractDesignPatches(
         typeof parsed.sectionHeading === "string" &&
         (parsed.find !== undefined || parsed.newBody !== undefined)
       ) {
-        out.push({ kind: "patch", patch: parsed })
+        const s = patchSignature(parsed)
+        if (!seen.has(s)) {
+          seen.add(s)
+          out.push({ kind: "patch", patch: parsed })
+        }
+        // duplicate copy → drop entirely (don't re-render the same approve card)
       } else {
         out.push({ kind: "text", value: m[0] })
       }

@@ -290,11 +290,14 @@ export const Message: FC<MessageProps> = ({
                 : "border-line bg-surface text-ink rounded-tl-sm border"
             )}
           >
-            {/* Hover actions */}
+            {/* Hover actions — anchored just BELOW the bubble and inside its
+                horizontal bounds. The old `-left-8/-right-8` pushed them 32px
+                outside the bubble, which overflowed and overlapped in the
+                narrow design chat rail. */}
             <div
               className={cn(
-                "absolute top-1 z-10 opacity-0 transition-opacity group-hover:opacity-100",
-                isUser ? "-left-8" : "-right-8"
+                "absolute -bottom-6 z-10 flex opacity-0 transition-opacity group-hover:opacity-100",
+                isUser ? "right-1 justify-end" : "left-1 justify-start"
               )}
             >
               <MessageActions
