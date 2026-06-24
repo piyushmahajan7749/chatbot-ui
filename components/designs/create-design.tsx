@@ -93,7 +93,7 @@ const MODE_COPY: Record<
 > = {
   "from-scratch": {
     title: "New design",
-    subtitle: "Add your design title here.",
+    subtitle: "Start with your research problem — I'll take it from there.",
     icon: IconSparkles,
     cta: "Create"
   },
@@ -146,6 +146,7 @@ export const CreateDesign: FC<CreateDesignProps> = ({
 
   const [name, setName] = useState("")
   const [problem, setProblem] = useState("")
+  const [objective, setObjective] = useState("")
   const [hypothesis, setHypothesis] = useState("")
   const [planText, setPlanText] = useState("")
   /** External-design content for check-stats / make-plan modes. */
@@ -183,12 +184,16 @@ export const CreateDesign: FC<CreateDesignProps> = ({
     // create (see handleCreate). The user types a short title in the
     // dialog and lands on the Problem page with the problem pre-populated.
     if (mode === "from-scratch") {
+      // Simplified from-scratch form: the user fills Problem statement +
+      // Objective directly (name is derived from the problem on create). A
+      // dashboard quick-start `?q=…` seeds the problem field.
       setName("")
-      setProblem("") // Problem field is hidden for from-scratch; seeded server-side from initialQuery.
+      setProblem(initialQuery)
     } else {
       setName(initialQuery.slice(0, 80))
       setProblem(initialQuery)
     }
+    setObjective("")
     setHypothesis("")
     setPlanText("")
     setExternalDesignText("")
@@ -229,6 +234,8 @@ export const CreateDesign: FC<CreateDesignProps> = ({
 
   const canSubmit = (() => {
     if (creating) return false
+    // from-scratch now just needs a problem statement (name is derived).
+    if (mode === "from-scratch") return problem.trim().length > 0
     if (!name.trim()) return false
     if (mode === "from-hypothesis" && hypothesis.trim().length < 10)
       return false
@@ -243,18 +250,26 @@ export const CreateDesign: FC<CreateDesignProps> = ({
   })()
 
   const handleCreate = async () => {
-    const trimmedName = name.trim()
-    if (!trimmedName) return
+    const fromScratch = mode === "from-scratch"
+    const trimmedProblem = problem.trim()
+    const trimmedObjective = objective.trim()
+    // from-scratch derives the design name from the problem statement (first
+    // line, ~70 chars) so the user only fills problem + objective.
+    const trimmedName = fromScratch
+      ? trimmedProblem
+          .split("\n")[0]
+          .replace(/\s+/g, " ")
+          .trim()
+          .slice(0, 70) || "Untitled design"
+      : name.trim()
+    if (fromScratch ? !trimmedProblem : !trimmedName) return
 
     setCreating(true)
     try {
-      // For from-scratch, the Problem field is hidden in the dialog (user
-      // fills it on the Problem page) - but if they came in from a dashboard
-      // quick-start composer with `?q=...`, that text IS the problem
-      // statement and we seed it so the Problem page is pre-populated
-      // instead of asking the user to retype.
-      const seededProblem =
-        mode === "from-scratch" ? initialQuery.trim() : problem.trim()
+      // from-scratch: the Problem statement IS the seed (typed in the dialog or
+      // from a dashboard quick-start `?q=...`). Other modes keep their own
+      // problem field.
+      const seededProblem = fromScratch ? trimmedProblem : problem.trim()
 
       // Prefer the dropdown selection over the caller's `projectId` so a
       // user opening the dialog from inside a project canvas can still
@@ -270,7 +285,7 @@ export const CreateDesign: FC<CreateDesignProps> = ({
           problem: seededProblem || trimmedName,
           description: (seededProblem || trimmedName).slice(0, 240),
           sharing: "private" as const,
-          objectives: [],
+          objectives: trimmedObjective ? [trimmedObjective] : [],
           variables: [],
           specialConsiderations: [],
           project_id: finalProjectId
@@ -307,8 +322,8 @@ export const CreateDesign: FC<CreateDesignProps> = ({
           problem: {
             title: trimmedName,
             problemStatement: seededProblem,
-            objective: "",
-            goal: ""
+            objective: trimmedObjective,
+            goal: trimmedObjective
           },
           papers: [],
           hypotheses: []
@@ -516,18 +531,46 @@ export const CreateDesign: FC<CreateDesignProps> = ({
         </DialogHeader>
 
         <div className="space-y-4 py-2">
-          <div className="space-y-1.5">
-            <Label htmlFor="design-name">Name</Label>
-            <Input
-              id="design-name"
-              ref={nameRef}
-              data-tour="design-question"
-              placeholder="e.g. Effect of pH on enzyme activity"
-              value={name}
-              onChange={e => setName(e.target.value)}
-              onKeyDown={handleKeyDown}
-            />
-          </div>
+          {mode === "from-scratch" ? (
+            <>
+              <div className="space-y-1.5">
+                <Label htmlFor="design-problem-fs">Problem statement</Label>
+                <Textarea
+                  id="design-problem-fs"
+                  data-tour="design-question"
+                  rows={3}
+                  placeholder="What's the research problem or question you want to investigate?"
+                  value={problem}
+                  onChange={e => setProblem(e.target.value)}
+                />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="design-objective">
+                  Objective{" "}
+                  <span className="text-ink-3 font-normal">(optional)</span>
+                </Label>
+                <Textarea
+                  id="design-objective"
+                  rows={2}
+                  placeholder="What would a successful experiment show? e.g. identify the pH that maximizes activity."
+                  value={objective}
+                  onChange={e => setObjective(e.target.value)}
+                />
+              </div>
+            </>
+          ) : (
+            <div className="space-y-1.5">
+              <Label htmlFor="design-name">Name</Label>
+              <Input
+                id="design-name"
+                ref={nameRef}
+                placeholder="e.g. Effect of pH on enzyme activity"
+                value={name}
+                onChange={e => setName(e.target.value)}
+                onKeyDown={handleKeyDown}
+              />
+            </div>
+          )}
 
           {/* Project picker - scientist's ask. Single dropdown that
               also covers the project-canvas-launched case (parent passes
