@@ -17,10 +17,10 @@ export type Database = {
     Functions: {
       graphql: {
         Args: {
-          operationName?: string
-          extensions?: Json
           variables?: Json
+          operationName?: string
           query?: string
+          extensions?: Json
         }
         Returns: Json
       }
@@ -255,6 +255,48 @@ export type Database = {
           },
         ]
       }
+      billing_accounts: {
+        Row: {
+          created_at: string
+          custom_credit_tokens: number
+          period_end: string
+          period_start: string
+          plan: string
+          rc_app_user_id: string | null
+          rc_entitlement: string | null
+          subscription_status: string
+          tokens_used_period: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          custom_credit_tokens?: number
+          period_end?: string
+          period_start?: string
+          plan?: string
+          rc_app_user_id?: string | null
+          rc_entitlement?: string | null
+          subscription_status?: string
+          tokens_used_period?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          custom_credit_tokens?: number
+          period_end?: string
+          period_start?: string
+          plan?: string
+          rc_app_user_id?: string | null
+          rc_entitlement?: string | null
+          subscription_status?: string
+          tokens_used_period?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       chat_files: {
         Row: {
           chat_id: string
@@ -296,6 +338,7 @@ export type Database = {
       }
       chats: {
         Row: {
+          answer_style: string
           assistant_id: string | null
           context_length: number
           created_at: string
@@ -317,6 +360,7 @@ export type Database = {
           workspace_id: string
         }
         Insert: {
+          answer_style?: string
           assistant_id?: string | null
           context_length: number
           created_at?: string
@@ -338,6 +382,7 @@ export type Database = {
           workspace_id: string
         }
         Update: {
+          answer_style?: string
           assistant_id?: string | null
           context_length?: number
           created_at?: string
@@ -371,13 +416,6 @@ export type Database = {
             columns: ["folder_id"]
             isOneToOne: false
             referencedRelation: "folders"
-            referencedColumns: ["id"]
-          },
-          {
-            foreignKeyName: "chats_project_id_fkey"
-            columns: ["project_id"]
-            isOneToOne: false
-            referencedRelation: "projects"
             referencedColumns: ["id"]
           },
           {
@@ -1332,6 +1370,7 @@ export type Database = {
           use_case: string | null
           user_id: string
           username: string
+          viewed_walkthrough: boolean
         }
         Insert: {
           anthropic_api_key?: string | null
@@ -1364,6 +1403,7 @@ export type Database = {
           use_case?: string | null
           user_id: string
           username: string
+          viewed_walkthrough?: boolean
         }
         Update: {
           anthropic_api_key?: string | null
@@ -1396,6 +1436,7 @@ export type Database = {
           use_case?: string | null
           user_id?: string
           username?: string
+          viewed_walkthrough?: boolean
         }
         Relationships: []
       }
@@ -1870,6 +1911,42 @@ export type Database = {
           },
         ]
       }
+      usage_events: {
+        Row: {
+          completion_tokens: number
+          created_at: string
+          feature: string
+          id: string
+          metadata: Json
+          model: string | null
+          prompt_tokens: number
+          total_tokens: number
+          user_id: string
+        }
+        Insert: {
+          completion_tokens?: number
+          created_at?: string
+          feature?: string
+          id?: string
+          metadata?: Json
+          model?: string | null
+          prompt_tokens?: number
+          total_tokens?: number
+          user_id: string
+        }
+        Update: {
+          completion_tokens?: number
+          created_at?: string
+          feature?: string
+          id?: string
+          metadata?: Json
+          model?: string | null
+          prompt_tokens?: number
+          total_tokens?: number
+          user_id?: string
+        }
+        Relationships: []
+      }
       workspaces: {
         Row: {
           created_at: string
@@ -1930,8 +2007,14 @@ export type Database = {
         }
         Relationships: []
       }
-      billing_accounts: {
-        Row: {
+    }
+    Views: {
+      [_ in never]: never
+    }
+    Functions: {
+      add_custom_credits: {
+        Args: { p_user_id: string; p_tokens: number }
+        Returns: {
           created_at: string
           custom_credit_tokens: number
           period_end: string
@@ -1944,81 +2027,6 @@ export type Database = {
           updated_at: string
           user_id: string
         }
-        Insert: {
-          created_at?: string
-          custom_credit_tokens?: number
-          period_end?: string
-          period_start?: string
-          plan?: string
-          rc_app_user_id?: string | null
-          rc_entitlement?: string | null
-          subscription_status?: string
-          tokens_used_period?: number
-          updated_at?: string
-          user_id: string
-        }
-        Update: {
-          created_at?: string
-          custom_credit_tokens?: number
-          period_end?: string
-          period_start?: string
-          plan?: string
-          rc_app_user_id?: string | null
-          rc_entitlement?: string | null
-          subscription_status?: string
-          tokens_used_period?: number
-          updated_at?: string
-          user_id?: string
-        }
-        Relationships: []
-      }
-      usage_events: {
-        Row: {
-          completion_tokens: number
-          created_at: string
-          feature: string
-          id: string
-          metadata: Json
-          model: string | null
-          prompt_tokens: number
-          total_tokens: number
-          user_id: string
-        }
-        Insert: {
-          completion_tokens?: number
-          created_at?: string
-          feature?: string
-          id?: string
-          metadata?: Json
-          model?: string | null
-          prompt_tokens?: number
-          total_tokens?: number
-          user_id: string
-        }
-        Update: {
-          completion_tokens?: number
-          created_at?: string
-          feature?: string
-          id?: string
-          metadata?: Json
-          model?: string | null
-          prompt_tokens?: number
-          total_tokens?: number
-          user_id?: string
-        }
-        Relationships: []
-      }
-    }
-    Views: {
-      [_ in never]: never
-    }
-    Functions: {
-      add_custom_credits: {
-        Args: {
-          p_user_id: string
-          p_tokens: number
-        }
-        Returns: Database["public"]["Tables"]["billing_accounts"]["Row"]
       }
       consume_tokens: {
         Args: {
@@ -2026,7 +2034,19 @@ export type Database = {
           p_tokens: number
           p_monthly_allowance: number
         }
-        Returns: Database["public"]["Tables"]["billing_accounts"]["Row"]
+        Returns: {
+          created_at: string
+          custom_credit_tokens: number
+          period_end: string
+          period_start: string
+          plan: string
+          rc_app_user_id: string | null
+          rc_entitlement: string | null
+          subscription_status: string
+          tokens_used_period: number
+          updated_at: string
+          user_id: string
+        }
       }
       create_duplicate_messages_for_new_chat: {
         Args: { old_chat_id: string; new_user_id: string; new_chat_id: string }
@@ -2034,22 +2054,22 @@ export type Database = {
       }
       delete_message_including_and_after: {
         Args: {
-          p_user_id: string
-          p_sequence_number: number
           p_chat_id: string
+          p_sequence_number: number
+          p_user_id: string
         }
         Returns: undefined
       }
       delete_messages_including_and_after: {
         Args: {
-          p_user_id: string
-          p_sequence_number: number
           p_chat_id: string
+          p_sequence_number: number
+          p_user_id: string
         }
         Returns: undefined
       }
       delete_storage_object: {
-        Args: { object: string; bucket: string }
+        Args: { bucket: string; object: string }
         Returns: Record<string, unknown>
       }
       delete_storage_object_from_bucket: {
@@ -2079,8 +2099,8 @@ export type Database = {
       match_file_items_local: {
         Args: {
           match_count?: number
-          file_ids?: string[]
           query_embedding: string
+          file_ids?: string[]
         }
         Returns: {
           similarity: number
@@ -2097,11 +2117,11 @@ export type Database = {
           file_ids?: string[]
         }
         Returns: {
-          file_id: string
-          id: string
           content: string
-          tokens: number
           similarity: number
+          id: string
+          file_id: string
+          tokens: number
         }[]
       }
       match_rag_items: {
@@ -2116,10 +2136,6 @@ export type Database = {
           p_only_source_ids?: string[]
         }
         Returns: {
-          source_updated_at: string
-          age_days: number
-          similarity: number
-          bm25_rank: number
           id: string
           source_type: Database["public"]["Enums"]["rag_source_type"]
           source_id: string
@@ -2128,6 +2144,10 @@ export type Database = {
           source_url: string
           source_section: string
           metadata: Json
+          source_updated_at: string
+          similarity: number
+          bm25_rank: number
+          age_days: number
         }[]
       }
       non_private_assistant_exists: {
@@ -2620,7 +2640,7 @@ export type Database = {
         Returns: undefined
       }
       can_insert_object: {
-        Args: { bucketid: string; name: string; owner: string; metadata: Json }
+        Args: { name: string; bucketid: string; metadata: Json; owner: string }
         Returns: undefined
       }
       delete_leaf_prefixes: {
@@ -2628,7 +2648,7 @@ export type Database = {
         Returns: undefined
       }
       delete_prefix: {
-        Args: { _name: string; _bucket_id: string }
+        Args: { _bucket_id: string; _name: string }
         Returns: boolean
       }
       extension: {
@@ -2664,12 +2684,12 @@ export type Database = {
       }
       list_multipart_uploads_with_delimiter: {
         Args: {
-          prefix_param: string
           bucket_id: string
           next_upload_token?: string
           next_key_token?: string
           max_keys?: number
           delimiter_param: string
+          prefix_param: string
         }
         Returns: {
           created_at: string
@@ -2679,12 +2699,12 @@ export type Database = {
       }
       list_objects_with_delimiter: {
         Args: {
-          bucket_id: string
           next_token?: string
-          start_after?: string
-          max_keys?: number
-          delimiter_param: string
           prefix_param: string
+          delimiter_param: string
+          max_keys?: number
+          start_after?: string
+          bucket_id: string
         }
         Returns: {
           updated_at: string
@@ -2694,7 +2714,7 @@ export type Database = {
         }[]
       }
       lock_top_prefixes: {
-        Args: { bucket_ids: string[]; names: string[] }
+        Args: { names: string[]; bucket_ids: string[] }
         Returns: undefined
       }
       operation: {
@@ -2704,55 +2724,55 @@ export type Database = {
       search: {
         Args:
           | {
-              bucketname: string
-              prefix: string
-              levels?: number
-              limits?: number
               offsets?: number
+              search?: string
+              sortcolumn?: string
+              sortorder?: string
+              levels?: number
+              prefix: string
+              bucketname: string
+              limits?: number
             }
           | {
-              sortorder?: string
-              sortcolumn?: string
-              search?: string
-              offsets?: number
+              prefix: string
+              bucketname: string
               levels?: number
               limits?: number
-              bucketname: string
-              prefix: string
+              offsets?: number
             }
         Returns: {
-          metadata: Json
-          last_accessed_at: string
-          created_at: string
-          updated_at: string
           id: string
+          updated_at: string
+          created_at: string
+          last_accessed_at: string
+          metadata: Json
           name: string
         }[]
       }
       search_legacy_v1: {
         Args: {
-          bucketname: string
           levels?: number
-          offsets?: number
-          search?: string
-          sortcolumn?: string
           sortorder?: string
-          prefix: string
+          sortcolumn?: string
+          search?: string
           limits?: number
+          offsets?: number
+          prefix: string
+          bucketname: string
         }
         Returns: {
-          metadata: Json
           last_accessed_at: string
           created_at: string
-          updated_at: string
+          metadata: Json
           id: string
+          updated_at: string
           name: string
         }[]
       }
       search_v1_optimised: {
         Args: {
-          prefix: string
           bucketname: string
+          prefix: string
           limits?: number
           levels?: number
           offsets?: number
@@ -2761,40 +2781,40 @@ export type Database = {
           sortorder?: string
         }
         Returns: {
-          last_accessed_at: string
           name: string
           id: string
           updated_at: string
           created_at: string
+          last_accessed_at: string
           metadata: Json
         }[]
       }
       search_v2: {
         Args:
           | {
-              prefix: string
-              bucket_name: string
-              limits?: number
-              levels?: number
               start_after?: string
+              bucket_name: string
+              levels?: number
+              limits?: number
+              prefix: string
             }
           | {
-              sort_column_after?: string
-              sort_order?: string
-              prefix: string
-              levels?: number
-              sort_column?: string
-              bucket_name: string
               start_after?: string
+              levels?: number
               limits?: number
+              bucket_name: string
+              prefix: string
+              sort_order?: string
+              sort_column_after?: string
+              sort_column?: string
             }
         Returns: {
-          id: string
-          key: string
-          name: string
           metadata: Json
-          created_at: string
           updated_at: string
+          created_at: string
+          id: string
+          name: string
+          key: string
         }[]
       }
     }
