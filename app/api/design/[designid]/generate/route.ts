@@ -27,11 +27,14 @@ import {
 import { runTasksWithConcurrency } from "@/app/api/design/draft/worker"
 import type { ExperimentDesignState } from "@/app/api/design/draft/types"
 import type { AgentTask } from "@/app/api/design/draft/types/interfaces"
-import { assertBudget } from "@/lib/billing/account"
+import { assertBudget, assertExperimentQuota } from "@/lib/billing/account"
 import { meterRun } from "@/lib/billing/with-meter"
 import {
   budgetErrorResponse,
-  isBudgetExceededError
+  experimentErrorResponse,
+  isBudgetExceededError,
+  isExperimentLimitError,
+  type ExperimentLimitError
 } from "@/lib/billing/errors"
 import { inngest } from "@/lib/inngest/client"
 import { evaluateAccess, getPermissionForUser } from "@/lib/design/sharing"
@@ -1152,6 +1155,21 @@ Never use placeholder text like "TBD" - if a spec is reasonable to infer, infer 
     } catch (e) {
       if (isBudgetExceededError(e)) return budgetErrorResponse(e.plan)
       // any other error: fail open, assertBudget already logged it
+    }
+
+    // Free-experiment paywall — only the DESIGN payoff is gated (cheap problem/
+    // literature/hypotheses stay open). 402 when a free user is out of free
+    // experiments and EXPERIMENT_PAYWALL is on.
+    if (body.phase === "design") {
+      try {
+        await assertExperimentQuota(user.id)
+      } catch (e) {
+        if (isExperimentLimitError(e)) {
+          const err = e as ExperimentLimitError
+          return experimentErrorResponse(err.used, err.limit)
+        }
+        // any other error: fail open
+      }
     }
 
     // ── literature / hypotheses / design run in the background ────────────

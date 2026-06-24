@@ -15,6 +15,15 @@
 
 export const TOKENS_PER_CREDIT = 1_000
 
+/**
+ * Free-tier experiment limit: a free user can GENERATE this many designs
+ * (lifetime) before they must upgrade. Enforced server-side at design
+ * generation when the EXPERIMENT_PAYWALL env flag is on (default off →
+ * count-only, no block — mirrors BILLING_ENFORCE). Paid plans + comps are
+ * never gated by this; they're metered by credits.
+ */
+export const FREE_EXPERIMENT_LIMIT = 3
+
 export type PlanId = "free" | "pro" | "max"
 
 export interface Plan {

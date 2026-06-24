@@ -34,6 +34,9 @@ interface UsageSummary {
   customCredits: number
   percentUsed: number
   breakdown: { feature: string; tokens: number; credits: number }[]
+  experimentsUsed: number
+  experimentLimit: number
+  experimentsLeft: number
 }
 
 interface RevenueCatConfig {
@@ -184,6 +187,21 @@ export const UsageBillingPanel: FC = () => {
             </span>
           </div>
           <Progress value={summary.percentUsed} />
+          {summary.plan === "free" && (
+            <div className="border-line bg-paper-2 flex items-center justify-between rounded-md border px-2.5 py-1.5 text-xs">
+              <span className="text-ink-2">Free experiments</span>
+              <span
+                className={
+                  summary.experimentsLeft <= 0
+                    ? "text-rust font-medium"
+                    : "text-muted"
+                }
+              >
+                {fmt(summary.experimentsUsed)} / {fmt(summary.experimentLimit)}{" "}
+                used · {fmt(summary.experimentsLeft)} left
+              </span>
+            </div>
+          )}
           {summary.customCredits > 0 && (
             <div className="text-muted flex items-center gap-1 text-xs">
               <IconSparkles size={13} />+{fmt(summary.customCredits)} top-up

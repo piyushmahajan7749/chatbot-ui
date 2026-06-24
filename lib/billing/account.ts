@@ -1,14 +1,20 @@
 import type { Database } from "@/supabase/types"
 import { getBillingAdminClient } from "./service-client"
-import { BudgetExceededError } from "./errors"
+import { BudgetExceededError, ExperimentLimitError } from "./errors"
 import {
   creditsFromTokens,
+  FREE_EXPERIMENT_LIMIT,
   getPlan,
   TOKENS_PER_CREDIT,
   type Plan,
   type PlanId
 } from "./plans"
 import type { UsageFeature } from "./types"
+
+/** designs_generated isn't in the generated Database types yet (20260624). */
+const designsGeneratedOf = (acct: BillingAccount): number =>
+  Math.max(0, Number((acct as any).designs_generated) || 0)
+const isComp = (acct: BillingAccount): boolean => Boolean((acct as any).is_comp)
 
 export type BillingAccount =
   Database["public"]["Tables"]["billing_accounts"]["Row"]
@@ -89,6 +95,10 @@ export interface UsageSummary {
   customCredits: number
   percentUsed: number
   breakdown: { feature: string; tokens: number; credits: number }[]
+  // Free-experiment paywall (free plan only).
+  experimentsUsed: number
+  experimentLimit: number
+  experimentsLeft: number
 }
 
 /** Everything the Settings → Usage & Billing view needs, in one read. */
@@ -153,7 +163,13 @@ export async function getUsageSummary(userId: string): Promise<UsageSummary> {
     remainingCredits: creditsFromTokens(remainingTokens),
     customCredits: creditsFromTokens(acct.custom_credit_tokens || 0),
     percentUsed,
-    breakdown
+    breakdown,
+    experimentsUsed: designsGeneratedOf(acct),
+    experimentLimit: FREE_EXPERIMENT_LIMIT,
+    experimentsLeft: Math.max(
+      0,
+      FREE_EXPERIMENT_LIMIT - designsGeneratedOf(acct)
+    )
   }
 }
 
@@ -191,6 +207,81 @@ export async function assertBudget(userId: string): Promise<void> {
   } catch (e) {
     if (e instanceof BudgetExceededError) throw e
     console.error("[billing] assertBudget check failed (failing open)", e)
+  }
+}
+
+/**
+ * Whether the free-experiment paywall HARD BLOCK is enforced. Default OFF
+ * (count-only) so we can ship the counter, watch real conversion, then flip it
+ * on for launch with EXPERIMENT_PAYWALL=true — no redeploy. Accepts 1/true/on/yes.
+ */
+export function isExperimentPaywallEnabled(): boolean {
+  return /^(1|true|on|yes)$/i.test(
+    (process.env.EXPERIMENT_PAYWALL ?? "").trim()
+  )
+}
+
+/**
+ * How many free experiments a free user has left (clamped ≥ 0). Paid plans +
+ * comps return Infinity (not gated). Best-effort; returns Infinity on error so
+ * an infra hiccup never blocks design generation.
+ */
+export async function experimentsRemaining(userId: string): Promise<number> {
+  if (!userId) return Number.POSITIVE_INFINITY
+  try {
+    const acct = await getOrCreateAccount(userId)
+    if (acct.plan !== "free" || isComp(acct)) return Number.POSITIVE_INFINITY
+    return Math.max(0, FREE_EXPERIMENT_LIMIT - designsGeneratedOf(acct))
+  } catch (e) {
+    console.error("[billing] experimentsRemaining failed (failing open)", e)
+    return Number.POSITIVE_INFINITY
+  }
+}
+
+/**
+ * Pre-flight gate for DESIGN GENERATION. Throws ExperimentLimitError when a free
+ * user has used their free experiments AND the paywall is enforced. Paid plans
+ * + comps pass. Fails OPEN on infra errors.
+ */
+export async function assertExperimentQuota(userId: string): Promise<void> {
+  if (!userId) return
+  try {
+    const acct = await getOrCreateAccount(userId)
+    if (acct.plan !== "free" || isComp(acct)) return
+    const used = designsGeneratedOf(acct)
+    if (used >= FREE_EXPERIMENT_LIMIT) {
+      if (isExperimentPaywallEnabled()) {
+        throw new ExperimentLimitError(used, FREE_EXPERIMENT_LIMIT)
+      }
+      console.warn(
+        `[billing] user ${userId} over free-experiment limit ` +
+          `(${used}/${FREE_EXPERIMENT_LIMIT}) but EXPERIMENT_PAYWALL is off — allowing.`
+      )
+    }
+  } catch (e) {
+    if (e instanceof ExperimentLimitError) throw e
+    console.error("[billing] assertExperimentQuota failed (failing open)", e)
+  }
+}
+
+/**
+ * +1 to the user's lifetime generated-design count. Called once when a design
+ * generation completes (Inngest worker). Best-effort — never throws.
+ */
+export async function incrementDesignsGenerated(userId: string): Promise<void> {
+  if (!userId) return
+  try {
+    const admin = getBillingAdminClient()
+    const { error } = await admin.rpc(
+      "increment_designs_generated" as any,
+      {
+        p_user_id: userId
+      } as any
+    )
+    if (error)
+      console.error("[billing] increment_designs_generated failed", error)
+  } catch (e) {
+    console.error("[billing] incrementDesignsGenerated failed", e)
   }
 }
 

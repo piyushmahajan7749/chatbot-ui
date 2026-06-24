@@ -38,6 +38,7 @@ import {
   type DesignSubViewContext
 } from "@/components/design-flow/design-sub-views"
 import { ClarifyStep } from "@/components/design-flow/clarify-step"
+import { handleBudgetError } from "@/lib/billing/handle-budget-error"
 import { DesignCoach } from "@/components/onboarding/design-coach"
 import {
   clarifyAnswersToText,
@@ -272,6 +273,11 @@ async function runPhaseBackground(
     body: JSON.stringify(body)
   })
   if (!startRes.ok) {
+    // 402 paywall (out of credits / out of free experiments) → show the upgrade
+    // toast and stop quietly, instead of a generic "generation failed" error.
+    if (await handleBudgetError(startRes)) {
+      throw new Error("__paywall__")
+    }
     const msg = await startRes.text().catch(() => "")
     throw new Error(
       msg || `Failed to start design generation (${startRes.status})`
@@ -878,6 +884,7 @@ export default function DesignDetailPage() {
         })
       }
     } catch (error: any) {
+      if ((error as any)?.message === "__paywall__") return
       toast({
         title: "Literature search failed",
         description: error?.message ?? "Try again in a moment.",
@@ -980,6 +987,7 @@ export default function DesignDetailPage() {
       setGeneratedDesigns(designs)
       setActiveDesignId(designs[0]?.id ?? null)
     } catch (error: any) {
+      if ((error as any)?.message === "__paywall__") return
       toast({
         title: "Design generation failed",
         description: error?.message ?? "Try again in a moment.",
@@ -1068,6 +1076,7 @@ export default function DesignDetailPage() {
         })
       }
     } catch (error: any) {
+      if ((error as any)?.message === "__paywall__") return
       toast({
         title: "Literature search failed",
         description: error?.message ?? "Try again in a moment.",
@@ -1163,6 +1172,7 @@ export default function DesignDetailPage() {
       // survive a reload.
       await persistContent({ designVersions: snapshotVersions })
     } catch (error: any) {
+      if ((error as any)?.message === "__paywall__") return
       toast({
         title: "Design generation failed",
         description: error?.message ?? "Try again in a moment.",
@@ -1384,6 +1394,7 @@ export default function DesignDetailPage() {
         description: "Saved to this design's persistent content."
       })
     } catch (error: any) {
+      if ((error as any)?.message === "__paywall__") return
       toast({
         title: "Save failed",
         description: error?.message ?? "Try again in a moment.",

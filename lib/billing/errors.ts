@@ -39,3 +39,41 @@ export function budgetErrorResponse(plan: PlanId = "free") {
     { status: 402 }
   )
 }
+
+/**
+ * Thrown when a FREE user has used up their free experiments (generated
+ * designs) and the experiment paywall is enforced. Routes map this to a 402.
+ */
+export class ExperimentLimitError extends Error {
+  readonly code = "EXPERIMENT_LIMIT"
+  readonly used: number
+  readonly limit: number
+  constructor(used: number, limit: number) {
+    super("Free experiment limit reached")
+    this.name = "ExperimentLimitError"
+    this.used = used
+    this.limit = limit
+  }
+}
+
+export function isExperimentLimitError(e: unknown): e is ExperimentLimitError {
+  return (
+    e instanceof ExperimentLimitError ||
+    (typeof e === "object" &&
+      e !== null &&
+      (e as { code?: string }).code === "EXPERIMENT_LIMIT")
+  )
+}
+
+/** Standard 402 payload for the free-experiment paywall. */
+export function experimentErrorResponse(used: number, limit: number) {
+  return NextResponse.json(
+    {
+      error: `You've used your ${limit} free experiments. Upgrade to keep designing.`,
+      code: "EXPERIMENT_LIMIT",
+      used,
+      limit
+    },
+    { status: 402 }
+  )
+}

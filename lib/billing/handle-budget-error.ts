@@ -21,12 +21,24 @@ export function openBillingSettings() {
  */
 export async function handleBudgetError(res: Response): Promise<boolean> {
   if (res.status !== 402) return false
-  let code: string | undefined
+  let body: { code?: string; limit?: number } | undefined
   try {
-    code = (await res.clone().json())?.code
+    body = await res.clone().json()
   } catch {
     /* ignore parse errors */
   }
+  const code = body?.code
+
+  if (code === "EXPERIMENT_LIMIT") {
+    const limit = body?.limit ?? 3
+    toast.error(`You’ve used your ${limit} free experiments.`, {
+      description: "Upgrade to keep designing new experiments.",
+      action: { label: "Upgrade", onClick: openBillingSettings },
+      duration: 9000
+    })
+    return true
+  }
+
   if (code !== "TOKEN_LIMIT") return false
 
   toast.error("You’re out of credits for this billing period.", {

@@ -19,6 +19,7 @@ import { v4 as uuidv4 } from "uuid"
 import { callLiteratureScoutAgent } from "@/app/api/design/draft/agents"
 import { ExperimentDesignState } from "@/app/api/design/draft/types"
 import { meterRun } from "@/lib/billing/with-meter"
+import { incrementDesignsGenerated } from "@/lib/billing/account"
 import { evaluateAccess, getPermissionForUser } from "@/lib/design/sharing"
 import { adminDb } from "@/lib/firebase/admin"
 import { FieldValue } from "firebase-admin/firestore"
@@ -678,6 +679,18 @@ export const processDesignPhase = inngest.createFunction(
         "designJob.completedAt": new Date().toISOString()
       })
     })
+
+    // Free-experiment paywall counter: +1 once a DESIGN actually generated.
+    if (
+      phase === "design" &&
+      userId &&
+      Array.isArray((patch as any).designs) &&
+      (patch as any).designs.length > 0
+    ) {
+      await step.run("count-experiment", async () => {
+        await incrementDesignsGenerated(userId)
+      })
+    }
 
     return { designId, phase }
   }
