@@ -348,6 +348,33 @@ export interface DesignContentV2 {
   literatureStats?: {
     totalCandidates?: number
   }
+  /**
+   * Answers to the "Refine" clarifying questions at each checkpoint. Persisted
+   * for auditability (job story 4) and re-shown when the user re-opens a
+   * checkpoint. `problem` = before literature; `design` = before generation.
+   */
+  clarifications?: {
+    problem?: ClarifyAnswer[]
+    design?: ClarifyAnswer[]
+  }
+}
+
+/** A clarifying question shown at a Refine checkpoint (MCQ + free-text other). */
+export interface ClarifyQuestion {
+  id: string
+  prompt: string
+  kind: "single" | "multi"
+  options: string[]
+  rationale?: string
+}
+
+/** A scientist's answer to one clarifying question. */
+export interface ClarifyAnswer {
+  id: string
+  prompt: string
+  selected: string[]
+  other?: string
+  skipped?: boolean
 }
 
 export function emptyDesignContent(): DesignContentV2 {

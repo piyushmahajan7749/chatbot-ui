@@ -37,14 +37,12 @@ import {
   DesignReportsView,
   type DesignSubViewContext
 } from "@/components/design-flow/design-sub-views"
+import { ClarifyStep } from "@/components/design-flow/clarify-step"
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle
-} from "@/components/ui/dialog"
+  clarifyAnswersToText,
+  type ClarifyCheckpoint
+} from "@/lib/design/clarify-shared"
+import type { ClarifyAnswer } from "@/lib/design-agent"
 import type { Sharing } from "@/types/sharing"
 import { addPaperToLibrary } from "@/db/paper-library"
 import { supabase } from "@/lib/supabase/browser-client"
@@ -407,17 +405,21 @@ export default function DesignDetailPage() {
     ""
   )
   // Mandatory free-text field. Captures concrete operating parameters the
-  // hypothesis + design agents need to stay specific — molecule operating
-  // concentration range, buffer systems, temperatures, etc.
+  // hypothesis + design agents need to stay specific. NOT a visible field
+  // anymore — it's the CARRIER populated from the "Refine" problem-checkpoint
+  // answers (clarifyAnswersToText) and read by the literature/hypotheses/design
+  // phases as before.
   const [additionalDetails, setAdditionalDetails] = useState("")
 
-  // Pre-generation "design spec" popup — collected right before the design is
-  // generated so the researcher controls concentration, condition count, etc.,
-  // and the output is specific to their use case (fewer post-hoc edits).
-  const [designSpecOpen, setDesignSpecOpen] = useState(false)
-  const [specConcentration, setSpecConcentration] = useState("")
-  const [specConditions, setSpecConditions] = useState("")
-  const [specNotes, setSpecNotes] = useState("")
+  // "Refine" clarifying-question step. Set to a checkpoint to show the
+  // full-screen Q&A before that phase runs; null = not refining. Answers are
+  // persisted into content.clarifications for audit + re-open.
+  const [refineCheckpoint, setRefineCheckpoint] =
+    useState<ClarifyCheckpoint | null>(null)
+  const [clarifications, setClarifications] = useState<{
+    problem?: ClarifyAnswer[]
+    design?: ClarifyAnswer[]
+  }>({})
 
   // Literature tab state
   const [papers, setPapers] = useState<Paper[]>([])
@@ -607,6 +609,7 @@ export default function DesignDetailPage() {
       setAdditionalDetails(
         ((problem as any).additionalDetails as string | undefined) ?? ""
       )
+      if (content?.clarifications) setClarifications(content.clarifications)
 
       if (content?.papers) setPapers(content.papers)
       // Restore the "from N searched" total from prior runs so the
@@ -794,8 +797,7 @@ export default function DesignDetailPage() {
     problemStatement.trim() !== "" &&
     objective.trim() !== "" &&
     domain !== "" &&
-    phase !== "" &&
-    additionalDetails.trim() !== ""
+    phase !== ""
 
   // Gate every mutation behind edit access. A read-only (viewer) collaborator
   // is blocked here with a clear toast — the server also rejects the write, so
@@ -815,17 +817,21 @@ export default function DesignDetailPage() {
 
   // ── Approve & Generate handlers ───────────────────────────────────────
 
-  const handleApproveAndGenerateLiterature = async () => {
+  const handleApproveAndGenerateLiterature = () => {
     if (!ensureCanEdit()) return
     if (!problemValid) {
       toast({
         title: "Missing fields",
-        description:
-          "Problem statement, goal, domain, phase, and additional details are all required.",
+        description: "Problem statement, goal, domain, and phase are required.",
         variant: "destructive"
       })
       return
     }
+    // Open the Refine clarifying-question step; it runs literature on complete.
+    setRefineCheckpoint("problem")
+  }
+
+  const runLiteratureGeneration = async (clarifyText?: string) => {
     const nextApproved: PhaseKey[] = ["problem"]
     setApprovedPhases(nextApproved)
     setActiveTab("literature")
@@ -836,7 +842,12 @@ export default function DesignDetailPage() {
         designId,
         {
           phase: "literature",
-          problem: currentProblem(),
+          problem: {
+            ...currentProblem(),
+            ...(clarifyText !== undefined
+              ? { additionalDetails: clarifyText }
+              : {})
+          },
           approvedPhases: nextApproved
         },
         ev => setLiteratureProgress(prev => [...prev, ev])
@@ -932,27 +943,23 @@ export default function DesignDetailPage() {
       })
       return
     }
-    setDesignSpecOpen(true)
+    // Open the Refine clarifying-question step; it runs design on complete.
+    setRefineCheckpoint("design")
   }
 
-  // Step 2: run generation with the popup's design spec merged into the problem
-  // context (buildDesignBlocks treats designSpec as authoritative).
-  const runDesignGeneration = async () => {
+  // Step 2: run generation with the Refine answers as the authoritative design
+  // spec (buildDesignBlocks reads designSpec).
+  const runDesignGeneration = async (clarifyText?: string) => {
     if (!ensureCanEdit()) return
-    setDesignSpecOpen(false)
     const nextApproved: PhaseKey[] = ["problem", "literature", "hypotheses"]
     setApprovedPhases(nextApproved)
     setActiveTab("design")
     setBusy("design")
     setDesignProgress([])
     try {
-      const designSpec = {
-        ...(specConcentration.trim()
-          ? { moleculeConcentration: specConcentration.trim() }
-          : {}),
-        ...(specConditions.trim() ? { conditions: specConditions.trim() } : {}),
-        ...(specNotes.trim() ? { notes: specNotes.trim() } : {})
-      }
+      const designSpec = clarifyText?.trim()
+        ? { notes: clarifyText.trim() }
+        : {}
       const problem = {
         ...currentProblem(),
         ...(Object.keys(designSpec).length ? { designSpec } : {})
@@ -980,6 +987,28 @@ export default function DesignDetailPage() {
     } finally {
       setBusy(null)
     }
+  }
+
+  // ── Refine (clarifying questions) → run the gated phase ────────────────
+  const handleClarifyComplete = async (answers: ClarifyAnswer[]) => {
+    const cp = refineCheckpoint
+    setRefineCheckpoint(null)
+    if (!cp) return
+    const text = clarifyAnswersToText(answers)
+    const nextClarifications = { ...clarifications, [cp]: answers }
+    setClarifications(nextClarifications)
+    void persistContent({ clarifications: nextClarifications })
+    if (cp === "problem") {
+      setAdditionalDetails(text) // carrier for the downstream phases
+      await runLiteratureGeneration(text)
+    } else {
+      await runDesignGeneration(text)
+    }
+  }
+
+  const handleClarifyCancel = () => {
+    // Back out to the prior step — no phase run.
+    setRefineCheckpoint(null)
   }
 
   const handleApproveDesignAndContinue = async () => {
@@ -1985,6 +2014,21 @@ Rules:
   // A completed (Design-approved) design is locked — edits require duplicating.
   const designLocked = approvedPhases.includes("design")
 
+  // Full-screen "Refine" clarifying-question step. Replaces the page while
+  // active; on complete/cancel it runs the gated phase (or backs out).
+  if (refineCheckpoint) {
+    return (
+      <div className="bg-ink-50 h-full">
+        <ClarifyStep
+          designId={designId}
+          checkpoint={refineCheckpoint}
+          onComplete={handleClarifyComplete}
+          onCancel={handleClarifyCancel}
+        />
+      </div>
+    )
+  }
+
   return (
     <div className="bg-ink-50 flex h-full flex-col overflow-hidden">
       {/* Header */}
@@ -2272,8 +2316,6 @@ Rules:
                       setSuccessCriteria={setSuccessCriteria}
                       includeReplicates={includeReplicates}
                       setIncludeReplicates={setIncludeReplicates}
-                      additionalDetails={additionalDetails}
-                      setAdditionalDetails={setAdditionalDetails}
                       onApproveAndGenerate={handleApproveAndGenerateLiterature}
                       canSubmit={problemValid}
                       isApproved={isPhaseApproved("problem")}
@@ -2428,59 +2470,6 @@ Rules:
           onSharingChange={setSharingState}
         />
       )}
-
-      {/* Pre-generation design-spec popup — gives the researcher control over
-          the key parameters so the generated design is specific, not vague. */}
-      <Dialog open={designSpecOpen} onOpenChange={setDesignSpecOpen}>
-        <DialogContent className="max-w-lg">
-          <DialogHeader>
-            <DialogTitle>Before we generate the design</DialogTitle>
-            <DialogDescription>
-              A few specifics so the design is tailored to your system — this
-              keeps the output concrete and means fewer edits later. All
-              optional, but the more you give, the more specific the design.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4 py-1">
-            <div className="space-y-1.5">
-              <Label>Molecule / operating concentration</Label>
-              <Input
-                value={specConcentration}
-                onChange={e => setSpecConcentration(e.target.value)}
-                placeholder="e.g. mAb at 50 mg/mL; arginine 0–150 mM"
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label>Number / type of conditions</Label>
-              <Input
-                value={specConditions}
-                onChange={e => setSpecConditions(e.target.value)}
-                placeholder="e.g. 5 arginine levels × 2 temperatures; full factorial"
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label>Anything else the design must respect</Label>
-              <Textarea
-                value={specNotes}
-                onChange={e => setSpecNotes(e.target.value)}
-                placeholder="Buffer system, pH, readouts, timepoints, equipment limits, must-have controls…"
-                rows={3}
-              />
-            </div>
-          </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setDesignSpecOpen(false)}>
-              Cancel
-            </Button>
-            <Button
-              variant="primary"
-              onClick={() => void runDesignGeneration()}
-            >
-              Generate design
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   )
 }
@@ -2586,8 +2575,6 @@ function ProblemTab(props: {
   setSuccessCriteria: (v: string) => void
   includeReplicates: "" | "yes" | "no"
   setIncludeReplicates: (v: "" | "yes" | "no") => void
-  additionalDetails: string
-  setAdditionalDetails: (v: string) => void
   onApproveAndGenerate: () => void
   canSubmit: boolean
   isApproved: boolean
@@ -2620,8 +2607,6 @@ function ProblemTab(props: {
     setSuccessCriteria,
     includeReplicates,
     setIncludeReplicates,
-    additionalDetails,
-    setAdditionalDetails,
     onApproveAndGenerate,
     canSubmit,
     isApproved,
@@ -2666,23 +2651,6 @@ function ProblemTab(props: {
               rows={4}
               disabled={isApproved || !canEdit}
             />
-          </div>
-
-          <div className="space-y-1.5">
-            <Label>
-              Additional details <span className="text-red-500">*</span>
-            </Label>
-            <Textarea
-              value={additionalDetails}
-              onChange={e => setAdditionalDetails(e.target.value)}
-              placeholder="Concrete operating parameters so the design stays specific — e.g. molecule operating concentration range (1–10 mM), buffer systems (20 mM L-histidine, pH 6.0), temperatures, pH, ionic strength, sample matrix, equipment on hand."
-              rows={4}
-              disabled={isApproved || !canEdit}
-            />
-            <p className="text-ink-400 text-xs">
-              These specifics keep the hypotheses and the generated design
-              precise to your system, not generic.
-            </p>
           </div>
 
           <div className="grid gap-4 md:grid-cols-2">
