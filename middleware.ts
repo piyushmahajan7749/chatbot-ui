@@ -66,9 +66,12 @@ export async function middleware(request: NextRequest) {
     const isSignup = pathname === "/signup" || pathname.startsWith("/signup/")
     const isForgotPassword =
       pathname === "/forgot-password" || pathname.startsWith("/forgot-password/")
+    const isWelcome =
+      pathname === "/welcome" || pathname.startsWith("/welcome/")
     // All public auth pages an unauthenticated user is allowed to see.
-    const isPublicAuth = isLogin || isSignup || isForgotPassword
+    const isPublicAuth = isLogin || isSignup || isForgotPassword || isWelcome
     const isOnboarding = pathname === "/onboarding"
+    const seenWelcome = request.cookies.get("seen_welcome")?.value === "1"
 
     const target = await getRedirectTarget(supabase)
 
@@ -86,9 +89,12 @@ export async function middleware(request: NextRequest) {
     let redirectResponse: NextResponse | null = null
 
     if (target.kind === "path" && target.path === "/login") {
-      // Unauthenticated. Allow login, signup, forgot-password, and "/"
-      // (marketing landing). Everything else bounces to /login.
-      if (!isPublicAuth && !isRoot) {
+      // Unauthenticated. First visit (no seen_welcome cookie) → the 3-slide
+      // greeting. Otherwise allow welcome / login / signup / forgot-password
+      // and "/" (marketing landing); everything else bounces to /login.
+      if (isRoot && !seenWelcome) {
+        redirectResponse = redirectWith(request, "/welcome", response)
+      } else if (!isPublicAuth && !isRoot) {
         redirectResponse = redirectWith(request, "/login", response)
       }
     } else if (target.kind === "profile_pending") {

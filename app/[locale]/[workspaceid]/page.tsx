@@ -16,6 +16,7 @@ import {
   type TourStep
 } from "@/components/onboarding/tour-overlay"
 import { markWalkthroughViewed } from "@/app/[locale]/onboarding/walkthrough-actions"
+import { setWalkthroughActive } from "@/components/onboarding/design-coach"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 // Chip primitive was used by the old multi-coloured tag row on
@@ -235,10 +236,16 @@ export default function WorkspacePage() {
     !!profile && (profile as any).viewed_walkthrough === false
   const [tourOpen, setTourOpen] = useState(initiallyShouldTour)
   useEffect(() => {
-    if (initiallyShouldTour) setTourOpen(true)
+    if (initiallyShouldTour) {
+      setTourOpen(true)
+      // Light up the first-design coach so the walkthrough continues into the
+      // design editor (even if they skip the dashboard tour).
+      setWalkthroughActive(true)
+    }
   }, [initiallyShouldTour])
   const dismissTour = () => {
     setTourOpen(false)
+    setWalkthroughActive(true)
     // Persist in the background — failures just mean it re-appears, which is
     // acceptable for first-run polish.
     void markWalkthroughViewed().catch(() => undefined)
@@ -249,13 +256,13 @@ export default function WorkspacePage() {
   const TOUR_STEPS: TourStep[] = [
     {
       title: "Welcome to Shadow AI",
-      body: "Your experiment design and planning agent. Quick tour."
+      body: "Have a research question from a meeting or fresh data? Let's turn it into a bench-ready experiment together — right now."
     },
     {
       target: "[data-tour='new-design']",
       side: "bottom",
-      title: "Start a new experiment",
-      body: "Click here, type your research problem, and I take it from there."
+      title: "Start with your real question",
+      body: "Click New design and type the question on your mind. I'll guide you through each step from here."
     },
     {
       title: "Step 1 — Literature",
@@ -274,8 +281,8 @@ export default function WorkspacePage() {
       body: "Each project holds its own Designs, Reports, Chats, and Files — open a project from the sidebar to find them all in one place."
     },
     {
-      title: "You're ready",
-      body: "Click New design to start your first experiment."
+      title: "I'll be right there with you",
+      body: "Click New design — a guide rides along through Problem, Literature, Hypotheses, and Design for your first experiment."
     }
   ]
 

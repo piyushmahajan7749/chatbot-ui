@@ -5,6 +5,7 @@ import { redirect } from "next/navigation"
 import { createServerClient } from "@supabase/ssr"
 
 import { AuthShell } from "@/components/auth/auth-shell"
+import { GoogleButton } from "@/components/auth/google-button"
 import { PasswordInput } from "@/components/auth/password-input"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -95,6 +96,16 @@ export default async function Login({
         </span>
       }
     >
+      <div className="mb-4 flex flex-col gap-4">
+        <GoogleButton next="/" />
+        <div className="flex items-center gap-3">
+          <span className="bg-line h-px flex-1" />
+          <span className="text-ink-3 text-[11.5px] uppercase tracking-wide">
+            or sign in with email
+          </span>
+          <span className="bg-line h-px flex-1" />
+        </div>
+      </div>
       <form className="flex w-full flex-col gap-4" action={signIn}>
         <div className="flex flex-col gap-1.5">
           <Label htmlFor="email" className="text-ink text-[12.5px] font-medium">

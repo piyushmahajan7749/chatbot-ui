@@ -38,6 +38,7 @@ import {
   type DesignSubViewContext
 } from "@/components/design-flow/design-sub-views"
 import { ClarifyStep } from "@/components/design-flow/clarify-step"
+import { DesignCoach } from "@/components/onboarding/design-coach"
 import {
   clarifyAnswersToText,
   type ClarifyCheckpoint
@@ -2202,6 +2203,13 @@ Rules:
           content; right column = the resizable chat rail. */
         <div className="flex min-h-0 flex-1 overflow-hidden">
           <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
+            {/* First-design walkthrough coach (first-run only; self-dismisses) */}
+            <DesignCoach
+              activeTab={activeTab}
+              refining={refineCheckpoint !== null}
+              busy={!!busy}
+              hasDesign={generatedDesigns.length > 0}
+            />
             {/* Stage stepper - 5-stage editorial rail */}
             {(() => {
               const tabToStage: Record<string, DesignStageId> = {
