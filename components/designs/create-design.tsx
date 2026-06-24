@@ -521,6 +521,7 @@ export const CreateDesign: FC<CreateDesignProps> = ({
             <Input
               id="design-name"
               ref={nameRef}
+              data-tour="design-question"
               placeholder="e.g. Effect of pH on enzyme activity"
               value={name}
               onChange={e => setName(e.target.value)}

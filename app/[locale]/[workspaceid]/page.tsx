@@ -11,11 +11,6 @@ import { FC, useContext, useEffect, useMemo, useState } from "react"
 
 import { getProjectsByWorkspaceId } from "@/db/projects"
 
-import {
-  TourOverlay,
-  type TourStep
-} from "@/components/onboarding/tour-overlay"
-import { markWalkthroughViewed } from "@/app/[locale]/onboarding/walkthrough-actions"
 import { setWalkthroughActive } from "@/components/onboarding/design-coach"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
@@ -227,68 +222,18 @@ export default function WorkspacePage() {
     router.push(seed ? `${base}?q=${encodeURIComponent(seed)}` : base)
   }
 
-  // First-time product tour. We don't list `viewed_walkthrough` on the
-  // generated profile type yet (the column lives in migration 20260510,
-  // which the typegen lags behind), so we read it through a cast and
-  // default to `true` (tour already viewed) when undefined to avoid
-  // re-prompting users that pre-date the migration.
+  // First-run: light up the interactive GuidedTour (mounted in the app layout),
+  // which drives the user across pages through their first design. We default
+  // viewed_walkthrough to `true` when undefined (cast — the column lags the
+  // generated types) so pre-migration users aren't re-prompted.
   const initiallyShouldTour =
     !!profile && (profile as any).viewed_walkthrough === false
-  const [tourOpen, setTourOpen] = useState(initiallyShouldTour)
   useEffect(() => {
-    if (initiallyShouldTour) {
-      setTourOpen(true)
-      // Light up the first-design coach so the walkthrough continues into the
-      // design editor (even if they skip the dashboard tour).
-      setWalkthroughActive(true)
-    }
+    if (initiallyShouldTour) setWalkthroughActive(true)
   }, [initiallyShouldTour])
-  const dismissTour = () => {
-    setTourOpen(false)
-    setWalkthroughActive(true)
-    // Persist in the background — failures just mean it re-appears, which is
-    // acceptable for first-run polish.
-    void markWalkthroughViewed().catch(() => undefined)
-  }
-  // Spotlight tour: tight, scannable steps. Three "centered" steps in the
-  // middle (no target) walk through the Literature → Hypotheses → Design
-  // flow that happens after the user clicks New design.
-  const TOUR_STEPS: TourStep[] = [
-    {
-      title: "Welcome to Shadow AI",
-      body: "Have a research question from a meeting or fresh data? Let's turn it into a bench-ready experiment together — right now."
-    },
-    {
-      target: "[data-tour='new-design']",
-      side: "bottom",
-      title: "Start with your real question",
-      body: "Click New design and type the question on your mind. I'll guide you through each step from here."
-    },
-    {
-      title: "Step 1 — Literature",
-      body: "I scout the literature for you. Select one or more papers — your picks become the basis for the hypotheses."
-    },
-    {
-      title: "Step 2 — Hypotheses",
-      body: "From your chosen papers I draft testable hypotheses. Pick one or more to drive the design."
-    },
-    {
-      title: "Step 3 — Design",
-      body: "I generate a full experiment design. Edit any field directly, or chat with the design to update it in real time."
-    },
-    {
-      title: "Everything lives in projects",
-      body: "Each project holds its own Designs, Reports, Chats, and Files — open a project from the sidebar to find them all in one place."
-    },
-    {
-      title: "I'll be right there with you",
-      body: "Click New design — a guide rides along through Problem, Literature, Hypotheses, and Design for your first experiment."
-    }
-  ]
 
   return (
     <div className="bg-paper h-full overflow-auto px-10 pb-16 pt-7">
-      <TourOverlay steps={TOUR_STEPS} open={tourOpen} onClose={dismissTour} />
       <div className="mx-auto max-w-[1060px]">
         {/* Hero */}
         <div className="mb-7 flex items-end justify-between gap-5">

@@ -2664,6 +2664,7 @@ function ProblemTab(props: {
               Problem Statement <span className="text-red-500">*</span>
             </Label>
             <Textarea
+              data-tour="problem-statement"
               value={problemStatement}
               onChange={e => setProblemStatement(e.target.value)}
               placeholder="What is the specific research problem you're investigating?"
@@ -2844,13 +2845,15 @@ function ProblemTab(props: {
         </CardContent>
       </Card>
 
-      <PhaseActionBar
-        onApprove={onApproveAndGenerate}
-        approveLabel="Approve & Start Literature Search"
-        approveDisabled={!canSubmit || !canEdit}
-        isBusy={isBusy}
-        isApproved={isApproved}
-      />
+      <div data-tour="problem-continue">
+        <PhaseActionBar
+          onApprove={onApproveAndGenerate}
+          approveLabel="Approve & Start Literature Search"
+          approveDisabled={!canSubmit || !canEdit}
+          isBusy={isBusy}
+          isApproved={isApproved}
+        />
+      </div>
     </div>
   )
 }

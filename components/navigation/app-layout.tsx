@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 
 import { AppSidebar } from "./app-sidebar"
+import { GuidedTour } from "@/components/onboarding/guided-tour"
 
 interface AppLayoutProps {
   children: React.ReactNode
@@ -95,6 +96,9 @@ export const AppLayout = ({ children }: AppLayoutProps) => {
       </main>
 
       <GlobalSearch />
+      {/* First-run interactive tour — drives the user through their first
+          design across pages. Self-activates from the walkthrough flag. */}
+      <GuidedTour />
     </div>
   )
 }
