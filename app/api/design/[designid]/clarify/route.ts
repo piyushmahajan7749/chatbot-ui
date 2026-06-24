@@ -1,6 +1,12 @@
 import { NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { cookies } from "next/headers"
+
+// The clarify call is a gpt-5.5 reasoning request (~12s). Without this the route
+// inherits the short default function timeout and gets killed mid-call, so the
+// Refine step silently falls through to literature. Mirrors the other LLM
+// routes in vercel.json.
+export const maxDuration = 120
 import { adminDb } from "@/lib/firebase/admin"
 import { evaluateAccess, getPermissionForUser } from "@/lib/design/sharing"
 import {

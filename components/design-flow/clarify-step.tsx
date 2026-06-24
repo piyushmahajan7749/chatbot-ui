@@ -71,15 +71,23 @@ export const ClarifyStep: FC<ClarifyStepProps> = ({
         })
         const json = await res.json().catch(() => ({}))
         if (!res.ok) {
-          // Budget or server error — don't block the flow.
-          onComplete(prior)
+          // A genuine budget block (402) shouldn't pretend to ask questions —
+          // skip straight through. Any other failure (timeout/5xx) surfaces a
+          // retry instead of silently dumping the user into literature.
+          if (res.status === 402) {
+            onComplete(prior)
+            return
+          }
+          setError(
+            "I couldn't generate the questions just now. Retry, or skip ahead."
+          )
           return
         }
         const qs: ClarifyQuestion[] = Array.isArray(json?.questions)
           ? json.questions
           : []
         if (qs.length === 0) {
-          // Model has nothing (more) to ask → proceed with what we have.
+          // Model genuinely has nothing (more) to ask → proceed.
           onComplete(prior)
           return
         }
@@ -88,7 +96,7 @@ export const ClarifyStep: FC<ClarifyStepProps> = ({
         setOther({})
         setSkipped({})
       } catch {
-        onComplete(prior)
+        setError("I couldn't reach the question service. Retry, or skip ahead.")
       } finally {
         setLoading(false)
       }
@@ -177,8 +185,23 @@ export const ClarifyStep: FC<ClarifyStepProps> = ({
               right questions…
             </div>
           ) : error ? (
-            <div className="text-ink-500 py-20 text-center text-sm">
-              {error}
+            <div className="flex flex-col items-center gap-3 py-20 text-center">
+              <p className="text-ink-500 max-w-sm text-sm">{error}</p>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  onClick={() => void fetchRound(round, accumulated)}
+                >
+                  Retry
+                </Button>
+                <Button
+                  variant="ghost"
+                  className="text-ink-500"
+                  onClick={() => onComplete(accumulated)}
+                >
+                  Skip ahead
+                </Button>
+              </div>
             </div>
           ) : (
             <div className="space-y-5">
