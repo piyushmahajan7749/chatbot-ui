@@ -82,6 +82,8 @@ import {
   IconCheck,
   IconChevronDown,
   IconClipboardText,
+  IconFileText,
+  IconFiles,
   IconFlask,
   IconInfoCircle,
   IconLayoutGrid,
@@ -2197,28 +2199,31 @@ Rules:
       </div>
 
       {/* Secondary tab bar: the design flow + its scoped Reports / Chats /
-          Files. These live under the design now, not the project. */}
-      <div className="border-ink-200 shrink-0 border-b bg-white px-6">
-        <div className="flex items-center gap-1">
+          Files. A prominent segmented pill group (icons + filled active chip)
+          so Reports / Chats / Files are obvious — the thin underline tabs were
+          easy to miss. These live under the design now, not the project. */}
+      <div className="border-ink-200 shrink-0 border-b bg-white px-6 py-2.5">
+        <div className="bg-ink-50 ring-ink-200/70 inline-flex items-center gap-1 rounded-xl p-1 ring-1">
           {(
             [
-              ["design", "Design"],
-              ["reports", "Reports"],
-              ["chats", "Chats"],
-              ["files", "Files"]
+              ["design", "Design", <IconClipboardText key="i" size={15} />],
+              ["reports", "Reports", <IconFileText key="i" size={15} />],
+              ["chats", "Chats", <IconMessageCircle key="i" size={15} />],
+              ["files", "Files", <IconFiles key="i" size={15} />]
             ] as const
-          ).map(([key, label]) => (
+          ).map(([key, label, icon]) => (
             <button
               key={key}
               type="button"
               onClick={() => setDesignSubTab(key)}
               className={cn(
-                "relative -mb-px border-b-2 px-3.5 py-2.5 text-[13px] font-medium transition-colors",
+                "inline-flex items-center gap-1.5 rounded-lg px-3.5 py-1.5 text-[13px] font-semibold transition-all",
                 designSubTab === key
-                  ? "border-brick text-ink-900"
-                  : "text-ink-500 hover:text-ink-800 border-transparent"
+                  ? "text-brick bg-white shadow-sm ring-1 ring-black/5"
+                  : "text-ink-500 hover:text-ink-900 hover:bg-white/70"
               )}
             >
+              {icon}
               {label}
             </button>
           ))}

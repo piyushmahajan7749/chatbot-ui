@@ -567,43 +567,32 @@ export function StudioCanvas({
                         <span className={CHIP_STAGE}>Stage: {stageLabel}</span>
                       )}
                       {(() => {
+                        // Report is now generated from INSIDE the design (its
+                        // Reports tab), not from the slab. The slab only shows a
+                        // passive indicator when a report already exists — and
+                        // nothing (no "create" affordance) when one doesn't.
                         const rep = reportStatusOf(d.id)
-                        if (rep) {
-                          return (
-                            <button
-                              data-slab-action
-                              onClick={e => {
-                                e.stopPropagation()
-                                router.push(
-                                  `/${locale}/${actualWorkspaceId}/reports/${rep.report.id}`
-                                )
-                              }}
-                              className={
-                                rep.status === "ready"
-                                  ? "inline-flex items-center gap-1 rounded-full border border-[#1F4A2C]/20 bg-[#DDE9DF] px-2 py-0.5 text-[10.5px] font-medium text-[#1F4A2C] hover:opacity-80"
-                                  : "inline-flex items-center gap-1 rounded-full border border-amber-300/40 bg-amber-100/70 px-2 py-0.5 text-[10.5px] font-medium text-amber-800 hover:opacity-80"
-                              }
-                              title="Open report"
-                            >
-                              <IconReport size={11} />
-                              {rep.status === "ready"
-                                ? "Report ready"
-                                : "Report in progress"}
-                            </button>
-                          )
-                        }
+                        if (!rep) return null
                         return (
                           <button
                             data-slab-action
                             onClick={e => {
                               e.stopPropagation()
-                              setReportDialogDesign(d)
+                              router.push(
+                                `/${locale}/${actualWorkspaceId}/reports/${rep.report.id}`
+                              )
                             }}
-                            className="text-ink-600 border-ink-200 hover:bg-ink-50 inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10.5px] font-medium"
-                            title="Generate a report for this design"
+                            className={
+                              rep.status === "ready"
+                                ? "inline-flex items-center gap-1 rounded-full border border-[#1F4A2C]/20 bg-[#DDE9DF] px-2 py-0.5 text-[10.5px] font-medium text-[#1F4A2C] hover:opacity-80"
+                                : "inline-flex items-center gap-1 rounded-full border border-amber-300/40 bg-amber-100/70 px-2 py-0.5 text-[10.5px] font-medium text-amber-800 hover:opacity-80"
+                            }
+                            title="Open report"
                           >
                             <IconReport size={11} />
-                            Report
+                            {rep.status === "ready"
+                              ? "Report ready"
+                              : "Report in progress"}
                           </button>
                         )
                       })()}
