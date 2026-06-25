@@ -435,21 +435,22 @@ const ChatAnswerStyleToggle: FC = () => {
 }
 
 /**
- * Back arrow in the chat header. Returns to the chat's SCOPED parent — a
- * design-scoped chat goes back to that design, a report chat to that report, a
- * project chat to that project. Unscoped chats fall back to browser history.
- * (Previously it always went to /chat-history, which now redirects to /projects
- * and bounced the user off the design they were editing.)
+ * Back arrow in the chat header. The Chats list on the dashboard is the
+ * canonical home for chats, so — unless an explicit `?ret=` return path was
+ * supplied (e.g. the design rail's Expand, which returns to the design being
+ * edited) — Back lands on the dashboard Chats list. This fixes two reports:
+ * a design-scoped chat used to return to that design's Overview, and an
+ * all-designs chat used to return to the project folder; both should go to
+ * the dashboard Chats list instead.
  */
 const ChatBackNav: FC = () => {
   const router = useRouter()
   const params = useParams() as { locale?: string; workspaceid?: string }
   const searchParams = useSearchParams()
-  const { selectedChat } = useContext(ChatbotUIContext)
 
   const handleBack = () => {
-    // Explicit return path from the rail's Expand wins — independent of whether
-    // selectedChat has loaded yet (fixes back going to the project / chat list).
+    // Explicit return path (rail Expand) wins — independent of whether
+    // selectedChat has loaded yet.
     const ret = searchParams?.get("ret")
     if (ret && ret.startsWith("/")) {
       router.push(ret)
@@ -461,24 +462,7 @@ const ChatBackNav: FC = () => {
       router.back()
       return
     }
-    const base = `/${locale}/${ws}`
-    const scope = selectedChat?.scope
-    const scopeId = selectedChat?.scope_id
-    const projectId = selectedChat?.project_id
-    if (scope === "design" && scopeId) {
-      router.push(`${base}/designs/${scopeId}`)
-      return
-    }
-    if (scope === "report" && scopeId) {
-      router.push(`${base}/reports/${scopeId}`)
-      return
-    }
-    if (scope === "project" && (projectId || scopeId)) {
-      router.push(`${base}/projects/${projectId || scopeId}`)
-      return
-    }
-    // Unscoped / general chat — go back where they came from.
-    router.back()
+    router.push(`/${locale}/${ws}?list=chats`)
   }
 
   return (

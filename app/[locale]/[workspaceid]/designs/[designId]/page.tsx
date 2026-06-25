@@ -302,6 +302,30 @@ function parseContent(raw: unknown): DesignContentV2 | null {
 // builder — the seam that guarantees the chat actually has the experiment's
 // content — is unit-tested. Do not re-inline it here.
 
+/**
+ * Order-insensitive, undefined-stripped JSON serialization used to detect
+ * no-op content saves (so opening a design doesn't bump its "modified" date).
+ * Mirrors JSON.stringify's drop-undefined behaviour but sorts object keys, so
+ * a re-hydrated problem object that differs only in key order / absent optional
+ * fields compares equal to what was last stored.
+ */
+function stableStringify(value: unknown): string {
+  if (value === null || typeof value !== "object")
+    return JSON.stringify(value) ?? "null"
+  if (Array.isArray(value))
+    return "[" + value.map(stableStringify).join(",") + "]"
+  const obj = value as Record<string, unknown>
+  return (
+    "{" +
+    Object.keys(obj)
+      .filter(k => obj[k] !== undefined)
+      .sort()
+      .map(k => JSON.stringify(k) + ":" + stableStringify(obj[k]))
+      .join(",") +
+    "}"
+  )
+}
+
 // ─────────────────────────────────────────────────────────────────────────
 // Page
 // ─────────────────────────────────────────────────────────────────────────
@@ -347,7 +371,13 @@ export default function DesignDetailPage() {
   // phase once the loader catches up.
   const initialTab = (() => {
     const t = searchParams?.get("tab") ?? ""
-    return ["problem", "literature", "hypotheses", "design"].includes(t)
+    return [
+      "overview",
+      "problem",
+      "literature",
+      "hypotheses",
+      "design"
+    ].includes(t)
       ? t
       : "problem"
   })()
@@ -711,12 +741,21 @@ export default function DesignDetailPage() {
     // Merge against the freshest content we know about (updated on every
     // fetch and every phase run) - NOT the React `design` state, which can
     // be stale after an SSE phase run or a prior PATCH.
+    const prevStable = stableStringify(latestContentRef.current)
     const merged: DesignContentV2 = {
       ...latestContentRef.current,
       ...patch,
       schemaVersion: 2
     }
     latestContentRef.current = merged
+    // No-op guard: merely OPENING a design re-hydrates the problem fields and
+    // fires the autosave effect, which used to bump `updated_at` (and so the
+    // dashboard slab's "modified" date) even when nothing actually changed.
+    // Compare an order-insensitive, undefined-stripped serialization and bail
+    // before touching state or the API when the content is unchanged. The
+    // autosave path mirrors the name into problem.title, so an unchanged
+    // content also means an unchanged name — safe to skip the row update too.
+    if (stableStringify(merged) === prevStable) return
     const serialized = JSON.stringify(merged)
     // Keep the shared context in sync so the Designs list + dashboard reflect
     // the new status (e.g. "Completed" after the design phase is approved)
@@ -2051,18 +2090,17 @@ Rules:
               variant="ghost"
               size="sm"
               onClick={() => {
-                // Honor browser history if we have any - takes the user
-                // back to wherever they came from (dashboard, project,
-                // designs list). Deep-linked entries fall back to the
-                // workspace dashboard rather than the projects index.
-                if (
-                  typeof window !== "undefined" &&
-                  window.history.length > 1
-                ) {
-                  router.back()
-                } else {
-                  router.push(`/${locale}/${workspaceId}`)
-                }
+                // Always return to the design's PROJECT page (the list of all
+                // its designs) — never router.back(), which could land on the
+                // /designs/new create modal (the user reported back → the
+                // "new design" window → cancel → sign-in). Designs without a
+                // project fall back to the workspace dashboard.
+                const projectId = design?.project_id
+                router.push(
+                  projectId
+                    ? `/${locale}/${workspaceId}/projects/${projectId}`
+                    : `/${locale}/${workspaceId}`
+                )
               }}
               className="text-ink-500 gap-1"
             >

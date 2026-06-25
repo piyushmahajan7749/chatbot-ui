@@ -6,7 +6,7 @@ import {
   IconMessage,
   IconPlus
 } from "@tabler/icons-react"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import { FC, useContext, useEffect, useMemo, useState } from "react"
 
 import { getProjectsByWorkspaceId } from "@/db/projects"
@@ -92,12 +92,19 @@ type ListKind = "designs" | "reports" | "chats"
 
 export default function WorkspacePage() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const { selectedWorkspace, profile, designs, reports, chats } =
     useContext(ChatbotUIContext)
   // Legacy `query` state from the removed Quick-start input - the
   // Jarvis hero owns the prompt textarea now, so this state is no
   // longer wired to any input. Left out entirely.
-  const [activeList, setActiveList] = useState<ListKind>("designs")
+  // `?list=chats|reports` deep-links a specific list (e.g. a chat's Back arrow
+  // returns the user to the dashboard Chats list, not the design/project).
+  const initialList = ((): ListKind => {
+    const l = searchParams?.get("list")
+    return l === "chats" || l === "reports" ? l : "designs"
+  })()
+  const [activeList, setActiveList] = useState<ListKind>(initialList)
   // Projects aren't on the global context; fetch once so list rows can
   // resolve project_id → name for cross-project attribution chips.
   const [projects, setProjects] = useState<Array<{ id: string; name: string }>>(
@@ -400,7 +407,9 @@ function DesignsList({ items, wsId, onNew, projectNameOf }: DesignsListProps) {
             return (
               <SlabRow
                 key={d.id}
-                onClick={() => wsId && router.push(`/${wsId}/designs/${d.id}`)}
+                onClick={() =>
+                  wsId && router.push(`/${wsId}/designs/${d.id}?tab=overview`)
+                }
                 dateLines={dateLines}
               >
                 <div className="text-ink truncate text-[15px] font-semibold">
