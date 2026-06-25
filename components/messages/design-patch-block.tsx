@@ -20,6 +20,7 @@
  */
 
 import { useContext, useEffect, useMemo, useState } from "react"
+import { useParams } from "next/navigation"
 import ReactMarkdown from "react-markdown"
 import remarkGfm from "remark-gfm"
 import { toast } from "sonner"
@@ -84,12 +85,24 @@ const mdComponents = {
 export function DesignPatchBlock({ patch }: DesignPatchBlockProps) {
   const sig = useMemo(() => patchSignature(patch), [patch])
   const { selectedChat } = useContext(ChatbotUIContext)
-  // The design this chat is scoped to (design-scoped chats carry scope_id =
-  // designId). Lets us apply the edit server-side from ANYWHERE the chat shows
-  // — including the full-screen chat page, where the design editor isn't
-  // mounted to catch a window event.
+  const routeParams = useParams() as { designId?: string }
+  // Resolve which design to edit so we can always use the reliable, persisting
+  // server path. Prefer the chat's design scope; otherwise fall back to the
+  // design route (the in-design chat rail lives on /designs/[designId]), so an
+  // edit proposed in the rail persists even when the chat row isn't tagged
+  // design-scoped. Previously this only read the chat scope, so the in-design
+  // rail fell through to a fire-and-forget window event that reported success
+  // without ever saving — the "applied but unchanged after refresh" bug.
+  const routeDesignId =
+    typeof routeParams?.designId === "string" &&
+    routeParams.designId !== "new" &&
+    routeParams.designId !== "undefined"
+      ? routeParams.designId
+      : null
   const designId =
-    selectedChat?.scope === "design" ? (selectedChat?.scope_id ?? null) : null
+    (selectedChat?.scope === "design"
+      ? (selectedChat?.scope_id ?? null)
+      : null) ?? routeDesignId
   const [state, setState] = useState<"pending" | "applied" | "rejected">(
     appliedSignatures.has(sig) ? "applied" : "pending"
   )
@@ -154,11 +167,15 @@ export function DesignPatchBlock({ patch }: DesignPatchBlockProps) {
       }
       return
     }
-    // Fallback: design editor is mounted (in-rail) — let it apply via event.
+    // No design id resolvable from the chat scope OR the route — we can't
+    // persist the edit from here (and the editor isn't mounted to do it).
+    // Best-effort dispatch for any mounted editor, but do NOT fake success:
+    // the previous unconditional markApplied() is exactly what made the card
+    // say "Applied" while nothing was saved.
     window.dispatchEvent(
       new CustomEvent<DesignPatch>("design:apply-patch", { detail: patch })
     )
-    markApplied()
+    toast.error("Open this design to apply the change.")
   }
 
   const isWholeReplace = !!patch.newBody && !patch.find

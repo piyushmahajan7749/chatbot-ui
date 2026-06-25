@@ -457,6 +457,7 @@ export default function DesignDetailPage() {
     useState<ClarifyCheckpoint | null>(null)
   const [clarifications, setClarifications] = useState<{
     problem?: ClarifyAnswer[]
+    hypothesis?: ClarifyAnswer[]
     design?: ClarifyAnswer[]
   }>({})
 
@@ -1905,6 +1906,34 @@ export default function DesignDetailPage() {
   // Tier-3 long-context dump: pass the full design (all hypotheses, all
   // papers, all generated designs). buildDesignChatContext caps at
   // ~75k tokens; if oversize, RAG fallback would kick in (not yet wired).
+  // Flatten the researcher's explicit presets so the chat honours them and
+  // asks before overriding (e.g. a stated condition cap).
+  const chatPresets = (() => {
+    const parts: string[] = []
+    if (constraintMaterial.trim())
+      parts.push(`Material constraint: ${constraintMaterial.trim()}`)
+    if (constraintTime.trim())
+      parts.push(`Time constraint: ${constraintTime.trim()}`)
+    if (constraintEquipment.trim())
+      parts.push(`Equipment constraint: ${constraintEquipment.trim()}`)
+    if (successCriteria.trim())
+      parts.push(`Success criteria: ${successCriteria.trim()}`)
+    if (includeReplicates)
+      parts.push(
+        `Replicates: ${includeReplicates === "yes" ? "include replicates" : "no replicates"}`
+      )
+    if (additionalDetails.trim())
+      parts.push(`Additional details: ${additionalDetails.trim()}`)
+    const cl = clarifications
+    const clText = clarifyAnswersToText([
+      ...(cl?.problem ?? []),
+      ...(cl?.hypothesis ?? []),
+      ...(cl?.design ?? [])
+    ])
+    if (clText.trim()) parts.push(`Refine answers:\n${clText.trim()}`)
+    return parts.join("\n")
+  })()
+
   const baseChatContextPrompt = buildDesignChatContext({
     title,
     problemStatement,
@@ -1915,7 +1944,8 @@ export default function DesignDetailPage() {
     hypotheses,
     papers,
     generatedDesigns,
-    activeDesign
+    activeDesign,
+    presets: chatPresets
   })
   // When the user asks for a change ("change the buffer to 20 mM",
   // "swap the readout method") we want the assistant to PROPOSE an edit
@@ -1948,6 +1978,11 @@ Rules:
 - Either \`find\`+\`replace\` OR \`newBody\` — not both.
 - Emit at most one \`<design-patch>\` per response. If multiple edits are
   needed, ask the user to confirm the first before proposing the next.
+- IMPORTANT — researcher presets: if an edit would CHANGE or VIOLATE a preset
+  listed under "Researcher presets & constraints" (e.g. they capped the design
+  at 8 conditions and now ask to add a 9th), do NOT emit the \`<design-patch>\`
+  yet. First remind them of the SPECIFIC preset and ask them to confirm they
+  want to override it. Only emit the patch after they confirm in a reply.
 - Wrap the JSON in the tags exactly as shown; do not add markdown fencing.`
 
   // ── Apply patches that the chat proposed and the user approved ────────

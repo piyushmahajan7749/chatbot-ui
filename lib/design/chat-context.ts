@@ -34,6 +34,12 @@ export interface DesignChatContextInput {
   papers?: Paper[]
   generatedDesigns?: GeneratedDesign[]
   activeDesign: GeneratedDesign | undefined
+  /**
+   * Flattened researcher-set presets / constraints (condition caps, material /
+   * time / equipment limits, success criteria, Refine answers). Surfaced so the
+   * chat honours them and asks before overriding one.
+   */
+  presets?: string
 }
 
 export function buildDesignChatContext(input: DesignChatContextInput): string {
@@ -51,6 +57,18 @@ export function buildDesignChatContext(input: DesignChatContextInput): string {
   if (input.phase) problemLines.push(`Phase: ${input.phase}`)
   if (problemLines.length) {
     lines.push("", "## Problem", ...problemLines)
+  }
+
+  // Researcher-set presets are AUTHORITATIVE. The chat must honour them and,
+  // crucially, must not silently override one (e.g. a stated "8 conditions
+  // only" cap) — see the override-confirmation rule in the patch instructions.
+  if (input.presets?.trim()) {
+    lines.push(
+      "",
+      "## Researcher presets & constraints (authoritative)",
+      "These were explicitly set by the researcher and are HARD constraints on the design. Treat them as binding:",
+      input.presets.trim()
+    )
   }
 
   // All hypotheses (selected first, then the rest) - full reasoning, no
