@@ -351,10 +351,12 @@ export interface DesignContentV2 {
   /**
    * Answers to the "Refine" clarifying questions at each checkpoint. Persisted
    * for auditability (job story 4) and re-shown when the user re-opens a
-   * checkpoint. `problem` = before literature; `design` = before generation.
+   * checkpoint. `problem` = before literature; `hypothesis` = before hypothesis
+   * generation (after paper selection); `design` = before design generation.
    */
   clarifications?: {
     problem?: ClarifyAnswer[]
+    hypothesis?: ClarifyAnswer[]
     design?: ClarifyAnswer[]
   }
 }

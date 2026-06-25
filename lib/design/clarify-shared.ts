@@ -7,10 +7,14 @@
  */
 import type { ClarifyAnswer } from "@/lib/design-agent"
 
-export type ClarifyCheckpoint = "problem" | "design"
+export type ClarifyCheckpoint = "problem" | "hypothesis" | "design"
 
-/** Hard caps so the adaptive question loop is bounded. */
-export const CLARIFY_MAX_ROUNDS = 2
+/**
+ * Hard caps. ROUNDS = 1 keeps every checkpoint to a SINGLE page of questions
+ * (the user wants "ask the questions on 1 page every time" — no multi-step
+ * drill-down), with up to TOTAL questions on that one page.
+ */
+export const CLARIFY_MAX_ROUNDS = 1
 export const CLARIFY_MAX_TOTAL = 6
 
 /**

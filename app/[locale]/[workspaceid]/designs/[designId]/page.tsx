@@ -936,6 +936,9 @@ export default function DesignDetailPage() {
     }
   }
 
+  // Gate: after the user selects papers, open the Refine step (hypothesis
+  // checkpoint) BEFORE generating hypotheses, so the questions are specific to
+  // the selected literature. It runs hypothesis generation on complete.
   const handleApproveAndGenerateHypotheses = async () => {
     if (!ensureCanEdit()) return
     if (selectedPapers.length === 0) {
@@ -946,6 +949,10 @@ export default function DesignDetailPage() {
       })
       return
     }
+    setRefineCheckpoint("hypothesis")
+  }
+
+  const runHypothesisGeneration = async (clarifyText?: string) => {
     const nextApproved: PhaseKey[] = ["problem", "literature"]
     setApprovedPhases(nextApproved)
     setActiveTab("hypotheses")
@@ -953,11 +960,20 @@ export default function DesignDetailPage() {
     setHypothesesProgress([])
     setHypothesesError(null)
     try {
+      // Carry the Refine answers into the hypothesis prompt via the existing
+      // additionalDetails carrier (appended to any problem-stage details).
+      const mergedDetails = [additionalDetails, clarifyText]
+        .map(s => (s ?? "").trim())
+        .filter(Boolean)
+        .join("\n\n")
       const content = await runPhaseBackground(
         designId,
         {
           phase: "hypotheses",
-          problem: currentProblem(),
+          problem: {
+            ...currentProblem(),
+            ...(mergedDetails ? { additionalDetails: mergedDetails } : {})
+          },
           papers,
           approvedPhases: nextApproved
         },
@@ -1051,6 +1067,8 @@ export default function DesignDetailPage() {
     if (cp === "problem") {
       setAdditionalDetails(text) // carrier for the downstream phases
       await runLiteratureGeneration(text)
+    } else if (cp === "hypothesis") {
+      await runHypothesisGeneration(text)
     } else {
       await runDesignGeneration(text)
     }

@@ -99,7 +99,9 @@ export async function generateClarifyingQuestions(
   const aim =
     checkpoint === "problem"
       ? "Your questions will steer a LITERATURE SEARCH and the downstream design. Focus on what's needed to find the RIGHT primary research and to scope the study: target system/molecule + operating concentrations, the specific variable(s) under test and their ranges, the readouts/endpoints, key constraints (material available, time, equipment), and what 'success' looks like."
-      : "Your questions will drive EXPERIMENTAL DESIGN GENERATION. Focus on what makes the design concrete and runnable: working/stock concentrations, exact factor levels + how many conditions (an upper bound, not a quota), controls that must be included, stress/parameter settings (e.g. temperature, agitation/rotation speed, pH, time), replicate intent, and measurement methods."
+      : checkpoint === "hypothesis"
+        ? "Your questions will drive HYPOTHESIS GENERATION from the selected literature. Go deep on what shapes a sharp, testable hypothesis: the proposed mechanism / direction of effect, which variable(s) the hypothesis should center on, the comparison/baseline it's framed against, the expected magnitude or threshold of effect, what result would FALSIFY it, and which findings from the selected papers it should build on or challenge."
+        : "Your questions will drive EXPERIMENTAL DESIGN GENERATION. Focus on what makes the design concrete and runnable: working/stock concentrations, exact factor levels + how many conditions (an upper bound, not a quota), controls that must be included, stress/parameter settings (e.g. temperature, agitation/rotation speed, pH, time), replicate intent, and measurement methods."
 
   const system = `You are a sharp, senior experimental-design reviewer (think rigorous PI in a group meeting). ${aim}
 
@@ -107,7 +109,7 @@ Rules:
 - Ask ONLY the highest-value questions — the ones whose answers most change the outcome. Quality over quantity.
 - Each question is multiple-choice with 2–6 CONCRETE, domain-appropriate options (real values/levels, not vague labels). A free-text answer is always available to the user on top, so don't add an "Other" option yourself.
 - kind = "single" when one answer fits, "multi" when several can apply.
-- Be specific to THIS problem${checkpoint === "design" ? " and the chosen hypothesis" : ""} — reference the actual system, not generic placeholders.
+- Be specific to THIS problem${checkpoint === "design" ? " and the chosen hypothesis" : checkpoint === "hypothesis" ? " and the selected literature" : ""} — reference the actual system, not generic placeholders.
 - ${round > 1 ? "This is a follow-up round: ask ONLY questions still genuinely needed to remove design ambiguity after the prior answers. If nothing material remains, return done=true with an empty questions array." : "Return 3–5 questions."}
 - Never ask for information already provided.`
 

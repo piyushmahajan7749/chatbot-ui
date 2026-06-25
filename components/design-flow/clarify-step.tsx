@@ -49,11 +49,15 @@ export const ClarifyStep: FC<ClarifyStepProps> = ({
   const title =
     checkpoint === "problem"
       ? "Refine — sharpen the literature search"
-      : "Refine — make the design specific"
+      : checkpoint === "hypothesis"
+        ? "Refine — sharpen the hypotheses"
+        : "Refine — make the design specific"
   const subtitle =
     checkpoint === "problem"
       ? "A few questions so I find the right primary research and scope the study to your system."
-      : "A few questions so the generated design uses your real parameters, controls, and conditions."
+      : checkpoint === "hypothesis"
+        ? "A few questions so the hypotheses build sharply on the papers you selected — mechanism, direction, and what would falsify them."
+        : "A few questions so the generated design uses your real parameters, controls, and conditions."
 
   const fetchRound = useCallback(
     async (roundNo: number, prior: ClarifyAnswer[]) => {

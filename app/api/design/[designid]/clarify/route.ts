@@ -29,7 +29,8 @@ import {
  * POST /api/design/[designid]/clarify
  *
  * Generates the next batch of "Refine" clarifying questions for a checkpoint.
- * Body: { checkpoint: "problem" | "design", priorAnswers?: ClarifyAnswer[],
+ * Body: { checkpoint: "problem" | "hypothesis" | "design",
+ *         priorAnswers?: ClarifyAnswer[],
  *         round?: number }. The client enforces the round/total caps; here we
  *         just produce questions (or done:true) from the stored design context.
  */
@@ -82,9 +83,13 @@ export async function POST(
       round?: number
     } | null
     const checkpoint = body?.checkpoint
-    if (checkpoint !== "problem" && checkpoint !== "design") {
+    if (
+      checkpoint !== "problem" &&
+      checkpoint !== "hypothesis" &&
+      checkpoint !== "design"
+    ) {
       return NextResponse.json(
-        { error: "checkpoint must be 'problem' or 'design'" },
+        { error: "checkpoint must be 'problem', 'hypothesis', or 'design'" },
         { status: 400 }
       )
     }
@@ -110,11 +115,25 @@ export async function POST(
             .map(h => h.text)
             .join("; ") || undefined
         : undefined
+    // Literature context:
+    //  • design checkpoint   → the synthesised "what others have done" summary
+    //  • hypothesis checkpoint → the papers the user actually SELECTED, so the
+    //    questions probe how the hypothesis should build on / challenge them
     const literature =
       checkpoint === "design"
         ? content?.literatureContext?.whatOthersHaveDone?.slice(0, 1200) ||
           undefined
-        : undefined
+        : checkpoint === "hypothesis"
+          ? (content?.papers ?? [])
+              .filter(p => p.selected)
+              .slice(0, 8)
+              .map(
+                p =>
+                  `- ${p.title}${p.year ? ` (${p.year})` : ""}: ${(p.summary || "").slice(0, 220)}`
+              )
+              .join("\n")
+              .slice(0, 1600) || undefined
+          : undefined
 
     const result = await generateClarifyingQuestions({
       checkpoint,
