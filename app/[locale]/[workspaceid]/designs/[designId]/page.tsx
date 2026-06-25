@@ -81,6 +81,7 @@ import {
   downloadRationaleCitations,
   downloadSOP
 } from "@/lib/design/export"
+import { labStandardsToText } from "@/lib/settings/preferences"
 import { applyDesignPatch } from "@/lib/design/apply-patch"
 import {
   IconAlertTriangle,
@@ -1051,8 +1052,20 @@ export default function DesignDetailPage() {
       const designSpec = clarifyText?.trim()
         ? { notes: clarifyText.trim() }
         : {}
+      // Fold the researcher's Lab standards (Settings) into the design prompt
+      // so generated designs honour their replicate / stats / controls /
+      // documentation defaults.
+      const baseProblem = currentProblem()
+      const mergedDetails = [
+        baseProblem.additionalDetails,
+        labStandardsToText()
+      ]
+        .map(s => (s ?? "").trim())
+        .filter(Boolean)
+        .join("\n\n")
       const problem = {
-        ...currentProblem(),
+        ...baseProblem,
+        ...(mergedDetails ? { additionalDetails: mergedDetails } : {}),
         ...(Object.keys(designSpec).length ? { designSpec } : {})
       }
       const content = await runPhaseBackground(
@@ -1983,6 +1996,8 @@ export default function DesignDetailPage() {
       ...(cl?.design ?? [])
     ])
     if (clText.trim()) parts.push(`Refine answers:\n${clText.trim()}`)
+    const lab = labStandardsToText()
+    if (lab.trim()) parts.push(lab.trim())
     return parts.join("\n")
   })()
 

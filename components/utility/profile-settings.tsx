@@ -12,15 +12,19 @@ import { OPEN_BILLING_EVENT } from "@/lib/billing/handle-budget-error"
 import { supabase } from "@/lib/supabase/browser-client"
 import { cn } from "@/lib/utils"
 import {
+  IconBell,
   IconChartBar,
   IconCircleCheckFilled,
   IconCircleXFilled,
+  IconDatabase,
   IconFileDownload,
+  IconFlask,
   IconLoader2,
   IconLogout,
   IconPalette,
   IconShieldLock,
   IconSparkles,
+  IconTrash,
   IconUser,
   IconX,
   type TablerIconsProps
@@ -46,6 +50,16 @@ import { Input } from "../ui/input"
 import { Label } from "../ui/label"
 import { LimitDisplay } from "../ui/limit-display"
 import { TextareaAutosize } from "../ui/textarea-autosize"
+import {
+  DEFAULT_LAB_STANDARDS,
+  DEFAULT_NOTIFICATIONS,
+  getLabStandards,
+  getNotificationPrefs,
+  setLabStandards,
+  setNotificationPrefs,
+  type LabStandards,
+  type NotificationPrefs
+} from "@/lib/settings/preferences"
 
 interface ProfileSettingsProps {
   /**
@@ -58,7 +72,14 @@ interface ProfileSettingsProps {
   onOpenChange?: (open: boolean) => void
 }
 
-type PageId = "account" | "personalization" | "appearance" | "usage" | "privacy"
+type PageId =
+  | "account"
+  | "personalization"
+  | "appearance"
+  | "lab"
+  | "notifications"
+  | "usage"
+  | "data"
 
 interface NavItemDef {
   id: PageId
@@ -94,6 +115,21 @@ const NAV: NavItemDef[] = [
     subtitle: "Customize how Shadow AI looks."
   },
   {
+    id: "lab",
+    label: "Lab standards",
+    icon: IconFlask,
+    title: "Lab standards & defaults",
+    subtitle:
+      "Defaults applied to every generated design — replicates, statistics, controls, and documentation."
+  },
+  {
+    id: "notifications",
+    label: "Notifications",
+    icon: IconBell,
+    title: "Notifications",
+    subtitle: "Choose when Shadow AI lets you know about long-running work."
+  },
+  {
     id: "usage",
     label: "Usage & billing",
     icon: IconChartBar,
@@ -101,11 +137,11 @@ const NAV: NavItemDef[] = [
     subtitle: "Track usage, manage your plan, and the creator program."
   },
   {
-    id: "privacy",
-    label: "Privacy",
-    icon: IconShieldLock,
-    title: "Privacy & data",
-    subtitle: "Control your data and your session."
+    id: "data",
+    label: "Data & account",
+    icon: IconDatabase,
+    title: "Data & account",
+    subtitle: "Export your data, manage your session, or delete your account."
   }
 ]
 
@@ -507,6 +543,10 @@ export const ProfileSettings: FC<ProfileSettingsProps> = ({
 
             {page === "appearance" && <AppearancePage />}
 
+            {page === "lab" && <LabStandardsPage />}
+
+            {page === "notifications" && <NotificationsPage />}
+
             {page === "usage" && (
               <div className="space-y-6">
                 <UsageBillingPanel />
@@ -514,7 +554,7 @@ export const ProfileSettings: FC<ProfileSettingsProps> = ({
               </div>
             )}
 
-            {page === "privacy" && (
+            {page === "data" && (
               <div className="max-w-xl space-y-4">
                 <div className="border-line bg-surface flex items-center justify-between gap-4 rounded-lg border p-4">
                   <div className="min-w-0">
@@ -545,6 +585,39 @@ export const ProfileSettings: FC<ProfileSettingsProps> = ({
                   <Button variant="outline" size="sm" onClick={handleSignOut}>
                     <IconLogout size={15} className="mr-1.5" />
                     Sign out
+                  </Button>
+                </div>
+
+                <div className="flex items-center justify-between gap-4 rounded-lg border border-red-200 bg-red-50/60 p-4">
+                  <div className="min-w-0">
+                    <div className="text-sm font-medium text-red-700">
+                      Delete account
+                    </div>
+                    <p className="mt-0.5 text-[13px] text-red-600/80">
+                      Permanently removes your account and data. This can’t be
+                      undone — we’ll confirm and process it over email.
+                    </p>
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="border-red-300 text-red-700 hover:bg-red-100"
+                    onClick={() => {
+                      const ok = window.confirm(
+                        "Request account deletion? We’ll email you to confirm before anything is removed."
+                      )
+                      if (!ok) return
+                      const subject = encodeURIComponent(
+                        "Delete my Shadow AI account"
+                      )
+                      const body = encodeURIComponent(
+                        `Please delete my account${email ? ` (${email})` : ""} and all associated data.`
+                      )
+                      window.location.href = `mailto:support@shadowai.app?subject=${subject}&body=${body}`
+                    }}
+                  >
+                    <IconTrash size={15} className="mr-1.5" />
+                    Delete
                   </Button>
                 </div>
               </div>
@@ -610,6 +683,190 @@ const AppearancePage: FC = () => {
           </button>
         ))}
       </div>
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Lab standards — defaults injected into design generation + chat (localStorage
+// via lib/settings/preferences; read by the design page at generation time).
+// ---------------------------------------------------------------------------
+const SegField: FC<{
+  label: string
+  hint?: string
+  value: string
+  options: { value: string; label: string }[]
+  onChange: (v: string) => void
+}> = ({ label, hint, value, options, onChange }) => (
+  <div className="space-y-1.5">
+    <Label>{label}</Label>
+    {hint && <p className="text-ink-3 text-[12.5px]">{hint}</p>}
+    <div className="border-line bg-surface inline-flex flex-wrap gap-1 rounded-md border p-1">
+      {options.map(o => (
+        <button
+          key={o.value}
+          type="button"
+          onClick={() => onChange(o.value)}
+          className={cn(
+            "rounded px-3 py-1.5 text-[12.5px] font-medium transition-colors",
+            value === o.value
+              ? "bg-paper-3 text-ink"
+              : "text-ink-2 hover:text-ink"
+          )}
+        >
+          {o.label}
+        </button>
+      ))}
+    </div>
+  </div>
+)
+
+const LabStandardsPage: FC = () => {
+  const [ls, setLs] = useState<LabStandards>(DEFAULT_LAB_STANDARDS)
+  useEffect(() => setLs(getLabStandards()), [])
+  const update = (patch: Partial<LabStandards>) =>
+    setLs(prev => {
+      const next = { ...prev, ...patch }
+      setLabStandards(next)
+      return next
+    })
+
+  return (
+    <div className="max-w-xl space-y-6">
+      <p className="text-ink-3 text-[13px]">
+        Applied as defaults to every new generated design and the design chat.
+        Saved automatically, on this device.
+      </p>
+      <SegField
+        label="Replicates"
+        value={ls.replicates}
+        onChange={v => update({ replicates: v as LabStandards["replicates"] })}
+        options={[
+          { value: "auto", label: "Let the model decide" },
+          { value: "require", label: "Always include" },
+          { value: "single", label: "Single run (n=1)" }
+        ]}
+      />
+      <SegField
+        label="Statistical rigor"
+        value={ls.statistics}
+        onChange={v => update({ statistics: v as LabStandards["statistics"] })}
+        options={[
+          { value: "auto", label: "Model decides" },
+          { value: "standard", label: "Standard (α 0.05, power 0.8)" },
+          { value: "strict", label: "Strict (α 0.01, power 0.9)" }
+        ]}
+      />
+      <SegField
+        label="Controls"
+        value={ls.controls}
+        onChange={v => update({ controls: v as LabStandards["controls"] })}
+        options={[
+          { value: "auto", label: "Model decides" },
+          { value: "require", label: "Require vehicle + pos + neg" }
+        ]}
+      />
+      <SegField
+        label="Documentation detail"
+        value={ls.documentation}
+        onChange={v =>
+          update({ documentation: v as LabStandards["documentation"] })
+        }
+        options={[
+          { value: "concise", label: "Concise" },
+          { value: "detailed", label: "Detailed" },
+          { value: "regulatory", label: "Regulatory / SOP-grade" }
+        ]}
+      />
+      <div className="space-y-1.5">
+        <Label>House rules (optional)</Label>
+        <TextareaAutosize
+          value={ls.notes}
+          onValueChange={v => update({ notes: v })}
+          placeholder="e.g. Always log lot numbers; use WFI for all buffers; cap at 12 conditions."
+          minRows={3}
+          maxRows={8}
+        />
+      </div>
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Notifications — device-local preferences.
+// ---------------------------------------------------------------------------
+const ToggleSwitch: FC<{ on: boolean; onClick: () => void }> = ({
+  on,
+  onClick
+}) => (
+  <button
+    type="button"
+    role="switch"
+    aria-checked={on}
+    onClick={onClick}
+    className={cn(
+      "relative h-6 w-10 shrink-0 rounded-full transition-colors",
+      on ? "bg-rust" : "bg-line-strong"
+    )}
+  >
+    <span
+      className={cn(
+        "absolute top-0.5 size-5 rounded-full bg-white shadow transition-all",
+        on ? "left-[18px]" : "left-0.5"
+      )}
+    />
+  </button>
+)
+
+const NotificationsPage: FC = () => {
+  const [np, setNp] = useState<NotificationPrefs>(DEFAULT_NOTIFICATIONS)
+  useEffect(() => setNp(getNotificationPrefs()), [])
+  const toggle = (key: keyof NotificationPrefs) =>
+    setNp(prev => {
+      const next = { ...prev, [key]: !prev[key] }
+      setNotificationPrefs(next)
+      return next
+    })
+
+  const rows: {
+    key: keyof NotificationPrefs
+    title: string
+    desc: string
+  }[] = [
+    {
+      key: "emailOnComplete",
+      title: "Email when work finishes",
+      desc: "Get an email when a long design or report finishes generating."
+    },
+    {
+      key: "inAppOnComplete",
+      title: "In-app alerts",
+      desc: "Show a notification in the app when work completes."
+    },
+    {
+      key: "weeklyDigest",
+      title: "Weekly digest",
+      desc: "A weekly summary of your designs, reports, and usage."
+    }
+  ]
+
+  return (
+    <div className="max-w-xl space-y-3">
+      <p className="text-ink-3 text-[13px]">
+        Preferences saved on this device.
+      </p>
+      {rows.map(r => (
+        <div
+          key={r.key}
+          className="border-line bg-surface flex items-center justify-between gap-4 rounded-lg border p-4"
+        >
+          <div className="min-w-0">
+            <div className="text-ink text-sm font-medium">{r.title}</div>
+            <p className="text-ink-3 mt-0.5 text-[13px]">{r.desc}</p>
+          </div>
+          <ToggleSwitch on={np[r.key]} onClick={() => toggle(r.key)} />
+        </div>
+      ))}
     </div>
   )
 }
