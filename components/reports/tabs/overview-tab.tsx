@@ -10,7 +10,7 @@ import {
   IconInfoCircle,
   IconUpload
 } from "@tabler/icons-react"
-import { FC } from "react"
+import { FC, ReactNode } from "react"
 
 export type ReportTab = "overview" | "inputs" | "report"
 
@@ -47,6 +47,60 @@ const STATUS_COPY: Record<
   }
 }
 
+// Light markdown → plain text for the poster summary boxes.
+const toPlain = (s: unknown, limit = 420): string => {
+  if (typeof s !== "string") return ""
+  const t = s
+    .replace(/```[\s\S]*?```/g, " ")
+    .replace(/\|.*\|/g, " ") // drop table rows — too dense for a poster box
+    .replace(/[#>*_`]/g, "")
+    .replace(/^\s*[-•]\s+/gm, "• ")
+    .replace(/\n{2,}/g, "\n")
+    .replace(/[ \t]{2,}/g, " ")
+    .trim()
+  return t.length > limit ? t.slice(0, limit).trimEnd() + " …" : t
+}
+
+const firstNonEmpty = (draft: any, keys: string[]): string => {
+  for (const k of keys) {
+    const v = toPlain(draft?.[k])
+    if (v) return v
+  }
+  return ""
+}
+
+/** A labelled poster box. */
+const PosterBox: FC<{
+  label: string
+  accent: string
+  body: string
+  children?: ReactNode
+  className?: string
+}> = ({ label, accent, body, children, className }) => (
+  <div
+    className={
+      "border-ink-200 flex flex-col rounded-2xl border bg-white p-4 " +
+      (className ?? "")
+    }
+  >
+    <div
+      className={
+        "mb-1.5 text-[10px] font-bold uppercase tracking-[0.14em] " + accent
+      }
+    >
+      {label}
+    </div>
+    {body ? (
+      <p className="text-ink-700 whitespace-pre-line text-[12.5px] leading-relaxed">
+        {body}
+      </p>
+    ) : (
+      <p className="text-ink-400 text-[12.5px] italic">Not available yet.</p>
+    )}
+    {children}
+  </div>
+)
+
 export const OverviewTab: FC<OverviewTabProps> = ({
   report,
   fileCount,
@@ -59,7 +113,127 @@ export const OverviewTab: FC<OverviewTabProps> = ({
   const statusMeta = STATUS_COPY[generationStatus]
   const draft = report?.report_draft ?? null
   const hasDraft = draft && typeof draft === "object"
+  const chart =
+    typeof report?.chart_image === "string" && report.chart_image
+      ? (report.chart_image as string)
+      : null
 
+  // Poster fields, mapped from the draft section keys.
+  const objective =
+    toPlain(report?.description) ||
+    firstNonEmpty(draft, ["aim", "introduction"])
+  const design = firstNonEmpty(draft, [
+    "procedure",
+    "preparation",
+    "material",
+    "setup"
+  ])
+  const data = firstNonEmpty(draft, ["dataAnalysis"])
+  const result = firstNonEmpty(draft, ["results", "discussion"])
+  const conclusion = firstNonEmpty(draft, ["conclusion", "nextSteps"])
+
+  const StatusRow = (
+    <div className="flex flex-wrap items-center gap-2">
+      <span
+        className={
+          "rounded-full border px-3 py-1 text-xs font-semibold " +
+          statusMeta.tone
+        }
+      >
+        {statusMeta.label}
+      </span>
+      {report?.name && (
+        <span className="text-ink-500 text-sm">{report.name}</span>
+      )}
+      {report?.source_design_id && onOpenDesign && (
+        <Button
+          variant="outline"
+          size="sm"
+          className="ml-auto gap-1.5"
+          onClick={onOpenDesign}
+        >
+          <IconFlask size={13} className="text-teal-journey" />
+          {sourceDesignName || report.source_design_name || "design"}
+          <IconExternalLink size={12} />
+        </Button>
+      )}
+    </div>
+  )
+
+  // ── Poster view (a one-pager once the report has a draft) ────────────────
+  if (hasDraft) {
+    return (
+      <div className="space-y-4">
+        {StatusRow}
+
+        <div className="border-ink-200 overflow-hidden rounded-2xl border bg-white">
+          <div className="border-ink-200 from-teal-journey-tint/50 border-b bg-gradient-to-r to-transparent px-5 py-4">
+            <div className="text-teal-journey text-[10px] font-bold uppercase tracking-[0.16em]">
+              Report at a glance
+            </div>
+            <h2 className="text-ink-900 mt-0.5 text-lg font-bold leading-tight">
+              {report?.name || "Report"}
+            </h2>
+          </div>
+
+          <div className="space-y-3 p-4">
+            <PosterBox
+              label="Objective"
+              accent="text-teal-journey"
+              body={objective}
+            />
+
+            <div className="grid gap-3 md:grid-cols-2">
+              <PosterBox
+                label="Design & method"
+                accent="text-orange-product"
+                body={design}
+              />
+              <PosterBox label="Data" accent="text-purple-persona" body={data}>
+                {chart && (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={chart}
+                    alt="Result visualization"
+                    className="border-ink-200 mt-3 w-full rounded-lg border bg-white"
+                  />
+                )}
+              </PosterBox>
+            </div>
+
+            <div className="grid gap-3 md:grid-cols-2">
+              <PosterBox
+                label="Result"
+                accent="text-sage-brand"
+                body={result}
+              />
+              <PosterBox
+                label="Conclusion"
+                accent="text-brick"
+                body={conclusion}
+              />
+            </div>
+          </div>
+
+          <div className="border-ink-200 flex items-center justify-between border-t px-5 py-3">
+            <span className="text-ink-400 text-xs">
+              A summary — open the full report for every section.
+            </span>
+            <Button
+              size="sm"
+              className="gap-1.5"
+              onClick={() => onGoToTab("report")}
+            >
+              <IconFileText size={14} /> Open full report
+              <IconArrowRight size={14} />
+            </Button>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  // ── Pre-generation view (no draft yet) ───────────────────────────────────
   const phaseCards: Array<{
     key: ReportTab
     title: string
@@ -79,7 +253,7 @@ export const OverviewTab: FC<OverviewTabProps> = ({
     {
       key: "report",
       title: "Report",
-      summary: hasDraft ? "Theory, method, and analysis sections" : "Pending",
+      summary: "Pending — generate to see sections",
       icon: <IconFileText size={20} />,
       accent: "text-teal-journey"
     }
@@ -94,19 +268,7 @@ export const OverviewTab: FC<OverviewTabProps> = ({
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="flex flex-wrap items-center gap-2">
-            <span
-              className={
-                "rounded-full border px-3 py-1 text-xs font-semibold " +
-                statusMeta.tone
-              }
-            >
-              {statusMeta.label}
-            </span>
-            {report?.name && (
-              <span className="text-ink-500 text-sm">{report.name}</span>
-            )}
-          </div>
+          {StatusRow}
 
           {report?.description ? (
             <div>
@@ -123,30 +285,6 @@ export const OverviewTab: FC<OverviewTabProps> = ({
               <div className="text-ink-500 text-sm">
                 Add an objective on the <strong>Inputs</strong> tab to describe
                 what this report should cover.
-              </div>
-            </div>
-          )}
-
-          {report?.source_design_id && (
-            <div>
-              <div className="text-ink-400 mb-1 text-[11px] font-bold uppercase tracking-widest">
-                Generated from design
-              </div>
-              <div className="border-ink-200 flex items-center justify-between gap-3 rounded-xl border p-3">
-                <span className="text-ink-800 flex items-center gap-2 text-sm font-medium">
-                  <IconFlask size={15} className="text-teal-journey" />
-                  {sourceDesignName || report.source_design_name || "Design"}
-                </span>
-                {onOpenDesign && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="gap-1.5"
-                    onClick={onOpenDesign}
-                  >
-                    <IconExternalLink size={13} /> Open design
-                  </Button>
-                )}
               </div>
             </div>
           )}
