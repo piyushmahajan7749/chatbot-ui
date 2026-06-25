@@ -1,6 +1,13 @@
 "use client"
 
-import { useContext, useEffect, useMemo, useRef, useState } from "react"
+import {
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState
+} from "react"
 import { useParams, useRouter, useSearchParams } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -81,6 +88,7 @@ import {
   IconChartBar,
   IconCheck,
   IconChevronDown,
+  IconArrowBackUp,
   IconClipboardText,
   IconFileText,
   IconFiles,
@@ -510,6 +518,17 @@ export default function DesignDetailPage() {
   useEffect(() => {
     generatedDesignsRef.current = generatedDesigns
   }, [generatedDesigns])
+  // Session-level undo stack for chat-applied edits — snapshots the designs
+  // BEFORE each applied change so the user can step back to a previous version.
+  const undoStackRef = useRef<GeneratedDesign[][]>([])
+  const [undoDepth, setUndoDepth] = useState(0)
+  const pushUndoSnapshot = useCallback((prev: GeneratedDesign[]) => {
+    if (!prev || prev.length === 0) return
+    // Deep-clone so later mutations to the live array can't corrupt history.
+    undoStackRef.current.push(JSON.parse(JSON.stringify(prev)))
+    if (undoStackRef.current.length > 25) undoStackRef.current.shift()
+    setUndoDepth(undoStackRef.current.length)
+  }, [])
   const [activeDesignId, setActiveDesignId] = useState<string | null>(null)
   const [designProgress, setDesignProgress] = useState<PhaseProgress[]>([])
   const [designVersions, setDesignVersions] = useState<DesignVersionSnapshot[]>(
@@ -1078,6 +1097,33 @@ export default function DesignDetailPage() {
   const handleClarifyCancel = () => {
     // Back out to the prior step — no phase run.
     setRefineCheckpoint(null)
+  }
+
+  // Step back to the design state before the last chat-applied edit.
+  const handleUndo = () => {
+    if (!ensureCanEdit()) return
+    const prev = undoStackRef.current.pop()
+    setUndoDepth(undoStackRef.current.length)
+    if (!prev) return
+    generatedDesignsRef.current = prev
+    setGeneratedDesigns(prev)
+    if (!prev.find(d => d.id === activeDesignId)) {
+      setActiveDesignId(prev[0]?.id ?? null)
+    }
+    void persistContent({ designs: prev })
+      .then(() =>
+        toast({
+          title: "Reverted",
+          description: "Restored the previous version of the design."
+        })
+      )
+      .catch(() =>
+        toast({
+          title: "Revert failed",
+          description: "Couldn't save the revert — reload and try again.",
+          variant: "destructive"
+        })
+      )
   }
 
   const handleApproveDesignAndContinue = async () => {
@@ -2021,6 +2067,7 @@ Rules:
         return
       }
       const nextDesigns = res.designs
+      pushUndoSnapshot(generatedDesignsRef.current) // snapshot pre-edit state
       generatedDesignsRef.current = nextDesigns
       setGeneratedDesigns(nextDesigns)
       void persistContent({ designs: nextDesigns })
@@ -2055,6 +2102,7 @@ Rules:
       ).detail
       if (!detail || detail.designId !== designId) return
       if (Array.isArray(detail.designs)) {
+        pushUndoSnapshot(generatedDesignsRef.current) // snapshot pre-edit state
         generatedDesignsRef.current = detail.designs
         setGeneratedDesigns(detail.designs)
       }
@@ -2068,7 +2116,7 @@ Rules:
         "design:content-updated",
         onUpdated as EventListener
       )
-  }, [designId])
+  }, [designId, pushUndoSnapshot])
 
   if (loading) {
     return (
@@ -2218,6 +2266,17 @@ Rules:
                 can ask for edits while looking at it. Only available once the
                 design has been generated. */}
           <div className="flex items-center gap-2">
+            {designGenerated && canEdit && undoDepth > 0 && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleUndo}
+                className="gap-1.5"
+                title="Undo the last applied change"
+              >
+                <IconArrowBackUp size={14} /> Undo
+              </Button>
+            )}
             {designGenerated && (
               <button
                 onClick={toggleChatRail}
