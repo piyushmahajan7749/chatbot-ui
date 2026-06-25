@@ -76,6 +76,11 @@ import {
   type ProblemContext
 } from "@/lib/design-agent"
 import { buildDesignChatContext } from "@/lib/design/chat-context"
+import {
+  downloadBenchExecutionGuide,
+  downloadRationaleCitations,
+  downloadSOP
+} from "@/lib/design/export"
 import { applyDesignPatch } from "@/lib/design/apply-patch"
 import {
   IconAlertTriangle,
@@ -90,6 +95,7 @@ import {
   IconChevronDown,
   IconArrowBackUp,
   IconClipboardText,
+  IconDownload,
   IconFileText,
   IconFiles,
   IconFlask,
@@ -4715,8 +4721,24 @@ function OverviewTab(props: {
   const selectedHypotheses = hypotheses.filter(h => h.selected)
   const scrollContainerId = "overview-detail-scroll"
 
+  // Exportable view of this design for the "Create" actions (role-specific
+  // PDFs). Reconstructed from the props the Overview already has.
+  const exportableDesign = {
+    name: title || activeDesign?.title || "design",
+    content: {
+      problem: { title, problemStatement, objective, domain, phase },
+      papers,
+      hypotheses,
+      designs
+    }
+  }
+  const hasDesign = designs.length > 0
+
   const sections: { id: string; heading: string }[] = [
     { id: "section-summary", heading: "Summary" },
+    ...(hasDesign
+      ? [{ id: "section-create", heading: "Create" }]
+      : ([] as { id: string; heading: string }[])),
     { id: "section-problem", heading: "Problem & Goal" },
     { id: "section-variables", heading: "Variables & Constraints" },
     { id: "section-literature", heading: "Literature" },
@@ -4791,6 +4813,77 @@ function OverviewTab(props: {
             </CardContent>
           </Card>
         </section>
+
+        {/* Create — role-specific downloadable PDFs built from this design */}
+        {hasDesign && (
+          <section
+            id="section-create"
+            data-section-id="section-create"
+            className="scroll-mt-4"
+          >
+            <Card className="rounded-2xl">
+              <CardHeader className="pb-2">
+                <div className="text-ink-400 text-[10px] font-bold uppercase tracking-[0.13em]">
+                  Create
+                </div>
+                <CardTitle className="text-ink-900 mt-1 text-xl">
+                  Generate documents
+                </CardTitle>
+                <p className="text-ink-500 mt-1 text-sm">
+                  Role-specific PDFs built from this design — each is
+                  downloadable.
+                </p>
+              </CardHeader>
+              <CardContent>
+                <div className="grid gap-3 sm:grid-cols-3">
+                  {[
+                    {
+                      icon: <IconFlask size={18} />,
+                      title: "Bench execution guide",
+                      desc: "Materials, calculations, preparation and method — the executable setup work, with a conditions overview.",
+                      onClick: () =>
+                        downloadBenchExecutionGuide(exportableDesign)
+                    },
+                    {
+                      icon: <IconBook size={18} />,
+                      title: "Rationale & citations",
+                      desc: "Literature, citations and the hypothesis rationale, with a conditions overview — defend your choices.",
+                      onClick: () =>
+                        downloadRationaleCitations(exportableDesign)
+                    },
+                    {
+                      icon: <IconClipboardText size={18} />,
+                      title: "SOP",
+                      desc: "A replicable protocol — short theory, then materials, methods, execution, safety and disposal.",
+                      onClick: () => downloadSOP(exportableDesign)
+                    }
+                  ].map(a => (
+                    <div
+                      key={a.title}
+                      className="border-ink-200 flex flex-col rounded-xl border bg-white p-4"
+                    >
+                      <div className="text-brick">{a.icon}</div>
+                      <div className="text-ink-900 mt-2 text-[14px] font-semibold">
+                        {a.title}
+                      </div>
+                      <p className="text-ink-500 mt-1 flex-1 text-[12.5px] leading-snug">
+                        {a.desc}
+                      </p>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={a.onClick}
+                        className="mt-3 gap-1.5"
+                      >
+                        <IconDownload size={14} /> Download PDF
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          </section>
+        )}
 
         {/* Problem & Objective */}
         <section

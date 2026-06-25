@@ -341,3 +341,247 @@ export async function downloadDesignPdf(design: ExportableDesign) {
 
   doc.save(safeFilename(design.name, "pdf"))
 }
+
+// ── Focused, downloadable artifacts (the design Overview "Create" actions) ───
+// Three role-specific PDFs built from SUBSETS of the design's sections:
+//  • Bench execution guide — the executable setup work (materials, calcs,
+//    prep, method) + a conditions overview. No rationale/citations.
+//  • Rationale & citations — literature, citations and the hypothesis rationale
+//    + a conditions overview only. No materials/calcs/methods.
+//  • SOP — a replicable protocol: short theory/rationale, then materials /
+//    methods / execution + safety + disposal.
+// Heading allow-lists are matched case-insensitively and include BOTH the new
+// streamlined headings and the older ones, so the artifacts work for designs
+// generated before the section refactor too.
+
+interface ArtifactSpec {
+  fileSuffix: string
+  docTitle: string
+  subtitle: string
+  includeProblem?: boolean
+  includeHypotheses?: "full" | "short" | false
+  includeLiterature?: boolean
+  /** Ordered, case-insensitive heading allow-list. */
+  sectionHeadings: string[]
+  /** Headings whose body is truncated (e.g. "rationale in short" for the SOP). */
+  shortSections?: string[]
+  shortLimit?: number
+}
+
+const normHeading = (s: string) =>
+  (s || "").trim().toLowerCase().replace(/\s+/g, " ")
+
+async function renderArtifactPdf(design: ExportableDesign, spec: ArtifactSpec) {
+  const [{ jsPDF }, { default: autoTable }] = await Promise.all([
+    import("jspdf"),
+    import("jspdf-autotable")
+  ])
+  const doc = new jsPDF({ unit: "pt", format: "a4" })
+  const margin = 48
+  const pageWidth = doc.internal.pageSize.getWidth()
+  const pageHeight = doc.internal.pageSize.getHeight()
+  const maxWidth = pageWidth - margin * 2
+  let y = margin
+
+  const writeBlock = (
+    text: string,
+    opts: { size: number; bold?: boolean; gap?: number; color?: number }
+  ) => {
+    doc.setFont("helvetica", opts.bold ? "bold" : "normal")
+    doc.setFontSize(opts.size)
+    doc.setTextColor(opts.color ?? 20)
+    const lineHeight = opts.size * 1.35
+    for (const line of doc.splitTextToSize(text || " ", maxWidth)) {
+      if (y + lineHeight > pageHeight - margin) {
+        doc.addPage()
+        y = margin
+      }
+      doc.text(line, margin, y)
+      y += lineHeight
+    }
+    y += opts.gap ?? 6
+  }
+
+  const stripMd = (s: string) =>
+    s
+      .replace(/\*\*(.+?)\*\*/g, "$1")
+      .replace(/^#{1,6}\s+/gm, "")
+      .replace(/^[-*]\s+/gm, "• ")
+      .replace(/`{1,3}/g, "")
+
+  const renderBody = (body: string) => {
+    const blocks = parseMarkdownBlocks(body || "")
+    if (blocks.length === 0) {
+      writeBlock("—", { size: 10.5, gap: 8 })
+      return
+    }
+    for (const block of blocks) {
+      if (block.type === "text") {
+        const t = stripMd(block.text).trim()
+        if (t) writeBlock(t, { size: 10.5, gap: 9 })
+      } else {
+        autoTable(doc, {
+          startY: y,
+          margin: { left: margin, right: margin },
+          tableWidth: maxWidth,
+          head: [block.head.map(stripMd)],
+          body: block.rows.map(r => r.map(stripMd)),
+          styles: {
+            fontSize: 8,
+            cellPadding: 3,
+            overflow: "linebreak",
+            valign: "top",
+            lineColor: [220, 220, 220],
+            lineWidth: 0.5
+          },
+          headStyles: {
+            fillColor: [243, 243, 243],
+            textColor: 30,
+            fontStyle: "bold"
+          }
+        })
+        const finalY = (doc as any).lastAutoTable?.finalY
+        y = (typeof finalY === "number" ? finalY : y) + 14
+      }
+    }
+  }
+
+  const content = parsedContent(design) ?? {}
+
+  writeBlock(spec.docTitle, { size: 18, bold: true, gap: 3 })
+  writeBlock(design.name || content?.problem?.title || "Untitled design", {
+    size: 11,
+    gap: 2,
+    color: 90
+  })
+  writeBlock(spec.subtitle, { size: 9.5, gap: 14, color: 120 })
+
+  if (spec.includeProblem) {
+    const probs = problemLines(content).map(stripMd)
+    if (probs.length) {
+      writeBlock("Research problem", { size: 13, bold: true, gap: 4 })
+      probs.forEach(p => writeBlock(p, { size: 10.5, gap: 2 }))
+      y += 8
+    }
+  }
+
+  if (spec.includeHypotheses) {
+    const hyps = Array.isArray(content?.hypotheses) ? content.hypotheses : []
+    const selected = hyps.filter((h: any) => h.selected)
+    const use = selected.length ? selected : hyps
+    if (use.length) {
+      writeBlock("Hypotheses", { size: 13, bold: true, gap: 4 })
+      use.forEach((h: any, i: number) => {
+        writeBlock(`${i + 1}. ${h.text ?? ""}`, { size: 10.5, gap: 2 })
+        if (spec.includeHypotheses === "full" && h.reasoning)
+          writeBlock(stripMd(h.reasoning), { size: 9.5, gap: 4, color: 90 })
+      })
+      y += 8
+    }
+  }
+
+  if (spec.includeLiterature) {
+    const lit = literatureLines(content).map(stripMd)
+    if (lit.length) {
+      lit.forEach((l, i) =>
+        writeBlock(l, { size: i === 0 ? 13 : 10, bold: i === 0, gap: 2 })
+      )
+      y += 8
+    }
+  }
+
+  const shortSet = new Set((spec.shortSections ?? []).map(normHeading))
+  const limit = spec.shortLimit ?? 800
+  const designs = Array.isArray(content.designs) ? content.designs : []
+  if (designs.length === 0) {
+    writeBlock("No generated design yet.", { size: 10.5 })
+  }
+  designs.forEach((d: any, di: number) => {
+    const secs = Array.isArray(d.sections) ? d.sections : []
+    const ordered = spec.sectionHeadings
+      .map(h =>
+        secs.find((s: any) => normHeading(s.heading) === normHeading(h))
+      )
+      .filter(Boolean)
+    if (ordered.length === 0) return
+    if (designs.length > 1) {
+      if (di > 0) {
+        doc.addPage()
+        y = margin
+      }
+      writeBlock(d.title || "Design", { size: 15, bold: true, gap: 8 })
+    }
+    ordered.forEach((s: any) => {
+      writeBlock(s.heading, { size: 13, bold: true, gap: 4 })
+      let body = s.body || ""
+      if (shortSet.has(normHeading(s.heading)) && body.length > limit) {
+        body = body.slice(0, limit).trimEnd() + " …"
+      }
+      renderBody(body)
+      y += 4
+    })
+  })
+
+  doc.save(safeFilename(`${design.name || "design"}-${spec.fileSuffix}`, "pdf"))
+}
+
+export function downloadBenchExecutionGuide(design: ExportableDesign) {
+  return renderArtifactPdf(design, {
+    fileSuffix: "bench-execution-guide",
+    docTitle: "Bench Execution Guide",
+    subtitle:
+      "Executable setup work — materials, calculations, preparation and method — for the design conditions below.",
+    sectionHeadings: [
+      "Conditions Table",
+      "Tools & Equipment",
+      "Materials List",
+      "Material Preparation",
+      "Setup Instructions",
+      "Step-by-Step Procedure",
+      "Data Collection Plan",
+      "Timeline",
+      "Storage & Disposal"
+    ]
+  })
+}
+
+export function downloadRationaleCitations(design: ExportableDesign) {
+  return renderArtifactPdf(design, {
+    fileSuffix: "rationale-and-citations",
+    docTitle: "Rationale & Citations",
+    subtitle:
+      "Why this design — literature, citations and the hypothesis rationale — with a conditions overview. No materials or methods.",
+    includeProblem: true,
+    includeHypotheses: "full",
+    includeLiterature: true,
+    sectionHeadings: ["Conditions Table", "Rationale"]
+  })
+}
+
+export function downloadSOP(design: ExportableDesign) {
+  return renderArtifactPdf(design, {
+    fileSuffix: "sop",
+    docTitle: "Standard Operating Procedure (SOP)",
+    subtitle:
+      "A replicable protocol: brief theory and rationale, then materials, methods, execution, safety and disposal.",
+    includeProblem: true,
+    includeHypotheses: "short",
+    sectionHeadings: [
+      "Rationale",
+      "Groups & Controls",
+      "Conditions Table",
+      "Sample Types",
+      "Special Requirements",
+      "Tools & Equipment",
+      "Materials List",
+      "Material Preparation",
+      "Setup Instructions",
+      "Step-by-Step Procedure",
+      "Timeline",
+      "Safety Notes",
+      "Storage & Disposal"
+    ],
+    shortSections: ["Rationale"],
+    shortLimit: 900
+  })
+}
