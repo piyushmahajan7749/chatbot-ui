@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react"
 import { useParams, useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { AccentTabs, type TabStatus } from "@/components/canvas/accent-tabs"
+import { ReportClarifyStep } from "@/components/reports/report-clarify-step"
 // ChatbotUIContext was used for the ELN profile lookup - removed in
 // favour of pure prop drilling now that ELN export is gone.
 import { useToast } from "@/app/hooks/use-toast"
@@ -99,6 +100,7 @@ export default function ReportDetailPage() {
   >([])
 
   const [isGenerating, setIsGenerating] = useState(false)
+  const [clarifyOpen, setClarifyOpen] = useState(false)
   const [regeneratingKey, setRegeneratingKey] = useState<string | null>(null)
   const [regeneratingChart, setRegeneratingChart] = useState(false)
   const [showPreview, setShowPreview] = useState(false)
@@ -271,7 +273,15 @@ export default function ReportDetailPage() {
     }, 800)
   }
 
-  const handleGenerate = async () => {
+  // Open the pre-generation Refine step (clarifying questions) before running.
+  const handleGenerate = () => {
+    const hasProtocolContext =
+      protocolFiles.length > 0 || !!report?.design_context
+    if (!objective.trim() || !hasProtocolContext) return
+    setClarifyOpen(true)
+  }
+
+  const runGeneration = async (reportSpec?: string) => {
     // Design-sourced reports use the design itself as the protocol, so a
     // protocol *file* isn't required when we have a design_context snapshot.
     const hasProtocolContext =
@@ -310,7 +320,8 @@ export default function ReportDetailPage() {
           protocol: protocolFiles.map(f => f.id),
           papers: paperFiles.map(f => f.id),
           dataFiles: dataFiles.map(f => f.id),
-          designContext: report?.design_context ?? undefined
+          designContext: report?.design_context ?? undefined,
+          reportSpec: reportSpec || undefined
         })
       })
       if (!response.ok) {
@@ -366,7 +377,7 @@ export default function ReportDetailPage() {
       (protocolFiles.length > 0 || !!report.design_context)
     if (!objective.trim() || !hasInputs) return
     autoGenRef.current.add(report.id)
-    void handleGenerate()
+    void runGeneration()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     report?.id,
@@ -744,6 +755,19 @@ export default function ReportDetailPage() {
       <div className="bg-ink-50 flex h-full items-center justify-center">
         <p className="text-ink-400">Report not found</p>
       </div>
+    )
+  }
+
+  // Pre-generation Refine: full-screen clarifying questions before we run.
+  if (clarifyOpen) {
+    return (
+      <ReportClarifyStep
+        onComplete={spec => {
+          setClarifyOpen(false)
+          void runGeneration(spec)
+        }}
+        onCancel={() => setClarifyOpen(false)}
+      />
     )
   }
 

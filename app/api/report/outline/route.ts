@@ -44,6 +44,8 @@ interface ReportState {
   paperSummary?: string
   dataFileSummary?: string
   experimentObjective?: string
+  /** Flattened answers to the pre-generation clarifying questions. */
+  reportSpec?: string
   finalOutput: ReportOutputType
   chartImage?: string
   chartData: VisualizationType
@@ -79,7 +81,7 @@ RULES:
 
   const userPrompt = `Extract data for a chart from this experiment.
 
-Objective: ${state.experimentObjective}
+Objective: ${state.experimentObjective}${state.reportSpec ? `\nReport preferences (tailor the writing — audience, depth, focus, emphasis — to these): ${state.reportSpec}` : ""}
 Protocol: ${state.protocol}
 Data files: ${state.dataFileSummary}
 
@@ -446,7 +448,7 @@ Constraints:
 
   const userPrompt = `Generate aim, introduction, and principle using the following:
 
-Objective: ${state.experimentObjective}
+Objective: ${state.experimentObjective}${state.reportSpec ? `\nReport preferences (tailor the writing — audience, depth, focus, emphasis — to these): ${state.reportSpec}` : ""}
 Protocol: ${state.protocol}
 Data files: ${state.dataFileSummary}`
 
@@ -511,7 +513,7 @@ Constraints:
 `
 
   const userPrompt = `To generate the content, refer to the following:
-Objective: ${state.experimentObjective}
+Objective: ${state.experimentObjective}${state.reportSpec ? `\nReport preferences (tailor the writing — audience, depth, focus, emphasis — to these): ${state.reportSpec}` : ""}
 Data Files: ${state.dataFileSummary}
 Protocol: ${state.protocol}`
 
@@ -575,7 +577,7 @@ Constraints:
 `
 
   const userPrompt = `Generate material, preparation, procedure, and setup using the following:
-Objective: ${state.experimentObjective}
+Objective: ${state.experimentObjective}${state.reportSpec ? `\nReport preferences (tailor the writing — audience, depth, focus, emphasis — to these): ${state.reportSpec}` : ""}
 Protocol: ${state.protocol}
 Data Files: ${state.dataFileSummary}
 `
@@ -807,19 +809,27 @@ export async function POST(req: Request) {
       if (isBudgetExceededError(e)) return budgetErrorResponse(e.plan)
     }
 
-    const { protocol, papers, dataFiles, experimentObjective, designContext } =
-      (await req.json()) as {
-        protocol?: string[]
-        papers?: string[]
-        dataFiles?: string[]
-        experimentObjective?: string
-        /**
-         * Markdown summary of the parent design. When a report is generated
-         * from a design the design itself supplies the protocol/method, so
-         * the client passes it here instead of (or alongside) protocol files.
-         */
-        designContext?: string
-      }
+    const {
+      protocol,
+      papers,
+      dataFiles,
+      experimentObjective,
+      designContext,
+      reportSpec
+    } = (await req.json()) as {
+      protocol?: string[]
+      papers?: string[]
+      dataFiles?: string[]
+      experimentObjective?: string
+      /** Flattened pre-generation clarifying answers (audience, type, focus). */
+      reportSpec?: string
+      /**
+       * Markdown summary of the parent design. When a report is generated
+       * from a design the design itself supplies the protocol/method, so
+       * the client passes it here instead of (or alongside) protocol files.
+       */
+      designContext?: string
+    }
 
     const protocolIds = Array.isArray(protocol) ? protocol : []
     const paperIds = Array.isArray(papers) ? papers : []
@@ -915,6 +925,10 @@ export async function POST(req: Request) {
       conclusion: "",
       nextSteps: "",
       experimentObjective: experimentObjective || "",
+      reportSpec:
+        typeof reportSpec === "string"
+          ? reportSpec.trim() || undefined
+          : undefined,
       protocol: protocolText || "",
       paperSummary: paperText || "",
       dataFileSummary: dataFileText || "",
