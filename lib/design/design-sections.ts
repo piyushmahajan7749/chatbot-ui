@@ -166,13 +166,13 @@ Fields to produce:
 
 - **whatWillBeTested** - one short paragraph stating the concrete test objective, then a bulleted list of the 2–4 specific variables / factors being manipulated.
 - **whatWillBeMeasured** - bullet list. Each bullet: \`**Readout** - method - unit - expected range\`.
-- **controlGroups** - bullet list. Each bullet: \`**Control name** - composition / condition - what it isolates\`.
-- **experimentalGroups** - bullet list. Each bullet: \`**Group name** - condition - expected effect\`.
+- **controlGroups** - bullet list. Each bullet: \`**Control name** — what it isolates / why it's needed\`. PURPOSE only — do NOT restate the full per-arm value matrix (that lives in the Conditions Table downstream).
+- **experimentalGroups** - bullet list. Each bullet: \`**Group name** — what it tests — expected effect\`. PURPOSE only — exact factor values go in the Conditions Table, not here.
 - **sampleTypes** - bulleted. Describe sample matrix, concentration, container (material, volume, cap type), aliquot strategy.
-- **replicatesAndConditions** - bullet list. Give n per group (biological / technical), total vial count math, and any blocking / randomization scheme. Example line: \`n = 3 biological × 5 formulation × 2 temperatures = 30 vials\`.
+- **replicatesAndConditions** - ONE or two bullets: the replicate scheme (n per group, biological vs technical) and any blocking / randomization. Example: \`n = 3 biological per arm; arms randomized across 2 incubator shelves\`. This feeds the Conditions Table's n column — keep it to the scheme, not a full enumeration.
 - **specificRequirements** - anything out-of-ordinary: BSL level, cold-chain, light-sensitive handling, certified reference standards, specific instrument calibration. Bullet list with bold hazard / requirement class.
 
-Do not output plain paragraphs. Every field uses bullets and/or bolded labels.`
+Do not output plain paragraphs. Every field uses bullets and/or bolded labels. SCOPE — do not duplicate across fields: controls/experimental groups state PURPOSE; the per-arm numbers belong in the Conditions Table (written later).`
       },
       {
         role: "user",
@@ -224,11 +224,11 @@ export async function genMaterials(
      5. Filter through 0.22 µm PES. Label (date + initials + lot). Store 2–8 °C, use within 14 days.
    One subsection per buffer/reagent. Every derived number must show its derivation in the table — never a bare value, and never a wall of prose.
 
-4. **setupInstructions** - Numbered Markdown list describing workstation / equipment setup (balance calibration, pH-meter cal, biosafety cabinet setup, vial labeling scheme, temperature blocks). Each step has a bolded lead-in verb.
+4. **setupInstructions** - Numbered Markdown list of WORKSTATION / INSTRUMENT setup ONLY (balance calibration, pH-meter cal, biosafety cabinet setup, vial labeling scheme, temperature blocks). Each step has a bolded lead-in verb. Do NOT include reagent/buffer preparation (that's materialPreparation) or the run-time experimental steps (that's the procedure) — equipment readiness only.
 
 5. **storageDisposal** - Markdown bullets. For each material class: storage condition, container type, disposal stream (e.g. *Aqueous biowaste - 10% bleach, 30-min soak, rinse down sink; log in biohazard register*). Use bold labels.
 
-Never use placeholder text like "TBD" - if a spec is reasonable to infer, infer it and mark the assumption.`
+SCOPE — do not repeat across fields: **materialPreparation** is recipes/calculations for making reagents; **setupInstructions** is instrument/bench readiness only. Neither restates the chronological run (that's the Step-by-Step Procedure, written later). Never use placeholder text like "TBD" - if a spec is reasonable to infer, infer it and mark the assumption.`
       },
       {
         role: "user",
@@ -256,15 +256,15 @@ export async function genProtocol(
         role: "system",
         content: `You are an experimental protocol writer producing SOP-grade Markdown. All three fields must be scannable and copy-exec ready.
 
-- **stepByStepProcedure** - A single numbered Markdown list. Each step begins with a **bold imperative verb** ("**Weigh**", "**Dissolve**", "**Filter**", "**Incubate**", "**Aliquot**") followed by concrete quantities + times + temperatures + equipment. Group steps under Markdown sub-headings like \`### Day 1 - Buffer prep\`, \`### Day 2 - Formulation\`, \`### Day 3–28 - Stress incubation\`, \`### Day 28 - Readouts\`. When a step has multiple actions or branches, ALWAYS split them into separate sub-step lines (\`4a.\`, \`4b.\`, \`4c.\` …) — each on its OWN line, one action per line. NEVER combine several actions into one run-on sentence. Include a short **"Checkpoint"** bold callout after each major phase listing what the operator should verify before continuing (e.g. *Checkpoint: pH reads 6.00 ± 0.05 on calibrated meter; monomer content by SEC ≥ 99% pre-stress*).
+- **stepByStepProcedure** - the chronological RUN as a single numbered Markdown list. Each step begins with a **bold imperative verb** ("**Dissolve**", "**Filter**", "**Incubate**", "**Aliquot**") followed by concrete quantities + times + temperatures + equipment. Group steps under Markdown sub-headings like \`### Day 1 - Formulation\`, \`### Day 3–28 - Stress incubation\`, \`### Day 28 - Readouts\`. When a step has multiple actions or branches, ALWAYS split them into separate sub-step lines (\`4a.\`, \`4b.\`, \`4c.\` …) — each on its OWN line, one action per line. NEVER combine several actions into one run-on sentence. Include a short **"Checkpoint"** bold callout after each major phase. IMPORTANT — do NOT repeat content from earlier sections: refer to prepared reagents BY NAME ("the 20 mM histidine buffer prepared in Material Preparation") instead of re-deriving their recipes, and assume equipment was readied per Setup. This section is the run, not a re-statement of prep.
 
 - **timeline** - Markdown table:
   \`| Day | Activity | Duration | Notes |\`
   One row per scheduled day / phase. Notes column carries dependencies, decision points, and who performs the step.
 
-- **conditionsTable** - Markdown table describing every experimental arm. At minimum:
+- **conditionsTable** - the SINGLE authoritative enumeration of every experimental arm (this replaces any separate groups/replicates list, so it must be complete). Markdown table, at minimum:
   \`| Group | Condition / composition | Variable 1 | Variable 2 | T (°C) | Time | n | Read-outs |\`
-  Include baseline and stressed controls explicitly as their own rows. All numbers must have units. Add a short paragraph above the table summarizing the factorial structure (e.g. "5 arginine levels × 2 temperatures × 3 biological replicates = 30 vials"). Do not return prose in place of a table.`
+  Include baseline and stressed controls explicitly as their own rows. All numbers must have units. Above the table, ONE short line summarizing the factorial structure + replicate scheme (e.g. "5 arginine levels × 2 temperatures × 3 biological replicates = 30 vials; arms randomized across shelves"). Do not return prose in place of a table.`
       },
       {
         role: "user",
@@ -331,24 +331,30 @@ export function assembleDesign(
     id: `d-${uuidv4()}`,
     hypothesisId: hyp.id,
     title: hyp.text.slice(0, 80),
+    // Streamlined section set (no repetition): the Conditions Table is the
+    // single enumerated source of every arm + n, so the old separate "Control
+    // Groups", "Experimental Groups" and "Replicates & Conditions" sections are
+    // merged into one purpose-focused "Groups & Controls" block; and the
+    // workstation "Setup Instructions" are folded into the start of the
+    // procedure so material-prep / setup / run aren't three overlapping lists.
     sections: [
       { heading: "What Will Be Tested", body: setup.whatWillBeTested },
       { heading: "What Will Be Measured", body: setup.whatWillBeMeasured },
-      { heading: "Control Groups", body: setup.controlGroups },
-      { heading: "Experimental Groups", body: setup.experimentalGroups },
-      { heading: "Sample Types", body: setup.sampleTypes },
       {
-        heading: "Replicates & Conditions",
-        body: setup.replicatesAndConditions
+        heading: "Groups & Controls",
+        body: `**Controls**\n\n${setup.controlGroups}\n\n**Experimental groups**\n\n${setup.experimentalGroups}`
       },
       { heading: "Conditions Table", body: protocol.conditionsTable },
+      { heading: "Sample Types", body: setup.sampleTypes },
       { heading: "Special Requirements", body: setup.specificRequirements },
       { heading: "Tools & Equipment", body: materials.toolsNeeded },
       { heading: "Materials List", body: materials.materialsList },
       { heading: "Material Preparation", body: materials.materialPreparation },
-      { heading: "Setup Instructions", body: materials.setupInstructions },
       { heading: "Storage & Disposal", body: materials.storageDisposal },
-      { heading: "Step-by-Step Procedure", body: protocol.stepByStepProcedure },
+      {
+        heading: "Step-by-Step Procedure",
+        body: `### Setup & calibration\n\n${materials.setupInstructions}\n\n${protocol.stepByStepProcedure}`
+      },
       { heading: "Timeline", body: protocol.timeline },
       { heading: "Data Collection Plan", body: analysis.dataCollectionPlan },
       { heading: "Statistical Analysis", body: analysis.statisticalAnalysis },

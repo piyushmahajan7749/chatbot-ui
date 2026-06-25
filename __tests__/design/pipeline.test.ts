@@ -272,7 +272,8 @@ describe("design sections", () => {
     const design = assembleDesign(hyp, setup, materials, protocol, analysis)
 
     expect(design.hypothesisId).toBe("h1")
-    expect(design.sections.length).toBeGreaterThanOrEqual(18)
+    // Streamlined section set (merged groups/replicates, folded-in setup).
+    expect(design.sections.length).toBeGreaterThanOrEqual(15)
     const headings = design.sections.map(s => s.heading)
     for (const h of [
       "What Will Be Tested",
