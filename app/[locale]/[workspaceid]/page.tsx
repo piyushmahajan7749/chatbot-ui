@@ -3,6 +3,7 @@
 import {
   IconFileText,
   IconFlask,
+  IconFolder,
   IconMessage,
   IconPlus
 } from "@tabler/icons-react"
@@ -42,8 +43,14 @@ const STATUS_IN_PROGRESS =
   "rounded-full border border-amber-300/40 bg-amber-100/70 px-2 py-0.5 text-[10.5px] font-medium text-amber-800"
 const STATUS_DRAFT =
   "rounded-full border border-purple-persona/30 bg-purple-persona-tint px-2 py-0.5 text-[10.5px] font-medium text-purple-persona"
+// Locked entity chips (item: folder=project, flask=design, report=report,
+// message=chat) — each its own colour so the attribution reads at a glance.
 const CHIP_PROJECT =
   "inline-flex items-center gap-1 rounded-full border border-teal-journey/30 bg-teal-journey-tint px-2 py-0.5 text-[10.5px] font-medium text-teal-journey"
+const CHIP_DESIGN =
+  "inline-flex items-center gap-1 rounded-full border border-orange-product/30 bg-orange-product-tint px-2 py-0.5 text-[10.5px] font-medium text-orange-product"
+const CHIP_REPORT =
+  "inline-flex items-center gap-1 rounded-full border border-sage-brand/30 bg-sage-brand-tint px-2 py-0.5 text-[10.5px] font-medium text-sage-brand"
 const CHIP_STAGE =
   "rounded-full border border-purple-persona/30 bg-purple-persona-tint px-2 py-0.5 text-[10.5px] font-medium text-purple-persona"
 
@@ -176,18 +183,24 @@ export default function WorkspacePage() {
   // with. A project-scoped chat spans every design → "All designs".
   const chatAttribution = (
     c: (typeof chats)[number]
-  ): { project: string | null; scopeLabel: string } => {
+  ): {
+    project: string | null
+    scopeLabel: string
+    scopeKind: "design" | "report" | "project" | "general"
+  } => {
     if (c.scope === "design") {
       const d = designs.find(x => x.id === c.scope_id)
       return {
         project: projectName(d?.project_id ?? c.project_id),
-        scopeLabel: d?.name ?? "Design"
+        scopeLabel: d?.name ?? "Design",
+        scopeKind: "design"
       }
     }
     if (c.scope === "project") {
       return {
         project: projectName(c.project_id ?? c.scope_id),
-        scopeLabel: "All designs"
+        scopeLabel: "All designs",
+        scopeKind: "project"
       }
     }
     if (c.scope === "report") {
@@ -197,11 +210,20 @@ export default function WorkspacePage() {
         : null
       return {
         project: projectName(c.project_id ?? d?.project_id),
-        scopeLabel: r?.name ?? "Report"
+        scopeLabel: r?.name ?? "Report",
+        scopeKind: "report"
       }
     }
-    return { project: projectName(c.project_id), scopeLabel: "General" }
+    return {
+      project: projectName(c.project_id),
+      scopeLabel: "General",
+      scopeKind: "general"
+    }
   }
+
+  // Project name for a report → via its source design's project.
+  const projectOfReport = (r: { source_design_id?: string | null }) =>
+    projectName(designs.find(d => d.id === r.source_design_id)?.project_id)
 
   // In-progress heuristic: touched in the last 14 days (in lieu of loading
   // approvedPhases from Firestore for every design). Completed = total − active.
@@ -308,6 +330,7 @@ export default function WorkspacePage() {
             items={sortedReports}
             wsId={wsId}
             designNameOf={designNameOf}
+            projectOf={projectOfReport}
           />
         )}
         {activeList === "chats" && (
@@ -414,7 +437,11 @@ function DesignsList({ items, wsId, onNew, projectNameOf }: DesignsListProps) {
                   </div>
                 )}
                 <div className="mt-2 flex flex-wrap items-center gap-2">
-                  {pname && <span className={CHIP_PROJECT}>{pname}</span>}
+                  {pname && (
+                    <span className={CHIP_PROJECT}>
+                      <IconFolder size={10} /> {pname}
+                    </span>
+                  )}
                   <span
                     className={
                       isCompleted ? STATUS_COMPLETED : STATUS_IN_PROGRESS
@@ -455,9 +482,15 @@ interface ReportsListProps {
   }>
   wsId?: string
   designNameOf: (id: string | null | undefined) => string | null
+  projectOf: (r: { source_design_id?: string | null }) => string | null
 }
 
-function ReportsList({ items, wsId, designNameOf }: ReportsListProps) {
+function ReportsList({
+  items,
+  wsId,
+  designNameOf,
+  projectOf
+}: ReportsListProps) {
   const router = useRouter()
   const [page, setPage] = useState(0)
   if (items.length === 0) {
@@ -490,6 +523,7 @@ function ReportsList({ items, wsId, designNameOf }: ReportsListProps) {
         <div className="flex flex-col gap-2.5">
           {paged.map(r => {
             const dname = designNameOf(r.source_design_id)
+            const pname = projectOf(r)
             const draft = r.report_draft
             const reportCompleted =
               (typeof draft === "string" && draft.trim().length > 0) ||
@@ -515,8 +549,13 @@ function ReportsList({ items, wsId, designNameOf }: ReportsListProps) {
                   </div>
                 )}
                 <div className="mt-2 flex flex-wrap items-center gap-2">
-                  {dname && (
+                  {pname && (
                     <span className={CHIP_PROJECT}>
+                      <IconFolder size={10} /> {pname}
+                    </span>
+                  )}
+                  {dname && (
+                    <span className={CHIP_DESIGN}>
                       <IconFlask size={10} /> {dname}
                     </span>
                   )}
@@ -548,7 +587,11 @@ interface ChatsListProps {
     project_id?: string | null
   }>
   wsId?: string
-  attributionOf: (c: any) => { project: string | null; scopeLabel: string }
+  attributionOf: (c: any) => {
+    project: string | null
+    scopeLabel: string
+    scopeKind: "design" | "report" | "project" | "general"
+  }
 }
 
 function ChatsList({ items, wsId, attributionOf }: ChatsListProps) {
@@ -584,11 +627,25 @@ function ChatsList({ items, wsId, attributionOf }: ChatsListProps) {
       >
         <div className="flex flex-col gap-2.5">
           {paged.map(c => {
-            const { project, scopeLabel } = attributionOf(c)
+            const { project, scopeLabel, scopeKind } = attributionOf(c)
             const dateLines = formatCreatedModifiedStacked(
               c.created_at,
               c.updated_at
             )
+            const ScopeIcon =
+              scopeKind === "report"
+                ? IconFileText
+                : scopeKind === "project"
+                  ? IconFolder
+                  : scopeKind === "general"
+                    ? IconMessage
+                    : IconFlask
+            const scopeChip =
+              scopeKind === "report"
+                ? CHIP_REPORT
+                : scopeKind === "design"
+                  ? CHIP_DESIGN
+                  : CHIP_STAGE
             return (
               <SlabRow
                 key={c.id}
@@ -599,9 +656,13 @@ function ChatsList({ items, wsId, attributionOf }: ChatsListProps) {
                   {c.name || "Untitled chat"}
                 </div>
                 <div className="mt-2 flex flex-wrap items-center gap-2">
-                  {project && <span className={CHIP_PROJECT}>{project}</span>}
-                  <span className={CHIP_STAGE}>
-                    <IconFlask size={10} className="-mt-px mr-1 inline" />
+                  {project && (
+                    <span className={CHIP_PROJECT}>
+                      <IconFolder size={10} /> {project}
+                    </span>
+                  )}
+                  <span className={scopeChip}>
+                    <ScopeIcon size={10} className="-mt-px mr-1 inline" />
                     {scopeLabel}
                   </span>
                 </div>

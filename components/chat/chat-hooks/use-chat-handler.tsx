@@ -13,6 +13,7 @@ import { useContext, useEffect, useRef } from "react"
 import { LLM_LIST } from "../../../lib/models/llm/llm-list"
 import {
   createTempMessages,
+  deriveChatTitle,
   handleCreateChat,
   handleCreateMessages,
   handleHostedChat,
@@ -375,9 +376,21 @@ export const useChatHandler = () => {
           setChatFiles
         )
       } else {
+        // Name the chat from the FIRST user question (like ChatGPT/Claude).
+        // Scoped chats (design/project/report rails) are pre-created with a
+        // generic "<name> chat" placeholder; the first message retitles them.
+        const isFirstMessage = chatMessages.length === 0 && !isRegeneration
+        const derivedName = isFirstMessage
+          ? await deriveChatTitle(messageContent).catch(() => null)
+          : null
         const updatedChat = await updateChat(currentChat.id, {
-          updated_at: new Date().toISOString()
+          updated_at: new Date().toISOString(),
+          ...(derivedName ? { name: derivedName } : {})
         })
+        if (derivedName) {
+          currentChat = { ...currentChat, name: derivedName }
+          setSelectedChat(updatedChat)
+        }
 
         setChats(prevChats => {
           const updatedChats = prevChats.map(prevChat =>

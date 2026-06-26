@@ -386,7 +386,7 @@ export const processResponse = async (
  * the workspace's server key, which is not available from the
  * browser bundle.
  */
-async function deriveChatTitle(messageContent: string): Promise<string> {
+export async function deriveChatTitle(messageContent: string): Promise<string> {
   const trimmed = messageContent.trim()
   if (!trimmed) return "Chat"
   try {

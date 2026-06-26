@@ -176,12 +176,17 @@ export const DesignReportsView: FC<{ ctx: DesignSubViewContext }> = ({
 
   const handleNew = async () => {
     if (!ctx.userId) return
+    // Ask the user to name the report (no auto "<design> report" suffix).
+    const name = window
+      .prompt("Name this report", ctx.designName || "Report")
+      ?.trim()
+    if (!name) return
     setCreating(true)
     try {
       const created = await createReport(
         {
           user_id: ctx.userId,
-          name: `${ctx.designName} report`,
+          name,
           description: "",
           sharing: "private",
           project_id: ctx.projectId ?? null,
