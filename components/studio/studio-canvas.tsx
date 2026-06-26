@@ -193,7 +193,11 @@ export function StudioCanvas({
   }
 
   const handleOpenDesign = (id: string) => {
-    router.push(`/${locale}/${actualWorkspaceId}/designs/${id}`)
+    // Pass ret so the design's Back returns to THIS project (not the dashboard).
+    const ret = encodeURIComponent(
+      `/${locale}/${actualWorkspaceId}/projects/${actualProjectId}`
+    )
+    router.push(`/${locale}/${actualWorkspaceId}/designs/${id}?ret=${ret}`)
   }
 
   const handleDeleteDesign = async (id: string) => {

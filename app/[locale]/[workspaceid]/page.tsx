@@ -116,10 +116,32 @@ export default function WorkspacePage() {
   const [projects, setProjects] = useState<Array<{ id: string; name: string }>>(
     []
   )
+  // Free-plan experiment quota → show "N of 3 free designs left" in the hero.
+  const [freeDesigns, setFreeDesigns] = useState<{
+    left: number
+    limit: number
+  } | null>(null)
 
   const firstName =
     profile?.display_name?.split(" ")[0] || profile?.username || "there"
   const wsId = selectedWorkspace?.id
+
+  useEffect(() => {
+    let cancelled = false
+    fetch("/api/billing/usage")
+      .then(r => (r.ok ? r.json() : null))
+      .then(d => {
+        if (cancelled || !d?.summary || d.summary.plan !== "free") return
+        setFreeDesigns({
+          left: d.summary.experimentsLeft,
+          limit: d.summary.experimentLimit
+        })
+      })
+      .catch(() => undefined)
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   useEffect(() => {
     if (!wsId) return
@@ -268,7 +290,7 @@ export default function WorkspacePage() {
             </DisplayHeading>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex flex-col items-end gap-1.5">
             {/* New design opens the create-design page directly — the
                 multi-mode dropdown was removed; the page itself handles how
                 the user wants to start. */}
@@ -280,6 +302,18 @@ export default function WorkspacePage() {
             >
               <IconPlus size={14} stroke={2.4} /> New design
             </Button>
+            {freeDesigns && (
+              <span
+                className={cn(
+                  "rounded-full border px-2.5 py-0.5 text-[11.5px] font-medium",
+                  freeDesigns.left <= 0
+                    ? "border-rust/30 bg-rust-soft text-rust"
+                    : "border-line bg-surface text-ink-3"
+                )}
+              >
+                {freeDesigns.left} of {freeDesigns.limit} free designs left
+              </span>
+            )}
           </div>
         </div>
 
@@ -424,7 +458,10 @@ function DesignsList({ items, wsId, onNew, projectNameOf }: DesignsListProps) {
               <SlabRow
                 key={d.id}
                 onClick={() =>
-                  wsId && router.push(`/${wsId}/designs/${d.id}?tab=overview`)
+                  wsId &&
+                  router.push(
+                    `/${wsId}/designs/${d.id}?tab=overview&ret=${encodeURIComponent(`/${wsId}`)}`
+                  )
                 }
                 dateLines={dateLines}
               >

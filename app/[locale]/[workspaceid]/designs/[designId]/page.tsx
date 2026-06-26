@@ -2214,11 +2214,17 @@ Rules:
               variant="ghost"
               size="sm"
               onClick={() => {
-                // Always return to the design's PROJECT page (the list of all
-                // its designs) — never router.back(), which could land on the
-                // /designs/new create modal (the user reported back → the
-                // "new design" window → cancel → sign-in). Designs without a
-                // project fall back to the workspace dashboard.
+                // Return to wherever the user came from: an explicit ?ret=
+                // (set by the dashboard → dashboard, by a project → that
+                // project) wins, so a design opened from the dashboard goes
+                // back to the dashboard rather than its project folder. Falls
+                // back to the project page, then the workspace dashboard.
+                // Never router.back() (could land on /designs/new → sign-in).
+                const ret = searchParams?.get("ret")
+                if (ret && ret.startsWith("/")) {
+                  router.push(ret)
+                  return
+                }
                 const projectId = design?.project_id
                 router.push(
                   projectId

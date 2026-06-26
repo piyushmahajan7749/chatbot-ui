@@ -28,7 +28,6 @@ import {
 } from "@/components/reports/tabs/overview-tab"
 import { InputsTab } from "@/components/reports/tabs/inputs-tab"
 import { ReportTab as ReportTabView } from "@/components/reports/tabs/report-tab"
-import { ReportDesignRail } from "@/components/reports/report-design-rail"
 import { ReportPreviewModal } from "@/components/reports/report-preview-modal"
 import { exportReportToPDF, exportReportToPPTX } from "@/lib/report/export"
 import { getTemplate, DEFAULT_TEMPLATE_ID } from "@/lib/report/templates"
@@ -943,16 +942,9 @@ export default function ReportDetailPage() {
             </div>
           </div>
         </div>
-        {report?.source_design_id && (
-          <ReportDesignRail
-            designId={report.source_design_id}
-            designName={report.source_design_name ?? null}
-            designContext={report.design_context ?? null}
-            files={report.files ?? {}}
-            locale={locale}
-            workspaceId={workspaceId}
-          />
-        )}
+        {/* The parent-design / files rail was removed — that information already
+            lives in the main content (Overview links to the design; Inputs lists
+            the files), so the right column was redundant. */}
       </div>
 
       <ReportPreviewModal
