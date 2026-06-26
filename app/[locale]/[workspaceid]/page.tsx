@@ -11,7 +11,6 @@ import { FC, useContext, useEffect, useMemo, useState } from "react"
 
 import { getProjectsByWorkspaceId } from "@/db/projects"
 
-import { setWalkthroughActive } from "@/components/onboarding/design-coach"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 // Chip primitive was used by the old multi-coloured tag row on
@@ -229,15 +228,9 @@ export default function WorkspacePage() {
     router.push(seed ? `${base}?q=${encodeURIComponent(seed)}` : base)
   }
 
-  // First-run: light up the interactive GuidedTour (mounted in the app layout),
-  // which drives the user across pages through their first design. We default
-  // viewed_walkthrough to `true` when undefined (cast — the column lags the
-  // generated types) so pre-migration users aren't re-prompted.
-  const initiallyShouldTour =
-    !!profile && (profile as any).viewed_walkthrough === false
-  useEffect(() => {
-    if (initiallyShouldTour) setWalkthroughActive(true)
-  }, [initiallyShouldTour])
+  // The first-run GuidedTour is armed ONLY by a fresh onboarding completion
+  // (see onboarding-form) or the Tutorial button — never re-armed here, so it
+  // can't reappear for existing accounts or after the user skips it.
 
   return (
     <div className="bg-paper h-full overflow-auto px-10 pb-16 pt-7">

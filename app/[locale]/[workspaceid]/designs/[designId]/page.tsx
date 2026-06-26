@@ -868,11 +868,10 @@ export default function DesignDetailPage() {
     additionalDetails
   ])
 
+  // Objective is OPTIONAL — only the problem statement, domain, and phase gate
+  // Continue (the user reported being stuck on the mandatory objective field).
   const problemValid =
-    problemStatement.trim() !== "" &&
-    objective.trim() !== "" &&
-    domain !== "" &&
-    phase !== ""
+    problemStatement.trim() !== "" && domain !== "" && phase !== ""
 
   // Gate every mutation behind edit access. A read-only (viewer) collaborator
   // is blocked here with a clear toast — the server also rejects the write, so
@@ -897,7 +896,8 @@ export default function DesignDetailPage() {
     if (!problemValid) {
       toast({
         title: "Missing fields",
-        description: "Problem statement, goal, domain, and phase are required.",
+        description:
+          "Problem statement, domain, and phase are required (objective is optional).",
         variant: "destructive"
       })
       return
@@ -2897,7 +2897,8 @@ function ProblemTab(props: {
 
           <div className="space-y-1.5">
             <Label>
-              Objective <span className="text-red-500">*</span>
+              Objective{" "}
+              <span className="text-ink-400 font-normal">(optional)</span>
             </Label>
             <Textarea
               value={objective}

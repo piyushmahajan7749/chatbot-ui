@@ -1,49 +1,44 @@
 "use client"
 
 /**
- * Interactive first-run tour that DRIVES the app — it spotlights the real
- * element on the real page and walks the user through making their first
- * design: New design → type the question → problem → continue. "Next" performs
- * the step's action (navigate / focus); the tour also AUTO-ADVANCES when the
- * user does the action themselves (e.g. clicks New design, submits the create
- * modal). Mounted once in the app layout so it survives client navigation.
- *
- * Targets are `data-tour="…"` attributes on the live elements. Activation is
- * the localStorage flag set on first run (see design-coach.setWalkthroughActive);
- * finishing/skipping clears it + marks the walkthrough viewed server-side.
+ * Interactive first-run tour. Opens with a centered WELCOME popup, then
+ * spotlights the real elements that walk the user through their first design
+ * (New design → type the question → refine the problem → continue), and closes
+ * with a popup pointing at the replay button. "Next" ALWAYS advances (so it can
+ * never get stuck), and the tour also auto-advances when the user performs the
+ * action themselves. Activated only for a fresh onboarding completion (the
+ * onboarding form sets the flag) or via the Tutorial button. Mounted once in
+ * the app layout so it survives client navigation.
  */
 
-import {
-  CSSProperties,
-  useCallback,
-  useContext,
-  useEffect,
-  useRef,
-  useState
-} from "react"
+import { CSSProperties, useCallback, useEffect, useRef, useState } from "react"
 import { useParams, useRouter } from "next/navigation"
 
-import { ChatbotUIContext } from "@/context/context"
 import { markWalkthroughViewed } from "@/app/[locale]/onboarding/walkthrough-actions"
 import { isWalkthroughActive, setWalkthroughActive } from "./design-coach"
 import { cn } from "@/lib/utils"
 
-type AdvanceOn = "navigate" | "manual"
-
 interface GuidedStep {
-  target: string
+  kind: "popup" | "spotlight"
+  target?: string
   title: string
   body: string
   side?: "top" | "bottom" | "left" | "right"
-  /** "navigate" → advance when the NEXT target appears (user/Next acted). */
-  advanceOn: AdvanceOn
-  /** Action performed when the user clicks Next (drive the app for them). */
-  onNext?: (ctx: { router: any; locale: string; wsId: string }) => void
+  /** Run when the step becomes active (focus/scroll a field). */
+  onShow?: (ctx: StepCtx) => void
+  /** Run when Next is clicked (drive the app — e.g. open New design). */
+  onNext?: (ctx: StepCtx) => void
   last?: boolean
 }
 
-const TOOLTIP_W = 340
-const TOOLTIP_H = 190
+interface StepCtx {
+  router: any
+  locale: string
+  wsId: string
+}
+
+const TOOLTIP_W = 360
+const TOOLTIP_H = 200
 const PAD = 10
 const GAP = 14
 const STEP_KEY = "sa_tour_step"
@@ -58,36 +53,46 @@ const focusTarget = (sel: string) => {
 
 const SCRIPT: GuidedStep[] = [
   {
+    kind: "popup",
+    title: "Welcome to Shadow AI 👋",
+    body: "Since it's your first time, here's a quick walkthrough of how to turn a research question into a full, run-ready experiment. You can skip anytime."
+  },
+  {
+    kind: "spotlight",
     target: "[data-tour='new-design']",
     title: "Start your first experiment",
-    body: "Click New design — or hit Next and I'll open it for you.",
+    body: "This is New design. Hit Next and I'll open it for you.",
     side: "bottom",
-    advanceOn: "navigate",
     onNext: ({ router, locale, wsId }) =>
       router.push(`/${locale}/${wsId}/designs/new`)
   },
   {
+    kind: "spotlight",
     target: "[data-tour='design-question']",
     title: "Type your research question",
-    body: "Put the question on your mind here, then Create. I'll turn it into a full experiment.",
+    body: "Put the question on your mind here, then Create — I'll turn it into a full experiment. Take your time; I'll wait.",
     side: "top",
-    advanceOn: "navigate",
-    onNext: () => focusTarget("[data-tour='design-question']")
+    onShow: () => focusTarget("[data-tour='design-question']")
   },
   {
+    kind: "spotlight",
     target: "[data-tour='problem-statement']",
     title: "Refine your problem",
-    body: "Here's your problem statement — tweak it, and set the domain + phase below.",
+    body: "Once you Create, your problem statement appears here. Tweak it and set the domain + phase below (objective is optional).",
     side: "right",
-    advanceOn: "manual",
-    onNext: () => focusTarget("[data-tour='problem-statement']")
+    onShow: () => focusTarget("[data-tour='problem-statement']")
   },
   {
+    kind: "spotlight",
     target: "[data-tour='problem-continue']",
     title: "Continue when you're ready",
-    body: "Click here and I'll ask a few sharp clarifying questions, then scout the literature. A guide rides along from here.",
-    side: "top",
-    advanceOn: "manual",
+    body: "Click Continue and I'll ask a few sharp clarifying questions, then scout the literature and build the design with you.",
+    side: "top"
+  },
+  {
+    kind: "popup",
+    title: "You're all set 🎉",
+    body: "That's the flow. You can replay this walkthrough anytime from the Tutorial button at the top-right.",
     last: true
   }
 ]
@@ -95,18 +100,16 @@ const SCRIPT: GuidedStep[] = [
 export function GuidedTour() {
   const router = useRouter()
   const params = useParams() as { locale?: string; workspaceid?: string }
-  const { selectedWorkspace, profile } = useContext(ChatbotUIContext)
   const locale = params.locale ?? "en"
-  const wsId = params.workspaceid ?? selectedWorkspace?.id ?? ""
+  const wsId = params.workspaceid ?? ""
 
   const [active, setActive] = useState(false)
   const [stepIdx, setStepIdx] = useState(0)
   const [rect, setRect] = useState<DOMRect | null>(null)
-  const tickRef = useRef(0)
 
-  // Activate on first run (localStorage flag set when the dashboard detects a
-  // not-yet-onboarded profile). Re-check periodically (it can flip after the
-  // profile loads).
+  // Activate from the localStorage flag (set on fresh onboarding completion or
+  // by the Tutorial button). Re-check periodically so a replay click is picked
+  // up without a remount.
   useEffect(() => {
     const sync = () => {
       const on = isWalkthroughActive()
@@ -119,7 +122,7 @@ export function GuidedTour() {
       }
     }
     sync()
-    const id = setInterval(sync, 1500)
+    const id = setInterval(sync, 1200)
     return () => clearInterval(id)
   }, [])
 
@@ -142,22 +145,33 @@ export function GuidedTour() {
     void markWalkthroughViewed().catch(() => undefined)
   }, [])
 
-  // Measure the current target + auto-advance across page/modal transitions.
+  const step = active ? SCRIPT[stepIdx] : undefined
+
+  // Run the step's onShow (focus/scroll) when it becomes active.
+  useEffect(() => {
+    if (!active || !step) return
+    step.onShow?.({ router, locale, wsId })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [active, stepIdx])
+
+  // Measure the spotlight target + auto-advance when the user moves themselves.
   useEffect(() => {
     if (!active) return
-    let raf = 0
     const loop = () => {
-      const step = SCRIPT[stepIdx]
-      if (!step) return
-      const el = document.querySelector(step.target) as HTMLElement | null
+      const s = SCRIPT[stepIdx]
+      if (!s) return
+      if (s.kind === "popup" || !s.target) {
+        setRect(null)
+        return
+      }
+      const el = document.querySelector(s.target) as HTMLElement | null
       const next = SCRIPT[stepIdx + 1]
-      const nextEl = next
-        ? (document.querySelector(next.target) as HTMLElement | null)
-        : null
-
-      // Auto-advance: for "navigate" steps, when the current target is gone
-      // and the next one has appeared, the user moved forward.
-      if (step.advanceOn === "navigate" && !el && nextEl) {
+      const nextEl =
+        next?.kind === "spotlight" && next.target
+          ? (document.querySelector(next.target) as HTMLElement | null)
+          : null
+      // Accelerator: current target gone + next appeared → user moved forward.
+      if (!el && nextEl) {
         const ni = stepIdx + 1
         setStepIdx(ni)
         persistStep(ni)
@@ -166,29 +180,18 @@ export function GuidedTour() {
       setRect(el ? el.getBoundingClientRect() : null)
     }
     loop()
-    const interval = setInterval(loop, 500)
-    const onScroll = () => {
-      tickRef.current++
-      loop()
-    }
+    const interval = setInterval(loop, 400)
+    const onScroll = () => loop()
     window.addEventListener("scroll", onScroll, true)
     window.addEventListener("resize", onScroll)
-    raf = requestAnimationFrame(loop)
     return () => {
       clearInterval(interval)
-      cancelAnimationFrame(raf)
       window.removeEventListener("scroll", onScroll, true)
       window.removeEventListener("resize", onScroll)
     }
   }, [active, stepIdx, persistStep])
 
-  if (!active || !wsId) return null
-  const step = SCRIPT[stepIdx]
-  if (!step) return null
-
-  // While a "navigate" step's target isn't on screen yet (mid-transition),
-  // stay invisible so we don't block the page.
-  if (!rect && step.advanceOn === "navigate") return null
+  if (!active || !wsId || !step) return null
 
   const handleNext = () => {
     step.onNext?.({ router, locale, wsId })
@@ -196,22 +199,22 @@ export function GuidedTour() {
       finish()
       return
     }
-    if (step.advanceOn === "manual") {
-      const ni = Math.min(SCRIPT.length - 1, stepIdx + 1)
-      setStepIdx(ni)
-      persistStep(ni)
-    }
-    // "navigate" steps advance via the auto-advance effect.
+    const ni = Math.min(SCRIPT.length - 1, stepIdx + 1)
+    setStepIdx(ni)
+    persistStep(ni)
   }
 
-  const cutout = rect
-    ? {
-        top: rect.top - PAD,
-        left: rect.left - PAD,
-        width: rect.width + PAD * 2,
-        height: rect.height + PAD * 2
-      }
-    : null
+  // Spotlight cutout only when we actually found the target; otherwise the
+  // tooltip centers over a plain dim overlay (never invisible/stuck).
+  const cutout =
+    step.kind === "spotlight" && rect
+      ? {
+          top: rect.top - PAD,
+          left: rect.left - PAD,
+          width: rect.width + PAD * 2,
+          height: rect.height + PAD * 2
+        }
+      : null
 
   const tooltipStyle: CSSProperties = (() => {
     if (!cutout)
@@ -321,7 +324,7 @@ export function GuidedTour() {
             onClick={handleNext}
             className="bg-rust text-paper inline-flex h-8 items-center rounded-md px-3 text-[12.5px] font-medium hover:bg-[color:var(--rust-hover)]"
           >
-            {step.last ? "Finish" : "Next"}
+            {step.last ? "Finish" : stepIdx === 0 ? "Start tour" : "Next"}
           </button>
         </div>
       </div>

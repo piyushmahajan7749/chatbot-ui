@@ -5,6 +5,7 @@ import { RoleStep } from "@/components/onboarding/role-step"
 import { UseCaseStep } from "@/components/onboarding/use-case-step"
 import { FC, useState, useTransition } from "react"
 import { toast } from "sonner"
+import { setWalkthroughActive } from "@/components/onboarding/design-coach"
 import { completeOnboarding, saveOnboardingStep1 } from "./actions"
 
 type Role =
@@ -90,6 +91,10 @@ export const OnboardingForm: FC<OnboardingFormProps> = ({
         toast.error(result.error)
         return
       }
+      // Fresh signup just finished onboarding → arm the first-run walkthrough
+      // (the ONLY place it's armed, so existing accounts never see it). The
+      // flag survives the full-page nav below and GuidedTour picks it up.
+      setWalkthroughActive(true)
       // Full page navigation so GlobalState remounts with the freshly-saved
       // profile (display_name, use_case) - a client-side router.replace would
       // leave stale context behind and skip the personalization payoff.
