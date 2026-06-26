@@ -5,13 +5,22 @@ import { Label } from "@/components/ui/label"
 import { cn } from "@/lib/utils"
 import { FC } from "react"
 
-type Role = "researcher" | "scientist" | "student" | "pm" | "other"
+type Role =
+  | "phd_scholar"
+  | "postdoc"
+  | "research_scientist"
+  | "principal_scientist"
+  | "lab_head_pi"
+  | "research_manager"
+  | "other"
 
 const ROLE_OPTIONS: { value: Role; label: string }[] = [
-  { value: "researcher", label: "Researcher" },
-  { value: "scientist", label: "Scientist" },
-  { value: "student", label: "Grad student" },
-  { value: "pm", label: "PM" },
+  { value: "phd_scholar", label: "PhD Scholar" },
+  { value: "postdoc", label: "Postdoc" },
+  { value: "research_scientist", label: "Research Scientist" },
+  { value: "principal_scientist", label: "Principal Scientist" },
+  { value: "lab_head_pi", label: "Lab Head / PI" },
+  { value: "research_manager", label: "Research Manager" },
   { value: "other", label: "Other" }
 ]
 
@@ -20,16 +29,20 @@ const ROLE_OPTIONS: { value: Role; label: string }[] = [
 // researchers. Keeping the chip row biotech-flavoured signals product
 // fit on first run instead of inviting off-target signups.
 const FIELD_SUGGESTIONS = [
+  "Drug Discovery",
+  "Drug Formulation",
+  "Analytical Chemistry",
   "Molecular Biology",
   "Biochemistry",
   "Cell Biology",
-  "Genetics",
-  "Microbiology",
+  "Genetics & Genomics",
   "Immunology",
-  "Pharmacology",
-  "Biotechnology",
+  "Pharmacology & Toxicology",
   "Neuroscience",
-  "Clinical / Translational"
+  "Microbiology & Infectious Disease",
+  "Bioprocessing & Manufacturing",
+  "Clinical & Translational Research",
+  "Computational Biology / Bioinformatics"
 ]
 
 interface RoleStepProps {

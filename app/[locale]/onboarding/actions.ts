@@ -4,10 +4,12 @@ import { createClient } from "@/lib/supabase/server"
 import { cookies } from "next/headers"
 
 const ROLE_VALUES = [
-  "researcher",
-  "scientist",
-  "student",
-  "pm",
+  "phd_scholar",
+  "postdoc",
+  "research_scientist",
+  "principal_scientist",
+  "lab_head_pi",
+  "research_manager",
   "other"
 ] as const
 const USE_CASE_VALUES = ["design", "validate", "explore", "browse"] as const
@@ -22,7 +24,8 @@ export type Step1Input = {
 }
 
 export type Step2Input = {
-  use_case: UseCase
+  /** One or more selected use-cases (stored CSV in profiles.use_case). */
+  use_cases: UseCase[]
 }
 
 export type OnboardingResult =
@@ -86,14 +89,17 @@ export async function completeOnboarding(
   if (!profileId)
     return { ok: false, error: "Profile not ready. Please wait a moment." }
 
-  if (!USE_CASE_VALUES.includes(input.use_case)) {
-    return { ok: false, error: "Please pick an option." }
+  const useCases = (input.use_cases ?? []).filter(u =>
+    USE_CASE_VALUES.includes(u)
+  )
+  if (useCases.length === 0) {
+    return { ok: false, error: "Please pick at least one option." }
   }
 
   const { error } = await supabase
     .from("profiles")
     .update({
-      use_case: input.use_case,
+      use_case: useCases.join(","),
       onboarding_step: 2,
       has_onboarded: true
     })

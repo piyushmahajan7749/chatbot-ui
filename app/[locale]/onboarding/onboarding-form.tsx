@@ -7,7 +7,14 @@ import { FC, useState, useTransition } from "react"
 import { toast } from "sonner"
 import { completeOnboarding, saveOnboardingStep1 } from "./actions"
 
-type Role = "researcher" | "scientist" | "student" | "pm" | "other"
+type Role =
+  | "phd_scholar"
+  | "postdoc"
+  | "research_scientist"
+  | "principal_scientist"
+  | "lab_head_pi"
+  | "research_manager"
+  | "other"
 type UseCase = "design" | "validate" | "explore" | "browse"
 
 interface OnboardingFormProps {
@@ -15,8 +22,11 @@ interface OnboardingFormProps {
   initialDisplayName: string
   initialRole: Role | null
   initialResearchField: string
-  initialUseCase: UseCase | null
+  /** CSV of previously-selected use-cases (profiles.use_case). */
+  initialUseCase: string | null
 }
+
+const USE_CASE_VALUES: UseCase[] = ["design", "validate", "explore", "browse"]
 
 export const OnboardingForm: FC<OnboardingFormProps> = ({
   initialStep,
@@ -33,7 +43,16 @@ export const OnboardingForm: FC<OnboardingFormProps> = ({
   const [role, setRole] = useState<Role | null>(initialRole)
   const [researchField, setResearchField] = useState(initialResearchField)
 
-  const [useCase, setUseCase] = useState<UseCase | null>(initialUseCase)
+  const [useCases, setUseCases] = useState<UseCase[]>(
+    (initialUseCase ?? "")
+      .split(",")
+      .map(s => s.trim())
+      .filter((s): s is UseCase => USE_CASE_VALUES.includes(s as UseCase))
+  )
+  const toggleUseCase = (value: UseCase) =>
+    setUseCases(prev =>
+      prev.includes(value) ? prev.filter(v => v !== value) : [...prev, value]
+    )
 
   const handleStep1Continue = () => {
     if (!displayName.trim()) {
@@ -60,13 +79,13 @@ export const OnboardingForm: FC<OnboardingFormProps> = ({
   }
 
   const handleFinish = () => {
-    if (!useCase) {
-      toast.error("Pick what you'd like to do first.")
+    if (useCases.length === 0) {
+      toast.error("Pick at least one thing you'd like to do.")
       return
     }
 
     startTransition(async () => {
-      const result = await completeOnboarding({ use_case: useCase })
+      const result = await completeOnboarding({ use_cases: useCases })
       if (!result.ok) {
         toast.error(result.error)
         return
@@ -110,14 +129,14 @@ export const OnboardingForm: FC<OnboardingFormProps> = ({
       totalSteps={2}
       eyebrow="Step 2 of 2"
       title="What brings you here today?"
-      description="Pick what matters most right now - you can explore everything later."
+      description="Pick everything that fits - you can explore the rest later."
       onBack={() => setStep(1)}
       onContinue={handleFinish}
       continueLabel="Open my workspace"
-      continueDisabled={isPending || !useCase}
+      continueDisabled={isPending || useCases.length === 0}
       isPending={isPending}
     >
-      <UseCaseStep useCase={useCase} onUseCaseChange={setUseCase} />
+      <UseCaseStep useCases={useCases} onToggle={toggleUseCase} />
     </OnboardingShell>
   )
 }

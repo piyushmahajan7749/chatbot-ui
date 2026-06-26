@@ -33,14 +33,12 @@ const USE_CASE_OPTIONS: {
 ]
 
 interface UseCaseStepProps {
-  useCase: UseCase | null
-  onUseCaseChange: (value: UseCase) => void
+  /** Multiple use-cases can be selected. */
+  useCases: UseCase[]
+  onToggle: (value: UseCase) => void
 }
 
-export const UseCaseStep: FC<UseCaseStepProps> = ({
-  useCase,
-  onUseCaseChange
-}) => {
+export const UseCaseStep: FC<UseCaseStepProps> = ({ useCases, onToggle }) => {
   return (
     <div className="grid gap-3 sm:grid-cols-2">
       {USE_CASE_OPTIONS.map(option => (
@@ -48,8 +46,8 @@ export const UseCaseStep: FC<UseCaseStepProps> = ({
           key={option.value}
           title={option.title}
           description={option.description}
-          selected={useCase === option.value}
-          onClick={() => onUseCaseChange(option.value)}
+          selected={useCases.includes(option.value)}
+          onClick={() => onToggle(option.value)}
         />
       ))}
     </div>

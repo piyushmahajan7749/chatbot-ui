@@ -58,22 +58,17 @@ export default async function OnboardingPage() {
               initialDisplayName={profile.display_name || emailLocalPart}
               initialRole={
                 (profile.role as
-                  | "researcher"
-                  | "scientist"
-                  | "student"
-                  | "pm"
+                  | "phd_scholar"
+                  | "postdoc"
+                  | "research_scientist"
+                  | "principal_scientist"
+                  | "lab_head_pi"
+                  | "research_manager"
                   | "other"
                   | null) ?? null
               }
               initialResearchField={profile.research_field ?? ""}
-              initialUseCase={
-                (profile.use_case as
-                  | "design"
-                  | "validate"
-                  | "explore"
-                  | "browse"
-                  | null) ?? null
-              }
+              initialUseCase={profile.use_case ?? null}
             />
           ) : (
             <ProfilePendingFallback />
