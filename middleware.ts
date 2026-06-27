@@ -68,8 +68,10 @@ export async function middleware(request: NextRequest) {
       pathname === "/forgot-password" || pathname.startsWith("/forgot-password/")
     const isWelcome =
       pathname === "/welcome" || pathname.startsWith("/welcome/")
-    // All public auth pages an unauthenticated user is allowed to see.
-    const isPublicAuth = isLogin || isSignup || isForgotPassword || isWelcome
+    const isBlog = pathname === "/blog" || pathname.startsWith("/blog/")
+    // All public pages an unauthenticated user is allowed to see.
+    const isPublicAuth =
+      isLogin || isSignup || isForgotPassword || isWelcome || isBlog
     const isOnboarding = pathname === "/onboarding"
     const seenWelcome = request.cookies.get("seen_welcome")?.value === "1"
 

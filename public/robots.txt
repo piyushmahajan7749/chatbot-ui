@@ -1,24 +1,26 @@
 User-agent: *
 Allow: /
 Allow: /welcome
+Allow: /blog
+Allow: /blog/
 Allow: /signup
 Allow: /login
 
 # Block authenticated app routes — nothing useful for crawlers here
-Disallow: /*/[workspaceid]/
-Disallow: /*/onboarding
 Disallow: /*/designs/
 Disallow: /*/reports/
 Disallow: /*/chats/
 Disallow: /*/projects/
 Disallow: /*/data-collections/
+Disallow: /*/onboarding
 Disallow: /api/
 Disallow: /auth/
 
-# AI training opt-out
+# AI training opt-out for scraper bots
 User-agent: GPTBot
-Disallow: /api/
+Allow: /blog/
 Allow: /
+Disallow: /api/
 
 User-agent: Google-Extended
 Allow: /

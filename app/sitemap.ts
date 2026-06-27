@@ -1,4 +1,5 @@
 import { MetadataRoute } from "next"
+import { BLOG_POSTS } from "@/lib/blog/posts"
 
 const SITE_URL =
   process.env.NEXT_PUBLIC_SITE_URL || "https://www.shadowai.today"
@@ -6,7 +7,7 @@ const SITE_URL =
 export default function sitemap(): MetadataRoute.Sitemap {
   const now = new Date()
 
-  return [
+  const staticRoutes: MetadataRoute.Sitemap = [
     {
       url: SITE_URL,
       lastModified: now,
@@ -17,6 +18,12 @@ export default function sitemap(): MetadataRoute.Sitemap {
       url: `${SITE_URL}/welcome`,
       lastModified: now,
       changeFrequency: "monthly",
+      priority: 0.9
+    },
+    {
+      url: `${SITE_URL}/blog`,
+      lastModified: now,
+      changeFrequency: "weekly",
       priority: 0.9
     },
     {
@@ -32,4 +39,13 @@ export default function sitemap(): MetadataRoute.Sitemap {
       priority: 0.5
     }
   ]
+
+  const blogRoutes: MetadataRoute.Sitemap = BLOG_POSTS.map(post => ({
+    url: `${SITE_URL}/blog/${post.slug}`,
+    lastModified: new Date(post.publishedAt),
+    changeFrequency: "monthly" as const,
+    priority: 0.8
+  }))
+
+  return [...staticRoutes, ...blogRoutes]
 }
