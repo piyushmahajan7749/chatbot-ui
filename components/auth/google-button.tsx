@@ -12,6 +12,7 @@ import { useState } from "react"
 import { toast } from "sonner"
 
 import { supabase } from "@/lib/supabase/browser-client"
+import { track } from "@/lib/analytics"
 import { IconLoader2 } from "@tabler/icons-react"
 
 const GoogleGlyph = () => (
@@ -40,6 +41,7 @@ export function GoogleButton({ next = "/" }: { next?: string }) {
 
   const onClick = async () => {
     setBusy(true)
+    track("google_auth_clicked")
     try {
       const { error } = await supabase.auth.signInWithOAuth({
         provider: "google",

@@ -29,6 +29,7 @@ import { formatCreatedModifiedStacked } from "@/lib/format-date"
 import { SlabPager } from "@/components/ui/slab-pager"
 import { SlabRow } from "@/components/ui/slab-row"
 import { cn } from "@/lib/utils"
+import { track } from "@/lib/analytics"
 
 // Page size for the dashboard previews. Same value for all three
 // lists so the rhythm reads consistently.
@@ -268,6 +269,7 @@ export default function WorkspacePage() {
 
   const startDesign = (seed?: string) => {
     if (!wsId) return
+    track("new_design_clicked", { source: seed ? "suggestion" : "button" })
     const base = `/${wsId}/designs/new`
     router.push(seed ? `${base}?q=${encodeURIComponent(seed)}` : base)
   }

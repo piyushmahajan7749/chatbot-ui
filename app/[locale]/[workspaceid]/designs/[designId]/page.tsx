@@ -82,6 +82,7 @@ import {
   downloadSOP
 } from "@/lib/design/export"
 import { labStandardsToText } from "@/lib/settings/preferences"
+import { track } from "@/lib/analytics"
 import { applyDesignPatch } from "@/lib/design/apply-patch"
 import {
   IconAlertTriangle,
@@ -903,6 +904,7 @@ export default function DesignDetailPage() {
       return
     }
     // Open the Refine clarifying-question step; it runs literature on complete.
+    track("literature_search_started")
     setRefineCheckpoint("problem")
   }
 
@@ -976,6 +978,7 @@ export default function DesignDetailPage() {
       })
       return
     }
+    track("hypothesis_generation_started", { papers: selectedPapers.length })
     setRefineCheckpoint("hypothesis")
   }
 
@@ -1036,6 +1039,9 @@ export default function DesignDetailPage() {
       return
     }
     // Open the Refine clarifying-question step; it runs design on complete.
+    track("design_generation_started", {
+      hypotheses: selectedHypotheses.length
+    })
     setRefineCheckpoint("design")
   }
 
@@ -4863,21 +4869,28 @@ function OverviewTab(props: {
                       icon: <IconFlask size={18} />,
                       title: "Bench execution guide",
                       desc: "Materials, calculations, preparation and method — the executable setup work, with a conditions overview.",
-                      onClick: () =>
+                      onClick: () => {
+                        track("design_pdf_downloaded", { type: "bench_guide" })
                         downloadBenchExecutionGuide(exportableDesign)
+                      }
                     },
                     {
                       icon: <IconBook size={18} />,
                       title: "Rationale & citations",
                       desc: "Literature, citations and the hypothesis rationale, with a conditions overview — defend your choices.",
-                      onClick: () =>
+                      onClick: () => {
+                        track("design_pdf_downloaded", { type: "rationale" })
                         downloadRationaleCitations(exportableDesign)
+                      }
                     },
                     {
                       icon: <IconClipboardText size={18} />,
                       title: "SOP",
                       desc: "A replicable protocol — short theory, then materials, methods, execution, safety and disposal.",
-                      onClick: () => downloadSOP(exportableDesign)
+                      onClick: () => {
+                        track("design_pdf_downloaded", { type: "sop" })
+                        downloadSOP(exportableDesign)
+                      }
                     }
                   ].map(a => (
                     <div

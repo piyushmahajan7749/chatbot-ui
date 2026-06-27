@@ -6,6 +6,7 @@ import { getProjectsByWorkspaceId } from "@/db/projects"
 import { useParams, useRouter } from "next/navigation"
 import { FC, useContext, useEffect, useRef, useState } from "react"
 import { toast } from "sonner"
+import { track } from "@/lib/analytics"
 import {
   Dialog,
   DialogContent,
@@ -91,6 +92,7 @@ export const CreateReport: FC<CreateReportProps> = ({
   const handleCreate = async () => {
     const trimmed = name.trim()
     if (!trimmed) return
+    track("new_report_clicked")
     setCreating(true)
     try {
       const finalProjectId =

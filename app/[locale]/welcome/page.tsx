@@ -12,6 +12,7 @@
 import { useEffect, useState } from "react"
 import { useParams, useRouter } from "next/navigation"
 import Link from "next/link"
+import { track } from "@/lib/analytics"
 
 import { Brand } from "@/components/ui/brand"
 import { Button } from "@/components/ui/button"
@@ -89,15 +90,18 @@ export default function WelcomePage() {
   const next = () => {
     if (last) {
       setSeen()
+      track("landing_cta_clicked", { slide: i, action: "get_started" })
       router.push(`/${locale}/signup`)
       return
     }
+    track("landing_slide_changed", { from: i, to: i + 1 })
     setPaused(true)
     setI(n => n + 1)
   }
 
   const skip = () => {
     setSeen()
+    track("landing_cta_clicked", { slide: i, action: "skip" })
     router.push(`/${locale}/signup`)
   }
 

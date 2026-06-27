@@ -1,12 +1,13 @@
 "use client"
 
-import { FC, useState } from "react"
+import { FC, useEffect, useState } from "react"
 
 import { PasswordInput, scorePassword } from "@/components/auth/password-input"
 import { GoogleButton } from "@/components/auth/google-button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { SubmitButton } from "@/components/ui/submit-button"
+import { track } from "@/lib/analytics"
 
 interface SignupFormProps {
   /** Server action bound by the parent page. */
@@ -31,10 +32,12 @@ export const SignupForm: FC<SignupFormProps> = ({
   const [password, setPassword] = useState("")
   const [agreed, setAgreed] = useState(true)
   const strength = scorePassword(password)
-  // Allow submit at strength >= 2 ("Fair"). We've already enforced the
-  // 8-char minimum server-side; this just protects the user from
-  // shipping `qwerty12`.
   const submitDisabled = !agreed || password.length < 8 || strength < 2
+
+  // Track signup errors surfaced from the server action via searchParams.
+  useEffect(() => {
+    if (error) track("signup_error", { reason: error.slice(0, 80) })
+  }, [error])
 
   return (
     <div className="flex w-full flex-col gap-4">
@@ -46,7 +49,11 @@ export const SignupForm: FC<SignupFormProps> = ({
         </span>
         <span className="bg-line h-px flex-1" />
       </div>
-      <form className="flex w-full flex-col gap-4" action={action}>
+      <form
+        className="flex w-full flex-col gap-4"
+        action={action}
+        onSubmit={() => track("signup_submitted")}
+      >
         <div className="flex flex-col gap-1.5">
           <Label
             htmlFor="full_name"

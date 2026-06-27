@@ -44,6 +44,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { cn } from "@/lib/utils"
+import { track } from "@/lib/analytics"
 
 type Draft = Record<string, any>
 
@@ -277,6 +278,7 @@ export default function ReportDetailPage() {
     const hasProtocolContext =
       protocolFiles.length > 0 || !!report?.design_context
     if (!objective.trim() || !hasProtocolContext) return
+    track("report_generation_started")
     setClarifyOpen(true)
   }
 
@@ -286,6 +288,7 @@ export default function ReportDetailPage() {
     const hasProtocolContext =
       protocolFiles.length > 0 || !!report?.design_context
     if (!objective.trim() || !hasProtocolContext) return
+    if (reportSpec) track("report_clarify_completed")
     setIsGenerating(true)
     const toastId = `report-generate-${reportId}`
     sonnerToast.loading("Generating report draft…", {
