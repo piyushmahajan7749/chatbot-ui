@@ -55,9 +55,13 @@ const ibmPlexMono = localFont({
   variable: "--font-ibm-plex-mono"
 })
 const APP_NAME = "Shadow AI"
-const APP_DEFAULT_TITLE = "Shadow AI"
-const APP_TITLE_TEMPLATE = "%s - Shadow AI"
-const APP_DESCRIPTION = "Tools for research scientists!"
+const APP_DEFAULT_TITLE =
+  "Shadow AI — AI Experiment Design for Life Sciences Researchers"
+const APP_TITLE_TEMPLATE = "%s | Shadow AI"
+const APP_DESCRIPTION =
+  "Shadow AI turns any research question into a structured, run-ready experiment plan in minutes. AI-powered experiment design, hypothesis generation, and scientific protocol creation for PhD researchers, postdocs, and lab scientists."
+const SITE_URL =
+  process.env.NEXT_PUBLIC_SITE_URL || "https://www.shadowai.today"
 
 interface RootLayoutProps {
   children: ReactNode
@@ -67,17 +71,45 @@ interface RootLayoutProps {
 }
 
 export const metadata: Metadata = {
+  metadataBase: new URL(SITE_URL),
   applicationName: APP_NAME,
   title: {
     default: APP_DEFAULT_TITLE,
     template: APP_TITLE_TEMPLATE
   },
   description: APP_DESCRIPTION,
+  keywords: [
+    "AI experiment design",
+    "experiment design software",
+    "AI research tool for scientists",
+    "scientific protocol generator",
+    "AI hypothesis generation",
+    "drug discovery experiment planning",
+    "lab experiment AI",
+    "AI co-scientist",
+    "AI for PhD researchers",
+    "life sciences AI tools",
+    "research protocol AI",
+    "experiment planning software",
+    "scientific research AI",
+    "AI for postdocs",
+    "AI laboratory assistant"
+  ],
+  authors: [{ name: "Shadow AI", url: SITE_URL }],
+  creator: "Shadow AI",
+  publisher: "Shadow AI",
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      "max-video-preview": -1,
+      "max-image-preview": "large",
+      "max-snippet": -1
+    }
+  },
   manifest: "/manifest.json",
-  // Old favicon.ico + icon-{192,256,512} PNGs were deleted with the
-  // rebrand. The new logo PNG (500x500) doubles as favicon / apple
-  // touch icon - modern browsers accept PNG for both. The full lockup
-  // (logo-full.png) is used for OG / Twitter share cards.
   icons: {
     icon: [{ url: "/logo.png", sizes: "500x500", type: "image/png" }],
     shortcut: [{ url: "/logo.png" }],
@@ -86,8 +118,7 @@ export const metadata: Metadata = {
   appleWebApp: {
     capable: true,
     statusBarStyle: "black",
-    title: APP_DEFAULT_TITLE
-    // startUpImage: [],
+    title: APP_NAME
   },
   formatDetection: {
     telephone: false
@@ -100,7 +131,15 @@ export const metadata: Metadata = {
       template: APP_TITLE_TEMPLATE
     },
     description: APP_DESCRIPTION,
-    images: [{ url: "/logo-full.png", width: 520, height: 335 }]
+    images: [
+      {
+        url: "/logo-full.png",
+        width: 1200,
+        height: 630,
+        alt: "Shadow AI — AI Experiment Design for Life Sciences"
+      }
+    ],
+    locale: "en_US"
   },
   twitter: {
     card: "summary_large_image",
@@ -109,7 +148,11 @@ export const metadata: Metadata = {
       template: APP_TITLE_TEMPLATE
     },
     description: APP_DESCRIPTION,
-    images: ["/logo-full.png"]
+    images: ["/logo-full.png"],
+    creator: "@shadowaitoday"
+  },
+  alternates: {
+    canonical: "/"
   }
 }
 
@@ -149,12 +192,105 @@ export default async function RootLayout({
 
   const { t, resources } = await initTranslations(locale, i18nNamespaces)
 
+  const jsonLd = {
+    "@context": "https://schema.org",
+    "@graph": [
+      {
+        "@type": "Organization",
+        "@id": `${SITE_URL}/#organization`,
+        name: "Shadow AI",
+        url: SITE_URL,
+        logo: {
+          "@type": "ImageObject",
+          url: `${SITE_URL}/logo.png`,
+          width: 500,
+          height: 500
+        },
+        sameAs: []
+      },
+      {
+        "@type": "SoftwareApplication",
+        "@id": `${SITE_URL}/#app`,
+        name: "Shadow AI",
+        applicationCategory: "ScientificApplication",
+        operatingSystem: "Web",
+        url: SITE_URL,
+        description:
+          "AI-powered experiment design platform for life sciences researchers. Turn research questions into structured, run-ready experiment plans with AI hypothesis generation and protocol creation.",
+        offers: {
+          "@type": "Offer",
+          price: "0",
+          priceCurrency: "USD",
+          description: "Free tier available"
+        },
+        publisher: { "@id": `${SITE_URL}/#organization` },
+        featureList: [
+          "AI experiment design",
+          "Hypothesis generation from literature",
+          "Scientific protocol creation",
+          "Research paper analysis",
+          "Lab report generation",
+          "Experiment planning for drug discovery",
+          "AI co-scientist for PhD researchers"
+        ],
+        audience: {
+          "@type": "Audience",
+          audienceType:
+            "Life sciences researchers, PhD scholars, postdocs, principal investigators, research scientists"
+        }
+      },
+      {
+        "@type": "FAQPage",
+        mainEntity: [
+          {
+            "@type": "Question",
+            name: "What is Shadow AI?",
+            acceptedAnswer: {
+              "@type": "Answer",
+              text: "Shadow AI is an AI-powered experiment design platform for life sciences researchers. It turns any research question into a structured, validated experiment plan — including literature review, hypothesis generation, and a full experimental protocol — in minutes."
+            }
+          },
+          {
+            "@type": "Question",
+            name: "Who is Shadow AI for?",
+            acceptedAnswer: {
+              "@type": "Answer",
+              text: "Shadow AI is built for life sciences researchers: PhD scholars, postdoctoral researchers, research scientists, principal investigators, and lab heads working in fields like drug discovery, molecular biology, biochemistry, pharmacology, immunology, neuroscience, and bioprocessing."
+            }
+          },
+          {
+            "@type": "Question",
+            name: "What does Shadow AI do?",
+            acceptedAnswer: {
+              "@type": "Answer",
+              text: "Shadow AI helps researchers design experiments faster using AI. You describe your research question, and Shadow AI scouts relevant literature, generates testable hypotheses, and builds a complete experimental design — including materials, methods, controls, replicates, and a step-by-step protocol — ready for the bench."
+            }
+          },
+          {
+            "@type": "Question",
+            name: "Is Shadow AI free to use?",
+            acceptedAnswer: {
+              "@type": "Answer",
+              text: "Shadow AI offers a free tier that lets you run your first experiments at no cost. Pro and Max plans unlock higher usage limits and additional features."
+            }
+          }
+        ]
+      }
+    ]
+  }
+
   return (
     <html
-      lang="en"
+      lang={locale}
       suppressHydrationWarning
       className={`${interTight.variable} ${ibmPlexSans.variable} ${ibmPlexMono.variable}`}
     >
+      <head>
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+        />
+      </head>
       <body className="font-sans">
         <Providers attribute="class" defaultTheme="dark">
           <TranslationsProvider

@@ -12,7 +12,11 @@ import { attributeReferral } from "@/lib/affiliate/service"
 import { REFERRAL_COOKIE } from "@/lib/affiliate/constants"
 
 export const metadata: Metadata = {
-  title: "Create your account"
+  title: "Create Your Account",
+  description:
+    "Join thousands of life sciences researchers using Shadow AI to design experiments faster. Free to start — no credit card required.",
+  alternates: { canonical: "/signup" },
+  robots: { index: false, follow: false }
 }
 
 export default async function SignupPage({

@@ -15,7 +15,10 @@ import { friendlyAuthError } from "@/lib/auth/friendly-errors"
 import { Database } from "@/supabase/types"
 
 export const metadata: Metadata = {
-  title: "Sign in"
+  title: "Sign In",
+  description: "Sign in to Shadow AI and continue designing your experiments.",
+  alternates: { canonical: "/login" },
+  robots: { index: false, follow: false }
 }
 
 export default async function Login({

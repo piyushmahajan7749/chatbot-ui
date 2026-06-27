@@ -1,9 +1,17 @@
-"use client"
-
+import { Metadata } from "next"
 import { IconArrowRight } from "@tabler/icons-react"
 import Link from "next/link"
 
 import { ShadowAISVG } from "@/components/icons/chatbotui-svg"
+
+export const metadata: Metadata = {
+  title: "Shadow AI — AI Experiment Design for Life Sciences Researchers",
+  description:
+    "Turn any research question into a run-ready experiment plan in minutes. AI-powered experiment design, hypothesis generation, and protocol creation for PhD researchers, postdocs, and lab scientists.",
+  alternates: {
+    canonical: "/"
+  }
+}
 
 export default function HomePage() {
   return (
