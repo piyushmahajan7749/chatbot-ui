@@ -60,8 +60,7 @@ const APP_DEFAULT_TITLE =
 const APP_TITLE_TEMPLATE = "%s | Shadow AI"
 const APP_DESCRIPTION =
   "Shadow AI turns any research question into a structured, run-ready experiment plan in minutes. AI-powered experiment design, hypothesis generation, and scientific protocol creation for PhD researchers, postdocs, and lab scientists."
-const SITE_URL =
-  process.env.NEXT_PUBLIC_SITE_URL || "https://www.shadowai.today"
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || "https://www.shadowai.work"
 
 interface RootLayoutProps {
   children: ReactNode

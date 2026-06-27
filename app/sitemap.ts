@@ -1,8 +1,7 @@
 import { MetadataRoute } from "next"
 import { BLOG_POSTS } from "@/lib/blog/posts"
 
-const SITE_URL =
-  process.env.NEXT_PUBLIC_SITE_URL || "https://www.shadowai.today"
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || "https://www.shadowai.work"
 
 export default function sitemap(): MetadataRoute.Sitemap {
   const now = new Date()
@@ -37,6 +36,24 @@ export default function sitemap(): MetadataRoute.Sitemap {
       lastModified: now,
       changeFrequency: "monthly",
       priority: 0.5
+    },
+    {
+      url: `${SITE_URL}/about`,
+      lastModified: now,
+      changeFrequency: "monthly",
+      priority: 0.7
+    },
+    {
+      url: `${SITE_URL}/privacy`,
+      lastModified: now,
+      changeFrequency: "yearly",
+      priority: 0.3
+    },
+    {
+      url: `${SITE_URL}/terms`,
+      lastModified: now,
+      changeFrequency: "yearly",
+      priority: 0.3
     }
   ]
 

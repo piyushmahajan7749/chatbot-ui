@@ -20,7 +20,7 @@ export function generateMetadata({ params }: Props): Metadata {
   const post = getPostBySlug(params.slug)
   if (!post) return {}
   const SITE_URL =
-    process.env.NEXT_PUBLIC_SITE_URL || "https://www.shadowai.today"
+    process.env.NEXT_PUBLIC_SITE_URL || "https://www.shadowai.work"
   return {
     title: post.seoTitle,
     description: post.description,
@@ -148,7 +148,7 @@ export default function BlogPostPage({ params }: Props) {
   if (!post) notFound()
 
   const SITE_URL =
-    process.env.NEXT_PUBLIC_SITE_URL || "https://www.shadowai.today"
+    process.env.NEXT_PUBLIC_SITE_URL || "https://www.shadowai.work"
 
   const jsonLd = {
     "@context": "https://schema.org",

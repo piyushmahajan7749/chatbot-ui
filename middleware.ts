@@ -69,9 +69,12 @@ export async function middleware(request: NextRequest) {
     const isWelcome =
       pathname === "/welcome" || pathname.startsWith("/welcome/")
     const isBlog = pathname === "/blog" || pathname.startsWith("/blog/")
+    const isAbout = pathname === "/about"
+    const isPrivacy = pathname === "/privacy"
+    const isTerms = pathname === "/terms"
     // All public pages an unauthenticated user is allowed to see.
     const isPublicAuth =
-      isLogin || isSignup || isForgotPassword || isWelcome || isBlog
+      isLogin || isSignup || isForgotPassword || isWelcome || isBlog || isAbout || isPrivacy || isTerms
     const isOnboarding = pathname === "/onboarding"
     const seenWelcome = request.cookies.get("seen_welcome")?.value === "1"
 

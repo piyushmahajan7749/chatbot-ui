@@ -3,6 +3,9 @@ Allow: /
 Allow: /welcome
 Allow: /blog
 Allow: /blog/
+Allow: /about
+Allow: /privacy
+Allow: /terms
 Allow: /signup
 Allow: /login
 
@@ -28,4 +31,4 @@ Allow: /
 User-agent: CCBot
 Disallow: /
 
-Sitemap: https://www.shadowai.today/sitemap.xml
+Sitemap: https://www.shadowai.work/sitemap.xml
