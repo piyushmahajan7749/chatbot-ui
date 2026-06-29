@@ -92,6 +92,7 @@ import {
   IconBookmark,
   IconBookmarkFilled,
   IconBulb,
+  IconBooks,
   IconChartBar,
   IconCheck,
   IconChevronDown,
@@ -102,7 +103,6 @@ import {
   IconFiles,
   IconFlask,
   IconInfoCircle,
-  IconLayoutGrid,
   IconMessageCircle,
   IconPencil,
   IconPlus,
@@ -389,13 +389,7 @@ export default function DesignDetailPage() {
   // phase once the loader catches up.
   const initialTab = (() => {
     const t = searchParams?.get("tab") ?? ""
-    return [
-      "overview",
-      "problem",
-      "literature",
-      "hypotheses",
-      "design"
-    ].includes(t)
+    return ["problem", "literature", "hypotheses", "design"].includes(t)
       ? t
       : "problem"
   })()
@@ -403,9 +397,7 @@ export default function DesignDetailPage() {
   // Secondary tab bar inside an opened design: the design flow itself, plus its
   // scoped Reports / Chats / Files. Reports/chats/files now live under the
   // design (not the project), so they only appear once a design is opened.
-  const [designSubTab, setDesignSubTab] = useState<
-    "design" | "reports" | "chats" | "files"
-  >("design")
+  const [showLibrary, setShowLibrary] = useState(false)
   const [busy, setBusy] = useState<
     | null
     | "literature"
@@ -1184,7 +1176,7 @@ export default function DesignDetailPage() {
     ]
     setApprovedPhases(nextApproved)
     await persistContent({ approvedPhases: nextApproved })
-    setActiveTab("overview")
+    setActiveTab("design")
     toast({ title: "Design finalized", description: "All phases approved." })
   }
 
@@ -1783,24 +1775,12 @@ export default function DesignDetailPage() {
       }
     ]
 
-    return [
-      {
-        key: "overview",
-        label: "Design Overview",
-        sublabel: title || design?.name || "Untitled Design",
-        accent: "teal-journey" as const,
-        icon: <IconLayoutGrid size={20} />,
-        disabled: false,
-        status: undefined as TabStatus | undefined,
-        primary: true
-      },
-      ...phaseTabConfig.map(t => ({
-        ...t,
-        disabled: getPhaseState(t.key) === "locked",
-        status: getPhaseState(t.key) as TabStatus | undefined,
-        primary: false
-      }))
-    ]
+    return phaseTabConfig.map(t => ({
+      ...t,
+      disabled: getPhaseState(t.key) === "locked",
+      status: getPhaseState(t.key) as TabStatus | undefined,
+      primary: false
+    }))
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     approvedPhases,
@@ -2193,10 +2173,8 @@ Rules:
   }
 
   const handleTabChange = (key: string) => {
-    if (key !== "overview") {
-      const phase = key as PhaseKey
-      if (getPhaseState(phase) === "locked") return
-    }
+    const phase = key as PhaseKey
+    if (getPhaseState(phase) === "locked") return
     setActiveTab(key)
   }
 
@@ -2326,9 +2304,6 @@ Rules:
           </div>
 
           {/* ── Toolbar actions (right side) ───────────────── */}
-          {/* "Chat" opens a right-side rail scoped to this design so the user
-                can ask for edits while looking at it. Only available once the
-                design has been generated. */}
           <div className="flex items-center gap-2">
             {designGenerated && canEdit && undoDepth > 0 && (
               <Button
@@ -2341,24 +2316,20 @@ Rules:
                 <IconArrowBackUp size={14} /> Undo
               </Button>
             )}
-            {designGenerated && (
-              <button
-                onClick={toggleChatRail}
-                aria-pressed={showRail}
-                className={cn(
-                  "flex h-9 items-center gap-2 rounded-full px-4 text-xs font-semibold uppercase tracking-wide shadow-sm ring-1 ring-inset transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md active:translate-y-0",
-                  showRail
-                    ? "bg-ink text-paper ring-white/20"
-                    : "from-brick to-brick-hover bg-gradient-to-r text-white ring-white/20"
-                )}
-                title="Chat with this design"
-              >
-                <IconSparkles size={14} className="shrink-0" />
-                {showRail ? "Hide chat" : "Chat"}
-              </button>
-            )}
-            {/* Sharing is owner-only (the /share + /collaborators routes reject
-                non-owners), so only surface the button to the owner. */}
+            <button
+              onClick={toggleChatRail}
+              aria-pressed={showRail}
+              className={cn(
+                "flex h-9 items-center gap-2 rounded-full px-4 text-xs font-semibold uppercase tracking-wide shadow-sm ring-1 ring-inset transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md active:translate-y-0",
+                showRail
+                  ? "bg-ink text-paper ring-white/20"
+                  : "from-brick to-brick-hover bg-gradient-to-r text-white ring-white/20"
+              )}
+              title="Chat with this design"
+            >
+              <IconSparkles size={14} className="shrink-0" />
+              {showRail ? "Hide chat" : "Chat"}
+            </button>
             {isOwner && (
               <Button
                 variant="outline"
@@ -2370,46 +2341,249 @@ Rules:
                 <IconShare size={14} /> Share
               </Button>
             )}
+            <Button
+              variant={showLibrary ? "default" : "outline"}
+              size="sm"
+              onClick={() => setShowLibrary(s => !s)}
+              className="gap-1.5"
+              title="Open Library — generate reports, protocols, and documents"
+            >
+              <IconBooks size={14} /> Library
+            </Button>
           </div>
         </div>
       </div>
 
-      {/* Secondary tab bar: the design flow + its scoped Reports / Chats /
-          Files. A prominent segmented pill group (icons + filled active chip)
-          so Reports / Chats / Files are obvious — the thin underline tabs were
-          easy to miss. These live under the design now, not the project. */}
-      <div className="border-ink-200 shrink-0 border-b bg-white px-6 py-2.5">
-        <div className="bg-ink-50 ring-ink-200/70 inline-flex items-center gap-1 rounded-xl p-1 ring-1">
-          {(
-            [
-              ["design", "Design", <IconClipboardText key="i" size={15} />],
-              ["reports", "Reports", <IconFileText key="i" size={15} />],
-              ["chats", "Chats", <IconMessageCircle key="i" size={15} />],
-              ["files", "Files", <IconFiles key="i" size={15} />]
-            ] as const
-          ).map(([key, label, icon]) => (
-            <button
-              key={key}
-              type="button"
-              onClick={() => setDesignSubTab(key)}
-              className={cn(
-                "inline-flex items-center gap-1.5 rounded-lg px-3.5 py-1.5 text-[13px] font-semibold transition-all",
-                designSubTab === key
-                  ? "text-brick bg-white shadow-sm ring-1 ring-black/5"
-                  : "text-ink-500 hover:text-ink-900 hover:bg-white/70"
-              )}
-            >
-              {icon}
-              {label}
-            </button>
-          ))}
-        </div>
-      </div>
+      {/* 3-column layout: left chat | main content | right library */}
+      <div className="flex min-h-0 flex-1 overflow-hidden">
+        {/* LEFT: collapsible design chat panel */}
+        {showRail && (
+          <div
+            className="border-ink-200 relative flex shrink-0 flex-col border-r"
+            style={{ width: railWidth }}
+          >
+            <div
+              onMouseDown={startRailResize}
+              className="hover:bg-brick/40 absolute right-0 top-0 z-20 h-full w-1.5 translate-x-1/2 cursor-col-resize"
+              title="Drag to resize the chat"
+            />
+            <div className="min-h-0 min-w-0 flex-1">
+              <ScopedChatRail
+                scope="design"
+                scopeId={designId}
+                scopeName={title || design?.name || "Design"}
+                autoStart
+                contextPrompt={chatContextPrompt}
+                headerSlot={
+                  <button
+                    onClick={toggleChatRail}
+                    title="Close chat"
+                    className="text-ink-3 hover:bg-paper-2 hover:text-ink rounded p-1"
+                  >
+                    <IconX size={16} />
+                  </button>
+                }
+              />
+            </div>
+          </div>
+        )}
 
-      {designSubTab !== "design" ? (
-        <div className="min-h-0 flex-1 overflow-auto p-6">
+        {/* CENTER: stage stepper + tab content */}
+        <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
+          {/* Stage stepper — 4-stage rail (overview removed) */}
           {(() => {
-            const subCtx: DesignSubViewContext = {
+            const tabToStage: Record<string, DesignStageId> = {
+              problem: "problem",
+              literature: "lit",
+              hypotheses: "hyp",
+              design: "design"
+            }
+            const stageToTab: Record<DesignStageId, string> = {
+              problem: "problem",
+              lit: "literature",
+              hyp: "hypotheses",
+              design: "design"
+            }
+            const completedStages: DesignStageId[] = approvedPhases
+              .filter(p => p !== "simulation")
+              .map(p => {
+                if (p === "literature") return "lit"
+                if (p === "hypotheses") return "hyp"
+                return p as DesignStageId
+              })
+            const meta: Partial<Record<DesignStageId, string>> = {
+              problem: title ? "defined" : "not defined",
+              lit:
+                papers.length > 0
+                  ? `${papers.length} paper${papers.length === 1 ? "" : "s"}`
+                  : "no papers",
+              hyp:
+                hypotheses.length > 0
+                  ? `${hypotheses.length === 1 ? "1 hypothesis" : `${hypotheses.length} hypotheses`}`
+                  : "no hypotheses",
+              design:
+                generatedDesigns.length > 0
+                  ? `${generatedDesigns.length} design${generatedDesigns.length === 1 ? "" : "s"}`
+                  : "no designs"
+            }
+            const currentStage = tabToStage[activeTab] || "problem"
+            return (
+              <Stepper
+                current={currentStage}
+                completed={completedStages}
+                meta={meta}
+                onGoto={id => handleTabChange(stageToTab[id] as any)}
+              />
+            )
+          })()}
+
+          {isAgentRunning && (
+            <div className="flex shrink-0 items-center gap-2 border-b border-amber-300 bg-amber-50 px-6 py-2 text-[12.5px] text-amber-900">
+              <IconAlertTriangle size={14} className="shrink-0" />
+              <span>
+                <b>Agent is working — keep this tab open.</b>{" "}
+                {busy === "literature"
+                  ? "We're scouting the literature."
+                  : busy === "hypotheses"
+                    ? "We're generating hypotheses."
+                    : "We're drafting your design."}{" "}
+                Closing or leaving this page will cancel the run and lose
+                progress.
+              </span>
+            </div>
+          )}
+
+          <div className="min-h-0 flex-1 overflow-auto">
+            <div
+              className={
+                activeTab === "design" ? "w-full p-6" : "mx-auto max-w-4xl p-6"
+              }
+            >
+              {activeTab === "problem" && (
+                <ProblemTab
+                  title={title}
+                  setTitle={setTitle}
+                  problemStatement={problemStatement}
+                  setProblemStatement={setProblemStatement}
+                  domain={domain}
+                  setDomain={setDomain}
+                  phase={phase}
+                  setPhase={setPhase}
+                  objective={objective}
+                  setObjective={setObjective}
+                  constraintMaterial={constraintMaterial}
+                  setConstraintMaterial={setConstraintMaterial}
+                  constraintTime={constraintTime}
+                  setConstraintTime={setConstraintTime}
+                  constraintEquipment={constraintEquipment}
+                  setConstraintEquipment={setConstraintEquipment}
+                  variablesKnown={variablesKnown}
+                  setVariablesKnown={setVariablesKnown}
+                  variablesUnknown={variablesUnknown}
+                  setVariablesUnknown={setVariablesUnknown}
+                  successCriteria={successCriteria}
+                  setSuccessCriteria={setSuccessCriteria}
+                  includeReplicates={includeReplicates}
+                  setIncludeReplicates={setIncludeReplicates}
+                  onApproveAndGenerate={handleApproveAndGenerateLiterature}
+                  canSubmit={problemValid}
+                  isApproved={isPhaseApproved("problem")}
+                  canEdit={canEdit}
+                  isBusy={busy === "literature"}
+                  onRevise={() => handleRevisePhase("problem")}
+                />
+              )}
+
+              {activeTab === "literature" && (
+                <>
+                  <ClarifyAnswersBanner
+                    answers={clarifications.problem ?? []}
+                    onEdit={() => setRefineCheckpoint("problem")}
+                  />
+                  <LiteratureTab
+                    papers={papers}
+                    onTogglePaper={handleTogglePaper}
+                    onUploadPdfs={handleUploadPdfs}
+                    onApproveAndGenerate={handleApproveAndGenerateHypotheses}
+                    onSearchMore={handleGenerateMoreLiterature}
+                    canGenerate={selectedPapers.length > 0}
+                    isApproved={isPhaseApproved("literature")}
+                    canEdit={canEdit}
+                    isBusy={busy === "hypotheses" || busy === "literature"}
+                    isSearching={busy === "literature"}
+                    progress={literatureProgress}
+                    totalCandidates={literatureTotalCandidates}
+                    onRevise={() => handleRevisePhase("literature")}
+                    onSavePaper={handleSavePaper}
+                    savedPaperIds={savedPaperIds}
+                  />
+                </>
+              )}
+
+              {activeTab === "hypotheses" && (
+                <>
+                  <ClarifyAnswersBanner
+                    answers={clarifications.hypothesis ?? []}
+                    onEdit={() => setRefineCheckpoint("hypothesis")}
+                  />
+                  <HypothesesTab
+                    hypotheses={hypotheses}
+                    papers={papers}
+                    onToggle={handleToggleHypothesis}
+                    onEdit={handleEditHypothesis}
+                    onApproveAndGenerate={handleApproveAndGenerateDesign}
+                    onRegenerate={handleRegenerateHypotheses}
+                    canGenerate={selectedHypotheses.length > 0}
+                    isApproved={isPhaseApproved("hypotheses")}
+                    canEdit={canEdit}
+                    isBusy={busy === "design" || busy === "hypotheses"}
+                    isGenerating={busy === "hypotheses"}
+                    progress={hypothesesProgress}
+                    onRevise={() => handleRevisePhase("hypotheses")}
+                    genError={hypothesesError}
+                  />
+                </>
+              )}
+
+              {activeTab === "design" && (
+                <>
+                  <ClarifyAnswersBanner
+                    answers={[
+                      ...(clarifications.problem ?? []),
+                      ...(clarifications.hypothesis ?? []),
+                      ...(clarifications.design ?? [])
+                    ]}
+                    onEdit={() => setRefineCheckpoint("design")}
+                  />
+                  <DesignTab
+                    designs={generatedDesigns}
+                    hypotheses={hypotheses}
+                    activeId={activeDesignId}
+                    onSelect={setActiveDesignId}
+                    activeDesign={activeDesign}
+                    onSave={handleSaveDesign}
+                    onApproveAndContinue={handleApproveDesignAndContinue}
+                    onRegenerate={handleRegenerateDesign}
+                    isApproved={isPhaseApproved("design")}
+                    canEdit={canEdit}
+                    isBusy={busy === "design"}
+                    isGenerating={busy === "design"}
+                    progress={designProgress}
+                    onRevise={() => handleRevisePhase("design")}
+                    designVersions={designVersions}
+                    onRestoreVersion={handleRestoreDesignVersion}
+                    onEditSection={handleEditSection}
+                  />
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* RIGHT: Library sidebar — reports, files, + generation buttons */}
+        {showLibrary && (
+          <DesignLibrarySidebar
+            ctx={{
               designId,
               designName: title || design?.name || "Design",
               workspaceId,
@@ -2418,301 +2592,11 @@ Rules:
               userId: profile?.user_id ?? null,
               selectedWorkspace,
               chatSettings
-            }
-            if (designSubTab === "reports")
-              return <DesignReportsView ctx={subCtx} />
-            if (designSubTab === "chats")
-              return <DesignChatsView ctx={subCtx} />
-            return <DesignFilesView ctx={subCtx} />
-          })()}
-        </div>
-      ) : (
-        /* Horizontal split directly under the top header so the design chat rail
-          spans the FULL height beneath it (it was cramped when it only filled
-          the area below the stepper/tabs). Left column = stepper + tabs +
-          content; right column = the resizable chat rail. */
-        <div className="flex min-h-0 flex-1 overflow-hidden">
-          <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
-            {/* First-design walkthrough coach (first-run only; self-dismisses) */}
-            <DesignCoach
-              activeTab={activeTab}
-              refining={refineCheckpoint !== null}
-              busy={!!busy}
-              hasDesign={generatedDesigns.length > 0}
-            />
-            {/* Stage stepper - 5-stage editorial rail */}
-            {(() => {
-              const tabToStage: Record<string, DesignStageId> = {
-                overview: "overview",
-                problem: "problem",
-                literature: "lit",
-                hypotheses: "hyp",
-                design: "design"
-              }
-              const stageToTab: Record<DesignStageId, string> = {
-                overview: "overview",
-                problem: "problem",
-                lit: "literature",
-                hyp: "hypotheses",
-                design: "design"
-              }
-              const completedStages: DesignStageId[] = approvedPhases
-                .filter(p => p !== "simulation")
-                .map(p => {
-                  if (p === "literature") return "lit"
-                  if (p === "hypotheses") return "hyp"
-                  return p as DesignStageId
-                })
-              const meta: Partial<Record<DesignStageId, string>> = {
-                overview:
-                  title || design?.name
-                    ? ((title || design?.name) as string)
-                    : "untitled",
-                problem: title ? "defined" : "not defined",
-                lit:
-                  papers.length > 0
-                    ? `${papers.length} paper${papers.length === 1 ? "" : "s"}`
-                    : "no papers",
-                hyp:
-                  hypotheses.length > 0
-                    ? `${hypotheses.length === 1 ? "1 hypothesis" : `${hypotheses.length} hypotheses`}`
-                    : "no hypotheses",
-                design:
-                  generatedDesigns.length > 0
-                    ? `${generatedDesigns.length} design${generatedDesigns.length === 1 ? "" : "s"}`
-                    : "no designs"
-              }
-              const currentStage = tabToStage[activeTab] || "overview"
-              return (
-                <Stepper
-                  current={currentStage}
-                  completed={completedStages}
-                  meta={meta}
-                  onGoto={id => handleTabChange(stageToTab[id] as any)}
-                />
-              )
-            })()}
-
-            {/* Long agent runs (literature / hypotheses / design generation) take
-          1–3 minutes. Surface a clear "stay on this page" warning so the
-          scientist doesn't accidentally lose 90s of work mid-stream. Paired
-          with the beforeunload handler attached at mount-time. */}
-            {isAgentRunning && (
-              <div className="flex shrink-0 items-center gap-2 border-b border-amber-300 bg-amber-50 px-6 py-2 text-[12.5px] text-amber-900">
-                <IconAlertTriangle size={14} className="shrink-0" />
-                <span>
-                  <b>Agent is working — keep this tab open.</b>{" "}
-                  {busy === "literature"
-                    ? "We're scouting the literature."
-                    : busy === "hypotheses"
-                      ? "We're generating hypotheses."
-                      : "We're drafting your design."}{" "}
-                  Closing or leaving this page will cancel the run and lose
-                  progress.
-                </span>
-              </div>
-            )}
-
-            {/* Body: tab content on the left, design chat rail on the right */}
-            <div className="flex min-h-0 flex-1 overflow-hidden">
-              <div className="min-h-0 flex-1 overflow-auto">
-                <div
-                  className={
-                    // Design tab fills the full width (the section text needs the
-                    // room); overview stays a centered reading column; the form-style
-                    // tabs (problem/literature/hypotheses) stay narrower.
-                    activeTab === "design"
-                      ? "w-full p-6"
-                      : activeTab === "overview"
-                        ? "mx-auto max-w-6xl p-6"
-                        : "mx-auto max-w-4xl p-6"
-                  }
-                >
-                  {activeTab === "problem" && (
-                    <ProblemTab
-                      title={title}
-                      setTitle={setTitle}
-                      problemStatement={problemStatement}
-                      setProblemStatement={setProblemStatement}
-                      domain={domain}
-                      setDomain={setDomain}
-                      phase={phase}
-                      setPhase={setPhase}
-                      objective={objective}
-                      setObjective={setObjective}
-                      constraintMaterial={constraintMaterial}
-                      setConstraintMaterial={setConstraintMaterial}
-                      constraintTime={constraintTime}
-                      setConstraintTime={setConstraintTime}
-                      constraintEquipment={constraintEquipment}
-                      setConstraintEquipment={setConstraintEquipment}
-                      variablesKnown={variablesKnown}
-                      setVariablesKnown={setVariablesKnown}
-                      variablesUnknown={variablesUnknown}
-                      setVariablesUnknown={setVariablesUnknown}
-                      successCriteria={successCriteria}
-                      setSuccessCriteria={setSuccessCriteria}
-                      includeReplicates={includeReplicates}
-                      setIncludeReplicates={setIncludeReplicates}
-                      onApproveAndGenerate={handleApproveAndGenerateLiterature}
-                      canSubmit={problemValid}
-                      isApproved={isPhaseApproved("problem")}
-                      canEdit={canEdit}
-                      isBusy={busy === "literature"}
-                      onRevise={() => handleRevisePhase("problem")}
-                    />
-                  )}
-
-                  {activeTab === "literature" && (
-                    <>
-                      <ClarifyAnswersBanner
-                        answers={clarifications.problem ?? []}
-                        onEdit={() => setRefineCheckpoint("problem")}
-                      />
-                      <LiteratureTab
-                        papers={papers}
-                        onTogglePaper={handleTogglePaper}
-                        onUploadPdfs={handleUploadPdfs}
-                        onApproveAndGenerate={
-                          handleApproveAndGenerateHypotheses
-                        }
-                        // `handleGenerateMoreLiterature` was the pre-2026-05-19
-                        // "Generate more" handler that re-ran the entire search.
-                        // We've switched the in-tab button to local pagination
-                        // ("Show more" = next 10 of the already-ranked pool),
-                        // which is way faster + matches user expectation. Kept
-                        // as `onSearchMore` so a future "search again" UI can
-                        // re-wire it without re-implementing the full search.
-                        onSearchMore={handleGenerateMoreLiterature}
-                        canGenerate={selectedPapers.length > 0}
-                        isApproved={isPhaseApproved("literature")}
-                        canEdit={canEdit}
-                        isBusy={busy === "hypotheses" || busy === "literature"}
-                        isSearching={busy === "literature"}
-                        progress={literatureProgress}
-                        totalCandidates={literatureTotalCandidates}
-                        onRevise={() => handleRevisePhase("literature")}
-                        onSavePaper={handleSavePaper}
-                        savedPaperIds={savedPaperIds}
-                      />
-                    </>
-                  )}
-
-                  {activeTab === "hypotheses" && (
-                    <>
-                      <ClarifyAnswersBanner
-                        answers={clarifications.hypothesis ?? []}
-                        onEdit={() => setRefineCheckpoint("hypothesis")}
-                      />
-                      <HypothesesTab
-                        hypotheses={hypotheses}
-                        papers={papers}
-                        onToggle={handleToggleHypothesis}
-                        onEdit={handleEditHypothesis}
-                        onApproveAndGenerate={handleApproveAndGenerateDesign}
-                        onRegenerate={handleRegenerateHypotheses}
-                        canGenerate={selectedHypotheses.length > 0}
-                        isApproved={isPhaseApproved("hypotheses")}
-                        canEdit={canEdit}
-                        isBusy={busy === "design" || busy === "hypotheses"}
-                        isGenerating={busy === "hypotheses"}
-                        progress={hypothesesProgress}
-                        onRevise={() => handleRevisePhase("hypotheses")}
-                        genError={hypothesesError}
-                      />
-                    </>
-                  )}
-
-                  {activeTab === "design" && (
-                    <>
-                      <ClarifyAnswersBanner
-                        answers={[
-                          ...(clarifications.problem ?? []),
-                          ...(clarifications.hypothesis ?? []),
-                          ...(clarifications.design ?? [])
-                        ]}
-                        onEdit={() => setRefineCheckpoint("design")}
-                      />
-                      <DesignTab
-                        designs={generatedDesigns}
-                        hypotheses={hypotheses}
-                        activeId={activeDesignId}
-                        onSelect={setActiveDesignId}
-                        activeDesign={activeDesign}
-                        onSave={handleSaveDesign}
-                        onApproveAndContinue={handleApproveDesignAndContinue}
-                        onRegenerate={handleRegenerateDesign}
-                        isApproved={isPhaseApproved("design")}
-                        canEdit={canEdit}
-                        isBusy={busy === "design"}
-                        isGenerating={busy === "design"}
-                        progress={designProgress}
-                        onRevise={() => handleRevisePhase("design")}
-                        designVersions={designVersions}
-                        onRestoreVersion={handleRestoreDesignVersion}
-                        onEditSection={handleEditSection}
-                      />
-                    </>
-                  )}
-
-                  {activeTab === "overview" && (
-                    <OverviewTab
-                      title={title}
-                      problemStatement={problemStatement}
-                      domain={domain}
-                      phase={phase}
-                      objective={objective}
-                      constraintMaterial={constraintMaterial}
-                      constraintTime={constraintTime}
-                      constraintEquipment={constraintEquipment}
-                      variablesKnown={variablesKnown}
-                      variablesUnknown={variablesUnknown}
-                      papers={papers}
-                      hypotheses={hypotheses}
-                      designs={generatedDesigns}
-                      approvedPhases={approvedPhases}
-                      activeDesign={activeDesign}
-                      onGoToTab={setActiveTab}
-                    />
-                  )}
-                </div>
-              </div>
-            </div>
-            {/* ↑ body (content area) ─── ↓ close the left column */}
-          </div>
-          {showRail && designGenerated && (
-            <div
-              className="border-ink-200 relative flex shrink-0 border-l"
-              style={{ width: railWidth }}
-            >
-              {/* Drag handle on the rail's left edge — resize horizontally. */}
-              <div
-                onMouseDown={startRailResize}
-                className="hover:bg-brick/40 absolute left-0 top-0 z-20 h-full w-1.5 -translate-x-1/2 cursor-col-resize"
-                title="Drag to resize the chat"
-              />
-              <div className="min-h-0 min-w-0 flex-1">
-                <ScopedChatRail
-                  scope="design"
-                  scopeId={designId}
-                  scopeName={title || design?.name || "Design"}
-                  autoStart
-                  contextPrompt={chatContextPrompt}
-                  headerSlot={
-                    <button
-                      onClick={toggleChatRail}
-                      title="Close chat"
-                      className="text-ink-3 hover:bg-paper-2 hover:text-ink rounded p-1"
-                    >
-                      <IconX size={16} />
-                    </button>
-                  }
-                />
-              </div>
-            </div>
-          )}
-        </div>
-      )}
+            }}
+            onClose={() => setShowLibrary(false)}
+          />
+        )}
+      </div>
 
       {/* Owner-only share/collaborate dialog (link visibility, invite editors
           by email, export). Non-owners can't manage sharing, so it's gated. */}
@@ -3317,6 +3201,116 @@ function progressToEvents(
     }
     return { step: ev.step, message: ev.message }
   })
+}
+
+// ── Library sidebar ───────────────────────────────────────────────────────
+// NotebookLM-style right panel: generation buttons at top, generated docs
+// (reports + files) listed below. Lives at the design level.
+function DesignLibrarySidebar({
+  ctx,
+  onClose
+}: {
+  ctx: DesignSubViewContext
+  onClose: () => void
+}) {
+  const [activeSection, setActiveSection] = useState<"reports" | "files">(
+    "reports"
+  )
+
+  const GENERATE_OPTIONS = [
+    {
+      label: "Research Report",
+      icon: <IconFileText size={15} />,
+      type: "research_report" as const
+    },
+    {
+      label: "SOP / Protocol",
+      icon: <IconClipboardText size={15} />,
+      type: "sop" as const
+    },
+    {
+      label: "Slide Deck",
+      icon: <IconChartBar size={15} />,
+      type: "slides" as const
+    },
+    {
+      label: "Summary",
+      icon: <IconSparkles size={15} />,
+      type: "summary" as const
+    }
+  ]
+
+  return (
+    <div className="border-ink-200 flex w-80 shrink-0 flex-col border-l bg-white">
+      {/* Header */}
+      <div className="border-ink-100 flex shrink-0 items-center justify-between border-b px-4 py-3">
+        <div className="flex items-center gap-2">
+          <IconBooks size={16} className="text-teal-journey" />
+          <span className="text-ink-900 text-[13px] font-semibold">
+            Library
+          </span>
+        </div>
+        <button
+          type="button"
+          onClick={onClose}
+          className="text-ink-400 hover:text-ink-700 rounded p-1"
+        >
+          <IconX size={15} />
+        </button>
+      </div>
+
+      {/* Generate buttons */}
+      <div className="border-ink-100 shrink-0 border-b p-3">
+        <p className="text-ink-400 mb-2 text-[11px] font-semibold uppercase tracking-wider">
+          Generate
+        </p>
+        <div className="grid grid-cols-2 gap-1.5">
+          {GENERATE_OPTIONS.map(opt => (
+            <button
+              key={opt.type}
+              type="button"
+              className="border-ink-200 text-ink-700 hover:bg-ink-50 flex items-center gap-1.5 rounded-lg border px-2.5 py-2 text-[12px] font-medium transition-colors"
+              onClick={() => {
+                // TODO: wire to report-generation endpoint
+                setActiveSection("reports")
+              }}
+            >
+              {opt.icon}
+              {opt.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Section toggle */}
+      <div className="border-ink-100 flex shrink-0 gap-1 border-b p-2">
+        {(["reports", "files"] as const).map(s => (
+          <button
+            key={s}
+            type="button"
+            onClick={() => setActiveSection(s)}
+            className={cn(
+              "flex-1 rounded-lg py-1.5 text-[12px] font-semibold capitalize transition-colors",
+              activeSection === s
+                ? "bg-ink text-paper"
+                : "text-ink-500 hover:bg-ink-50"
+            )}
+          >
+            {s}
+          </button>
+        ))}
+      </div>
+
+      {/* Content */}
+      <div className="min-h-0 flex-1 overflow-auto">
+        {activeSection === "reports" ? (
+          <DesignReportsView ctx={ctx} />
+        ) : (
+          <DesignFilesView ctx={ctx} />
+        )}
+      </div>
+    </div>
+  )
 }
 
 // ── Clarify-answers read-only banner (#5) ─────────────────────────────────

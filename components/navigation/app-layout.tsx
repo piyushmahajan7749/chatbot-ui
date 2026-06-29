@@ -2,6 +2,7 @@
 
 import { Menu, X } from "lucide-react"
 import { useEffect, useState } from "react"
+import { usePathname } from "next/navigation"
 
 import { GlobalSearch } from "@/components/search/global-search"
 import { Button } from "@/components/ui/button"
@@ -19,6 +20,10 @@ export const AppLayout = ({ children }: AppLayoutProps) => {
   const [isCollapsed, setIsCollapsed] = useState(false)
   const [isMobile, setIsMobile] = useState(false)
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false)
+  const pathname = usePathname()
+  // When inside a design detail page the page provides its own left chat panel
+  // and right library sidebar — hide the workspace nav sidebar + tutorial button.
+  const isDesignDetail = /\/designs\/[^/]+/.test(pathname ?? "")
 
   useEffect(() => {
     const collapsed = localStorage.getItem("sidebarCollapsed") === "true"
@@ -68,23 +73,25 @@ export const AppLayout = ({ children }: AppLayoutProps) => {
         />
       )}
 
-      {/* Sidebar */}
-      <div
-        className={cn(
-          "z-40 transition-transform duration-300",
-          isMobile
-            ? cn(
-                "fixed inset-y-0 left-0",
-                mobileSidebarOpen ? "translate-x-0" : "-translate-x-full"
-              )
-            : "relative"
-        )}
-      >
-        <AppSidebar
-          isCollapsed={!isMobile && isCollapsed}
-          onToggle={handleToggleSidebar}
-        />
-      </div>
+      {/* Sidebar — hidden on design detail pages (page has its own left chat panel) */}
+      {!isDesignDetail && (
+        <div
+          className={cn(
+            "z-40 transition-transform duration-300",
+            isMobile
+              ? cn(
+                  "fixed inset-y-0 left-0",
+                  mobileSidebarOpen ? "translate-x-0" : "-translate-x-full"
+                )
+              : "relative"
+          )}
+        >
+          <AppSidebar
+            isCollapsed={!isMobile && isCollapsed}
+            onToggle={handleToggleSidebar}
+          />
+        </div>
+      )}
 
       {/* Main content */}
       <main
@@ -97,11 +104,9 @@ export const AppLayout = ({ children }: AppLayoutProps) => {
       </main>
 
       <GlobalSearch />
-      {/* First-run interactive tour — drives the user through their first
-          design across pages. Self-activates from the walkthrough flag. */}
       <GuidedTour />
-      {/* Replay-the-walkthrough button (top-right), for anyone who skipped. */}
-      <TutorialButton />
+      {/* Tutorial button hidden on design detail pages — no room and no need. */}
+      {!isDesignDetail && <TutorialButton />}
     </div>
   )
 }

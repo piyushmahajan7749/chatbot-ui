@@ -5,14 +5,13 @@ import {
   IconBulb,
   IconCheck,
   IconFlask,
-  IconLayoutGrid,
   IconTargetArrow,
   type Icon as TablerIconType
 } from "@tabler/icons-react"
 
 import { cn } from "@/lib/utils"
 
-export type StageId = "overview" | "problem" | "lit" | "hyp" | "design"
+export type StageId = "problem" | "lit" | "hyp" | "design"
 
 interface StageDef {
   id: StageId
@@ -22,11 +21,10 @@ interface StageDef {
 }
 
 export const STAGES: StageDef[] = [
-  { id: "overview", label: "Overview", icon: IconLayoutGrid, short: "01" },
-  { id: "problem", label: "Problem", icon: IconTargetArrow, short: "02" },
-  { id: "lit", label: "Literature", icon: IconBook, short: "03" },
-  { id: "hyp", label: "Hypotheses", icon: IconBulb, short: "04" },
-  { id: "design", label: "Design", icon: IconFlask, short: "05" }
+  { id: "problem", label: "Problem", icon: IconTargetArrow, short: "01" },
+  { id: "lit", label: "Literature", icon: IconBook, short: "02" },
+  { id: "hyp", label: "Hypotheses", icon: IconBulb, short: "03" },
+  { id: "design", label: "Design", icon: IconFlask, short: "04" }
 ]
 
 type Status = "active" | "done" | "idle"
