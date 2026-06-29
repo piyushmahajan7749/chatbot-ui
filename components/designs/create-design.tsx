@@ -8,6 +8,12 @@ import {
   IconSparkles,
   IconX
 } from "@tabler/icons-react"
+import {
+  DESIGN_DOMAIN_OPTIONS,
+  DESIGN_PHASE_OPTIONS,
+  type DesignDomain,
+  type DesignPhase
+} from "@/lib/design-agent"
 import { useParams, useRouter } from "next/navigation"
 import { FC, useContext, useEffect, useRef, useState } from "react"
 import { toast } from "sonner"
@@ -147,6 +153,8 @@ export const CreateDesign: FC<CreateDesignProps> = ({
   const [name, setName] = useState("")
   const [problem, setProblem] = useState("")
   const [objective, setObjective] = useState("")
+  const [fsDomain, setFsDomain] = useState<DesignDomain | "">("")
+  const [fsPhase, setFsPhase] = useState<DesignPhase | "">("")
   const [hypothesis, setHypothesis] = useState("")
   const [planText, setPlanText] = useState("")
   /** External-design content for check-stats / make-plan modes. */
@@ -189,6 +197,8 @@ export const CreateDesign: FC<CreateDesignProps> = ({
       // dashboard quick-start `?q=…` seeds the problem field.
       setName("")
       setProblem(initialQuery)
+      setFsDomain("")
+      setFsPhase("")
     } else {
       setName(initialQuery.slice(0, 80))
       setProblem(initialQuery)
@@ -234,8 +244,9 @@ export const CreateDesign: FC<CreateDesignProps> = ({
 
   const canSubmit = (() => {
     if (creating) return false
-    // from-scratch now just needs a problem statement (name is derived).
-    if (mode === "from-scratch") return problem.trim().length > 0
+    // from-scratch needs problem + domain + phase (objective optional). (#8)
+    if (mode === "from-scratch")
+      return problem.trim().length > 0 && !!fsDomain && !!fsPhase
     if (!name.trim()) return false
     if (mode === "from-hypothesis" && hypothesis.trim().length < 10)
       return false
@@ -312,10 +323,8 @@ export const CreateDesign: FC<CreateDesignProps> = ({
       // (avoiding the data.description fallback path which has historically
       // produced subtle prefill bugs).
       if (mode === "from-scratch" && created?.id) {
-        // Always seed `content.problem.title` from the Name input so the
-        // Problem page shows the dialog title verbatim instead of falling
-        // through to `data.description`. Seed `problemStatement` if we
-        // captured one from the dashboard quick-start (`?q=...`).
+        // Seed problem + domain + phase so the design page has problemValid
+        // satisfied on load and can fire ?auto=literature directly (#8).
         const seededContent = {
           schemaVersion: 2,
           approvedPhases: [],
@@ -323,7 +332,9 @@ export const CreateDesign: FC<CreateDesignProps> = ({
             title: trimmedName,
             problemStatement: seededProblem,
             objective: trimmedObjective,
-            goal: trimmedObjective
+            goal: trimmedObjective,
+            domain: fsDomain || undefined,
+            phase: fsPhase || undefined
           },
           papers: [],
           hypotheses: []
@@ -488,6 +499,10 @@ export const CreateDesign: FC<CreateDesignProps> = ({
         qs = "?auto=stats-review&tab=design"
       } else if (mode === "make-plan") {
         qs = "?auto=make-plan&tab=design"
+      } else if (mode === "from-scratch") {
+        // Dialog already captured problem + domain + phase; auto-open
+        // the Refine/clarify step so user never sees the Problem tab (#8).
+        qs = "?auto=literature"
       } else if (mode === "from-hypothesis") {
         // Problem + Literature + Hypothesis pre-approved upstream;
         // land on Hypotheses so the user can pick + run Design next.
@@ -557,6 +572,48 @@ export const CreateDesign: FC<CreateDesignProps> = ({
                   onChange={e => setObjective(e.target.value)}
                 />
               </div>
+              <div className="flex gap-3">
+                <div className="flex-1 space-y-1.5">
+                  <Label>
+                    Domain <span className="text-rust">*</span>
+                  </Label>
+                  <Select
+                    value={fsDomain}
+                    onValueChange={v => setFsDomain(v as DesignDomain)}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select domain" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {DESIGN_DOMAIN_OPTIONS.map(o => (
+                        <SelectItem key={o.value} value={o.value}>
+                          {o.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="flex-1 space-y-1.5">
+                  <Label>
+                    Phase <span className="text-rust">*</span>
+                  </Label>
+                  <Select
+                    value={fsPhase}
+                    onValueChange={v => setFsPhase(v as DesignPhase)}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select phase" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {DESIGN_PHASE_OPTIONS.map(o => (
+                        <SelectItem key={o.value} value={o.value}>
+                          {o.label}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
             </>
           ) : (
             <div className="space-y-1.5">
@@ -572,32 +629,33 @@ export const CreateDesign: FC<CreateDesignProps> = ({
             </div>
           )}
 
-          {/* Project picker - scientist's ask. Single dropdown that
-              also covers the project-canvas-launched case (parent passes
-              `projectId`, we pre-select it but still let the user
-              override). */}
-          <div className="space-y-1.5">
-            <Label htmlFor="design-project">Project</Label>
-            <Select
-              value={selectedProjectId}
-              onValueChange={v => setSelectedProjectId(v as string | "none")}
-            >
-              <SelectTrigger id="design-project">
-                <SelectValue placeholder="Choose a project (optional)" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="none">No project</SelectItem>
-                {projects.map(p => (
-                  <SelectItem key={p.id} value={p.id}>
-                    {p.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <p className="text-ink-3 text-[11.5px]">
-              Pin the design to a project, or leave at the workspace level.
-            </p>
-          </div>
+          {/* Project picker — hide when already inside a project context
+              (projectId prop supplied). Showing it there is confusing:
+              the user already knows which project they're in. */}
+          {!projectId && (
+            <div className="space-y-1.5">
+              <Label htmlFor="design-project">Project</Label>
+              <Select
+                value={selectedProjectId}
+                onValueChange={v => setSelectedProjectId(v as string | "none")}
+              >
+                <SelectTrigger id="design-project">
+                  <SelectValue placeholder="Choose a project (optional)" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">No project</SelectItem>
+                  {projects.map(p => (
+                    <SelectItem key={p.id} value={p.id}>
+                      {p.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-ink-3 text-[11.5px]">
+                Pin the design to a project, or leave at the workspace level.
+              </p>
+            </div>
+          )}
 
           {/* Problem statement field - hidden for from-scratch since the user
               fills it on the Problem page right after this dialog closes

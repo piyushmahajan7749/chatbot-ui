@@ -26,8 +26,17 @@ export function clarifyAnswersToText(answers: ClarifyAnswer[]): string {
   const lines = answers
     .filter(a => !a.skipped)
     .map(a => {
-      const val =
-        [a.selected.join(", "), a.other].filter(Boolean).join(" — ") || ""
+      const hasSelected = a.selected.length > 0
+      const hasOther = !!a.other?.trim()
+      let val = ""
+      if (hasSelected && hasOther) {
+        // Both: make it explicit so the model uses both, not just the chip
+        val = `${a.selected.join(", ")} (additional context: ${a.other!.trim()})`
+      } else if (hasSelected) {
+        val = a.selected.join(", ")
+      } else if (hasOther) {
+        val = a.other!.trim()
+      }
       return val ? `- ${a.prompt}: ${val}` : ""
     })
     .filter(Boolean)

@@ -894,6 +894,8 @@ export default function DesignDetailPage() {
 
   const handleApproveAndGenerateLiterature = () => {
     if (!ensureCanEdit()) return
+    // Block double-trigger while a run is already in flight (#3)
+    if (busy) return
     if (!problemValid) {
       toast({
         title: "Missing fields",
@@ -901,6 +903,11 @@ export default function DesignDetailPage() {
           "Problem statement, domain, and phase are required (objective is optional).",
         variant: "destructive"
       })
+      return
+    }
+    // If papers already generated, just switch to the tab — don't re-run (#3)
+    if (papers.length > 0) {
+      setActiveTab("literature")
       return
     }
     // Open the Refine clarifying-question step; it runs literature on complete.
@@ -911,6 +918,8 @@ export default function DesignDetailPage() {
   const runLiteratureGeneration = async (clarifyText?: string) => {
     const nextApproved: PhaseKey[] = ["problem"]
     setApprovedPhases(nextApproved)
+    // Persist approvedPhases immediately so tab navigation survives a reload (#6)
+    void persistContent({ approvedPhases: nextApproved })
     setActiveTab("literature")
     setBusy("literature")
     setLiteratureProgress([])
@@ -970,12 +979,18 @@ export default function DesignDetailPage() {
   // the selected literature. It runs hypothesis generation on complete.
   const handleApproveAndGenerateHypotheses = async () => {
     if (!ensureCanEdit()) return
+    if (busy) return // block double-trigger (#3)
     if (selectedPapers.length === 0) {
       toast({
         title: "No papers selected",
         description: "Select at least one paper to generate hypotheses.",
         variant: "destructive"
       })
+      return
+    }
+    // If hypotheses already generated, just switch tab — don't re-run (#3)
+    if (hypotheses.length > 0) {
+      setActiveTab("hypotheses")
       return
     }
     track("hypothesis_generation_started", { papers: selectedPapers.length })
@@ -985,6 +1000,7 @@ export default function DesignDetailPage() {
   const runHypothesisGeneration = async (clarifyText?: string) => {
     const nextApproved: PhaseKey[] = ["problem", "literature"]
     setApprovedPhases(nextApproved)
+    void persistContent({ approvedPhases: nextApproved })
     setActiveTab("hypotheses")
     setBusy("hypotheses")
     setHypothesesProgress([])
@@ -1030,12 +1046,18 @@ export default function DesignDetailPage() {
   // is specific to the researcher's use case rather than generic.
   const handleApproveAndGenerateDesign = () => {
     if (!ensureCanEdit()) return
+    if (busy) return // block double-trigger (#3)
     if (selectedHypotheses.length === 0) {
       toast({
         title: "No hypotheses selected",
         description: "Select at least one hypothesis to generate a design.",
         variant: "destructive"
       })
+      return
+    }
+    // If design already generated, just switch tab — don't re-run (#3)
+    if (generatedDesigns.length > 0) {
+      setActiveTab("design")
       return
     }
     // Open the Refine clarifying-question step; it runs design on complete.
@@ -1051,6 +1073,7 @@ export default function DesignDetailPage() {
     if (!ensureCanEdit()) return
     const nextApproved: PhaseKey[] = ["problem", "literature", "hypotheses"]
     setApprovedPhases(nextApproved)
+    void persistContent({ approvedPhases: nextApproved })
     setActiveTab("design")
     setBusy("design")
     setDesignProgress([])
@@ -1954,11 +1977,13 @@ export default function DesignDetailPage() {
 
   // Auto-fire picker-routed actions once the design is loaded. Strips the
   // `auto` query param so a back/forward doesn't re-trigger the action.
+  // "literature" fires without a pre-existing design (#8); other actions
+  // require an activeDesign (stats-review / make-plan need design content).
   useEffect(() => {
     if (autoFiredRef.current) return
     if (loading) return
     if (!autoAction) return
-    if (!activeDesign) return
+    if (autoAction !== "literature" && !activeDesign) return
     autoFiredRef.current = true
     // Make sure the user sees the design tab where the action lands.
     if (activeTab !== "design") setActiveTab("design")
@@ -1970,6 +1995,12 @@ export default function DesignDetailPage() {
       void handleReviewStatistics(activeDesign.id)
     } else if (autoAction === "make-plan") {
       void handleMakePlan()
+    } else if (autoAction === "literature") {
+      // from-scratch dialog already captured problem+objective — auto-open
+      // the Refine step so the user skips re-entering on the Problem tab (#8)
+      if (problemValid && papers.length === 0 && !busy) {
+        setRefineCheckpoint("problem")
+      }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [autoAction, loading, activeDesign?.id])
@@ -2533,71 +2564,95 @@ Rules:
                   )}
 
                   {activeTab === "literature" && (
-                    <LiteratureTab
-                      papers={papers}
-                      onTogglePaper={handleTogglePaper}
-                      onUploadPdfs={handleUploadPdfs}
-                      onApproveAndGenerate={handleApproveAndGenerateHypotheses}
-                      // `handleGenerateMoreLiterature` was the pre-2026-05-19
-                      // "Generate more" handler that re-ran the entire search.
-                      // We've switched the in-tab button to local pagination
-                      // ("Show more" = next 10 of the already-ranked pool),
-                      // which is way faster + matches user expectation. Kept
-                      // as `onSearchMore` so a future "search again" UI can
-                      // re-wire it without re-implementing the full search.
-                      onSearchMore={handleGenerateMoreLiterature}
-                      canGenerate={selectedPapers.length > 0}
-                      isApproved={isPhaseApproved("literature")}
-                      canEdit={canEdit}
-                      isBusy={busy === "hypotheses" || busy === "literature"}
-                      isSearching={busy === "literature"}
-                      progress={literatureProgress}
-                      totalCandidates={literatureTotalCandidates}
-                      onRevise={() => handleRevisePhase("literature")}
-                      onSavePaper={handleSavePaper}
-                      savedPaperIds={savedPaperIds}
-                    />
+                    <>
+                      <ClarifyAnswersBanner
+                        answers={clarifications.problem ?? []}
+                        onEdit={() => setRefineCheckpoint("problem")}
+                      />
+                      <LiteratureTab
+                        papers={papers}
+                        onTogglePaper={handleTogglePaper}
+                        onUploadPdfs={handleUploadPdfs}
+                        onApproveAndGenerate={
+                          handleApproveAndGenerateHypotheses
+                        }
+                        // `handleGenerateMoreLiterature` was the pre-2026-05-19
+                        // "Generate more" handler that re-ran the entire search.
+                        // We've switched the in-tab button to local pagination
+                        // ("Show more" = next 10 of the already-ranked pool),
+                        // which is way faster + matches user expectation. Kept
+                        // as `onSearchMore` so a future "search again" UI can
+                        // re-wire it without re-implementing the full search.
+                        onSearchMore={handleGenerateMoreLiterature}
+                        canGenerate={selectedPapers.length > 0}
+                        isApproved={isPhaseApproved("literature")}
+                        canEdit={canEdit}
+                        isBusy={busy === "hypotheses" || busy === "literature"}
+                        isSearching={busy === "literature"}
+                        progress={literatureProgress}
+                        totalCandidates={literatureTotalCandidates}
+                        onRevise={() => handleRevisePhase("literature")}
+                        onSavePaper={handleSavePaper}
+                        savedPaperIds={savedPaperIds}
+                      />
+                    </>
                   )}
 
                   {activeTab === "hypotheses" && (
-                    <HypothesesTab
-                      hypotheses={hypotheses}
-                      papers={papers}
-                      onToggle={handleToggleHypothesis}
-                      onEdit={handleEditHypothesis}
-                      onApproveAndGenerate={handleApproveAndGenerateDesign}
-                      onRegenerate={handleRegenerateHypotheses}
-                      canGenerate={selectedHypotheses.length > 0}
-                      isApproved={isPhaseApproved("hypotheses")}
-                      canEdit={canEdit}
-                      isBusy={busy === "design" || busy === "hypotheses"}
-                      isGenerating={busy === "hypotheses"}
-                      progress={hypothesesProgress}
-                      onRevise={() => handleRevisePhase("hypotheses")}
-                      genError={hypothesesError}
-                    />
+                    <>
+                      <ClarifyAnswersBanner
+                        answers={clarifications.hypothesis ?? []}
+                        onEdit={() => setRefineCheckpoint("hypothesis")}
+                      />
+                      <HypothesesTab
+                        hypotheses={hypotheses}
+                        papers={papers}
+                        onToggle={handleToggleHypothesis}
+                        onEdit={handleEditHypothesis}
+                        onApproveAndGenerate={handleApproveAndGenerateDesign}
+                        onRegenerate={handleRegenerateHypotheses}
+                        canGenerate={selectedHypotheses.length > 0}
+                        isApproved={isPhaseApproved("hypotheses")}
+                        canEdit={canEdit}
+                        isBusy={busy === "design" || busy === "hypotheses"}
+                        isGenerating={busy === "hypotheses"}
+                        progress={hypothesesProgress}
+                        onRevise={() => handleRevisePhase("hypotheses")}
+                        genError={hypothesesError}
+                      />
+                    </>
                   )}
 
                   {activeTab === "design" && (
-                    <DesignTab
-                      designs={generatedDesigns}
-                      hypotheses={hypotheses}
-                      activeId={activeDesignId}
-                      onSelect={setActiveDesignId}
-                      activeDesign={activeDesign}
-                      onSave={handleSaveDesign}
-                      onApproveAndContinue={handleApproveDesignAndContinue}
-                      onRegenerate={handleRegenerateDesign}
-                      isApproved={isPhaseApproved("design")}
-                      canEdit={canEdit}
-                      isBusy={busy === "design"}
-                      isGenerating={busy === "design"}
-                      progress={designProgress}
-                      onRevise={() => handleRevisePhase("design")}
-                      designVersions={designVersions}
-                      onRestoreVersion={handleRestoreDesignVersion}
-                      onEditSection={handleEditSection}
-                    />
+                    <>
+                      <ClarifyAnswersBanner
+                        answers={[
+                          ...(clarifications.problem ?? []),
+                          ...(clarifications.hypothesis ?? []),
+                          ...(clarifications.design ?? [])
+                        ]}
+                        onEdit={() => setRefineCheckpoint("design")}
+                      />
+                      <DesignTab
+                        designs={generatedDesigns}
+                        hypotheses={hypotheses}
+                        activeId={activeDesignId}
+                        onSelect={setActiveDesignId}
+                        activeDesign={activeDesign}
+                        onSave={handleSaveDesign}
+                        onApproveAndContinue={handleApproveDesignAndContinue}
+                        onRegenerate={handleRegenerateDesign}
+                        isApproved={isPhaseApproved("design")}
+                        canEdit={canEdit}
+                        isBusy={busy === "design"}
+                        isGenerating={busy === "design"}
+                        progress={designProgress}
+                        onRevise={() => handleRevisePhase("design")}
+                        designVersions={designVersions}
+                        onRestoreVersion={handleRestoreDesignVersion}
+                        onEditSection={handleEditSection}
+                      />
+                    </>
                   )}
 
                   {activeTab === "overview" && (
@@ -3262,6 +3317,61 @@ function progressToEvents(
     }
     return { step: ev.step, message: ev.message }
   })
+}
+
+// ── Clarify-answers read-only banner (#5) ─────────────────────────────────
+// Collapsed by default; user expands to see what they told the system.
+// "Edit" re-opens the Refine step for that checkpoint; parent regenerates
+// only if answers actually changed (handled by handleClarifyComplete comparing
+// to previous clarifications — not yet implemented, future iteration).
+function ClarifyAnswersBanner({
+  answers,
+  onEdit
+}: {
+  answers: ClarifyAnswer[]
+  onEdit?: () => void
+}) {
+  const [open, setOpen] = useState(false)
+  const answered = answers.filter(a => !a.skipped)
+  if (answered.length === 0) return null
+  return (
+    <div className="border-ink-200 mb-4 rounded-xl border bg-white text-[13px]">
+      <button
+        type="button"
+        onClick={() => setOpen(o => !o)}
+        className="text-ink-600 flex w-full items-center justify-between gap-2 px-4 py-2.5 font-medium"
+      >
+        <span className="flex items-center gap-1.5">
+          <span className="text-teal-journey">✦</span>
+          Refine answers used for this search
+        </span>
+        <span className="text-ink-400 text-xs">
+          {open ? "▲ hide" : "▼ show"}
+        </span>
+      </button>
+      {open && (
+        <div className="border-ink-100 border-t px-4 pb-3 pt-2">
+          <ul className="space-y-1">
+            {answered.map((a, i) => (
+              <li key={i} className="text-ink-600">
+                <span className="text-ink-400 font-medium">{a.prompt}:</span>{" "}
+                {[a.selected.join(", "), a.other].filter(Boolean).join(" · ")}
+              </li>
+            ))}
+          </ul>
+          {onEdit && (
+            <button
+              type="button"
+              onClick={onEdit}
+              className="text-teal-journey mt-2 text-[12px] underline underline-offset-2"
+            >
+              Edit &amp; regenerate
+            </button>
+          )}
+        </div>
+      )}
+    </div>
+  )
 }
 
 function LiteratureTab(props: {

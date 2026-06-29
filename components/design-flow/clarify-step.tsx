@@ -117,7 +117,10 @@ export const ClarifyStep: FC<ClarifyStepProps> = ({
     setSkipped(s => ({ ...s, [q.id]: false }))
     setSelected(prev => {
       const cur = prev[q.id] ?? []
-      if (q.kind === "single") return { ...prev, [q.id]: [opt] }
+      if (q.kind === "single") {
+        // Clicking the already-selected option deselects it (#10)
+        return { ...prev, [q.id]: cur[0] === opt ? [] : [opt] }
+      }
       return {
         ...prev,
         [q.id]: cur.includes(opt) ? cur.filter(o => o !== opt) : [...cur, opt]
