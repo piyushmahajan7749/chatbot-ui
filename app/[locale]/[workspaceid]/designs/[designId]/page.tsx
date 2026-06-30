@@ -95,16 +95,15 @@ import {
   IconChevronDown,
   IconArrowBackUp,
   IconClipboardText,
-  IconDeviceDesktop,
   IconDownload,
-  IconFileDescription,
   IconFileText,
   IconFlask,
   IconInfoCircle,
+  IconLayoutGrid,
+  IconListDetails,
   IconNote,
   IconPencil,
-  IconPresentation,
-  IconWaveSine,
+  IconQuote,
   IconPlus,
   IconRefresh,
   IconSearch,
@@ -539,7 +538,7 @@ export default function DesignDetailPage() {
   const [showRail, setShowRail] = useState(false)
   // Width of the design chat rail (px). User-resizable via the drag handle on
   // its left edge so they can give the chat more room.
-  const [railWidth, setRailWidth] = useState(440)
+  const [railWidth, setRailWidth] = useState(300)
 
   // Agent popover
   const [agentPopoverOpen, setAgentPopoverOpen] = useState(false)
@@ -2183,14 +2182,15 @@ Rules:
   // design has been generated. Toggled by the header "Chat" button.
   const designGenerated = generatedDesigns.length > 0
   const toggleChatRail = () => setShowRail(s => !s)
-  // Drag-to-resize the chat rail horizontally. Clamp between a usable minimum
-  // and ~70% of the viewport so it can't swallow the whole screen.
+  // Drag-to-resize the chat rail horizontally. The rail sits on the LEFT, with
+  // the drag handle on its right edge, so its width is simply the cursor's X
+  // position. Clamp between a usable minimum and ~half the viewport.
   const startRailResize = (e: React.MouseEvent) => {
     e.preventDefault()
     const onMove = (ev: MouseEvent) => {
-      const next = window.innerWidth - ev.clientX
-      const max = Math.min(960, Math.round(window.innerWidth * 0.7))
-      setRailWidth(Math.max(360, Math.min(max, next)))
+      const next = ev.clientX
+      const max = Math.min(560, Math.round(window.innerWidth * 0.5))
+      setRailWidth(Math.max(260, Math.min(max, next)))
     }
     const onUp = () => {
       window.removeEventListener("mousemove", onMove)
@@ -2220,7 +2220,7 @@ Rules:
   }
 
   return (
-    <div className="bg-ink-50 flex h-full overflow-hidden">
+    <div className="bg-ink-50 relative flex h-full overflow-hidden">
       {/* LEFT: collapsible design chat panel — full height, flanks the page */}
       {showRail && (
         <div
@@ -2578,22 +2578,31 @@ Rules:
         </div>
       </div>
 
-      {/* RIGHT: Library sidebar — full height, flanks the page */}
+      {/* RIGHT: Library — overlays the page (does NOT shrink it). A click-
+          catching backdrop dims the content; the panel slides in on the right. */}
       {showLibrary && (
-        <DesignLibrarySidebar
-          ctx={{
-            designId,
-            designName: title || design?.name || "Design",
-            workspaceId,
-            locale,
-            projectId: design?.project_id ?? null,
-            userId: profile?.user_id ?? null,
-            selectedWorkspace,
-            chatSettings
-          }}
-          design={design}
-          onClose={() => setShowLibrary(false)}
-        />
+        <>
+          <div
+            className="absolute inset-0 z-30 bg-black/20"
+            onClick={() => setShowLibrary(false)}
+          />
+          <div className="absolute right-0 top-0 z-40 h-full shadow-2xl">
+            <DesignLibrarySidebar
+              ctx={{
+                designId,
+                designName: title || design?.name || "Design",
+                workspaceId,
+                locale,
+                projectId: design?.project_id ?? null,
+                userId: profile?.user_id ?? null,
+                selectedWorkspace,
+                chatSettings
+              }}
+              design={design}
+              onClose={() => setShowLibrary(false)}
+            />
+          </div>
+        </>
       )}
 
       {/* Owner-only share/collaborate dialog (link visibility, invite editors
@@ -3211,69 +3220,52 @@ type LibraryArtifact = {
   label: string
   desc: string
   icon: React.ReactNode
-  beta?: boolean
   // "report" → opens GenerateReportModal; "soon" → not wired yet.
   action: "report" | "soon"
 }
 
 const LIBRARY_ARTIFACTS: LibraryArtifact[] = [
   {
-    key: "report",
-    label: "Report",
-    desc: "Structured findings write-up",
-    icon: <IconFileText size={17} />,
+    key: "overview",
+    label: "Overview",
+    desc: "Design summary",
+    icon: <IconLayoutGrid size={16} />,
     action: "report"
   },
   {
-    key: "document",
-    label: "Document",
-    desc: "Editable long-form doc",
-    icon: <IconFileDescription size={17} />,
+    key: "design-report",
+    label: "Design Report",
+    desc: "Structured write-up",
+    icon: <IconFileText size={16} />,
     action: "report"
   },
   {
-    key: "bench-guide",
-    label: "Bench guide",
-    desc: "Materials, prep & method",
-    icon: <IconFlask size={17} />,
+    key: "bench-execution",
+    label: "Bench Execution",
+    desc: "Step-by-step run guide",
+    icon: <IconFlask size={16} />,
+    action: "report"
+  },
+  {
+    key: "citations",
+    label: "Citations",
+    desc: "References & sources",
+    icon: <IconQuote size={16} />,
     action: "report"
   },
   {
     key: "sop",
     label: "SOP",
     desc: "Replicable protocol",
-    icon: <IconClipboardText size={17} />,
+    icon: <IconClipboardText size={16} />,
     action: "report"
   },
   {
-    key: "slides",
-    label: "Slide deck",
-    desc: "Auto-built slides",
-    icon: <IconDeviceDesktop size={17} />,
-    beta: true,
-    action: "soon"
-  },
-  {
-    key: "presentation",
-    label: "Presentation",
-    desc: "Narrated walkthrough",
-    icon: <IconPresentation size={17} />,
-    action: "soon"
-  },
-  {
-    key: "audio",
-    label: "Audio overview",
-    desc: "AI summary podcast",
-    icon: <IconWaveSine size={17} />,
-    action: "soon"
-  },
-  {
-    key: "infographic",
-    label: "Infographic",
-    desc: "One-page visual",
-    icon: <IconChartBar size={17} />,
-    beta: true,
-    action: "soon"
+    key: "material-list",
+    label: "Material List",
+    desc: "Reagents & equipment",
+    icon: <IconListDetails size={16} />,
+    action: "report"
   }
 ]
 
@@ -3297,7 +3289,7 @@ function DesignLibrarySidebar({
   }
 
   return (
-    <div className="border-ink-200 flex w-[360px] shrink-0 flex-col border-l bg-white">
+    <div className="border-ink-200 flex h-full w-[340px] shrink-0 flex-col border-l bg-white">
       {/* Header */}
       <div className="border-ink-100 flex shrink-0 items-center justify-between border-b px-5 py-4">
         <div className="flex items-center gap-2">
@@ -3328,27 +3320,22 @@ function DesignLibrarySidebar({
           and locked protocol.
         </p>
 
-        <div className="mt-5 grid grid-cols-2 gap-3">
+        <div className="mt-4 grid grid-cols-2 gap-2.5">
           {LIBRARY_ARTIFACTS.map(a => (
             <button
               key={a.key}
               type="button"
               onClick={() => handleArtifact(a)}
-              className="border-ink-200 hover:border-ink-300 group relative flex flex-col gap-3 rounded-2xl border bg-white p-4 text-left shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md"
+              className="border-ink-200 hover:border-ink-300 group flex flex-col gap-2 rounded-xl border bg-white p-3 text-left shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md"
             >
-              {a.beta && (
-                <span className="bg-ink text-paper absolute right-3 top-3 rounded px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider">
-                  Beta
-                </span>
-              )}
-              <span className="bg-ink-50 text-ink-700 flex size-9 items-center justify-center rounded-lg">
+              <span className="bg-ink-50 text-ink-700 flex size-7 items-center justify-center rounded-lg">
                 {a.icon}
               </span>
               <span>
-                <span className="text-ink-900 block text-[14px] font-semibold">
+                <span className="text-ink-900 block text-[13px] font-semibold">
                   {a.label}
                 </span>
-                <span className="text-ink-500 mt-0.5 block text-[12px] leading-snug">
+                <span className="text-ink-500 mt-0.5 block text-[11px] leading-snug">
                   {a.desc}
                 </span>
               </span>
