@@ -75,8 +75,11 @@ import {
 import { buildDesignChatContext } from "@/lib/design/chat-context"
 import {
   downloadBenchExecutionGuide,
+  downloadMaterialList,
+  downloadOverview,
   downloadRationaleCitations,
-  downloadSOP
+  downloadSOP,
+  type ExportableDesign
 } from "@/lib/design/export"
 import { labStandardsToText } from "@/lib/settings/preferences"
 import { track } from "@/lib/analytics"
@@ -2599,6 +2602,12 @@ Rules:
                 chatSettings
               }}
               design={design}
+              getExportable={() => ({
+                id: designId,
+                name: title || design?.name,
+                description: design?.description,
+                content: latestContentRef.current
+              })}
               onClose={() => setShowLibrary(false)}
             />
           </div>
@@ -3215,27 +3224,39 @@ function progressToEvents(
 // generators built from the current design. "Report" opens the existing
 // generate-report modal (template + objective + data upload + completeness
 // check) so that flow is unchanged. Media artifacts are flagged Beta.
+// Each widget maps to a distinct artifact. "report" opens the data-aware
+// report modal; the rest are client-side PDF exports built from the live
+// design content (no extra round-trip).
+type LibraryAction =
+  | "report"
+  | "overview"
+  | "bench"
+  | "citations"
+  | "sop"
+  | "materials"
+
 type LibraryArtifact = {
   key: string
   label: string
   desc: string
   icon: React.ReactNode
-  // "report" → opens GenerateReportModal; "soon" → not wired yet.
-  action: "report" | "soon"
+  action: LibraryAction
+  /** Actions that render the generated design's sections need one to exist. */
+  needsDesign?: boolean
 }
 
 const LIBRARY_ARTIFACTS: LibraryArtifact[] = [
   {
     key: "overview",
     label: "Overview",
-    desc: "Design summary",
+    desc: "High-level summary",
     icon: <IconLayoutGrid size={16} />,
-    action: "report"
+    action: "overview"
   },
   {
     key: "design-report",
     label: "Design Report",
-    desc: "Structured write-up",
+    desc: "Data-driven write-up",
     icon: <IconFileText size={16} />,
     action: "report"
   },
@@ -3244,48 +3265,75 @@ const LIBRARY_ARTIFACTS: LibraryArtifact[] = [
     label: "Bench Execution",
     desc: "Step-by-step run guide",
     icon: <IconFlask size={16} />,
-    action: "report"
+    action: "bench",
+    needsDesign: true
   },
   {
     key: "citations",
     label: "Citations",
-    desc: "References & sources",
+    desc: "Sources & rationale",
     icon: <IconQuote size={16} />,
-    action: "report"
+    action: "citations"
   },
   {
     key: "sop",
     label: "SOP",
-    desc: "Replicable protocol",
+    desc: "Full protocol PDF",
     icon: <IconClipboardText size={16} />,
-    action: "report"
+    action: "sop",
+    needsDesign: true
   },
   {
     key: "material-list",
     label: "Material List",
     desc: "Reagents & equipment",
     icon: <IconListDetails size={16} />,
-    action: "report"
+    action: "materials",
+    needsDesign: true
   }
 ]
 
 function DesignLibrarySidebar({
   ctx,
   design,
+  getExportable,
   onClose
 }: {
   ctx: DesignSubViewContext
   design: any
+  /** Builds an ExportableDesign from the LIVE design content at click time. */
+  getExportable: () => ExportableDesign
   onClose: () => void
 }) {
   const [reportModalOpen, setReportModalOpen] = useState(false)
 
-  const handleArtifact = (a: LibraryArtifact) => {
+  const handleArtifact = async (a: LibraryArtifact) => {
     if (a.action === "report") {
       setReportModalOpen(true)
       return
     }
-    toast.info(`${a.label} generation is coming soon.`)
+    const exportable = getExportable()
+    const hasDesign =
+      Array.isArray((exportable.content as any)?.designs) &&
+      (exportable.content as any).designs.length > 0
+    if (a.needsDesign && !hasDesign) {
+      toast.warning("Generate the design first — then download this.")
+      return
+    }
+    const exporter = {
+      overview: downloadOverview,
+      bench: downloadBenchExecutionGuide,
+      citations: downloadRationaleCitations,
+      sop: downloadSOP,
+      materials: downloadMaterialList
+    }[a.action]
+    if (!exporter) return
+    try {
+      await exporter(exportable)
+      toast.success(`${a.label} downloaded`)
+    } catch (err: any) {
+      toast.error(err?.message || `Couldn't generate ${a.label}`)
+    }
   }
 
   return (
@@ -3325,7 +3373,7 @@ function DesignLibrarySidebar({
             <button
               key={a.key}
               type="button"
-              onClick={() => handleArtifact(a)}
+              onClick={() => void handleArtifact(a)}
               className="border-ink-200 hover:border-ink-300 group flex flex-col gap-2 rounded-xl border bg-white p-3 text-left shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md"
             >
               <span className="bg-ink-50 text-ink-700 flex size-7 items-center justify-center rounded-lg">

@@ -585,3 +585,28 @@ export function downloadSOP(design: ExportableDesign) {
     shortLimit: 900
   })
 }
+
+// High-level summary: problem + selected hypothesis + the experimental
+// conditions, no methods/materials detail. The "at a glance" artifact.
+export function downloadOverview(design: ExportableDesign) {
+  return renderArtifactPdf(design, {
+    fileSuffix: "overview",
+    docTitle: "Design Overview",
+    subtitle:
+      "A high-level summary of the problem, hypothesis and experimental conditions.",
+    includeProblem: true,
+    includeHypotheses: "short",
+    sectionHeadings: ["Groups & Controls", "Conditions Table", "Sample Types"]
+  })
+}
+
+// Just the shopping list: reagents, materials and equipment to run the design.
+export function downloadMaterialList(design: ExportableDesign) {
+  return renderArtifactPdf(design, {
+    fileSuffix: "material-list",
+    docTitle: "Materials & Equipment List",
+    subtitle:
+      "Reagents, materials and equipment required to run this experiment.",
+    sectionHeadings: ["Tools & Equipment", "Materials List", "Material Preparation"]
+  })
+}
