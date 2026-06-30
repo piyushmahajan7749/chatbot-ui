@@ -70,6 +70,10 @@ export async function POST(
   const body = await request.json().catch(() => ({}))
   const rawEmail: unknown = body?.email
   const rawRole: unknown = body?.role
+  // `notify` lets the UI add/update a collaborator WITHOUT emailing them
+  // (e.g. a silent role change, or when "Notify people" is unchecked).
+  // Defaults to true to preserve the original invite-always-emails behaviour.
+  const notify: boolean = body?.notify !== false
 
   if (typeof rawEmail !== "string" || !rawEmail.includes("@")) {
     return NextResponse.json(
@@ -145,44 +149,47 @@ export async function POST(
   // Best-effort invite email. Delivery failures are logged but never block the
   // API response - the permission row is the source of truth for access. We DO
   // report the delivery outcome so the UI can tell the user to share the link
-  // manually instead of falsely claiming "invite sent".
+  // manually instead of falsely claiming "invite sent". Skipped entirely when
+  // the caller opts out of notifying (notify === false).
   let emailDelivered = false
   let emailError: string | undefined
-  try {
-    const h = headers()
-    const origin =
-      process.env.NEXT_PUBLIC_SITE_URL ||
-      (h.get("origin") ?? (h.get("host") ? `https://${h.get("host")}` : ""))
-    // Link invited collaborators to the workspace-agnostic resolver, which
-    // (once they're signed in) routes them INTO the editable design under their
-    // own workspace - an editor can edit, a viewer gets read-only. The old
-    // `/share/design/{token}` target was read-only, so invited editors could
-    // never actually edit. Default locale "en"; the resolver re-localizes.
-    const designUrl = origin
-      ? `${origin}/en/open/design/${params.designid}`
-      : null
-    const signupUrl = origin ? `${origin}/login?mode=signup` : null
+  if (notify) {
+    try {
+      const h = headers()
+      const origin =
+        process.env.NEXT_PUBLIC_SITE_URL ||
+        (h.get("origin") ?? (h.get("host") ? `https://${h.get("host")}` : ""))
+      // Link invited collaborators to the workspace-agnostic resolver, which
+      // (once they're signed in) routes them INTO the editable design under their
+      // own workspace - an editor can edit, a viewer gets read-only. The old
+      // `/share/design/{token}` target was read-only, so invited editors could
+      // never actually edit. Default locale "en"; the resolver re-localizes.
+      const designUrl = origin
+        ? `${origin}/en/open/design/${params.designid}`
+        : null
+      const signupUrl = origin ? `${origin}/login?mode=signup` : null
 
-    const emailResult = await sendDesignInviteEmail({
-      to: email,
-      inviterName:
-        (auth.user.user_metadata as any)?.full_name ||
-        auth.user.email ||
-        "A collaborator",
-      inviterEmail: auth.user.email ?? null,
-      designName: auth.data.name || "Untitled design",
-      role,
-      designUrl,
-      signupUrl,
-      isPending: !resolvedUserId
-    })
-    emailDelivered = emailResult.delivered
-    emailError = emailResult.delivered
-      ? undefined
-      : (emailResult.error ?? "Email is not configured on the server")
-  } catch (err: any) {
-    console.error("[COLLABORATORS] invite email failed", err)
-    emailError = err?.message ?? "Email send failed"
+      const emailResult = await sendDesignInviteEmail({
+        to: email,
+        inviterName:
+          (auth.user.user_metadata as any)?.full_name ||
+          auth.user.email ||
+          "A collaborator",
+        inviterEmail: auth.user.email ?? null,
+        designName: auth.data.name || "Untitled design",
+        role,
+        designUrl,
+        signupUrl,
+        isPending: !resolvedUserId
+      })
+      emailDelivered = emailResult.delivered
+      emailError = emailResult.delivered
+        ? undefined
+        : (emailResult.error ?? "Email is not configured on the server")
+    } catch (err: any) {
+      console.error("[COLLABORATORS] invite email failed", err)
+      emailError = err?.message ?? "Email send failed"
+    }
   }
 
   return NextResponse.json({

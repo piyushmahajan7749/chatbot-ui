@@ -1,17 +1,10 @@
 "use client"
 
-import { useCallback, useEffect, useMemo, useState } from "react"
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle
-} from "@/components/ui/dialog"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { useCallback, useContext, useEffect, useMemo, useState } from "react"
+import { Dialog, DialogContent } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
+import { Checkbox } from "@/components/ui/checkbox"
 import {
   Select,
   SelectContent,
@@ -22,26 +15,21 @@ import {
 import { toast } from "sonner"
 import {
   Check,
-  Copy,
-  FileDown,
-  Globe,
   Link as LinkIcon,
   Loader2,
   Lock,
+  Share2,
   Trash2,
-  UserPlus
+  X
 } from "lucide-react"
 import type {
   CollaboratorRole,
   DesignPermission,
   Sharing
 } from "@/types/sharing"
-import {
-  downloadDesignPdf,
-  downloadJson,
-  downloadMarkdown,
-  type ExportableDesign
-} from "@/lib/design/export"
+import type { ExportableDesign } from "@/lib/design/export"
+import { ChatbotUIContext } from "@/context/context"
+import { supabase } from "@/lib/supabase/browser-client"
 
 interface ShareDialogProps {
   open: boolean
@@ -58,6 +46,12 @@ interface ShareDialogProps {
   pdfTargetRef?: React.RefObject<HTMLElement>
 }
 
+interface OwnerInfo {
+  name: string
+  email: string
+  avatar: string | null
+}
+
 export default function ShareDialog({
   open,
   onOpenChange,
@@ -65,6 +59,8 @@ export default function ShareDialog({
   design,
   onSharingChange
 }: ShareDialogProps) {
+  const { profile } = useContext(ChatbotUIContext)
+
   const [sharing, setSharing] = useState<Sharing>(design.sharing ?? "private")
   const [shareToken, setShareToken] = useState<string | null>(
     design.share_token ?? null
@@ -73,24 +69,64 @@ export default function ShareDialog({
   const [copyOk, setCopyOk] = useState(false)
 
   const [collaborators, setCollaborators] = useState<DesignPermission[]>([])
-  const [isLoadingCollabs, setIsLoadingCollabs] = useState(false)
   const [inviteEmail, setInviteEmail] = useState("")
-  const [inviteRole, setInviteRole] = useState<CollaboratorRole>("viewer")
+  const [inviteRole, setInviteRole] = useState<CollaboratorRole>("editor")
   const [isInviting, setIsInviting] = useState(false)
-  const [isExportingPdf, setIsExportingPdf] = useState(false)
+  const [notify, setNotify] = useState(true)
+  const [owner, setOwner] = useState<OwnerInfo | null>(null)
 
   useEffect(() => {
     setSharing(design.sharing ?? "private")
     setShareToken(design.share_token ?? null)
   }, [design.sharing, design.share_token])
 
+  // Resolve the owner (current user) for the top "People with access" row.
+  useEffect(() => {
+    if (!open) return
+    let cancelled = false
+    ;(async () => {
+      try {
+        const {
+          data: { user }
+        } = await supabase.auth.getUser()
+        if (cancelled || !user) return
+        const meta = (user.user_metadata ?? {}) as any
+        setOwner({
+          name:
+            profile?.display_name ||
+            meta.full_name ||
+            user.email?.split("@")[0] ||
+            "You",
+          email: user.email ?? "",
+          avatar: profile?.image_url || meta.avatar_url || null
+        })
+      } catch {
+        // best-effort: fall back to profile-only display
+        if (!cancelled)
+          setOwner({
+            name: profile?.display_name || "You",
+            email: "",
+            avatar: profile?.image_url || null
+          })
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [open, profile?.display_name, profile?.image_url])
+
   const shareUrl = useMemo(() => {
-    if (!shareToken || typeof window === "undefined") return ""
-    return `${window.location.origin}/share/design/${shareToken}`
-  }, [shareToken])
+    if (typeof window === "undefined") return ""
+    // Anyone-with-link mode hands out the public share-token URL. Restricted
+    // mode hands out the access-gated resolver link (invited collaborators get
+    // in; everyone else is blocked) — mirrors how the invite emails link out.
+    if (sharing !== "private" && shareToken) {
+      return `${window.location.origin}/share/design/${shareToken}`
+    }
+    return `${window.location.origin}/en/open/design/${designId}`
+  }, [sharing, shareToken, designId])
 
   const loadCollaborators = useCallback(async () => {
-    setIsLoadingCollabs(true)
     try {
       const res = await fetch(`/api/design/${designId}/collaborators`)
       if (!res.ok) throw new Error("Failed to load collaborators")
@@ -98,8 +134,6 @@ export default function ShareDialog({
       setCollaborators(data.collaborators ?? [])
     } catch (err: any) {
       toast.error(err?.message || "Could not load collaborators")
-    } finally {
-      setIsLoadingCollabs(false)
     }
   }, [designId])
 
@@ -107,109 +141,51 @@ export default function ShareDialog({
     if (open) loadCollaborators()
   }, [open, loadCollaborators])
 
-  const enableLink = useCallback(async () => {
-    setIsTogglingLink(true)
-    try {
-      const res = await fetch(`/api/design/${designId}/share`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ sharing: "unlisted" })
-      })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.error || "Failed to enable sharing")
-      setSharing(data.sharing)
-      setShareToken(data.share_token)
-      onSharingChange?.({
-        sharing: data.sharing,
-        share_token: data.share_token
-      })
-      toast.success("Share link enabled")
-    } catch (err: any) {
-      toast.error(err?.message || "Failed to enable sharing")
-    } finally {
-      setIsTogglingLink(false)
-    }
-  }, [designId, onSharingChange])
-
-  const rotateLink = useCallback(async () => {
-    setIsTogglingLink(true)
-    try {
-      const res = await fetch(`/api/design/${designId}/share`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ rotate: true })
-      })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.error || "Failed to rotate link")
-      setSharing(data.sharing)
-      setShareToken(data.share_token)
-      onSharingChange?.({
-        sharing: data.sharing,
-        share_token: data.share_token
-      })
-      toast.success("New link generated; old link is revoked")
-    } catch (err: any) {
-      toast.error(err?.message || "Failed to rotate link")
-    } finally {
-      setIsTogglingLink(false)
-    }
-  }, [designId, onSharingChange])
-
-  const disableLink = useCallback(async () => {
-    setIsTogglingLink(true)
-    try {
-      const res = await fetch(`/api/design/${designId}/share`, {
-        method: "DELETE"
-      })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.error || "Failed to disable sharing")
-      setSharing("private")
-      setShareToken(null)
-      onSharingChange?.({ sharing: "private", share_token: null })
-      toast.success("Link revoked")
-    } catch (err: any) {
-      toast.error(err?.message || "Failed to disable sharing")
-    } finally {
-      setIsTogglingLink(false)
-    }
-  }, [designId, onSharingChange])
-
+  // Flip between "Restricted" (private) and "Anyone with the link" (unlisted).
   const changeVisibility = useCallback(
     async (next: Sharing) => {
-      if (next === "private") {
-        return disableLink()
-      }
       setIsTogglingLink(true)
       try {
-        const res = await fetch(`/api/design/${designId}/share`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ sharing: next })
-        })
-        const data = await res.json()
-        if (!res.ok)
-          throw new Error(data.error || "Failed to update visibility")
-        setSharing(data.sharing)
-        setShareToken(data.share_token)
-        onSharingChange?.({
-          sharing: data.sharing,
-          share_token: data.share_token
-        })
+        if (next === "private") {
+          const res = await fetch(`/api/design/${designId}/share`, {
+            method: "DELETE"
+          })
+          const data = await res.json()
+          if (!res.ok) throw new Error(data.error || "Failed to update access")
+          setSharing("private")
+          setShareToken(null)
+          onSharingChange?.({ sharing: "private", share_token: null })
+        } else {
+          const res = await fetch(`/api/design/${designId}/share`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ sharing: next })
+          })
+          const data = await res.json()
+          if (!res.ok) throw new Error(data.error || "Failed to update access")
+          setSharing(data.sharing)
+          setShareToken(data.share_token)
+          onSharingChange?.({
+            sharing: data.sharing,
+            share_token: data.share_token
+          })
+        }
       } catch (err: any) {
-        toast.error(err?.message || "Failed to update visibility")
+        toast.error(err?.message || "Failed to update access")
       } finally {
         setIsTogglingLink(false)
       }
     },
-    [designId, onSharingChange, disableLink]
+    [designId, onSharingChange]
   )
 
-  const copy = useCallback(async () => {
+  const copyLink = useCallback(async () => {
     if (!shareUrl) return
     try {
       await navigator.clipboard.writeText(shareUrl)
       setCopyOk(true)
       setTimeout(() => setCopyOk(false), 1500)
+      toast.success("Link copied")
     } catch {
       toast.error("Couldn't copy link")
     }
@@ -226,41 +202,69 @@ export default function ShareDialog({
       const res = await fetch(`/api/design/${designId}/collaborators`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, role: inviteRole })
+        body: JSON.stringify({ email, role: inviteRole, notify })
       })
       const data = await res.json()
-      if (!res.ok) throw new Error(data.error || "Failed to invite")
+      if (!res.ok) throw new Error(data.error || "Failed to add")
       setInviteEmail("")
       setCollaborators(prev => {
         const next = prev.filter(p => p.email !== data.collaborator.email)
         return [data.collaborator, ...next]
       })
       // The collaborator now HAS access (the permission row is the source of
-      // truth). Only claim the email was sent if it actually was - otherwise
-      // tell the user to share the link, so a silent Resend failure doesn't
-      // read as success.
-      if (data.emailDelivered) {
+      // truth). Only claim an email was sent if it actually was.
+      if (!notify) {
+        toast.success(`${email} added`)
+      } else if (data.emailDelivered) {
         toast.success(
           data.collaborator.user_id
             ? `Invited ${email}`
-            : `Invite emailed to ${email} - they'll get access after signing up with that address`
+            : `Invite emailed to ${email} — they'll get access after signing up with that address`
         )
       } else {
         toast.warning(
           `${email} now has ${data.collaborator.role} access, but the invite email couldn't be sent${
             data.emailError ? ` (${data.emailError})` : ""
-          }. Copy the share link from the Link tab and send it to them.`
+          }. Use Copy link to send it manually.`
         )
       }
     } catch (err: any) {
-      toast.error(err?.message || "Failed to invite")
+      toast.error(err?.message || "Failed to add")
     } finally {
       setIsInviting(false)
     }
-  }, [designId, inviteEmail, inviteRole])
+  }, [designId, inviteEmail, inviteRole, notify])
+
+  // Role change re-upserts the permission (POST merges by design+email) without
+  // re-emailing — a silent update.
+  const changeRole = useCallback(
+    async (email: string, role: CollaboratorRole) => {
+      const prev = collaborators
+      setCollaborators(cs =>
+        cs.map(c => (c.email === email ? { ...c, role } : c))
+      )
+      try {
+        const res = await fetch(`/api/design/${designId}/collaborators`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email, role, notify: false })
+        })
+        if (!res.ok) {
+          const data = await res.json().catch(() => ({}))
+          throw new Error(data.error || "Failed to update role")
+        }
+      } catch (err: any) {
+        setCollaborators(prev)
+        toast.error(err?.message || "Failed to update role")
+      }
+    },
+    [designId, collaborators]
+  )
 
   const removeCollaborator = useCallback(
     async (email: string) => {
+      const prev = collaborators
+      setCollaborators(cs => cs.filter(c => c.email !== email))
       try {
         const res = await fetch(
           `/api/design/${designId}/collaborators?email=${encodeURIComponent(email)}`,
@@ -270,229 +274,217 @@ export default function ShareDialog({
           const data = await res.json().catch(() => ({}))
           throw new Error(data.error || "Failed to remove")
         }
-        setCollaborators(prev => prev.filter(p => p.email !== email))
         toast.success(`Removed ${email}`)
       } catch (err: any) {
+        setCollaborators(prev)
         toast.error(err?.message || "Failed to remove")
       }
     },
-    [designId]
+    [designId, collaborators]
   )
 
-  const handleExportPdf = useCallback(async () => {
-    setIsExportingPdf(true)
-    try {
-      await downloadDesignPdf(design)
-    } catch (err: any) {
-      toast.error(err?.message || "PDF export failed")
-    } finally {
-      setIsExportingPdf(false)
-    }
-  }, [design])
+  const designName = design.name || "this design"
+  const initial = (email: string) => (email[0] || "?").toUpperCase()
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-xl">
-        <DialogHeader>
-          <DialogTitle>Share this design</DialogTitle>
-          <DialogDescription>
-            Share a link, invite collaborators, or export a copy.
-          </DialogDescription>
-        </DialogHeader>
+      <DialogContent className="gap-0 overflow-hidden p-0 sm:max-w-xl">
+        {/* Header */}
+        <div className="flex items-center gap-3 px-6 py-5">
+          <Share2 className="text-ink-500 size-5 shrink-0" />
+          <h2 className="text-ink-900 min-w-0 flex-1 truncate text-lg font-semibold">
+            Share &ldquo;{designName}&rdquo;
+          </h2>
+          <button
+            type="button"
+            onClick={() => onOpenChange(false)}
+            className="text-ink-400 hover:bg-ink-100 hover:text-ink-700 -mr-1 rounded-full p-1.5"
+            aria-label="Close"
+          >
+            <X className="size-5" />
+          </button>
+        </div>
 
-        <Tabs defaultValue="link" className="w-full">
-          <TabsList className="grid w-full grid-cols-3">
-            <TabsTrigger value="link">
-              <LinkIcon className="mr-2 size-4" /> Link
-            </TabsTrigger>
-            <TabsTrigger value="people">
-              <UserPlus className="mr-2 size-4" /> People
-            </TabsTrigger>
-            <TabsTrigger value="export">
-              <FileDown className="mr-2 size-4" /> Export
-            </TabsTrigger>
-          </TabsList>
+        {/* Add people */}
+        <div className="px-6 pb-2">
+          <div className="border-ink-200 focus-within:border-ink-400 flex items-center gap-2 rounded-2xl border px-3 py-2 transition-colors">
+            <Input
+              type="email"
+              placeholder="Add people by email"
+              value={inviteEmail}
+              onChange={e => setInviteEmail(e.target.value)}
+              onKeyDown={e => {
+                if (e.key === "Enter" && !isInviting) invite()
+              }}
+              className="h-9 flex-1 border-0 bg-transparent px-0 shadow-none focus-visible:ring-0"
+            />
+            <Select
+              value={inviteRole}
+              onValueChange={v => setInviteRole(v as CollaboratorRole)}
+            >
+              <SelectTrigger className="h-8 w-[104px] shrink-0 border-0 shadow-none focus:ring-0">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="viewer">Viewer</SelectItem>
+                <SelectItem value="editor">Editor</SelectItem>
+              </SelectContent>
+            </Select>
+            <Button
+              onClick={invite}
+              disabled={isInviting || !inviteEmail.trim()}
+              size="sm"
+              className="shrink-0"
+            >
+              {isInviting ? <Loader2 className="size-4 animate-spin" /> : "Add"}
+            </Button>
+          </div>
+        </div>
 
-          <TabsContent value="link" className="space-y-4 pt-4">
-            <div className="space-y-2">
-              <Label>Visibility</Label>
+        {/* People with access */}
+        <div className="px-6 pt-4">
+          <div className="mb-3 flex items-center justify-between">
+            <h3 className="text-ink-900 text-[15px] font-semibold">
+              People with access
+            </h3>
+            <label className="text-ink-600 flex cursor-pointer select-none items-center gap-2 text-sm">
+              Notify people
+              <Checkbox
+                checked={notify}
+                onCheckedChange={v => setNotify(v === true)}
+              />
+            </label>
+          </div>
+
+          <div className="max-h-[220px] space-y-1 overflow-auto">
+            {/* Owner row */}
+            <div className="flex items-center gap-3 py-1.5">
+              {owner?.avatar ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={owner.avatar}
+                  alt=""
+                  className="size-9 shrink-0 rounded-full object-cover"
+                />
+              ) : (
+                <div className="bg-ink-200 text-ink-700 flex size-9 shrink-0 items-center justify-center rounded-full text-sm font-semibold">
+                  {initial(owner?.email || owner?.name || "Y")}
+                </div>
+              )}
+              <div className="min-w-0 flex-1">
+                <div className="text-ink-900 truncate text-sm font-medium">
+                  {owner?.name || "You"}
+                </div>
+                {owner?.email && (
+                  <div className="text-ink-500 truncate text-[13px]">
+                    {owner.email}
+                  </div>
+                )}
+              </div>
+              <span className="text-ink-500 shrink-0 text-sm">Owner</span>
+            </div>
+
+            {/* Collaborators */}
+            {collaborators.map(c => (
+              <div key={c.id} className="flex items-center gap-3 py-1.5">
+                <div className="bg-ink-100 text-ink-700 flex size-9 shrink-0 items-center justify-center rounded-full text-sm font-semibold">
+                  {initial(c.email)}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="text-ink-900 truncate text-sm font-medium">
+                    {c.email}
+                  </div>
+                  <div className="text-ink-500 truncate text-[13px]">
+                    {c.user_id ? "Has access" : "Pending invite"}
+                  </div>
+                </div>
+                <Select
+                  value={c.role}
+                  onValueChange={v =>
+                    changeRole(c.email, v as CollaboratorRole)
+                  }
+                >
+                  <SelectTrigger className="h-8 w-[104px] shrink-0 border-0 shadow-none focus:ring-0">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="viewer">Viewer</SelectItem>
+                    <SelectItem value="editor">Editor</SelectItem>
+                  </SelectContent>
+                </Select>
+                <button
+                  type="button"
+                  onClick={() => removeCollaborator(c.email)}
+                  aria-label={`Remove ${c.email}`}
+                  className="text-ink-400 hover:bg-ink-100 hover:text-ink-700 shrink-0 rounded-full p-1.5"
+                >
+                  <Trash2 className="size-4" />
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* General access */}
+        <div className="border-ink-100 mt-4 border-t px-6 py-4">
+          <h3 className="text-ink-900 mb-3 text-[15px] font-semibold">
+            General access
+          </h3>
+          <div className="flex items-center gap-3">
+            <div className="bg-ink-100 text-ink-600 flex size-10 shrink-0 items-center justify-center rounded-full">
+              {sharing === "private" ? (
+                <Lock className="size-5" />
+              ) : (
+                <LinkIcon className="size-5" />
+              )}
+            </div>
+            <div className="min-w-0 flex-1">
               <Select
-                value={sharing}
+                value={sharing === "private" ? "private" : "unlisted"}
                 onValueChange={v => changeVisibility(v as Sharing)}
                 disabled={isTogglingLink}
               >
-                <SelectTrigger>
+                <SelectTrigger className="h-8 w-auto gap-1 border-0 px-1 font-medium shadow-none focus:ring-0">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="private">
-                    <span className="flex items-center gap-2">
-                      <Lock className="size-4" /> Private - only you & invited
-                      collaborators
-                    </span>
-                  </SelectItem>
-                  <SelectItem value="unlisted">
-                    <span className="flex items-center gap-2">
-                      <LinkIcon className="size-4" /> Unlisted - anyone with the
-                      link
-                    </span>
-                  </SelectItem>
-                  <SelectItem value="public">
-                    <span className="flex items-center gap-2">
-                      <Globe className="size-4" /> Public - anyone with the link
-                    </span>
-                  </SelectItem>
+                  <SelectItem value="private">Restricted</SelectItem>
+                  <SelectItem value="unlisted">Anyone with the link</SelectItem>
                 </SelectContent>
               </Select>
+              <p className="text-ink-500 mt-0.5 px-1 text-[13px]">
+                {sharing === "private"
+                  ? "Only people with access can open with the link"
+                  : "Anyone on the internet with the link can view"}
+              </p>
             </div>
-
-            {sharing !== "private" && shareToken ? (
-              <div className="space-y-2">
-                <Label>Share link</Label>
-                <div className="flex gap-2">
-                  <Input value={shareUrl} readOnly className="flex-1" />
-                  <Button variant="outline" onClick={copy}>
-                    {copyOk ? (
-                      <Check className="size-4" />
-                    ) : (
-                      <Copy className="size-4" />
-                    )}
-                  </Button>
-                </div>
-                <div className="flex gap-2 pt-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={rotateLink}
-                    disabled={isTogglingLink}
-                  >
-                    Rotate link
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={disableLink}
-                    disabled={isTogglingLink}
-                  >
-                    Revoke link
-                  </Button>
-                </div>
-              </div>
-            ) : (
-              <Button
-                onClick={enableLink}
-                disabled={isTogglingLink}
-                className="w-full"
-              >
-                {isTogglingLink ? (
-                  <Loader2 className="mr-2 size-4 animate-spin" />
-                ) : (
-                  <LinkIcon className="mr-2 size-4" />
-                )}
-                Create share link
-              </Button>
+            {isTogglingLink && (
+              <Loader2 className="text-ink-400 size-4 shrink-0 animate-spin" />
             )}
-          </TabsContent>
+          </div>
+        </div>
 
-          <TabsContent value="people" className="space-y-4 pt-4">
-            <div className="flex gap-2">
-              <Input
-                type="email"
-                placeholder="colleague@lab.org"
-                value={inviteEmail}
-                onChange={e => setInviteEmail(e.target.value)}
-                onKeyDown={e => {
-                  if (e.key === "Enter" && !isInviting) invite()
-                }}
-                className="flex-1"
-              />
-              <Select
-                value={inviteRole}
-                onValueChange={v => setInviteRole(v as CollaboratorRole)}
-              >
-                <SelectTrigger className="w-32">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="viewer">Viewer</SelectItem>
-                  <SelectItem value="editor">Editor</SelectItem>
-                </SelectContent>
-              </Select>
-              <Button onClick={invite} disabled={isInviting}>
-                {isInviting ? (
-                  <Loader2 className="size-4 animate-spin" />
-                ) : (
-                  "Invite"
-                )}
-              </Button>
-            </div>
-
-            <div className="space-y-1">
-              {isLoadingCollabs ? (
-                <div className="text-muted-foreground flex items-center gap-2 py-4 text-sm">
-                  <Loader2 className="size-4 animate-spin" /> Loading…
-                </div>
-              ) : collaborators.length === 0 ? (
-                <p className="text-muted-foreground py-4 text-sm">
-                  No collaborators yet.
-                </p>
-              ) : (
-                collaborators.map(c => (
-                  <div
-                    key={c.id}
-                    className="hover:bg-muted/40 flex items-center justify-between rounded-md px-2 py-1.5"
-                  >
-                    <div className="min-w-0 flex-1">
-                      <div className="truncate text-sm font-medium">
-                        {c.email}
-                      </div>
-                      <div className="text-muted-foreground text-xs">
-                        {c.user_id ? c.role : `Pending · ${c.role}`}
-                      </div>
-                    </div>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => removeCollaborator(c.email)}
-                      aria-label={`Remove ${c.email}`}
-                    >
-                      <Trash2 className="size-4" />
-                    </Button>
-                  </div>
-                ))
-              )}
-            </div>
-          </TabsContent>
-
-          <TabsContent value="export" className="space-y-3 pt-4">
-            <p className="text-muted-foreground text-sm">
-              Download a copy of this design.
-            </p>
-            <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
-              <Button
-                variant="outline"
-                onClick={() => downloadMarkdown(design)}
-              >
-                <FileDown className="mr-2 size-4" /> Markdown
-              </Button>
-              <Button variant="outline" onClick={() => downloadJson(design)}>
-                <FileDown className="mr-2 size-4" /> JSON
-              </Button>
-              <Button
-                variant="outline"
-                onClick={handleExportPdf}
-                disabled={isExportingPdf}
-              >
-                {isExportingPdf ? (
-                  <Loader2 className="mr-2 size-4 animate-spin" />
-                ) : (
-                  <FileDown className="mr-2 size-4" />
-                )}
-                PDF
-              </Button>
-            </div>
-          </TabsContent>
-        </Tabs>
+        {/* Footer */}
+        <div className="flex items-center justify-between px-6 py-4">
+          <Button
+            variant="outline"
+            onClick={copyLink}
+            className="gap-2 rounded-full"
+          >
+            {copyOk ? (
+              <Check className="size-4" />
+            ) : (
+              <LinkIcon className="size-4" />
+            )}
+            Copy link
+          </Button>
+          <Button
+            onClick={() => onOpenChange(false)}
+            className="rounded-full px-6"
+          >
+            Done
+          </Button>
+        </div>
       </DialogContent>
     </Dialog>
   )
