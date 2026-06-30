@@ -16,7 +16,7 @@
  *
  * Applied patches are tracked by signature in a module-level set (+ a
  * `design:patch-applied` broadcast) so a patch stays "Applied" across
- * re-renders and duplicate copies — fixes the "asks to approve twice" bug.
+ * re-renders and duplicate copies - fixes the "asks to approve twice" bug.
  */
 
 import { useContext, useEffect, useMemo, useState } from "react"
@@ -92,7 +92,7 @@ export function DesignPatchBlock({ patch }: DesignPatchBlockProps) {
   // edit proposed in the rail persists even when the chat row isn't tagged
   // design-scoped. Previously this only read the chat scope, so the in-design
   // rail fell through to a fire-and-forget window event that reported success
-  // without ever saving — the "applied but unchanged after refresh" bug.
+  // without ever saving - the "applied but unchanged after refresh" bug.
   const routeDesignId =
     typeof routeParams?.designId === "string" &&
     routeParams.designId !== "new" &&
@@ -109,7 +109,7 @@ export function DesignPatchBlock({ patch }: DesignPatchBlockProps) {
   const [open, setOpen] = useState(false)
   const [busy, setBusy] = useState(false)
 
-  // Keep duplicate copies of the same patch in sync — once one is applied,
+  // Keep duplicate copies of the same patch in sync - once one is applied,
   // every other card showing the same change flips to "Applied".
   useEffect(() => {
     const onApplied = (e: Event) => {
@@ -151,7 +151,7 @@ export function DesignPatchBlock({ patch }: DesignPatchBlockProps) {
           return
         }
         toast.success(
-          `Design updated${json?.sectionHeading ? ` — “${json.sectionHeading}”` : ""}`
+          `Design updated${json?.sectionHeading ? ` - “${json.sectionHeading}”` : ""}`
         )
         // Sync any open editor live (no navigation).
         window.dispatchEvent(
@@ -167,7 +167,7 @@ export function DesignPatchBlock({ patch }: DesignPatchBlockProps) {
       }
       return
     }
-    // No design id resolvable from the chat scope OR the route — we can't
+    // No design id resolvable from the chat scope OR the route - we can't
     // persist the edit from here (and the editor isn't mounted to do it).
     // Best-effort dispatch for any mounted editor, but do NOT fake success:
     // the previous unconditional markApplied() is exactly what made the card
@@ -306,7 +306,7 @@ export function DesignPatchBlock({ patch }: DesignPatchBlockProps) {
 }
 
 /**
- * Pull patch blocks out of a raw assistant message. Returns ordered segments —
+ * Pull patch blocks out of a raw assistant message. Returns ordered segments -
  * plain text (rendered via the normal markdown pipeline) or a parsed patch.
  * Identical patches that repeat within the SAME message are de-duplicated to a
  * single card (the model sometimes echoes the change twice). Malformed JSON

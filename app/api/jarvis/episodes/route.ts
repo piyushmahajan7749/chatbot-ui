@@ -1,7 +1,7 @@
 /**
- * GET /api/jarvis/episodes — list recent vault episodes for the
+ * GET /api/jarvis/episodes - list recent vault episodes for the
  * authenticated user (default 20).
- * DELETE /api/jarvis/episodes?slug=… — remove a single episode + its
+ * DELETE /api/jarvis/episodes?slug=… - remove a single episode + its
  * embedding sidecar from the vault. Soft for now: we never offer
  * "undo" beyond Supabase's own object versioning.
  *

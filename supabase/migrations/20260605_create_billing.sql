@@ -54,7 +54,7 @@ CREATE TABLE IF NOT EXISTS billing_accounts (
 CREATE INDEX IF NOT EXISTS billing_accounts_rc_app_user_id_idx
   ON billing_accounts (rc_app_user_id);
 
--- RLS: owners may read their own row. No client writes — all mutations go
+-- RLS: owners may read their own row. No client writes - all mutations go
 -- through the service role (metering layer + webhook), which bypasses RLS.
 ALTER TABLE billing_accounts ENABLE ROW LEVEL SECURITY;
 
@@ -106,7 +106,7 @@ CREATE POLICY "Owner can read own usage events"
 --
 -- p_monthly_allowance is the plan's per-period token allowance, supplied by
 -- the caller from lib/billing/plans.ts. Tokens beyond the allowance draw down
--- custom_credit_tokens (clamped at 0 — the pre-flight check is what actually
+-- custom_credit_tokens (clamped at 0 - the pre-flight check is what actually
 -- blocks; this never goes negative).
 -- ---------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION consume_tokens(
@@ -192,7 +192,7 @@ $$;
 -- ---------------------------------------------------------------------------
 -- Auto-provision a billing account whenever a profile is created, and
 -- backfill every existing user. (Profiles are themselves created by a trigger
--- on auth.users — see 20240108234541_add_profiles.sql.)
+-- on auth.users - see 20240108234541_add_profiles.sql.)
 -- ---------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION create_billing_account_for_profile()
 RETURNS TRIGGER

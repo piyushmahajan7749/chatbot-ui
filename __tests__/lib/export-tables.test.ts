@@ -27,7 +27,7 @@ describe("parseMarkdownBlocks", () => {
     const texts = blocks.filter(b => b.type === "text")
     expect(tables).toHaveLength(1)
     expect(texts).toHaveLength(2) // before + after prose preserved
-    const t = tables[0] as Extract<typeof tables[number], { type: "table" }>
+    const t = tables[0] as Extract<(typeof tables)[number], { type: "table" }>
     expect(t.head).toEqual(["Group", "Condition", "n"])
     expect(t.rows).toEqual([
       ["Control", "untreated", "1"],
@@ -36,7 +36,7 @@ describe("parseMarkdownBlocks", () => {
   })
 
   it("folds a newline-wrapped cell back into the previous row's last cell", () => {
-    // The model wrapped a long cell onto a second physical line (no pipes) —
+    // The model wrapped a long cell onto a second physical line (no pipes) -
     // this is the exact shape that produced the mangled PDF output.
     const body = [
       "| Arm | Composition | Readout |",
@@ -65,7 +65,9 @@ describe("parseMarkdownBlocks", () => {
       "| x | y | z | extra |" // long row → tail merged into last col
     ].join("\n")
 
-    const t = parseMarkdownBlocks(body).find(b => b.type === "table") as Extract<
+    const t = parseMarkdownBlocks(body).find(
+      b => b.type === "table"
+    ) as Extract<
       ReturnType<typeof parseMarkdownBlocks>[number],
       { type: "table" }
     >
@@ -74,7 +76,9 @@ describe("parseMarkdownBlocks", () => {
   })
 
   it("treats a body with no table as a single text block", () => {
-    const blocks = parseMarkdownBlocks("Just a **paragraph** of prose.\nSecond line.")
+    const blocks = parseMarkdownBlocks(
+      "Just a **paragraph** of prose.\nSecond line."
+    )
     expect(blocks).toHaveLength(1)
     expect(blocks[0].type).toBe("text")
   })

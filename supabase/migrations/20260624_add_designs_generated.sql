@@ -1,6 +1,6 @@
 -- Free-tier experiment paywall: count generated designs per user so the free
 -- plan can be gated at N free experiments (see lib/billing/plans.ts
--- FREE_EXPERIMENT_LIMIT). Lifetime counter — never resets. Paid plans + comps
+-- FREE_EXPERIMENT_LIMIT). Lifetime counter - never resets. Paid plans + comps
 -- are not gated by this (they're metered by credits).
 
 ALTER TABLE billing_accounts

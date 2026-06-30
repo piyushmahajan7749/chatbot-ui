@@ -89,7 +89,7 @@ const DashboardView: FC<{ data: AffiliateDashboard }> = ({ data }) => {
       await navigator.clipboard.writeText(data.shareUrl)
       toast.success("Share link copied")
     } catch {
-      toast.error("Couldn't copy — select and copy the link manually.")
+      toast.error("Couldn't copy - select and copy the link manually.")
     }
   }
 
@@ -141,7 +141,7 @@ const DashboardView: FC<{ data: AffiliateDashboard }> = ({ data }) => {
           />
         </div>
         <p className="text-muted text-xs">
-          Commission is paid out manually — we’ll reach out about payment.
+          Commission is paid out manually - we’ll reach out about payment.
         </p>
       </CardContent>
     </Card>
@@ -164,7 +164,7 @@ const ApplyView: FC<{ data: NotYet; onChange: () => void }> = ({
 }) => {
   const status = data.application?.status
 
-  // Pending review — no form.
+  // Pending review - no form.
   if (status === "pending") {
     return (
       <Card>
@@ -174,7 +174,7 @@ const ApplyView: FC<{ data: NotYet; onChange: () => void }> = ({
             Creator application
           </CardTitle>
           <CardDescription>
-            Your application is under review — we’ll be in touch by email.
+            Your application is under review - we’ll be in touch by email.
             Thanks for your interest!
           </CardDescription>
         </CardHeader>
@@ -192,7 +192,7 @@ const ApplyView: FC<{ data: NotYet; onChange: () => void }> = ({
             Creator program
           </CardTitle>
           <CardDescription>
-            You’re approved! Your dashboard will appear here shortly — reload if
+            You’re approved! Your dashboard will appear here shortly - reload if
             it doesn’t.
           </CardDescription>
         </CardHeader>
@@ -236,7 +236,7 @@ const ApplyForm: FC<{
         toast.error(json?.error ?? "Could not submit your application.")
         return
       }
-      toast.success("Application submitted — we’ll review it soon.")
+      toast.success("Application submitted - we’ll review it soon.")
       onSubmitted()
     } catch {
       toast.error("Could not submit your application.")

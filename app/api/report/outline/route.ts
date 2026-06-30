@@ -81,7 +81,7 @@ RULES:
 
   const userPrompt = `Extract data for a chart from this experiment.
 
-Objective: ${state.experimentObjective}${state.reportSpec ? `\nReport preferences (tailor the writing — audience, depth, focus, emphasis — to these): ${state.reportSpec}` : ""}
+Objective: ${state.experimentObjective}${state.reportSpec ? `\nReport preferences (tailor the writing - audience, depth, focus, emphasis - to these): ${state.reportSpec}` : ""}
 Protocol: ${state.protocol}
 Data files: ${state.dataFileSummary}
 
@@ -448,7 +448,7 @@ Constraints:
 
   const userPrompt = `Generate aim, introduction, and principle using the following:
 
-Objective: ${state.experimentObjective}${state.reportSpec ? `\nReport preferences (tailor the writing — audience, depth, focus, emphasis — to these): ${state.reportSpec}` : ""}
+Objective: ${state.experimentObjective}${state.reportSpec ? `\nReport preferences (tailor the writing - audience, depth, focus, emphasis - to these): ${state.reportSpec}` : ""}
 Protocol: ${state.protocol}
 Data files: ${state.dataFileSummary}`
 
@@ -513,7 +513,7 @@ Constraints:
 `
 
   const userPrompt = `To generate the content, refer to the following:
-Objective: ${state.experimentObjective}${state.reportSpec ? `\nReport preferences (tailor the writing — audience, depth, focus, emphasis — to these): ${state.reportSpec}` : ""}
+Objective: ${state.experimentObjective}${state.reportSpec ? `\nReport preferences (tailor the writing - audience, depth, focus, emphasis - to these): ${state.reportSpec}` : ""}
 Data Files: ${state.dataFileSummary}
 Protocol: ${state.protocol}`
 
@@ -577,7 +577,7 @@ Constraints:
 `
 
   const userPrompt = `Generate material, preparation, procedure, and setup using the following:
-Objective: ${state.experimentObjective}${state.reportSpec ? `\nReport preferences (tailor the writing — audience, depth, focus, emphasis — to these): ${state.reportSpec}` : ""}
+Objective: ${state.experimentObjective}${state.reportSpec ? `\nReport preferences (tailor the writing - audience, depth, focus, emphasis - to these): ${state.reportSpec}` : ""}
 Protocol: ${state.protocol}
 Data Files: ${state.dataFileSummary}
 `

@@ -97,7 +97,7 @@ export class JarvisVault {
 
   /**
    * Read the most-recently-compressed episodes. Sort is lexicographic
-   * on key — works because the slug prefix is the YYYY-MM-DD date.
+   * on key - works because the slug prefix is the YYYY-MM-DD date.
    */
   async listRecentEpisodes(uid: string, limit = 5): Promise<Episode[]> {
     try {
@@ -127,7 +127,7 @@ export class JarvisVault {
 
   /**
    * Score every embedded episode against the query and return the top
-   * `k` matches. In-process cosine — fine for the < 500 episodes/user
+   * `k` matches. In-process cosine - fine for the < 500 episodes/user
    * volumes the implementation guide assumes. Past that, swap to
    * pgvector in `rag_items` (already on disk).
    */
@@ -184,7 +184,7 @@ export class JarvisVault {
 
   /**
    * Append a new bullet to the user's topic file. Race-tolerant via
-   * upsert — at one writer per user this is fine. If we ever batch
+   * upsert - at one writer per user this is fine. If we ever batch
    * compress (multiple arcs per second), swap to an append-only log
    * + nightly compactor.
    */
@@ -212,7 +212,7 @@ export class JarvisVault {
       existing = `---\nfirst_seen: ${firstSeen}\nepisodes_count: 0\n---\n\n# ${topic}\n\n## Episodes\n`
     }
     const today = new Date().toISOString().slice(0, 10)
-    const bullet = `- ${today} — [[${episodeSlug}]] ${line.trim()}`
+    const bullet = `- ${today} - [[${episodeSlug}]] ${line.trim()}`
     const newContent = existing.trimEnd() + "\n" + bullet + "\n"
     await this.client.storage
       .from(BUCKET)

@@ -63,8 +63,8 @@ export async function POST(request: Request) {
     })
 
     // Whisper returns no token usage, so estimate a token-equivalent to charge
-    // against credits — the larger of the transcript token estimate and a floor
-    // derived from audio size — so transcription is no longer a free path.
+    // against credits - the larger of the transcript token estimate and a floor
+    // derived from audio size - so transcription is no longer a free path.
     // Best-effort: recordUsage never throws into the response.
     await recordUsage({
       userId: auth.user.id,

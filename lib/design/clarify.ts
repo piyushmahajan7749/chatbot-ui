@@ -1,6 +1,6 @@
 /**
- * "Refine" clarifying-question engine. At two checkpoints — after the problem
- * (before literature) and after the chosen hypothesis (before design) — a sharp
+ * "Refine" clarifying-question engine. At two checkpoints - after the problem
+ * (before literature) and after the chosen hypothesis (before design) - a sharp
  * experimental-design reviewer asks the highest-value questions to remove
  * ambiguity, so literature is on-target and the design is specific (job stories
  * 1, 2, 3). Questions are MCQ (model-picked options) + an always-allowed
@@ -56,7 +56,7 @@ function priorBlock(answers: ClarifyAnswer[] | undefined): string {
   if (!answers || answers.length === 0) return ""
   const lines = answers.map(a => {
     const val = a.skipped
-      ? "(skipped — assume a sensible default)"
+      ? "(skipped - assume a sensible default)"
       : [a.selected.join(", "), a.other].filter(Boolean).join(" · ") ||
         "(blank)"
     return `- ${a.prompt} → ${val}`
@@ -98,7 +98,7 @@ export async function generateClarifyingQuestions(
 
   const aim =
     checkpoint === "problem"
-      ? "Your questions will steer a LITERATURE SEARCH and the downstream design. Focus on what's needed to find the RIGHT primary research and to scope the study: target system/molecule + operating concentrations, the specific variable(s) under test and their ranges, the readouts/endpoints, key constraints (material available, time, equipment), and what 'success' looks like.\n\nCRITICAL for #1 and #9:\n- Concentration ranges and parameter values you ask about are GUIDANCE for search direction, not hard constraints. Frame questions as 'What range best represents your system?' — the literature agent will surface relevant papers outside these parameters if it finds better evidence.\n- Always include a question about study approach: 'Is this primarily a bench/wet-lab study, in silico/computational, or both?' with options like ['Bench/wet lab', 'In silico / computational', 'Both']. This is essential to avoid returning computational modeling papers when the researcher is doing formulation or assay work."
+      ? "Your questions will steer a LITERATURE SEARCH and the downstream design. Focus on what's needed to find the RIGHT primary research and to scope the study: target system/molecule + operating concentrations, the specific variable(s) under test and their ranges, the readouts/endpoints, key constraints (material available, time, equipment), and what 'success' looks like.\n\nCRITICAL for #1 and #9:\n- Concentration ranges and parameter values you ask about are GUIDANCE for search direction, not hard constraints. Frame questions as 'What range best represents your system?' - the literature agent will surface relevant papers outside these parameters if it finds better evidence.\n- Always include a question about study approach: 'Is this primarily a bench/wet-lab study, in silico/computational, or both?' with options like ['Bench/wet lab', 'In silico / computational', 'Both']. This is essential to avoid returning computational modeling papers when the researcher is doing formulation or assay work."
       : checkpoint === "hypothesis"
         ? "Your questions will drive HYPOTHESIS GENERATION from the selected literature. Go deep on what shapes a sharp, testable hypothesis: the proposed mechanism / direction of effect, which variable(s) the hypothesis should center on, the comparison/baseline it's framed against, the expected magnitude or threshold of effect, what result would FALSIFY it, and which findings from the selected papers it should build on or challenge."
         : "Your questions will drive EXPERIMENTAL DESIGN GENERATION. Focus on what makes the design concrete and runnable: working/stock concentrations, exact factor levels + how many conditions (an upper bound, not a quota), controls that must be included, stress/parameter settings (e.g. temperature, agitation/rotation speed, pH, time), replicate intent, and measurement methods."
@@ -106,10 +106,10 @@ export async function generateClarifyingQuestions(
   const system = `You are a sharp, senior experimental-design reviewer (think rigorous PI in a group meeting). ${aim}
 
 Rules:
-- Ask ONLY the highest-value questions — the ones whose answers most change the outcome. Quality over quantity.
+- Ask ONLY the highest-value questions - the ones whose answers most change the outcome. Quality over quantity.
 - Each question is multiple-choice with 2–6 CONCRETE, domain-appropriate options (real values/levels, not vague labels). A free-text answer is always available to the user on top, so don't add an "Other" option yourself.
-- kind = "single" when exactly ONE answer applies (e.g. primary readout method). Use kind = "multi" liberally — specifically for: stress types, assay formats, mechanisms of action, failure modes, endpoint panels, or any category where researchers routinely explore multiple variants simultaneously. When in doubt, default to "multi".
-- Be specific to THIS problem${checkpoint === "design" ? " and the chosen hypothesis" : checkpoint === "hypothesis" ? " and the selected literature" : ""} — reference the actual system, not generic placeholders.
+- kind = "single" when exactly ONE answer applies (e.g. primary readout method). Use kind = "multi" liberally - specifically for: stress types, assay formats, mechanisms of action, failure modes, endpoint panels, or any category where researchers routinely explore multiple variants simultaneously. When in doubt, default to "multi".
+- Be specific to THIS problem${checkpoint === "design" ? " and the chosen hypothesis" : checkpoint === "hypothesis" ? " and the selected literature" : ""} - reference the actual system, not generic placeholders.
 - ${round > 1 ? "This is a follow-up round: ask ONLY questions still genuinely needed to remove design ambiguity after the prior answers. If nothing material remains, return done=true with an empty questions array." : "Return 3–5 questions."}
 - Never ask for information already provided.`
 

@@ -3,7 +3,7 @@
 @tailwind utilities;
 
 /* ============================================================
-   Shadow AI — Scientific design tokens
+   Shadow AI - Scientific design tokens
    Palette: cream-warm neutrals + cyan/magenta brand accents
             sampled from the helix logo (public/shadowai-logo.png).
             Logo hues: navy bg #0E0B40, cyan #22D3EE (Shadow text +
@@ -34,14 +34,14 @@
     --rust-hover: #0891b2; /* darker cyan on hover */
     --rust-soft: #cffafe; /* subtle tinted backgrounds */
     --rust-ink: #155e75; /* legible cyan ink */
-    /* Secondary brand accent — magenta from the helix bottom; used by
+    /* Secondary brand accent - magenta from the helix bottom; used by
        chips / highlights that need a second hue. */
     --brand-magenta: #e879f9;
     --brand-magenta-soft: #fae8ff;
     --brand-magenta-ink: #86198f;
     --brand-navy: #0e0b40; /* logo background, used for splash + theme-color */
 
-    /* Phase tints — re-tuned to the logo's hue sweep:
+    /* Phase tints - re-tuned to the logo's hue sweep:
        cyan (problem) → deep blue (lit) → magenta (hyp), with the
        neutral overview/design slabs flanking them. */
     --p-overview: #5b6b7a;
@@ -55,7 +55,7 @@
     --danger: oklch(0.55 0.18 25);
     --info: oklch(0.58 0.19 240);
 
-    /* Shadows — deepest layer tints with brand blue */
+    /* Shadows - deepest layer tints with brand blue */
     --shadow-sm: 0 1px 0 rgba(14, 15, 18, 0.02),
       0 1px 3px rgba(14, 15, 18, 0.04);
     --shadow-md: 0 1px 0 rgba(14, 15, 18, 0.02),
@@ -66,7 +66,7 @@
       0 32px 64px -32px color-mix(in oklab, var(--rust) 22%, transparent);
     --shadow-drawer: -24px 0 56px -8px rgba(14, 15, 18, 0.18);
 
-    /* Radii — tight, scientific */
+    /* Radii - tight, scientific */
     --r-sm: 2px; /* buttons, inputs, chips */
     --r-md: 6px; /* dropdowns, faux browser windows */
     --r-lg: 10px; /* cards */
@@ -117,7 +117,7 @@
     --border: 39 19% 86%; /* line */
     --input: 39 19% 86%;
 
-    /* Primary (neutral ink on paper) — default shadcn buttons */
+    /* Primary (neutral ink on paper) - default shadcn buttons */
     --primary: 225 13% 6%;
     --primary-foreground: 38 27% 96%;
 
@@ -135,14 +135,14 @@
 
     --ring: 188 85% 53%; /* logo cyan focus ring */
 
-    --radius: 0.625rem; /* 10px — r-lg (cards) */
+    --radius: 0.625rem; /* 10px - r-lg (cards) */
   }
 
   .dark {
     /* Dark mode: logo-navy paper + bright cyan accent. The deep navy
        (#0E0B40) is the helix's background in the brand mark, so the
        app's dark theme reads as a continuation of the logo. */
-    --paper: #0e0b40; /* page background — logo navy */
+    --paper: #0e0b40; /* page background - logo navy */
     --paper-2: #14114a; /* recessed sections (slightly raised navy) */
     --paper-3: #1a1755; /* deeper recess */
     --line: #2a2570; /* default borders */
@@ -161,7 +161,7 @@
     --brand-magenta-soft: #701a75;
     --brand-magenta-ink: #fae8ff;
 
-    /* Phase tints — brightened for dark contrast, same hue sweep. */
+    /* Phase tints - brightened for dark contrast, same hue sweep. */
     --p-overview: #8c9aa8;
     --p-problem: #67e8f9;
     --p-lit: #93c5fd;
@@ -234,9 +234,7 @@
     background: hsl(var(--background));
     color: hsl(var(--foreground));
     font-family: var(--f-ui);
-    font-feature-settings:
-      "ss01",
-      "cv11";
+    font-feature-settings: "ss01", "cv11";
     -webkit-font-smoothing: antialiased;
     text-rendering: optimizeLegibility;
   }
@@ -253,7 +251,7 @@
   }
 }
 
-/* Scrollbars — subtle, warm */
+/* Scrollbars - subtle, warm */
 *::-webkit-scrollbar {
   width: 10px;
   height: 10px;
@@ -372,7 +370,7 @@
   color: hsl(var(--ink-3-hsl));
 }
 
-/* Legacy force-light override — retained as no-op on editorial palette */
+/* Legacy force-light override - retained as no-op on editorial palette */
 .app-main-content {
   color-scheme: light;
 }

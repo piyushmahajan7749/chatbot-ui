@@ -27,7 +27,7 @@ function toAgentState(ctx: ProblemContext): ExperimentDesignState {
     ...((ctx as { constraints?: string[] }).constraints ?? [])
   ]
   if (ctx.additionalDetails?.trim()) {
-    // Loose context only — bias the search toward the researcher's system but
+    // Loose context only - bias the search toward the researcher's system but
     // do NOT require papers to match these exact values (they mainly drive the
     // hypotheses + design). Finding methodologically strong primary research in
     // the same area matters more than matching every parameter.
@@ -170,7 +170,7 @@ export async function runLiteraturePhase(
     })
   }
 
-  // Drop metadata-less junk hits — the "Abstract not available / Authors
+  // Drop metadata-less junk hits - the "Abstract not available / Authors
   // Unknown / Source Web" rows the scientist flagged. A paper is junk when it
   // has no usable title AND no authors AND no real abstract; we keep anything
   // with at least real authors or a real summary so we don't over-prune.
@@ -226,7 +226,7 @@ export async function runLiteraturePhase(
   }
 
   // Downstream clearing (replace mode wipes hypotheses/designs built on the old
-  // paper set) is applied by the worker's finalize step — `undefined` values
+  // paper set) is applied by the worker's finalize step - `undefined` values
   // don't survive Inngest step-result JSON serialization, so we return positive
   // data only and let finalize delete keys by phase+mode.
   return {

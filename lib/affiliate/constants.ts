@@ -1,5 +1,5 @@
 /**
- * Influencer affiliate program — shared constants.
+ * Influencer affiliate program - shared constants.
  *
  * Discounts are delivered to referred viewers as GRANTED BONUS CREDITS on their
  * first paid subscription (not a price cut), so this layer is self-contained

@@ -4,7 +4,7 @@ import { useEffect } from "react"
 import { useParams, useRouter } from "next/navigation"
 
 /**
- * The standalone Chats history was removed from the streamlined sidebar — chats
+ * The standalone Chats history was removed from the streamlined sidebar - chats
  * now live under each project's Chats tab. Redirect any old link to the
  * projects list.
  */

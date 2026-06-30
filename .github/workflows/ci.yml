@@ -3,7 +3,7 @@ name: CI
 # Release gate for the core flows. Runs on every PR and on pushes to the
 # main + active design branches. Blocks merges if type-check, lint, the test
 # suite (incl. the design-pipeline guard in __tests__/design/pipeline.test.ts),
-# or the production build break — so create-design → literature → hypotheses →
+# or the production build break - so create-design → literature → hypotheses →
 # design → chat-context can't silently regress.
 on:
   pull_request:
@@ -33,7 +33,7 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      # Deterministic, env-free gates — catch the regressions that have bitten
+      # Deterministic, env-free gates - catch the regressions that have bitten
       # the design pipeline (types, wiring, dropped fields, bad merges).
       - name: Type check
         run: npm run type-check
@@ -44,7 +44,7 @@ jobs:
       - name: Test
         run: npm test
 
-      # Production build — catches issues tsc can't (e.g. edge-runtime bundling).
+      # Production build - catches issues tsc can't (e.g. edge-runtime bundling).
       # Uses placeholder public env so module-load initializers don't fail; the
       # build reads real secrets only at request time, not at build. If a future
       # build step needs real values, add them as repository secrets here.

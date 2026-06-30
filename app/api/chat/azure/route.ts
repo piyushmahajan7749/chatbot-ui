@@ -17,7 +17,7 @@ export async function POST(request: Request) {
   const { chatSettings, messages } = json as ChatAPIPayload
 
   try {
-    // Knowledge chat is metered. (BYO-key providers — openai/groq/etc. — run on
+    // Knowledge chat is metered. (BYO-key providers - openai/groq/etc. - run on
     // the user's own key and are intentionally not metered; see BILLING.md.)
     const auth = await requireUser()
     if (auth.response) return auth.response

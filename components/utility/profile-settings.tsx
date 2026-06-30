@@ -120,7 +120,7 @@ const NAV: NavItemDef[] = [
     icon: IconFlask,
     title: "Lab standards & defaults",
     subtitle:
-      "Defaults applied to every generated design — replicates, statistics, controls, and documentation."
+      "Defaults applied to every generated design - replicates, statistics, controls, and documentation."
   },
   {
     id: "notifications",
@@ -595,7 +595,7 @@ export const ProfileSettings: FC<ProfileSettingsProps> = ({
                     </div>
                     <p className="mt-0.5 text-[13px] text-red-600/80">
                       Permanently removes your account and data. This can’t be
-                      undone — we’ll confirm and process it over email.
+                      undone - we’ll confirm and process it over email.
                     </p>
                   </div>
                   <Button
@@ -688,7 +688,7 @@ const AppearancePage: FC = () => {
 }
 
 // ---------------------------------------------------------------------------
-// Lab standards — defaults injected into design generation + chat (localStorage
+// Lab standards - defaults injected into design generation + chat (localStorage
 // via lib/settings/preferences; read by the design page at generation time).
 // ---------------------------------------------------------------------------
 const SegField: FC<{
@@ -793,7 +793,7 @@ const LabStandardsPage: FC = () => {
 }
 
 // ---------------------------------------------------------------------------
-// Notifications — device-local preferences.
+// Notifications - device-local preferences.
 // ---------------------------------------------------------------------------
 const ToggleSwitch: FC<{ on: boolean; onClick: () => void }> = ({
   on,

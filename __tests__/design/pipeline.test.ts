@@ -1,19 +1,19 @@
 /**
  * @jest-environment node
  *
- * Core design-creation pipeline — structural/wiring guard.
+ * Core design-creation pipeline - structural/wiring guard.
  *
  * This is the deterministic "automated e2e" gate for the main flow:
  *   literature → hypotheses → design → (chat context) → reports.
  * The LLM calls (Azure) + the agent worker are mocked, so it runs in
- * milliseconds and asserts the WIRING + output shapes — the class of
+ * milliseconds and asserts the WIRING + output shapes - the class of
  * regressions that have actually broken this flow (missing fields, dropped
  * sections, bad merges, context that omits the design). Model-behaviour issues
  * (truncation, timeouts) are a separate live/prod concern.
  */
 
 // ── Mock the Azure client. zodResponseFormat is real, so each parse call
-//    carries response_format.json_schema.name — we switch canned output on it.
+//    carries response_format.json_schema.name - we switch canned output on it.
 const CANNED: Record<string, any> = {
   experimentSetup: {
     whatWillBeTested: "Test the buffer effect",
@@ -66,47 +66,48 @@ jest.mock("@/lib/azure-openai", () => ({
 
 // ── Mock the agent worker (generation/reflection/evolution/meta). Canned
 //    output per agentType so the hypotheses pipeline produces a real top-N.
-const mockRunTasks = jest.fn(async (tasks: any[]): Promise<any[]> =>
-  tasks.map(t => {
-    switch (t.agentType) {
-      case "GENERATION":
-        return {
-          status: "success",
-          output: Array.from({ length: 4 }, (_, i) => ({
-            hypothesis: `Hypothesis ${t.taskId.slice(0, 4)}-${i}`,
-            explanation: "Because of mechanism Z",
-            feasibility_score: 0.8,
-            novelty_score: 0.6
-          }))
-        }
-      case "REFLECTION":
-        return {
-          status: "success",
-          output: {
-            strengths: ["clear"],
-            weaknesses: ["narrow"],
-            improvements: ["broaden"]
+const mockRunTasks = jest.fn(
+  async (tasks: any[]): Promise<any[]> =>
+    tasks.map(t => {
+      switch (t.agentType) {
+        case "GENERATION":
+          return {
+            status: "success",
+            output: Array.from({ length: 4 }, (_, i) => ({
+              hypothesis: `Hypothesis ${t.taskId.slice(0, 4)}-${i}`,
+              explanation: "Because of mechanism Z",
+              feasibility_score: 0.8,
+              novelty_score: 0.6
+            }))
           }
-        }
-      case "EVOLUTION":
-        return {
-          status: "success",
-          output: {
-            variants: [
-              {
-                hypothesis: "Evolved hypothesis",
-                improvement_type: "specificity",
-                explanation: "sharper"
-              }
-            ]
+        case "REFLECTION":
+          return {
+            status: "success",
+            output: {
+              strengths: ["clear"],
+              weaknesses: ["narrow"],
+              improvements: ["broaden"]
+            }
           }
-        }
-      case "META_REVIEW":
-        return { status: "success", output: { prompt_patches: [] } }
-      default:
-        return { status: "success", output: [] }
-    }
-  })
+        case "EVOLUTION":
+          return {
+            status: "success",
+            output: {
+              variants: [
+                {
+                  hypothesis: "Evolved hypothesis",
+                  improvement_type: "specificity",
+                  explanation: "sharper"
+                }
+              ]
+            }
+          }
+        case "META_REVIEW":
+          return { status: "success", output: { prompt_patches: [] } }
+        default:
+          return { status: "success", output: [] }
+      }
+    })
 )
 
 jest.mock("@/app/api/design/draft/worker", () => ({
@@ -209,7 +210,9 @@ describe("literature phase", () => {
     )
     // existing 1 + 1 new unique (the dup title is dropped)
     expect(patch.papers?.length).toBe(2)
-    expect(patch.papers?.some(p => p.title === "Histidine formulation review")).toBe(true)
+    expect(
+      patch.papers?.some(p => p.title === "Histidine formulation review")
+    ).toBe(true)
   })
 })
 
@@ -218,7 +221,10 @@ describe("hypotheses phase", () => {
     const patch = await runHypothesesPhase(
       {
         ctx: CTX,
-        existing: { schemaVersion: 2, literatureContext: { citations: [] } } as any,
+        existing: {
+          schemaVersion: 2,
+          literatureContext: { citations: [] }
+        } as any,
         body: { papers: [] },
         designId: "design-1"
       },
@@ -248,7 +254,12 @@ describe("hypotheses phase", () => {
     )
     await expect(
       runHypothesesPhase(
-        { ctx: CTX, existing: { schemaVersion: 2 } as any, body: {}, designId: "d" },
+        {
+          ctx: CTX,
+          existing: { schemaVersion: 2 } as any,
+          body: {},
+          designId: "d"
+        },
         () => {}
       )
     ).rejects.toThrow(/No hypotheses generated/)
@@ -309,13 +320,30 @@ describe("design chat context", () => {
       domain: "formulation_development",
       phase: "screening",
       selectedHypotheses: [
-        { id: "h1", text: "pH 5.5 helps", reasoning: "charge", selected: true, basedOnPaperIds: [] } as any
+        {
+          id: "h1",
+          text: "pH 5.5 helps",
+          reasoning: "charge",
+          selected: true,
+          basedOnPaperIds: []
+        } as any
       ],
       hypotheses: [
-        { id: "h2", text: "excipient X helps", reasoning: "steric", selected: false, basedOnPaperIds: [] } as any
+        {
+          id: "h2",
+          text: "excipient X helps",
+          reasoning: "steric",
+          selected: false,
+          basedOnPaperIds: []
+        } as any
       ],
       papers: [
-        { id: "p1", title: "Buffer effects", summary: "pH matters", selected: true } as any
+        {
+          id: "p1",
+          title: "Buffer effects",
+          summary: "pH matters",
+          selected: true
+        } as any
       ],
       generatedDesigns: [activeDesign],
       activeDesign

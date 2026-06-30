@@ -449,7 +449,7 @@ export const AppSidebar = ({ isCollapsed, onToggle }: AppSidebarProps) => {
         {/* Nav sections */}
         <div className="flex-1 overflow-y-auto pb-3">
           {/* Streamlined nav: Dashboard, Projects, Recents. Designs / Reports
-              / Chats / Library are no longer top-level — each project owns its
+              / Chats / Library are no longer top-level - each project owns its
               own Designs / Reports / Chats / Files tabs, so the sidebar no
               longer offers redundant routes to the same content. */}
           <div className="mt-3">

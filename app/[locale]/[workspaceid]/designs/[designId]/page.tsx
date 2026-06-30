@@ -38,12 +38,8 @@ import {
 // can ask for edits while looking at it.
 import { ScopedChatRail } from "@/components/canvas/scoped-chat-rail"
 import ShareDialog from "@/components/design-flow/share-dialog"
-import {
-  DesignChatsView,
-  DesignFilesView,
-  DesignReportsView,
-  type DesignSubViewContext
-} from "@/components/design-flow/design-sub-views"
+import type { DesignSubViewContext } from "@/components/design-flow/design-sub-views"
+import { GenerateReportModal } from "@/components/designs/generate-report-modal"
 import { ClarifyStep } from "@/components/design-flow/clarify-step"
 import { handleBudgetError } from "@/lib/billing/handle-budget-error"
 import { DesignCoach } from "@/components/onboarding/design-coach"
@@ -57,6 +53,7 @@ import { addPaperToLibrary } from "@/db/paper-library"
 import { supabase } from "@/lib/supabase/browser-client"
 import { ChatbotUIContext } from "@/context/context"
 import { useToast } from "@/app/hooks/use-toast"
+import { toast } from "sonner"
 import { cn } from "@/lib/utils"
 import ReactMarkdown from "react-markdown"
 import remarkGfm from "remark-gfm"
@@ -98,13 +95,16 @@ import {
   IconChevronDown,
   IconArrowBackUp,
   IconClipboardText,
+  IconDeviceDesktop,
   IconDownload,
+  IconFileDescription,
   IconFileText,
-  IconFiles,
   IconFlask,
   IconInfoCircle,
-  IconMessageCircle,
+  IconNote,
   IconPencil,
+  IconPresentation,
+  IconWaveSine,
   IconPlus,
   IconRefresh,
   IconSearch,
@@ -160,7 +160,7 @@ export type LiteratureProgress = PhaseProgress & {
   // UI renders below the message line. `query` + `elapsedMs` are
   // emitted by the per-round event so we can show "q: '…' · 23.4s".
   // `intent` is the LLM-assigned angle for this round (mechanism /
-  // methods / applications / etc.) — used in the round detail line.
+  // methods / applications / etc.) - used in the round detail line.
   detail?: string
   query?: string
   elapsedMs?: number
@@ -235,7 +235,7 @@ async function runPhaseStreaming(
 }
 
 // Background (Inngest) design generation. The design phase runs 4 long gpt-5.5
-// sections per hypothesis — too slow for a 300s serverless function — so the
+// sections per hypothesis - too slow for a 300s serverless function - so the
 // route enqueues an Inngest job (processDesignGeneration) and returns 202. Here
 // we poll the design doc's `designJob` for progress + completion. Mirrors
 // runPhaseStreaming's signature so the phase handlers swap in with one word.
@@ -257,7 +257,7 @@ async function pollDesignJob(
     let doc: any
     try {
       const res = await fetch(`/api/design/${designId}`)
-      if (!res.ok) continue // transient — keep polling
+      if (!res.ok) continue // transient - keep polling
       doc = await res.json()
     } catch {
       continue
@@ -317,8 +317,8 @@ function parseContent(raw: unknown): DesignContentV2 | null {
 
 // buildDesignChatContext + TIER3_MAX_CHARS now live in
 // @/lib/design/chat-context (imported above) so the design-chat context
-// builder — the seam that guarantees the chat actually has the experiment's
-// content — is unit-tested. Do not re-inline it here.
+// builder - the seam that guarantees the chat actually has the experiment's
+// content - is unit-tested. Do not re-inline it here.
 
 /**
  * Order-insensitive, undefined-stripped JSON serialization used to detect
@@ -453,7 +453,7 @@ export default function DesignDetailPage() {
   )
   // Mandatory free-text field. Captures concrete operating parameters the
   // hypothesis + design agents need to stay specific. NOT a visible field
-  // anymore — it's the CARRIER populated from the "Refine" problem-checkpoint
+  // anymore - it's the CARRIER populated from the "Refine" problem-checkpoint
   // answers (clarifyAnswersToText) and read by the literature/hypotheses/design
   // phases as before.
   const [additionalDetails, setAdditionalDetails] = useState("")
@@ -480,7 +480,7 @@ export default function DesignDetailPage() {
   // recent `papers_found` progress event that carried the count.
   //
   // Also persisted into content.literatureStats so the count survives
-  // navigation away from the design — the in-memory `literatureProgress`
+  // navigation away from the design - the in-memory `literatureProgress`
   // stream resets on remount, but the persisted value stays put.
   const [persistedLitTotalCandidates, setPersistedLitTotalCandidates] =
     useState<number | undefined>(undefined)
@@ -503,7 +503,7 @@ export default function DesignDetailPage() {
     []
   )
   // Last hypothesis-generation error, so the Hypotheses tab can show an
-  // accurate "generation failed — retry" state instead of the misleading
+  // accurate "generation failed - retry" state instead of the misleading
   // "approve literature" prompt after a transient backend failure.
   const [hypothesesError, setHypothesesError] = useState<string | null>(null)
 
@@ -512,13 +512,13 @@ export default function DesignDetailPage() {
     []
   )
   // Always-current mirror of generatedDesigns so the chat apply-patch handler
-  // (a window-event closure) reads the latest designs without restale binding —
+  // (a window-event closure) reads the latest designs without restale binding -
   // and so a chat edit never clobbers / loses the design.
   const generatedDesignsRef = useRef<GeneratedDesign[]>([])
   useEffect(() => {
     generatedDesignsRef.current = generatedDesigns
   }, [generatedDesigns])
-  // Session-level undo stack for chat-applied edits — snapshots the designs
+  // Session-level undo stack for chat-applied edits - snapshots the designs
   // BEFORE each applied change so the user can step back to a previous version.
   const undoStackRef = useRef<GeneratedDesign[][]>([])
   const [undoDepth, setUndoDepth] = useState(0)
@@ -688,7 +688,7 @@ export default function DesignDetailPage() {
       // without writing a terminal state leaves designJob.state = "running"
       // forever, so every reopen used to force busy + poll for 20 minutes even
       // though the content was already complete. We now skip the resume when:
-      //   • the job is stale (last touched > STALE_MS ago — worker is dead), or
+      //   • the job is stale (last touched > STALE_MS ago - worker is dead), or
       //   • the output this job was producing is ALREADY present in content.
       const job = (data as any)?.designJob
       const jobActive =
@@ -776,7 +776,7 @@ export default function DesignDetailPage() {
     // Compare an order-insensitive, undefined-stripped serialization and bail
     // before touching state or the API when the content is unchanged. The
     // autosave path mirrors the name into problem.title, so an unchanged
-    // content also means an unchanged name — safe to skip the row update too.
+    // content also means an unchanged name - safe to skip the row update too.
     if (stableStringify(merged) === prevStable) return
     const serialized = JSON.stringify(merged)
     // Keep the shared context in sync so the Designs list + dashboard reflect
@@ -861,13 +861,13 @@ export default function DesignDetailPage() {
     additionalDetails
   ])
 
-  // Objective is OPTIONAL — only the problem statement, domain, and phase gate
+  // Objective is OPTIONAL - only the problem statement, domain, and phase gate
   // Continue (the user reported being stuck on the mandatory objective field).
   const problemValid =
     problemStatement.trim() !== "" && domain !== "" && phase !== ""
 
   // Gate every mutation behind edit access. A read-only (viewer) collaborator
-  // is blocked here with a clear toast — the server also rejects the write, so
+  // is blocked here with a clear toast - the server also rejects the write, so
   // this is the UX layer over the real (backend) guard.
   const ensureCanEdit = () => {
     if (!canEdit) {
@@ -897,7 +897,7 @@ export default function DesignDetailPage() {
       })
       return
     }
-    // If papers already generated, just switch to the tab — don't re-run (#3)
+    // If papers already generated, just switch to the tab - don't re-run (#3)
     if (papers.length > 0) {
       setActiveTab("literature")
       return
@@ -980,7 +980,7 @@ export default function DesignDetailPage() {
       })
       return
     }
-    // If hypotheses already generated, just switch tab — don't re-run (#3)
+    // If hypotheses already generated, just switch tab - don't re-run (#3)
     if (hypotheses.length > 0) {
       setActiveTab("hypotheses")
       return
@@ -1047,7 +1047,7 @@ export default function DesignDetailPage() {
       })
       return
     }
-    // If design already generated, just switch tab — don't re-run (#3)
+    // If design already generated, just switch tab - don't re-run (#3)
     if (generatedDesigns.length > 0) {
       setActiveTab("design")
       return
@@ -1135,7 +1135,7 @@ export default function DesignDetailPage() {
   }
 
   const handleClarifyCancel = () => {
-    // Back out to the prior step — no phase run.
+    // Back out to the prior step - no phase run.
     setRefineCheckpoint(null)
   }
 
@@ -1160,7 +1160,7 @@ export default function DesignDetailPage() {
       .catch(() =>
         toast({
           title: "Revert failed",
-          description: "Couldn't save the revert — reload and try again.",
+          description: "Couldn't save the revert - reload and try again.",
           variant: "destructive"
         })
       )
@@ -1414,7 +1414,7 @@ export default function DesignDetailPage() {
    * Save a paper into the workspace paper library, tagged with this design so
    * it surfaces under the design name in the Library section. Optimistic +
    * fire-and-forget: the icon flips immediately and failures roll back with a
-   * soft toast. (The card's own "Link ↗" is how the user opens the source —
+   * soft toast. (The card's own "Link ↗" is how the user opens the source -
    * saving no longer hijacks a new browser tab.)
    */
   const handleSavePaper = (paper: Paper) => {
@@ -1457,7 +1457,7 @@ export default function DesignDetailPage() {
         })
         toast({
           title: "Couldn't save to library",
-          description: err?.message ?? "Workspace save failed — try again.",
+          description: err?.message ?? "Workspace save failed - try again.",
           variant: "destructive"
         })
       })
@@ -1976,7 +1976,7 @@ export default function DesignDetailPage() {
     } else if (autoAction === "make-plan") {
       void handleMakePlan()
     } else if (autoAction === "literature") {
-      // from-scratch dialog already captured problem+objective — auto-open
+      // from-scratch dialog already captured problem+objective - auto-open
       // the Refine step so the user skips re-entering on the Problem tab (#8)
       if (problemValid && papers.length === 0 && !busy) {
         setRefineCheckpoint("problem")
@@ -2059,10 +2059,10 @@ Or replace the section body entirely:
 
 Rules:
 - \`sectionHeading\` MUST match exactly one of the section headings shown above.
-- Either \`find\`+\`replace\` OR \`newBody\` — not both.
+- Either \`find\`+\`replace\` OR \`newBody\` - not both.
 - Emit at most one \`<design-patch>\` per response. If multiple edits are
   needed, ask the user to confirm the first before proposing the next.
-- IMPORTANT — researcher presets: if an edit would CHANGE or VIOLATE a preset
+- IMPORTANT - researcher presets: if an edit would CHANGE or VIOLATE a preset
   listed under "Researcher presets & constraints" (e.g. they capped the design
   at 8 conditions and now ask to add a 9th), do NOT emit the \`<design-patch>\`
   yet. First remind them of the SPECIFIC preset and ask them to confirm they
@@ -2088,7 +2088,7 @@ Rules:
       // Read-only collaborators can chat, but can't apply AI-suggested edits.
       if (!canEdit) return
 
-      // Apply against the LIVE designs (via ref), update state, then persist —
+      // Apply against the LIVE designs (via ref), update state, then persist -
       // awaited with explicit error handling so a failed save can't silently
       // lose the edit. No side effects inside the setState updater.
       const res = applyDesignPatch(
@@ -2117,7 +2117,7 @@ Rules:
         )
         .catch(() =>
           toast({
-            title: "Edit applied locally — save failed",
+            title: "Edit applied locally - save failed",
             description:
               "Your change is showing, but couldn't be saved. Try the edit again or reload.",
             variant: "destructive"
@@ -2131,7 +2131,7 @@ Rules:
   }, [activeDesignId, canEdit])
 
   // Live-sync: when a chat patch was applied + persisted server-side (via the
-  // apply-patch endpoint — e.g. approved from the full-screen chat), reflect it
+  // apply-patch endpoint - e.g. approved from the full-screen chat), reflect it
   // in the open editor. No persist here; the server already saved it.
   useEffect(() => {
     const onUpdated = (e: Event) => {
@@ -2201,7 +2201,7 @@ Rules:
     window.addEventListener("mousemove", onMove)
     window.addEventListener("mouseup", onUp)
   }
-  // A completed (Design-approved) design is locked — edits require duplicating.
+  // A completed (Design-approved) design is locked - edits require duplicating.
   const designLocked = approvedPhases.includes("design")
 
   // Full-screen "Refine" clarifying-question step. Replaces the page while
@@ -2220,383 +2220,381 @@ Rules:
   }
 
   return (
-    <div className="bg-ink-50 flex h-full flex-col overflow-hidden">
-      {/* Header */}
-      <div className="border-ink-200 shrink-0 border-b bg-white px-6 py-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => {
-                // Return to wherever the user came from: an explicit ?ret=
-                // (set by the dashboard → dashboard, by a project → that
-                // project) wins, so a design opened from the dashboard goes
-                // back to the dashboard rather than its project folder. Falls
-                // back to the project page, then the workspace dashboard.
-                // Never router.back() (could land on /designs/new → sign-in).
-                const ret = searchParams?.get("ret")
-                if (ret && ret.startsWith("/")) {
-                  router.push(ret)
-                  return
-                }
-                const projectId = design?.project_id
-                router.push(
-                  projectId
-                    ? `/${locale}/${workspaceId}/projects/${projectId}`
-                    : `/${locale}/${workspaceId}`
-                )
-              }}
-              className="text-ink-500 gap-1"
-            >
-              <IconArrowLeft size={16} />
-              Back
-            </Button>
-            <div>
-              <div className="text-ink-400 flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.13em]">
-                <span>Design</span>
-                {designLocked && (
-                  <span
-                    className="rounded border border-[#1F4A2C]/20 bg-[#DDE9DF] px-2 py-0.5 normal-case tracking-normal text-[#1F4A2C]"
-                    title="Completed designs are locked — duplicate to edit"
-                  >
-                    Locked
-                  </span>
-                )}
-                {!canEdit && (
-                  <span
-                    className="border-ink-300 bg-ink-100 text-ink-600 rounded border px-2 py-0.5 normal-case tracking-normal"
-                    title="You have view-only access — ask the owner for editor access to make changes"
-                  >
-                    Read-only
-                  </span>
-                )}
-                {busy && (
-                  <span className="bg-teal-journey-tint text-teal-journey border-teal-journey/30 rounded border px-2 py-0.5 normal-case tracking-normal">
-                    Running {busy}...
-                  </span>
-                )}
-              </div>
-              <h1 className="text-ink-900 text-xl font-bold">
-                {title || design.name || "Untitled Design"}
-              </h1>
-              {/* Persistent context strip - problem statement is the
+    <div className="bg-ink-50 flex h-full overflow-hidden">
+      {/* LEFT: collapsible design chat panel — full height, flanks the page */}
+      {showRail && (
+        <div
+          className="border-ink-200 relative flex shrink-0 flex-col border-r"
+          style={{ width: railWidth }}
+        >
+          <div
+            onMouseDown={startRailResize}
+            className="hover:bg-brick/40 absolute right-0 top-0 z-20 h-full w-1.5 translate-x-1/2 cursor-col-resize"
+            title="Drag to resize the chat"
+          />
+          <div className="min-h-0 min-w-0 flex-1">
+            <ScopedChatRail
+              scope="design"
+              scopeId={designId}
+              scopeName={title || design?.name || "Design"}
+              autoStart
+              contextPrompt={chatContextPrompt}
+              headerSlot={
+                <button
+                  onClick={toggleChatRail}
+                  title="Close chat"
+                  className="text-ink-3 hover:bg-paper-2 hover:text-ink rounded p-1"
+                >
+                  <IconX size={16} />
+                </button>
+              }
+            />
+          </div>
+        </div>
+      )}
+
+      {/* CENTER COLUMN: header + stepper + tab content */}
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
+        {/* Header */}
+        <div className="border-ink-200 shrink-0 border-b bg-white px-6 py-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  // Return to wherever the user came from: an explicit ?ret=
+                  // (set by the dashboard → dashboard, by a project → that
+                  // project) wins, so a design opened from the dashboard goes
+                  // back to the dashboard rather than its project folder. Falls
+                  // back to the project page, then the workspace dashboard.
+                  // Never router.back() (could land on /designs/new → sign-in).
+                  const ret = searchParams?.get("ret")
+                  if (ret && ret.startsWith("/")) {
+                    router.push(ret)
+                    return
+                  }
+                  const projectId = design?.project_id
+                  router.push(
+                    projectId
+                      ? `/${locale}/${workspaceId}/projects/${projectId}`
+                      : `/${locale}/${workspaceId}`
+                  )
+                }}
+                className="text-ink-500 gap-1"
+              >
+                <IconArrowLeft size={16} />
+                Back
+              </Button>
+              <div>
+                <div className="text-ink-400 flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.13em]">
+                  <span>Design</span>
+                  {designLocked && (
+                    <span
+                      className="rounded border border-[#1F4A2C]/20 bg-[#DDE9DF] px-2 py-0.5 normal-case tracking-normal text-[#1F4A2C]"
+                      title="Completed designs are locked - duplicate to edit"
+                    >
+                      Locked
+                    </span>
+                  )}
+                  {!canEdit && (
+                    <span
+                      className="border-ink-300 bg-ink-100 text-ink-600 rounded border px-2 py-0.5 normal-case tracking-normal"
+                      title="You have view-only access - ask the owner for editor access to make changes"
+                    >
+                      Read-only
+                    </span>
+                  )}
+                  {busy && (
+                    <span className="bg-teal-journey-tint text-teal-journey border-teal-journey/30 rounded border px-2 py-0.5 normal-case tracking-normal">
+                      Running {busy}...
+                    </span>
+                  )}
+                </div>
+                <h1 className="text-ink-900 text-xl font-bold">
+                  {title || design.name || "Untitled Design"}
+                </h1>
+                {/* Persistent context strip - problem statement is the
                     second most important piece of context after the title
                     and stays visible across every stage of the timeline.
                     During an agent run we expand it to the full statement
                     (issue #10) so the scientist sees exactly what the agent
                     is working on without flipping back to the Problem tab. */}
-              {problemStatement?.trim() && (
-                <div
-                  className={cn(
-                    "text-ink-500 mt-0.5 max-w-3xl text-[12.5px]",
-                    busy ? "" : "line-clamp-1"
-                  )}
-                  title={problemStatement}
-                >
-                  <span className="text-ink-400 mr-1.5 font-medium uppercase tracking-wider">
-                    Problem
-                  </span>
-                  {problemStatement}
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* ── Toolbar actions (right side) ───────────────── */}
-          <div className="flex items-center gap-2">
-            {designGenerated && canEdit && undoDepth > 0 && (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleUndo}
-                className="gap-1.5"
-                title="Undo the last applied change"
-              >
-                <IconArrowBackUp size={14} /> Undo
-              </Button>
-            )}
-            <button
-              onClick={toggleChatRail}
-              aria-pressed={showRail}
-              className={cn(
-                "flex h-9 items-center gap-2 rounded-full px-4 text-xs font-semibold uppercase tracking-wide shadow-sm ring-1 ring-inset transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md active:translate-y-0",
-                showRail
-                  ? "bg-ink text-paper ring-white/20"
-                  : "from-brick to-brick-hover bg-gradient-to-r text-white ring-white/20"
-              )}
-              title="Chat with this design"
-            >
-              <IconSparkles size={14} className="shrink-0" />
-              {showRail ? "Hide chat" : "Chat"}
-            </button>
-            {isOwner && (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setShareDialogOpen(true)}
-                className="gap-1.5"
-                title="Share this design or invite collaborators"
-              >
-                <IconShare size={14} /> Share
-              </Button>
-            )}
-            <Button
-              variant={showLibrary ? "default" : "outline"}
-              size="sm"
-              onClick={() => setShowLibrary(s => !s)}
-              className="gap-1.5"
-              title="Open Library — generate reports, protocols, and documents"
-            >
-              <IconBooks size={14} /> Library
-            </Button>
-          </div>
-        </div>
-      </div>
-
-      {/* 3-column layout: left chat | main content | right library */}
-      <div className="flex min-h-0 flex-1 overflow-hidden">
-        {/* LEFT: collapsible design chat panel */}
-        {showRail && (
-          <div
-            className="border-ink-200 relative flex shrink-0 flex-col border-r"
-            style={{ width: railWidth }}
-          >
-            <div
-              onMouseDown={startRailResize}
-              className="hover:bg-brick/40 absolute right-0 top-0 z-20 h-full w-1.5 translate-x-1/2 cursor-col-resize"
-              title="Drag to resize the chat"
-            />
-            <div className="min-h-0 min-w-0 flex-1">
-              <ScopedChatRail
-                scope="design"
-                scopeId={designId}
-                scopeName={title || design?.name || "Design"}
-                autoStart
-                contextPrompt={chatContextPrompt}
-                headerSlot={
-                  <button
-                    onClick={toggleChatRail}
-                    title="Close chat"
-                    className="text-ink-3 hover:bg-paper-2 hover:text-ink rounded p-1"
+                {problemStatement?.trim() && (
+                  <div
+                    className={cn(
+                      "text-ink-500 mt-0.5 max-w-3xl text-[12.5px]",
+                      busy ? "" : "line-clamp-1"
+                    )}
+                    title={problemStatement}
                   >
-                    <IconX size={16} />
-                  </button>
-                }
-              />
+                    <span className="text-ink-400 mr-1.5 font-medium uppercase tracking-wider">
+                      Problem
+                    </span>
+                    {problemStatement}
+                  </div>
+                )}
+              </div>
             </div>
-          </div>
-        )}
 
-        {/* CENTER: stage stepper + tab content */}
-        <div className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden">
-          {/* Stage stepper — 4-stage rail (overview removed) */}
-          {(() => {
-            const tabToStage: Record<string, DesignStageId> = {
-              problem: "problem",
-              literature: "lit",
-              hypotheses: "hyp",
-              design: "design"
-            }
-            const stageToTab: Record<DesignStageId, string> = {
-              problem: "problem",
-              lit: "literature",
-              hyp: "hypotheses",
-              design: "design"
-            }
-            const completedStages: DesignStageId[] = approvedPhases
-              .filter(p => p !== "simulation")
-              .map(p => {
-                if (p === "literature") return "lit"
-                if (p === "hypotheses") return "hyp"
-                return p as DesignStageId
-              })
-            const meta: Partial<Record<DesignStageId, string>> = {
-              problem: title ? "defined" : "not defined",
-              lit:
-                papers.length > 0
-                  ? `${papers.length} paper${papers.length === 1 ? "" : "s"}`
-                  : "no papers",
-              hyp:
-                hypotheses.length > 0
-                  ? `${hypotheses.length === 1 ? "1 hypothesis" : `${hypotheses.length} hypotheses`}`
-                  : "no hypotheses",
-              design:
-                generatedDesigns.length > 0
-                  ? `${generatedDesigns.length} design${generatedDesigns.length === 1 ? "" : "s"}`
-                  : "no designs"
-            }
-            const currentStage = tabToStage[activeTab] || "problem"
-            return (
-              <Stepper
-                current={currentStage}
-                completed={completedStages}
-                meta={meta}
-                onGoto={id => handleTabChange(stageToTab[id] as any)}
-              />
-            )
-          })()}
-
-          {isAgentRunning && (
-            <div className="flex shrink-0 items-center gap-2 border-b border-amber-300 bg-amber-50 px-6 py-2 text-[12.5px] text-amber-900">
-              <IconAlertTriangle size={14} className="shrink-0" />
-              <span>
-                <b>Agent is working — keep this tab open.</b>{" "}
-                {busy === "literature"
-                  ? "We're scouting the literature."
-                  : busy === "hypotheses"
-                    ? "We're generating hypotheses."
-                    : "We're drafting your design."}{" "}
-                Closing or leaving this page will cancel the run and lose
-                progress.
-              </span>
-            </div>
-          )}
-
-          <div className="min-h-0 flex-1 overflow-auto">
-            <div
-              className={
-                activeTab === "design" ? "w-full p-6" : "mx-auto max-w-4xl p-6"
-              }
-            >
-              {activeTab === "problem" && (
-                <ProblemTab
-                  title={title}
-                  setTitle={setTitle}
-                  problemStatement={problemStatement}
-                  setProblemStatement={setProblemStatement}
-                  domain={domain}
-                  setDomain={setDomain}
-                  phase={phase}
-                  setPhase={setPhase}
-                  objective={objective}
-                  setObjective={setObjective}
-                  constraintMaterial={constraintMaterial}
-                  setConstraintMaterial={setConstraintMaterial}
-                  constraintTime={constraintTime}
-                  setConstraintTime={setConstraintTime}
-                  constraintEquipment={constraintEquipment}
-                  setConstraintEquipment={setConstraintEquipment}
-                  variablesKnown={variablesKnown}
-                  setVariablesKnown={setVariablesKnown}
-                  variablesUnknown={variablesUnknown}
-                  setVariablesUnknown={setVariablesUnknown}
-                  successCriteria={successCriteria}
-                  setSuccessCriteria={setSuccessCriteria}
-                  includeReplicates={includeReplicates}
-                  setIncludeReplicates={setIncludeReplicates}
-                  onApproveAndGenerate={handleApproveAndGenerateLiterature}
-                  canSubmit={problemValid}
-                  isApproved={isPhaseApproved("problem")}
-                  canEdit={canEdit}
-                  isBusy={busy === "literature"}
-                  onRevise={() => handleRevisePhase("problem")}
-                />
+            {/* ── Toolbar actions (right side) ───────────────── */}
+            <div className="flex items-center gap-2">
+              {designGenerated && canEdit && undoDepth > 0 && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleUndo}
+                  className="gap-1.5"
+                  title="Undo the last applied change"
+                >
+                  <IconArrowBackUp size={14} /> Undo
+                </Button>
               )}
-
-              {activeTab === "literature" && (
-                <>
-                  <ClarifyAnswersBanner
-                    answers={clarifications.problem ?? []}
-                    onEdit={() => setRefineCheckpoint("problem")}
-                  />
-                  <LiteratureTab
-                    papers={papers}
-                    onTogglePaper={handleTogglePaper}
-                    onUploadPdfs={handleUploadPdfs}
-                    onApproveAndGenerate={handleApproveAndGenerateHypotheses}
-                    onSearchMore={handleGenerateMoreLiterature}
-                    canGenerate={selectedPapers.length > 0}
-                    isApproved={isPhaseApproved("literature")}
-                    canEdit={canEdit}
-                    isBusy={busy === "hypotheses" || busy === "literature"}
-                    isSearching={busy === "literature"}
-                    progress={literatureProgress}
-                    totalCandidates={literatureTotalCandidates}
-                    onRevise={() => handleRevisePhase("literature")}
-                    onSavePaper={handleSavePaper}
-                    savedPaperIds={savedPaperIds}
-                  />
-                </>
+              <button
+                onClick={toggleChatRail}
+                aria-pressed={showRail}
+                className={cn(
+                  "flex h-9 items-center gap-2 rounded-full px-4 text-xs font-semibold uppercase tracking-wide shadow-sm ring-1 ring-inset transition-all duration-200 hover:-translate-y-0.5 hover:shadow-md active:translate-y-0",
+                  showRail
+                    ? "bg-ink text-paper ring-white/20"
+                    : "from-brick to-brick-hover bg-gradient-to-r text-white ring-white/20"
+                )}
+                title="Chat with this design"
+              >
+                <IconSparkles size={14} className="shrink-0" />
+                {showRail ? "Hide chat" : "Chat"}
+              </button>
+              {isOwner && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShareDialogOpen(true)}
+                  className="gap-1.5"
+                  title="Share this design or invite collaborators"
+                >
+                  <IconShare size={14} /> Share
+                </Button>
               )}
-
-              {activeTab === "hypotheses" && (
-                <>
-                  <ClarifyAnswersBanner
-                    answers={clarifications.hypothesis ?? []}
-                    onEdit={() => setRefineCheckpoint("hypothesis")}
-                  />
-                  <HypothesesTab
-                    hypotheses={hypotheses}
-                    papers={papers}
-                    onToggle={handleToggleHypothesis}
-                    onEdit={handleEditHypothesis}
-                    onApproveAndGenerate={handleApproveAndGenerateDesign}
-                    onRegenerate={handleRegenerateHypotheses}
-                    canGenerate={selectedHypotheses.length > 0}
-                    isApproved={isPhaseApproved("hypotheses")}
-                    canEdit={canEdit}
-                    isBusy={busy === "design" || busy === "hypotheses"}
-                    isGenerating={busy === "hypotheses"}
-                    progress={hypothesesProgress}
-                    onRevise={() => handleRevisePhase("hypotheses")}
-                    genError={hypothesesError}
-                  />
-                </>
-              )}
-
-              {activeTab === "design" && (
-                <>
-                  <ClarifyAnswersBanner
-                    answers={[
-                      ...(clarifications.problem ?? []),
-                      ...(clarifications.hypothesis ?? []),
-                      ...(clarifications.design ?? [])
-                    ]}
-                    onEdit={() => setRefineCheckpoint("design")}
-                  />
-                  <DesignTab
-                    designs={generatedDesigns}
-                    hypotheses={hypotheses}
-                    activeId={activeDesignId}
-                    onSelect={setActiveDesignId}
-                    activeDesign={activeDesign}
-                    onSave={handleSaveDesign}
-                    onApproveAndContinue={handleApproveDesignAndContinue}
-                    onRegenerate={handleRegenerateDesign}
-                    isApproved={isPhaseApproved("design")}
-                    canEdit={canEdit}
-                    isBusy={busy === "design"}
-                    isGenerating={busy === "design"}
-                    progress={designProgress}
-                    onRevise={() => handleRevisePhase("design")}
-                    designVersions={designVersions}
-                    onRestoreVersion={handleRestoreDesignVersion}
-                    onEditSection={handleEditSection}
-                  />
-                </>
-              )}
+              <Button
+                variant={showLibrary ? "default" : "outline"}
+                size="sm"
+                onClick={() => setShowLibrary(s => !s)}
+                className="gap-1.5"
+                title="Open Library - generate reports, protocols, and documents"
+              >
+                <IconBooks size={14} /> Library
+              </Button>
             </div>
           </div>
         </div>
 
-        {/* RIGHT: Library sidebar — reports, files, + generation buttons */}
-        {showLibrary && (
-          <DesignLibrarySidebar
-            ctx={{
-              designId,
-              designName: title || design?.name || "Design",
-              workspaceId,
-              locale,
-              projectId: design?.project_id ?? null,
-              userId: profile?.user_id ?? null,
-              selectedWorkspace,
-              chatSettings
-            }}
-            onClose={() => setShowLibrary(false)}
-          />
+        {/* Stage stepper — 4-stage rail (overview removed) */}
+        {(() => {
+          const tabToStage: Record<string, DesignStageId> = {
+            problem: "problem",
+            literature: "lit",
+            hypotheses: "hyp",
+            design: "design"
+          }
+          const stageToTab: Record<DesignStageId, string> = {
+            problem: "problem",
+            lit: "literature",
+            hyp: "hypotheses",
+            design: "design"
+          }
+          const completedStages: DesignStageId[] = approvedPhases
+            .filter(p => p !== "simulation")
+            .map(p => {
+              if (p === "literature") return "lit"
+              if (p === "hypotheses") return "hyp"
+              return p as DesignStageId
+            })
+          const meta: Partial<Record<DesignStageId, string>> = {
+            problem: title ? "defined" : "not defined",
+            lit:
+              papers.length > 0
+                ? `${papers.length} paper${papers.length === 1 ? "" : "s"}`
+                : "no papers",
+            hyp:
+              hypotheses.length > 0
+                ? `${hypotheses.length === 1 ? "1 hypothesis" : `${hypotheses.length} hypotheses`}`
+                : "no hypotheses",
+            design:
+              generatedDesigns.length > 0
+                ? `${generatedDesigns.length} design${generatedDesigns.length === 1 ? "" : "s"}`
+                : "no designs"
+          }
+          const currentStage = tabToStage[activeTab] || "problem"
+          return (
+            <Stepper
+              current={currentStage}
+              completed={completedStages}
+              meta={meta}
+              onGoto={id => handleTabChange(stageToTab[id] as any)}
+            />
+          )
+        })()}
+
+        {isAgentRunning && (
+          <div className="flex shrink-0 items-center gap-2 border-b border-amber-300 bg-amber-50 px-6 py-2 text-[12.5px] text-amber-900">
+            <IconAlertTriangle size={14} className="shrink-0" />
+            <span>
+              <b>Agent is working - keep this tab open.</b>{" "}
+              {busy === "literature"
+                ? "We're scouting the literature."
+                : busy === "hypotheses"
+                  ? "We're generating hypotheses."
+                  : "We're drafting your design."}{" "}
+              Closing or leaving this page will cancel the run and lose
+              progress.
+            </span>
+          </div>
         )}
+
+        <div className="min-h-0 flex-1 overflow-auto">
+          <div
+            className={
+              activeTab === "design" ? "w-full p-6" : "mx-auto max-w-4xl p-6"
+            }
+          >
+            {activeTab === "problem" && (
+              <ProblemTab
+                title={title}
+                setTitle={setTitle}
+                problemStatement={problemStatement}
+                setProblemStatement={setProblemStatement}
+                domain={domain}
+                setDomain={setDomain}
+                phase={phase}
+                setPhase={setPhase}
+                objective={objective}
+                setObjective={setObjective}
+                constraintMaterial={constraintMaterial}
+                setConstraintMaterial={setConstraintMaterial}
+                constraintTime={constraintTime}
+                setConstraintTime={setConstraintTime}
+                constraintEquipment={constraintEquipment}
+                setConstraintEquipment={setConstraintEquipment}
+                variablesKnown={variablesKnown}
+                setVariablesKnown={setVariablesKnown}
+                variablesUnknown={variablesUnknown}
+                setVariablesUnknown={setVariablesUnknown}
+                successCriteria={successCriteria}
+                setSuccessCriteria={setSuccessCriteria}
+                includeReplicates={includeReplicates}
+                setIncludeReplicates={setIncludeReplicates}
+                onApproveAndGenerate={handleApproveAndGenerateLiterature}
+                canSubmit={problemValid}
+                isApproved={isPhaseApproved("problem")}
+                canEdit={canEdit}
+                isBusy={busy === "literature"}
+                onRevise={() => handleRevisePhase("problem")}
+              />
+            )}
+
+            {activeTab === "literature" && (
+              <>
+                <ClarifyAnswersBanner
+                  answers={clarifications.problem ?? []}
+                  onEdit={() => setRefineCheckpoint("problem")}
+                />
+                <LiteratureTab
+                  papers={papers}
+                  onTogglePaper={handleTogglePaper}
+                  onUploadPdfs={handleUploadPdfs}
+                  onApproveAndGenerate={handleApproveAndGenerateHypotheses}
+                  onSearchMore={handleGenerateMoreLiterature}
+                  canGenerate={selectedPapers.length > 0}
+                  isApproved={isPhaseApproved("literature")}
+                  canEdit={canEdit}
+                  isBusy={busy === "hypotheses" || busy === "literature"}
+                  isSearching={busy === "literature"}
+                  progress={literatureProgress}
+                  totalCandidates={literatureTotalCandidates}
+                  onRevise={() => handleRevisePhase("literature")}
+                  onSavePaper={handleSavePaper}
+                  savedPaperIds={savedPaperIds}
+                />
+              </>
+            )}
+
+            {activeTab === "hypotheses" && (
+              <>
+                <ClarifyAnswersBanner
+                  answers={clarifications.hypothesis ?? []}
+                  onEdit={() => setRefineCheckpoint("hypothesis")}
+                />
+                <HypothesesTab
+                  hypotheses={hypotheses}
+                  papers={papers}
+                  onToggle={handleToggleHypothesis}
+                  onEdit={handleEditHypothesis}
+                  onApproveAndGenerate={handleApproveAndGenerateDesign}
+                  onRegenerate={handleRegenerateHypotheses}
+                  canGenerate={selectedHypotheses.length > 0}
+                  isApproved={isPhaseApproved("hypotheses")}
+                  canEdit={canEdit}
+                  isBusy={busy === "design" || busy === "hypotheses"}
+                  isGenerating={busy === "hypotheses"}
+                  progress={hypothesesProgress}
+                  onRevise={() => handleRevisePhase("hypotheses")}
+                  genError={hypothesesError}
+                />
+              </>
+            )}
+
+            {activeTab === "design" && (
+              <>
+                <ClarifyAnswersBanner
+                  answers={[
+                    ...(clarifications.problem ?? []),
+                    ...(clarifications.hypothesis ?? []),
+                    ...(clarifications.design ?? [])
+                  ]}
+                  onEdit={() => setRefineCheckpoint("design")}
+                />
+                <DesignTab
+                  designs={generatedDesigns}
+                  hypotheses={hypotheses}
+                  activeId={activeDesignId}
+                  onSelect={setActiveDesignId}
+                  activeDesign={activeDesign}
+                  onSave={handleSaveDesign}
+                  onApproveAndContinue={handleApproveDesignAndContinue}
+                  onRegenerate={handleRegenerateDesign}
+                  isApproved={isPhaseApproved("design")}
+                  canEdit={canEdit}
+                  isBusy={busy === "design"}
+                  isGenerating={busy === "design"}
+                  progress={designProgress}
+                  onRevise={() => handleRevisePhase("design")}
+                  designVersions={designVersions}
+                  onRestoreVersion={handleRestoreDesignVersion}
+                  onEditSection={handleEditSection}
+                />
+              </>
+            )}
+          </div>
+        </div>
       </div>
+
+      {/* RIGHT: Library sidebar — full height, flanks the page */}
+      {showLibrary && (
+        <DesignLibrarySidebar
+          ctx={{
+            designId,
+            designName: title || design?.name || "Design",
+            workspaceId,
+            locale,
+            projectId: design?.project_id ?? null,
+            userId: profile?.user_id ?? null,
+            selectedWorkspace,
+            chatSettings
+          }}
+          design={design}
+          onClose={() => setShowLibrary(false)}
+        />
+      )}
 
       {/* Owner-only share/collaborate dialog (link visibility, invite editors
           by email, export). Non-owners can't manage sharing, so it's gated. */}
@@ -3061,7 +3059,7 @@ function PhaseProgressView(props: {
 
 // Plain-language headlines for each stage of the literature search. The
 // server emits terse/technical `message` strings; we override them here with
-// clear, human descriptions so the scientist can see — and trust — exactly
+// clear, human descriptions so the scientist can see - and trust - exactly
 // what the agent is doing at each step. The dynamic `detail` line (live
 // counts, timings, queries) is kept underneath for credibility.
 const FRIENDLY_STEP_MESSAGE: Record<string, string> = {
@@ -3204,49 +3202,107 @@ function progressToEvents(
 }
 
 // ── Library sidebar ───────────────────────────────────────────────────────
-// NotebookLM-style right panel: generation buttons at top, generated docs
-// (reports + files) listed below. Lives at the design level.
+// Full-height right panel (NotebookLM "Studio" style): a grid of artifact
+// generators built from the current design. "Report" opens the existing
+// generate-report modal (template + objective + data upload + completeness
+// check) so that flow is unchanged. Media artifacts are flagged Beta.
+type LibraryArtifact = {
+  key: string
+  label: string
+  desc: string
+  icon: React.ReactNode
+  beta?: boolean
+  // "report" → opens GenerateReportModal; "soon" → not wired yet.
+  action: "report" | "soon"
+}
+
+const LIBRARY_ARTIFACTS: LibraryArtifact[] = [
+  {
+    key: "report",
+    label: "Report",
+    desc: "Structured findings write-up",
+    icon: <IconFileText size={17} />,
+    action: "report"
+  },
+  {
+    key: "document",
+    label: "Document",
+    desc: "Editable long-form doc",
+    icon: <IconFileDescription size={17} />,
+    action: "report"
+  },
+  {
+    key: "bench-guide",
+    label: "Bench guide",
+    desc: "Materials, prep & method",
+    icon: <IconFlask size={17} />,
+    action: "report"
+  },
+  {
+    key: "sop",
+    label: "SOP",
+    desc: "Replicable protocol",
+    icon: <IconClipboardText size={17} />,
+    action: "report"
+  },
+  {
+    key: "slides",
+    label: "Slide deck",
+    desc: "Auto-built slides",
+    icon: <IconDeviceDesktop size={17} />,
+    beta: true,
+    action: "soon"
+  },
+  {
+    key: "presentation",
+    label: "Presentation",
+    desc: "Narrated walkthrough",
+    icon: <IconPresentation size={17} />,
+    action: "soon"
+  },
+  {
+    key: "audio",
+    label: "Audio overview",
+    desc: "AI summary podcast",
+    icon: <IconWaveSine size={17} />,
+    action: "soon"
+  },
+  {
+    key: "infographic",
+    label: "Infographic",
+    desc: "One-page visual",
+    icon: <IconChartBar size={17} />,
+    beta: true,
+    action: "soon"
+  }
+]
+
 function DesignLibrarySidebar({
   ctx,
+  design,
   onClose
 }: {
   ctx: DesignSubViewContext
+  design: any
   onClose: () => void
 }) {
-  const [activeSection, setActiveSection] = useState<"reports" | "files">(
-    "reports"
-  )
+  const [reportModalOpen, setReportModalOpen] = useState(false)
 
-  const GENERATE_OPTIONS = [
-    {
-      label: "Research Report",
-      icon: <IconFileText size={15} />,
-      type: "research_report" as const
-    },
-    {
-      label: "SOP / Protocol",
-      icon: <IconClipboardText size={15} />,
-      type: "sop" as const
-    },
-    {
-      label: "Slide Deck",
-      icon: <IconChartBar size={15} />,
-      type: "slides" as const
-    },
-    {
-      label: "Summary",
-      icon: <IconSparkles size={15} />,
-      type: "summary" as const
+  const handleArtifact = (a: LibraryArtifact) => {
+    if (a.action === "report") {
+      setReportModalOpen(true)
+      return
     }
-  ]
+    toast.info(`${a.label} generation is coming soon.`)
+  }
 
   return (
-    <div className="border-ink-200 flex w-80 shrink-0 flex-col border-l bg-white">
+    <div className="border-ink-200 flex w-[360px] shrink-0 flex-col border-l bg-white">
       {/* Header */}
-      <div className="border-ink-100 flex shrink-0 items-center justify-between border-b px-4 py-3">
+      <div className="border-ink-100 flex shrink-0 items-center justify-between border-b px-5 py-4">
         <div className="flex items-center gap-2">
-          <IconBooks size={16} className="text-teal-journey" />
-          <span className="text-ink-900 text-[13px] font-semibold">
+          <IconBooks size={18} className="text-ink-700" />
+          <span className="text-ink-900 text-[17px] font-semibold tracking-tight">
             Library
           </span>
         </div>
@@ -3255,60 +3311,70 @@ function DesignLibrarySidebar({
           onClick={onClose}
           className="text-ink-400 hover:text-ink-700 rounded p-1"
         >
-          <IconX size={15} />
+          <IconX size={17} />
         </button>
       </div>
 
-      {/* Generate buttons */}
-      <div className="border-ink-100 shrink-0 border-b p-3">
-        <p className="text-ink-400 mb-2 text-[11px] font-semibold uppercase tracking-wider">
-          Generate
+      {/* Scrollable body */}
+      <div className="min-h-0 flex-1 overflow-auto p-5">
+        <p className="text-ink-400 text-[11px] font-bold uppercase tracking-[0.14em]">
+          Create
         </p>
-        <div className="grid grid-cols-2 gap-1.5">
-          {GENERATE_OPTIONS.map(opt => (
+        <h2 className="text-ink-900 mt-1.5 text-[22px] font-semibold leading-tight tracking-tight">
+          Generate from this design
+        </h2>
+        <p className="text-ink-500 mt-1.5 text-[13px] leading-relaxed">
+          Each artifact is built from this design&apos;s problem, literature,
+          and locked protocol.
+        </p>
+
+        <div className="mt-5 grid grid-cols-2 gap-3">
+          {LIBRARY_ARTIFACTS.map(a => (
             <button
-              key={opt.type}
+              key={a.key}
               type="button"
-              className="border-ink-200 text-ink-700 hover:bg-ink-50 flex items-center gap-1.5 rounded-lg border px-2.5 py-2 text-[12px] font-medium transition-colors"
-              onClick={() => {
-                // TODO: wire to report-generation endpoint
-                setActiveSection("reports")
-              }}
+              onClick={() => handleArtifact(a)}
+              className="border-ink-200 hover:border-ink-300 group relative flex flex-col gap-3 rounded-2xl border bg-white p-4 text-left shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md"
             >
-              {opt.icon}
-              {opt.label}
+              {a.beta && (
+                <span className="bg-ink text-paper absolute right-3 top-3 rounded px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider">
+                  Beta
+                </span>
+              )}
+              <span className="bg-ink-50 text-ink-700 flex size-9 items-center justify-center rounded-lg">
+                {a.icon}
+              </span>
+              <span>
+                <span className="text-ink-900 block text-[14px] font-semibold">
+                  {a.label}
+                </span>
+                <span className="text-ink-500 mt-0.5 block text-[12px] leading-snug">
+                  {a.desc}
+                </span>
+              </span>
             </button>
           ))}
         </div>
       </div>
 
-      {/* Section toggle */}
-      <div className="border-ink-100 flex shrink-0 gap-1 border-b p-2">
-        {(["reports", "files"] as const).map(s => (
-          <button
-            key={s}
-            type="button"
-            onClick={() => setActiveSection(s)}
-            className={cn(
-              "flex-1 rounded-lg py-1.5 text-[12px] font-semibold capitalize transition-colors",
-              activeSection === s
-                ? "bg-ink text-paper"
-                : "text-ink-500 hover:bg-ink-50"
-            )}
-          >
-            {s}
-          </button>
-        ))}
+      {/* Footer: Add note */}
+      <div className="border-ink-100 shrink-0 border-t p-3">
+        <button
+          type="button"
+          onClick={() => toast.info("Notes are coming soon.")}
+          className="border-ink-200 text-ink-700 hover:bg-ink-50 flex w-full items-center justify-center gap-2 rounded-xl border py-2.5 text-[13px] font-medium transition-colors"
+        >
+          <IconNote size={16} /> Add note
+        </button>
       </div>
 
-      {/* Content */}
-      <div className="min-h-0 flex-1 overflow-auto">
-        {activeSection === "reports" ? (
-          <DesignReportsView ctx={ctx} />
-        ) : (
-          <DesignFilesView ctx={ctx} />
-        )}
-      </div>
+      <GenerateReportModal
+        open={reportModalOpen}
+        onOpenChange={setReportModalOpen}
+        design={design}
+        workspaceId={ctx.workspaceId}
+        locale={ctx.locale}
+      />
     </div>
   )
 }
@@ -3317,7 +3383,7 @@ function DesignLibrarySidebar({
 // Collapsed by default; user expands to see what they told the system.
 // "Edit" re-opens the Refine step for that checkpoint; parent regenerates
 // only if answers actually changed (handled by handleClarifyComplete comparing
-// to previous clarifications — not yet implemented, future iteration).
+// to previous clarifications - not yet implemented, future iteration).
 function ClarifyAnswersBanner({
   answers,
   onEdit
@@ -3398,7 +3464,7 @@ function LiteratureTab(props: {
   onRevise: () => void
   /** Save the paper into this design's library (workspace paper library). */
   onSavePaper: (paper: Paper) => void
-  /** Ids of papers already saved this session — flips the save icon state. */
+  /** Ids of papers already saved this session - flips the save icon state. */
   savedPaperIds: Set<string>
 }) {
   const {
@@ -3431,7 +3497,7 @@ function LiteratureTab(props: {
   // already-ranked pool. Pure client-side pagination, no extra API call.
   //
   // Reset the page size only when the SET of papers actually changes (a real
-  // re-search), keyed on the paper ids — NOT on every `papers` array identity
+  // re-search), keyed on the paper ids - NOT on every `papers` array identity
   // change. Toggling a paper's `selected` flag rebuilds the array with the same
   // ids; keying on identity used to collapse the list back to 10 on every
   // select, so a paper picked after "Show more" vanished until you paged again.
@@ -3479,7 +3545,7 @@ function LiteratureTab(props: {
           </p>
           {!isApproved && (
             <p className="text-ink-400 mt-1 text-[11px] italic">
-              Tip: select <b>at least 1 paper</b> (or several) — your picks
+              Tip: select <b>at least 1 paper</b> (or several) - your picks
               become the basis for the hypotheses on the next step.
             </p>
           )}
@@ -3589,7 +3655,7 @@ function LiteratureTab(props: {
           //
           // Papers without an explicit relevanceScore (pre-warm direct hits,
           // user-uploaded PDFs) get a fallback derived from their arrival
-          // index — `1 - i/N` — so they sort in API order but DON'T all
+          // index - `1 - i/N` - so they sort in API order but DON'T all
           // collapse to a 0-tie. Without this fallback, "Ranked by relevance"
           // was a visible no-op whenever the lit-scout didn't run the LLM
           // relevance judgement, and the user couldn't see the sort working.
@@ -3846,7 +3912,7 @@ function HypothesesTab(props: {
   progress?: PhaseProgress[]
   onRevise: () => void
   /** Set when the last generation attempt failed, so the empty state can show
-   *  an accurate "generation failed — retry" message instead of the
+   *  an accurate "generation failed - retry" message instead of the
    *  misleading "approve literature" prompt. */
   genError?: string | null
 }) {
@@ -3895,7 +3961,7 @@ function HypothesesTab(props: {
           </p>
           {!isApproved && (
             <p className="text-ink-400 mt-1 text-[11px] italic">
-              Tip: choose <b>at least 1 hypothesis</b> (or several) — your picks
+              Tip: choose <b>at least 1 hypothesis</b> (or several) - your picks
               drive the design that gets generated next.
             </p>
           )}
@@ -3929,7 +3995,7 @@ function HypothesesTab(props: {
             </p>
             <p className="text-[12px] text-red-600">{genError}</p>
             <p className="text-ink-500 text-[11.5px]">
-              This is usually a transient hiccup — your literature is still
+              This is usually a transient hiccup - your literature is still
               approved. Try generating again.
             </p>
             <Button
@@ -4946,7 +5012,7 @@ function OverviewTab(props: {
           </Card>
         </section>
 
-        {/* Create — role-specific downloadable PDFs built from this design */}
+        {/* Create - role-specific downloadable PDFs built from this design */}
         {hasDesign && (
           <section
             id="section-create"
@@ -4962,7 +5028,7 @@ function OverviewTab(props: {
                   Generate documents
                 </CardTitle>
                 <p className="text-ink-500 mt-1 text-sm">
-                  Role-specific PDFs built from this design — each is
+                  Role-specific PDFs built from this design - each is
                   downloadable.
                 </p>
               </CardHeader>
@@ -4972,7 +5038,7 @@ function OverviewTab(props: {
                     {
                       icon: <IconFlask size={18} />,
                       title: "Bench execution guide",
-                      desc: "Materials, calculations, preparation and method — the executable setup work, with a conditions overview.",
+                      desc: "Materials, calculations, preparation and method - the executable setup work, with a conditions overview.",
                       onClick: () => {
                         track("design_pdf_downloaded", { type: "bench_guide" })
                         downloadBenchExecutionGuide(exportableDesign)
@@ -4981,7 +5047,7 @@ function OverviewTab(props: {
                     {
                       icon: <IconBook size={18} />,
                       title: "Rationale & citations",
-                      desc: "Literature, citations and the hypothesis rationale, with a conditions overview — defend your choices.",
+                      desc: "Literature, citations and the hypothesis rationale, with a conditions overview - defend your choices.",
                       onClick: () => {
                         track("design_pdf_downloaded", { type: "rationale" })
                         downloadRationaleCitations(exportableDesign)
@@ -4990,7 +5056,7 @@ function OverviewTab(props: {
                     {
                       icon: <IconClipboardText size={18} />,
                       title: "SOP",
-                      desc: "A replicable protocol — short theory, then materials, methods, execution, safety and disposal.",
+                      desc: "A replicable protocol - short theory, then materials, methods, execution, safety and disposal.",
                       onClick: () => {
                         track("design_pdf_downloaded", { type: "sop" })
                         downloadSOP(exportableDesign)

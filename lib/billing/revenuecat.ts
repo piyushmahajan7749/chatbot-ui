@@ -43,7 +43,7 @@ export function getRevenueCatPublicConfig(): RevenueCatPublicConfig {
 
 /**
  * Verify the shared secret RevenueCat sends in the Authorization header of
- * webhook requests. Returns false (reject) when the secret isn't configured —
+ * webhook requests. Returns false (reject) when the secret isn't configured -
  * fail closed, since an unauthenticated webhook could grant paid plans.
  */
 export function verifyRevenueCatWebhookAuth(header: string | null): boolean {
@@ -128,7 +128,7 @@ export function interpretRevenueCatEvent(event: RcEvent): RcAction {
         appUserId
       }
     case "CANCELLATION":
-      // User keeps access until expiration — flag status, keep the plan.
+      // User keeps access until expiration - flag status, keep the plan.
       return { kind: "status_only", status: "canceled", appUserId }
     case "BILLING_ISSUE":
       return { kind: "status_only", status: "past_due", appUserId }

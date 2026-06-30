@@ -290,7 +290,7 @@ export const Message: FC<MessageProps> = ({
                 : "border-line bg-surface text-ink rounded-tl-sm border"
             )}
           >
-            {/* Hover actions — anchored just BELOW the bubble and inside its
+            {/* Hover actions - anchored just BELOW the bubble and inside its
                 horizontal bounds. The old `-left-8/-right-8` pushed them 32px
                 outside the bubble, which overflowed and overlapped in the
                 narrow design chat rail. */}

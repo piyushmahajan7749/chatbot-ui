@@ -367,7 +367,7 @@ export const JarvisHero: FC<JarvisHeroProps> = ({ brief, chips }) => {
           </div>
           <p className="text-[13px] leading-relaxed text-[#A3A0C2]">
             ShadowAI is your research co-pilot. I can call the experiment
-            designer, the report drafter, your literature, and your data — just
+            designer, the report drafter, your literature, and your data - just
             ask.
           </p>
         </div>
@@ -473,7 +473,7 @@ export const JarvisHero: FC<JarvisHeroProps> = ({ brief, chips }) => {
             onChange={e => setInput(e.target.value)}
             onKeyDown={handleKey}
             rows={1}
-            placeholder="Ask ShadowAI anything — describe a hypothesis, request a report, search a topic…"
+            placeholder="Ask ShadowAI anything - describe a hypothesis, request a report, search a topic…"
             className="text-paper placeholder:text-ink-300/60 max-h-[120px] flex-1 resize-none bg-transparent text-[13px] leading-relaxed outline-none [field-sizing:content]"
             disabled={streaming}
           />
@@ -546,7 +546,7 @@ const DEFAULT_BRIEF: BriefItem[] = [
 // ── Orb ────────────────────────────────────────────────────────────
 
 const Orb: FC = () => {
-  // Pulsing centre + orbiting dotted ring. Pure CSS — no canvas or
+  // Pulsing centre + orbiting dotted ring. Pure CSS - no canvas or
   // animation library so this stays fast and renders in SSR's first
   // paint before hydration kicks in.
   return (

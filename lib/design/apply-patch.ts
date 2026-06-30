@@ -4,7 +4,7 @@ import type { GeneratedDesign } from "@/lib/design-agent"
  * Apply a chat-proposed `<design-patch>` to a design's sections. The model is
  * reliable at quoting `find` text verbatim (gpt-5.x quotes even tables / units
  * exactly), but the apply step used to require a BYTE-exact match on both the
- * section heading and the find-text — a single stray space turned a valid edit
+ * section heading and the find-text - a single stray space turned a valid edit
  * into a hard failure. This pure helper keeps the exact path (unchanged when it
  * works) and adds tolerant fallbacks, so it's robust and unit-testable.
  */
@@ -83,7 +83,7 @@ export function applyDesignPatch(
   }
   if (sectionIdx === -1) {
     return {
-      error: `No section called "${patch.sectionHeading}" — the assistant may have used a heading that isn't in this design.`
+      error: `No section called "${patch.sectionHeading}" - the assistant may have used a heading that isn't in this design.`
     }
   }
 
@@ -96,7 +96,7 @@ export function applyDesignPatch(
     if (replaced === null) {
       return {
         error:
-          "Couldn't locate the text to change in that section — ask the assistant to propose the edit again."
+          "Couldn't locate the text to change in that section - ask the assistant to propose the edit again."
       }
     }
     nextBody = replaced

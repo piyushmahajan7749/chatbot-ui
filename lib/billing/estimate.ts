@@ -4,7 +4,7 @@ import { encode } from "gpt-tokenizer"
  * Token estimation for STREAMING responses, which don't surface exact `usage`
  * through the `ai` library's OpenAIStream. gpt-tokenizer uses cl100k_base;
  * gpt-5.x uses a different vocabulary, so these are approximations (good to
- * within ~10-15%) — fine for usage metering, not for exact billing reconciliation.
+ * within ~10-15%) - fine for usage metering, not for exact billing reconciliation.
  */
 export function estimateTextTokens(text: string | null | undefined): number {
   if (!text) return 0

@@ -45,7 +45,7 @@ const STATUS_IN_PROGRESS =
 const STATUS_DRAFT =
   "rounded-full border border-purple-persona/30 bg-purple-persona-tint px-2 py-0.5 text-[10.5px] font-medium text-purple-persona"
 // Locked entity chips (item: folder=project, flask=design, report=report,
-// message=chat) — each its own colour so the attribution reads at a glance.
+// message=chat) - each its own colour so the attribution reads at a glance.
 const CHIP_PROJECT =
   "inline-flex items-center gap-1 rounded-full border border-teal-journey/30 bg-teal-journey-tint px-2 py-0.5 text-[10.5px] font-medium text-teal-journey"
 const CHIP_DESIGN =
@@ -275,7 +275,7 @@ export default function WorkspacePage() {
   }
 
   // The first-run GuidedTour is armed ONLY by a fresh onboarding completion
-  // (see onboarding-form) or the Tutorial button — never re-armed here, so it
+  // (see onboarding-form) or the Tutorial button - never re-armed here, so it
   // can't reappear for existing accounts or after the user skips it.
 
   return (
@@ -293,7 +293,7 @@ export default function WorkspacePage() {
           </div>
 
           <div className="flex flex-col items-end gap-1.5">
-            {/* New design opens the create-design page directly — the
+            {/* New design opens the create-design page directly - the
                 multi-mode dropdown was removed; the page itself handles how
                 the user wants to start. */}
             <Button
@@ -425,7 +425,7 @@ function DesignsList({ items, wsId, onNew, projectNameOf }: DesignsListProps) {
           </div>
           <div className="text-ink-3 mb-5 text-[13px]">
             Start from a research question and Shadow AI builds the full
-            experiment — click New design to begin.
+            experiment - click New design to begin.
           </div>
           <Button variant="primary" size="sm" onClick={onNew}>
             <IconPlus size={12} /> New design
@@ -646,7 +646,7 @@ function ChatsList({ items, wsId, attributionOf }: ChatsListProps) {
             No chats yet
           </div>
           <div className="text-ink-3 text-[13px]">
-            Open a design or project and start a chat — your conversations show
+            Open a design or project and start a chat - your conversations show
             up here, attributed to the design they were held with.
           </div>
         </Card>

@@ -1,6 +1,6 @@
 -- Drop the FK from `chats.project_id` to the Postgres `projects` table.
 --
--- Projects were migrated to Firestore (see lib/project/server.ts —
+-- Projects were migrated to Firestore (see lib/project/server.ts -
 -- collection "projects" lives in adminDb). The Postgres `projects`
 -- table is empty/legacy, so any chat created with a Firestore project
 -- id was getting rejected by the FK constraint.

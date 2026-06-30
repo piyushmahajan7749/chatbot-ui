@@ -10,7 +10,7 @@ import type { AffiliateRow } from "./types"
 const TOKENS_PER_CREDIT = 1000
 
 /**
- * Resolve a Supabase auth user id from an email. Service-role only — reads the
+ * Resolve a Supabase auth user id from an email. Service-role only - reads the
  * `auth.users` table directly (the auth schema isn't in the generated public
  * Database types, hence the cast). Returns null if no such user.
  */
@@ -83,7 +83,7 @@ export async function createAffiliate(
 
   if (error) {
     if ((error as { code?: string }).code === "23505") {
-      return { error: `Code "${code}" is already taken — choose another.` }
+      return { error: `Code "${code}" is already taken - choose another.` }
     }
     console.error("[affiliate/admin] createAffiliate failed", error)
     return { error: "Could not create the affiliate." }

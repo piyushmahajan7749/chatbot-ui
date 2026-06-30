@@ -47,7 +47,7 @@ export const ragDocChanged = inngest.createFunction(
       )
     }
 
-    // `file` / `project_file` sources can only be indexed INLINE — their binary
+    // `file` / `project_file` sources can only be indexed INLINE - their binary
     // text is extracted in /api/retrieval/process and handed to indexDoc as a
     // precomputed ExtractorResult. indexDoc() throws for them on this path
     // ("requires a precomputed ExtractorResult"), so a changed-event for a file

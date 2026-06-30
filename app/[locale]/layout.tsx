@@ -56,7 +56,7 @@ const ibmPlexMono = localFont({
 })
 const APP_NAME = "Shadow AI"
 const APP_DEFAULT_TITLE =
-  "Shadow AI — AI Experiment Design for Life Sciences Researchers"
+  "Shadow AI - AI Experiment Design for Life Sciences Researchers"
 const APP_TITLE_TEMPLATE = "%s | Shadow AI"
 const APP_DESCRIPTION =
   "Shadow AI turns any research question into a structured, run-ready experiment plan in minutes. AI-powered experiment design, hypothesis generation, and scientific protocol creation for PhD researchers, postdocs, and lab scientists."
@@ -135,7 +135,7 @@ export const metadata: Metadata = {
         url: "/logo-full.png",
         width: 1200,
         height: 630,
-        alt: "Shadow AI — AI Experiment Design for Life Sciences"
+        alt: "Shadow AI - AI Experiment Design for Life Sciences"
       }
     ],
     locale: "en_US"
@@ -246,7 +246,7 @@ export default async function RootLayout({
             name: "What is Shadow AI?",
             acceptedAnswer: {
               "@type": "Answer",
-              text: "Shadow AI is an AI-powered experiment design platform for life sciences researchers. It turns any research question into a structured, validated experiment plan — including literature review, hypothesis generation, and a full experimental protocol — in minutes."
+              text: "Shadow AI is an AI-powered experiment design platform for life sciences researchers. It turns any research question into a structured, validated experiment plan - including literature review, hypothesis generation, and a full experimental protocol - in minutes."
             }
           },
           {
@@ -262,7 +262,7 @@ export default async function RootLayout({
             name: "What does Shadow AI do?",
             acceptedAnswer: {
               "@type": "Answer",
-              text: "Shadow AI helps researchers design experiments faster using AI. You describe your research question, and Shadow AI scouts relevant literature, generates testable hypotheses, and builds a complete experimental design — including materials, methods, controls, replicates, and a step-by-step protocol — ready for the bench."
+              text: "Shadow AI helps researchers design experiments faster using AI. You describe your research question, and Shadow AI scouts relevant literature, generates testable hypotheses, and builds a complete experimental design - including materials, methods, controls, replicates, and a step-by-step protocol - ready for the bench."
             }
           },
           {

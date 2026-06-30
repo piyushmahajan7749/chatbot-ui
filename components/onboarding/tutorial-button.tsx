@@ -2,7 +2,7 @@
 
 /**
  * Persistent "Tutorial" button (top-right) that replays the first-run
- * walkthrough — for anyone who skipped it or wants a refresher. Hidden while
+ * walkthrough - for anyone who skipped it or wants a refresher. Hidden while
  * the tour is running so it doesn't overlap the overlay. Mounted once in the
  * app layout alongside GuidedTour.
  */

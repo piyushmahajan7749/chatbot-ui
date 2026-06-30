@@ -7,7 +7,7 @@ export const metadata: Metadata = {
     "Shadow AI is an AI-powered experiment design platform built for life sciences researchers. Learn about our mission to help PhD scholars, postdocs, and research scientists move from research question to run-ready protocol faster.",
   alternates: { canonical: "/about" },
   openGraph: {
-    title: "About Shadow AI — AI Experiment Design for Life Sciences",
+    title: "About Shadow AI - AI Experiment Design for Life Sciences",
     description:
       "Shadow AI is an AI co-scientist for bench researchers. Learn about our mission, what we build, and who we build it for."
   }
@@ -47,7 +47,7 @@ export default function AboutPage() {
             Shadow AI is an AI co-scientist for bench researchers in life
             sciences. We compress the hours of literature review, hypothesis
             formulation, and protocol drafting that precede every experiment
-            into minutes — so scientists spend more time doing science.
+            into minutes - so scientists spend more time doing science.
           </p>
         </div>
 
@@ -61,8 +61,8 @@ export default function AboutPage() {
             </h2>
             <p className="text-ink-600 text-[15px] leading-relaxed">
               Research moves in cycles of question, design, experiment, and
-              interpretation. The design phase — reading the literature,
-              generating hypotheses, writing the protocol — has always been the
+              interpretation. The design phase - reading the literature,
+              generating hypotheses, writing the protocol - has always been the
               most time-consuming part of science that produces no data. We are
               building the tools to change that.
             </p>
@@ -78,7 +78,7 @@ export default function AboutPage() {
               Who we build for
             </h2>
             <p className="text-ink-600 text-[15px] leading-relaxed">
-              We build for bench scientists — the people who write protocols,
+              We build for bench scientists - the people who write protocols,
               run experiments, and interpret data. PhD scholars designing their
               first independent experiments. Postdocs optimising complex assays.
               Research scientists building assay platforms in industry. Lab
@@ -102,7 +102,7 @@ export default function AboutPage() {
               {
                 emoji: "🔬",
                 title: "Experiment design",
-                body: "From your research question, Shadow AI designs a complete experiment — assay format, treatment conditions, controls, and replication strategy — grounded in the literature."
+                body: "From your research question, Shadow AI designs a complete experiment - assay format, treatment conditions, controls, and replication strategy - grounded in the literature."
               },
               {
                 emoji: "💡",
@@ -112,7 +112,7 @@ export default function AboutPage() {
               {
                 emoji: "📋",
                 title: "Protocol creation",
-                body: "Shadow AI writes complete step-by-step protocols — materials list, buffer recipes, instrument settings, troubleshooting notes — ready to take straight to the bench."
+                body: "Shadow AI writes complete step-by-step protocols - materials list, buffer recipes, instrument settings, troubleshooting notes - ready to take straight to the bench."
               },
               {
                 emoji: "📚",
@@ -122,12 +122,12 @@ export default function AboutPage() {
               {
                 emoji: "📊",
                 title: "Lab reports",
-                body: "Shadow AI generates structured lab reports from your design and data — clear enough for a PI meeting, detailed enough for a regulatory submission."
+                body: "Shadow AI generates structured lab reports from your design and data - clear enough for a PI meeting, detailed enough for a regulatory submission."
               },
               {
                 emoji: "🤝",
                 title: "AI chat co-pilot",
-                body: "An always-on AI research assistant that knows your experiment design — available to answer questions, suggest optimisations, and help interpret unexpected results."
+                body: "An always-on AI research assistant that knows your experiment design - available to answer questions, suggest optimisations, and help interpret unexpected results."
               }
             ].map(f => (
               <div key={f.title}>
@@ -152,19 +152,19 @@ export default function AboutPage() {
             {[
               {
                 title: "Science is the work, not the paperwork",
-                body: "The creative and analytical work of science is irreplaceable. The administrative overhead — formatting protocols, formatting references, formatting reports — is not. We automate the second category to give scientists more time for the first."
+                body: "The creative and analytical work of science is irreplaceable. The administrative overhead - formatting protocols, formatting references, formatting reports - is not. We automate the second category to give scientists more time for the first."
               },
               {
                 title: "Reproducibility is not optional",
-                body: "Experiments that cannot be replicated are not science — they are expensive noise. Shadow AI builds reproducibility best practices (power calculations, complete controls, full protocol documentation) into every design by default."
+                body: "Experiments that cannot be replicated are not science - they are expensive noise. Shadow AI builds reproducibility best practices (power calculations, complete controls, full protocol documentation) into every design by default."
               },
               {
                 title: "AI assists; scientists decide",
-                body: "AI in the lab is most useful as an accelerant for human expertise, not a replacement for it. Shadow AI generates, drafts, and suggests — the scientist evaluates, decides, and takes responsibility for the science."
+                body: "AI in the lab is most useful as an accelerant for human expertise, not a replacement for it. Shadow AI generates, drafts, and suggests - the scientist evaluates, decides, and takes responsibility for the science."
               },
               {
                 title: "Breadth and depth, not breadth alone",
-                body: "Generic AI tools write generic science. Shadow AI is purpose-built for life sciences — the assay formats, the controls, the statistics, the terminology, and the literature are specific to bench research in this domain."
+                body: "Generic AI tools write generic science. Shadow AI is purpose-built for life sciences - the assay formats, the controls, the statistics, the terminology, and the literature are specific to bench research in this domain."
               }
             ].map(p => (
               <div

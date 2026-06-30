@@ -5,7 +5,7 @@
  *
  * Chat is experiment-design focused: a chat here always talks to ALL of your
  * designs (retrieve.ts treats a design-scope chat with an empty scope_id as
- * "every design in the workspace"). There is no scope picker any more — the
+ * "every design in the workspace"). There is no scope picker any more - the
  * single action starts an all-designs thread. Per-design chat lives on the
  * design page itself (the side rail).
  *
@@ -93,7 +93,7 @@ export default function ChatPage() {
       })
       setCreating(false)
     }
-    // Note: on success we intentionally leave `creating` true — the page is
+    // Note: on success we intentionally leave `creating` true - the page is
     // navigating away, so flipping it back would just flash the launcher.
   }
 
@@ -157,7 +157,7 @@ export default function ChatPage() {
               Chat across all your designs
             </p>
             <p className="text-ink-3 mx-auto mt-2 max-w-md text-[13px]">
-              Ask questions about your experiment designs — answers are
+              Ask questions about your experiment designs - answers are
               retrieved from your designs and cite their source.
             </p>
             <Button

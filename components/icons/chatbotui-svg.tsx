@@ -15,7 +15,7 @@ interface ShadowAISVGProps {
 }
 
 /**
- * Logo mark — renders `public/shadowai-logo.png` (helix glyph, 3:4
+ * Logo mark - renders `public/shadowai-logo.png` (helix glyph, 3:4
  * portrait) inside a square slot with `object-contain` so the asset
  * keeps its native aspect ratio at any size. Replaces the old inline
  * SVG monogram while keeping the exported API stable so every existing

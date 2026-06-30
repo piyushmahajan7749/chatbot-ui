@@ -58,7 +58,7 @@ export async function POST(
   // desc). Giving the fork `updated_at = now` shoved it to the very top of
   // the list instead of next to its source, so it looked like "nothing
   // happened" until a refresh. Anchoring updated_at 1s after the source makes
-  // it land immediately above the original — both in the optimistic client
+  // it land immediately above the original - both in the optimistic client
   // insert and after any refetch.
   const srcUpdatedMs = src.updated_at
     ? new Date(src.updated_at).getTime()

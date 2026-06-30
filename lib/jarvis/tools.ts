@@ -221,7 +221,7 @@ export async function executeJarvisTool(
         const summary = eps
           .map(ep => {
             const fm = ep.frontmatter
-            return `[${ep.createdAt.toISOString().slice(0, 10)}] ${fm.title} - ${fm.topics.join(", ") || "—"}`
+            return `[${ep.createdAt.toISOString().slice(0, 10)}] ${fm.title} - ${fm.topics.join(", ") || "-"}`
           })
           .join("\n")
         return {

@@ -116,7 +116,7 @@ export const UsageBillingPanel: FC = () => {
         appUserId: data.appUserId,
         packageId
       })
-      toast.success("Purchase complete — updating your plan…")
+      toast.success("Purchase complete - updating your plan…")
       // The webhook syncs the entitlement; give it a beat, then refetch.
       setTimeout(load, 2500)
     } catch (e) {
@@ -232,7 +232,7 @@ export const UsageBillingPanel: FC = () => {
       <div className="space-y-1">
         <div className="text-ink text-sm font-medium">Plans</div>
         <p className="text-muted text-xs">
-          1 credit ≈ 1,000 AI tokens. Credits cover every AI action — design,
+          1 credit ≈ 1,000 AI tokens. Credits cover every AI action - design,
           literature search, and chat.
         </p>
       </div>

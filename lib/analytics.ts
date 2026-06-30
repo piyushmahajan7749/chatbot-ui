@@ -40,6 +40,6 @@ export function track(event: AnalyticsEvent, props?: TrackProperties): void {
   try {
     vercelTrack(event, props ?? {})
   } catch {
-    // Never throw — analytics must never break the product.
+    // Never throw - analytics must never break the product.
   }
 }

@@ -5,7 +5,7 @@
  * asks the design LLM for "three things worth your attention before
  * tomorrow", returns a structured payload the hero renders.
  *
- * Cached for 6 hours per user — the brief is meant to feel like a
+ * Cached for 6 hours per user - the brief is meant to feel like a
  * morning paper, not a real-time feed. The cache lives in-memory so
  * Vercel's per-region cold-starts get fresh briefs (acceptable cost).
  * If we want consistency across regions / cold-starts, swap the cache
@@ -84,7 +84,7 @@ export async function getDailyBrief(opts: {
 
   const wsId = opts.snapshot.activeWorkspaceId
   const ctxLines: string[] = [
-    `Active workspace: ${opts.snapshot.activeWorkspaceName ?? "—"}`,
+    `Active workspace: ${opts.snapshot.activeWorkspaceName ?? "-"}`,
     `Totals: ${opts.snapshot.totals.designs} designs, ${opts.snapshot.totals.reports} reports, ${opts.snapshot.totals.papers} papers, ${opts.snapshot.totals.chats} chats.`
   ]
   if (opts.snapshot.recentDesigns.length) {
@@ -103,7 +103,7 @@ export async function getDailyBrief(opts: {
     ctxLines.push("Recent memory episodes:")
     for (const ep of recentEpisodes) {
       ctxLines.push(
-        `  - [${ep.createdAt.toISOString().slice(0, 10)}] "${ep.frontmatter.title}" (intent: ${ep.frontmatter.intent}; topics: ${ep.frontmatter.topics.join(", ") || "—"})`
+        `  - [${ep.createdAt.toISOString().slice(0, 10)}] "${ep.frontmatter.title}" (intent: ${ep.frontmatter.intent}; topics: ${ep.frontmatter.topics.join(", ") || "-"})`
       )
     }
   }

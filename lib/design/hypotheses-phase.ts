@@ -1,8 +1,8 @@
 /**
  * Hypothesis-generation phase, extracted from the inline `case "hypotheses"` of
  * app/api/design/[designid]/generate/route.ts so it can run in the Inngest
- * worker (processDesignPhase). It's a 5-stage pipeline — generate → rank →
- * reflect → evolve → meta-review (~32 gpt-5.5 calls) — that can approach the
+ * worker (processDesignPhase). It's a 5-stage pipeline - generate → rank →
+ * reflect → evolve → meta-review (~32 gpt-5.5 calls) - that can approach the
  * 300s serverless cap.
  *
  * Pure: inputs in, content patch out. Progress via the onProgress callback.
@@ -54,7 +54,7 @@ export async function runHypothesesPhase(
     description: [
       ctx.problemStatement || ctx.goal || "",
       ctx.additionalDetails
-        ? `Operating parameters (be specific to these — use concrete concentrations, buffers, temperatures, and ranges, not generic language): ${ctx.additionalDetails}`
+        ? `Operating parameters (be specific to these - use concrete concentrations, buffers, temperatures, and ranges, not generic language): ${ctx.additionalDetails}`
         : ""
     ]
       .filter(Boolean)
@@ -163,7 +163,7 @@ export async function runHypothesesPhase(
         {
           role: "system",
           content: `You are a scientific hypothesis ranking agent. You will receive a numbered list of hypotheses and must score each one from 0-100 based on:
-- Quantitative specificity (35%) — a strong hypothesis names the SPECIFIC variable, direction, magnitude, and conditions (e.g. concentrations with units, temperatures, pH, timepoints). HEAVILY penalise vague, hand-wavy, or purely qualitative statements ("X may improve stability") that lack concrete, testable quantities.
+- Quantitative specificity (35%) - a strong hypothesis names the SPECIFIC variable, direction, magnitude, and conditions (e.g. concentrations with units, temperatures, pH, timepoints). HEAVILY penalise vague, hand-wavy, or purely qualitative statements ("X may improve stability") that lack concrete, testable quantities.
 - Scientific rigor and testability (25%)
 - Feasibility and practicality (20%)
 - Novelty and potential impact (20%)
@@ -298,6 +298,6 @@ Reward hypotheses that read as crisp, falsifiable, quantitative predictions tied
 
   const papers = body.papers ?? existing.papers ?? []
   // Downstream clear (wipe stale designs) is applied by the worker's finalize
-  // step — `undefined` doesn't survive Inngest step serialization.
+  // step - `undefined` doesn't survive Inngest step serialization.
   return { problem: ctx, papers, hypotheses }
 }

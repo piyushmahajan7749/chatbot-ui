@@ -2,7 +2,7 @@
 
 /**
  * Client-side user preferences (Lab standards, Notifications) persisted in
- * localStorage — no DB columns exist for these yet, so they live per-device.
+ * localStorage - no DB columns exist for these yet, so they live per-device.
  * Lab standards are the impactful one: `labStandardsToText` turns them into a
  * directive block injected into the design generation + chat so every output
  * honours the researcher's defaults (the "mastery" config).
@@ -105,17 +105,17 @@ export function labStandardsToText(
     lines.push("Statistics: target α = 0.05 and power ≥ 0.8.")
   else if (ls.statistics === "strict")
     lines.push(
-      "Statistics: strict — target α = 0.01, power ≥ 0.9, with a pre-specified analysis plan and multiple-comparison correction."
+      "Statistics: strict - target α = 0.01, power ≥ 0.9, with a pre-specified analysis plan and multiple-comparison correction."
     )
 
   if (ls.controls === "require")
     lines.push("Always include vehicle, positive, and negative controls.")
 
   if (ls.documentation === "concise")
-    lines.push("Documentation: concise — key steps and values only.")
+    lines.push("Documentation: concise - key steps and values only.")
   else if (ls.documentation === "regulatory")
     lines.push(
-      "Documentation: regulatory / SOP-grade — full detail, explicit acceptance criteria, audit-ready."
+      "Documentation: regulatory / SOP-grade - full detail, explicit acceptance criteria, audit-ready."
     )
 
   if (ls.notes.trim()) lines.push(ls.notes.trim())

@@ -6,7 +6,7 @@
  * structured-output call; the Inngest worker wraps each in its own
  * `step.run(...)` so no single invocation exceeds the limit.
  *
- * Pure: no Firestore, no auth, no request context — inputs in, parsed sections
+ * Pure: no Firestore, no auth, no request context - inputs in, parsed sections
  * out. The azure-openai Proxy still coerces temperature / reasoning_effort /
  * max_completion_tokens.
  */
@@ -98,7 +98,7 @@ export function buildDesignBlocks(
     (ctx as { includeReplicates?: string }).includeReplicates === "yes"
   const replicateDirective = wantsReplicates
     ? `\n\nREPLICATES: The researcher WANTS replicates. Include a sensible biological/technical replicate scheme (state n per group) and factor it into every vial-count, the conditions-table "n" column, all material totals, and the statistical power calculation.`
-    : `\n\nREPLICATES: The researcher does NOT want replicates — design a SINGLE run per condition (n = 1). Do NOT multiply any count by a replicate factor. State plainly in the replicates/conditions field: "No replicates — single run per condition (n = 1)". Every conditions-table "n" column = 1, and all material totals = conditions × 1 × volume-per-sample (dead-volume buffer only, no replicate multiplier). The statistics section must reflect n = 1 (no replicate-based power calc; note the single-run limitation).`
+    : `\n\nREPLICATES: The researcher does NOT want replicates - design a SINGLE run per condition (n = 1). Do NOT multiply any count by a replicate factor. State plainly in the replicates/conditions field: "No replicates - single run per condition (n = 1)". Every conditions-table "n" column = 1, and all material totals = conditions × 1 × volume-per-sample (dead-volume buffer only, no replicate multiplier). The statistics section must reflect n = 1 (no replicate-based power calc; note the single-run limitation).`
 
   const userSuppliedNote = hyp.userSupplied
     ? `\nNOTE: This hypothesis was provided directly by the researcher. Treat it as a fixed input - do NOT rewrite, soften, or re-scope it. Design the experiment around it exactly as written.`
@@ -108,7 +108,7 @@ export function buildDesignBlocks(
 
   // Researcher-supplied operating parameters (mandatory Problem field) +
   // pre-generation design spec (molecule concentration, condition count,
-  // notes). These are AUTHORITATIVE — the design must use these exact numbers,
+  // notes). These are AUTHORITATIVE - the design must use these exact numbers,
   // not invent generic placeholders.
   const additional = (ctx.additionalDetails || "").trim()
   const spec = ctx.designSpec
@@ -125,14 +125,14 @@ export function buildDesignBlocks(
     .join("\n")
   const directivesBlock =
     additional || specLines
-      ? `\n\nRESEARCHER-SUPPLIED SPECIFICS (authoritative for the DESIGN — use these EXACT values; do not substitute generic placeholders, and do not leave ranges vague). These cover working concentrations, stock concentrations, how much material is available (use it to bound condition counts + material calcs), and any specific conditions to incorporate (e.g. stress temperatures, rotation/agitation speed):${additional ? `\nOperating parameters: ${additional}` : ""}${specLines ? `\n${specLines}` : ""}`
+      ? `\n\nRESEARCHER-SUPPLIED SPECIFICS (authoritative for the DESIGN - use these EXACT values; do not substitute generic placeholders, and do not leave ranges vague). These cover working concentrations, stock concentrations, how much material is available (use it to bound condition counts + material calcs), and any specific conditions to incorporate (e.g. stress temperatures, rotation/agitation speed):${additional ? `\nOperating parameters: ${additional}` : ""}${specLines ? `\n${specLines}` : ""}`
       : ""
 
   // A stated number of conditions/runs is an UPPER BOUND (a budget), not a
-  // target — unless the researcher explicitly said "exactly N".
-  const conditionsCeilingNote = `\n\nCONDITION COUNT: If the researcher gives a maximum number of conditions / runs, treat it as an UPPER BOUND ("up to N") — a budget, NOT a quota. Use the SMALLEST well-chosen condition set that cleanly tests the hypothesis; only approach the maximum when the extra arms are scientifically justified. Do not pad the design with filler conditions to hit the number. Only design exactly N conditions when the researcher explicitly said "exactly N".`
+  // target - unless the researcher explicitly said "exactly N".
+  const conditionsCeilingNote = `\n\nCONDITION COUNT: If the researcher gives a maximum number of conditions / runs, treat it as an UPPER BOUND ("up to N") - a budget, NOT a quota. Use the SMALLEST well-chosen condition set that cleanly tests the hypothesis; only approach the maximum when the extra arms are scientifically justified. Do not pad the design with filler conditions to hit the number. Only design exactly N conditions when the researcher explicitly said "exactly N".`
 
-  const formatDirective = `\n\nOUTPUT FORMATTING (strict — optimise for at-a-glance readability, not walls of text):\n- Write every procedure / list as DISTINCT point-wise lines. NEVER pack multiple actions into one run-on sentence. If a step has branches, split them into their own numbered sub-lines (4a, 4b, 4c …), one action per line.\n- Use Markdown TABLES wherever data is tabular — the conditions matrix, material quantities, and especially CALCULATIONS. A reader should follow the logic by scanning columns, not parsing prose.\n- Conditions table: well-formed Markdown table, header row, one row per arm, all numbers with units, explicit baseline + control rows.\n- Calculations: present each as a compact table (e.g. \`| Quantity | Value | How it's derived |\`) OR as short labelled lines — one arithmetic step per row, numbers + units, and a brief note on where each number comes from (e.g. moles = 0.020 M × 0.250 L = 5.0e-3 mol — "20 mM target × 250 mL batch"). Never bury a calculation inside a paragraph, and never give a bare result without its derivation. Keep surrounding prose to one short lead-in sentence per block.`
+  const formatDirective = `\n\nOUTPUT FORMATTING (strict - optimise for at-a-glance readability, not walls of text):\n- Write every procedure / list as DISTINCT point-wise lines. NEVER pack multiple actions into one run-on sentence. If a step has branches, split them into their own numbered sub-lines (4a, 4b, 4c …), one action per line.\n- Use Markdown TABLES wherever data is tabular - the conditions matrix, material quantities, and especially CALCULATIONS. A reader should follow the logic by scanning columns, not parsing prose.\n- Conditions table: well-formed Markdown table, header row, one row per arm, all numbers with units, explicit baseline + control rows.\n- Calculations: present each as a compact table (e.g. \`| Quantity | Value | How it's derived |\`) OR as short labelled lines - one arithmetic step per row, numbers + units, and a brief note on where each number comes from (e.g. moles = 0.020 M × 0.250 L = 5.0e-3 mol - "20 mM target × 250 mL batch"). Never bury a calculation inside a paragraph, and never give a bare result without its derivation. Keep surrounding prose to one short lead-in sentence per block.`
 
   const problemBlock =
     `Research problem: ${[ctx.title, ctx.problemStatement].filter(Boolean).join(" - ")}\nGoal: ${ctx.goal || "Not specified"}\nVariables: ${((ctx as { variables?: string[] }).variables ?? []).join(", ") || "Not specified"}\nConstraints: ${((ctx as { constraints?: string[] }).constraints ?? []).join(", ") || "Not specified"}` +
@@ -166,13 +166,13 @@ Fields to produce:
 
 - **whatWillBeTested** - one short paragraph stating the concrete test objective, then a bulleted list of the 2–4 specific variables / factors being manipulated.
 - **whatWillBeMeasured** - bullet list. Each bullet: \`**Readout** - method - unit - expected range\`.
-- **controlGroups** - bullet list. Each bullet: \`**Control name** — what it isolates / why it's needed\`. PURPOSE only — do NOT restate the full per-arm value matrix (that lives in the Conditions Table downstream).
-- **experimentalGroups** - bullet list. Each bullet: \`**Group name** — what it tests — expected effect\`. PURPOSE only — exact factor values go in the Conditions Table, not here.
+- **controlGroups** - bullet list. Each bullet: \`**Control name** - what it isolates / why it's needed\`. PURPOSE only - do NOT restate the full per-arm value matrix (that lives in the Conditions Table downstream).
+- **experimentalGroups** - bullet list. Each bullet: \`**Group name** - what it tests - expected effect\`. PURPOSE only - exact factor values go in the Conditions Table, not here.
 - **sampleTypes** - bulleted. Describe sample matrix, concentration, container (material, volume, cap type), aliquot strategy.
-- **replicatesAndConditions** - ONE or two bullets: the replicate scheme (n per group, biological vs technical) and any blocking / randomization. Example: \`n = 3 biological per arm; arms randomized across 2 incubator shelves\`. This feeds the Conditions Table's n column — keep it to the scheme, not a full enumeration.
+- **replicatesAndConditions** - ONE or two bullets: the replicate scheme (n per group, biological vs technical) and any blocking / randomization. Example: \`n = 3 biological per arm; arms randomized across 2 incubator shelves\`. This feeds the Conditions Table's n column - keep it to the scheme, not a full enumeration.
 - **specificRequirements** - anything out-of-ordinary: BSL level, cold-chain, light-sensitive handling, certified reference standards, specific instrument calibration. Bullet list with bold hazard / requirement class.
 
-Do not output plain paragraphs. Every field uses bullets and/or bolded labels. SCOPE — do not duplicate across fields: controls/experimental groups state PURPOSE; the per-arm numbers belong in the Conditions Table (written later).`
+Do not output plain paragraphs. Every field uses bullets and/or bolded labels. SCOPE - do not duplicate across fields: controls/experimental groups state PURPOSE; the per-arm numbers belong in the Conditions Table (written later).`
       },
       {
         role: "user",
@@ -208,7 +208,7 @@ export async function genMaterials(
    - Include every buffer, excipient, consumable, and sample-handling item needed end-to-end.
    - After the table, add a bullet list **"Raw-material totals"** consolidating bulk-ordered items (e.g. *L-arginine·HCl powder: ~12 g covering all formulation prep + 2× overage*).
 
-3. **materialPreparation** - For EACH buffer, stock solution, or reagent that must be prepared, write a Markdown sub-section. Keep prose minimal — put the numbers in a TABLE so the logic is scannable. Use exactly this shape:
+3. **materialPreparation** - For EACH buffer, stock solution, or reagent that must be prepared, write a Markdown sub-section. Keep prose minimal - put the numbers in a TABLE so the logic is scannable. Use exactly this shape:
    \`### Buffer name (e.g. 20 mM Histidine, pH 6.0)\`
    One short lead-in line (target conc / pH / volume needed). Then a **calculation table**:
    \`| Quantity | Value | How it's derived |\`
@@ -222,13 +222,13 @@ export async function genMaterials(
      3. Titrate to pH 6.0 at 25 °C with 1 N HCl (expect ~3–4 mL).
      4. QS to 250 mL with WFI. Invert 10× to mix.
      5. Filter through 0.22 µm PES. Label (date + initials + lot). Store 2–8 °C, use within 14 days.
-   One subsection per buffer/reagent. Every derived number must show its derivation in the table — never a bare value, and never a wall of prose.
+   One subsection per buffer/reagent. Every derived number must show its derivation in the table - never a bare value, and never a wall of prose.
 
-4. **setupInstructions** - Numbered Markdown list of WORKSTATION / INSTRUMENT setup ONLY (balance calibration, pH-meter cal, biosafety cabinet setup, vial labeling scheme, temperature blocks). Each step has a bolded lead-in verb. Do NOT include reagent/buffer preparation (that's materialPreparation) or the run-time experimental steps (that's the procedure) — equipment readiness only.
+4. **setupInstructions** - Numbered Markdown list of WORKSTATION / INSTRUMENT setup ONLY (balance calibration, pH-meter cal, biosafety cabinet setup, vial labeling scheme, temperature blocks). Each step has a bolded lead-in verb. Do NOT include reagent/buffer preparation (that's materialPreparation) or the run-time experimental steps (that's the procedure) - equipment readiness only.
 
 5. **storageDisposal** - Markdown bullets. For each material class: storage condition, container type, disposal stream (e.g. *Aqueous biowaste - 10% bleach, 30-min soak, rinse down sink; log in biohazard register*). Use bold labels.
 
-SCOPE — do not repeat across fields: **materialPreparation** is recipes/calculations for making reagents; **setupInstructions** is instrument/bench readiness only. Neither restates the chronological run (that's the Step-by-Step Procedure, written later). Never use placeholder text like "TBD" - if a spec is reasonable to infer, infer it and mark the assumption.`
+SCOPE - do not repeat across fields: **materialPreparation** is recipes/calculations for making reagents; **setupInstructions** is instrument/bench readiness only. Neither restates the chronological run (that's the Step-by-Step Procedure, written later). Never use placeholder text like "TBD" - if a spec is reasonable to infer, infer it and mark the assumption.`
       },
       {
         role: "user",
@@ -256,7 +256,7 @@ export async function genProtocol(
         role: "system",
         content: `You are an experimental protocol writer producing SOP-grade Markdown. All three fields must be scannable and copy-exec ready.
 
-- **stepByStepProcedure** - the chronological RUN as a single numbered Markdown list. Each step begins with a **bold imperative verb** ("**Dissolve**", "**Filter**", "**Incubate**", "**Aliquot**") followed by concrete quantities + times + temperatures + equipment. Group steps under Markdown sub-headings like \`### Day 1 - Formulation\`, \`### Day 3–28 - Stress incubation\`, \`### Day 28 - Readouts\`. When a step has multiple actions or branches, ALWAYS split them into separate sub-step lines (\`4a.\`, \`4b.\`, \`4c.\` …) — each on its OWN line, one action per line. NEVER combine several actions into one run-on sentence. Include a short **"Checkpoint"** bold callout after each major phase. IMPORTANT — do NOT repeat content from earlier sections: refer to prepared reagents BY NAME ("the 20 mM histidine buffer prepared in Material Preparation") instead of re-deriving their recipes, and assume equipment was readied per Setup. This section is the run, not a re-statement of prep.
+- **stepByStepProcedure** - the chronological RUN as a single numbered Markdown list. Each step begins with a **bold imperative verb** ("**Dissolve**", "**Filter**", "**Incubate**", "**Aliquot**") followed by concrete quantities + times + temperatures + equipment. Group steps under Markdown sub-headings like \`### Day 1 - Formulation\`, \`### Day 3–28 - Stress incubation\`, \`### Day 28 - Readouts\`. When a step has multiple actions or branches, ALWAYS split them into separate sub-step lines (\`4a.\`, \`4b.\`, \`4c.\` …) - each on its OWN line, one action per line. NEVER combine several actions into one run-on sentence. Include a short **"Checkpoint"** bold callout after each major phase. IMPORTANT - do NOT repeat content from earlier sections: refer to prepared reagents BY NAME ("the 20 mM histidine buffer prepared in Material Preparation") instead of re-deriving their recipes, and assume equipment was readied per Setup. This section is the run, not a re-statement of prep.
 
 - **timeline** - Markdown table:
   \`| Day | Activity | Duration | Notes |\`

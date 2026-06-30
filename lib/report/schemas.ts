@@ -1,7 +1,7 @@
 /**
  * Structured-output schemas for the report-generation pipeline
- * (app/api/report/outline). Extracted so the report's output CONTRACT — the
- * sections every generated report must contain — is unit-tested and can't
+ * (app/api/report/outline). Extracted so the report's output CONTRACT - the
+ * sections every generated report must contain - is unit-tested and can't
  * silently drift. The route imports these for its agents' `zodResponseFormat`.
  */
 import { z } from "zod"

@@ -4,7 +4,7 @@ import { useEffect } from "react"
 import { useParams, useRouter } from "next/navigation"
 
 /**
- * The standalone Library was removed from the streamlined sidebar — saved papers
+ * The standalone Library was removed from the streamlined sidebar - saved papers
  * now live under each project's Files tab (Saved papers sub-tab). Redirect any
  * old link to the projects list.
  */

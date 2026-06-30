@@ -4,12 +4,12 @@ import Link from "next/link"
 import { BLOG_POSTS } from "@/lib/blog/posts"
 
 export const metadata: Metadata = {
-  title: "Blog — Experiment Design & AI for Life Sciences Researchers",
+  title: "Blog - Experiment Design & AI for Life Sciences Researchers",
   description:
     "Practical guides on experiment design, hypothesis generation, statistical power, AI tools, and reproducibility for PhD researchers, postdocs, and lab scientists in life sciences.",
   alternates: { canonical: "/blog" },
   openGraph: {
-    title: "Shadow AI Blog — Life Sciences Research Guides",
+    title: "Shadow AI Blog - Life Sciences Research Guides",
     description:
       "Practical guides on experiment design, AI tools, and reproducibility for life sciences researchers."
   }
@@ -98,7 +98,7 @@ export default function BlogIndexPage() {
           </p>
           <p className="text-ink-500 mb-5 text-[14px]">
             Shadow AI turns your research question into a complete, run-ready
-            experiment plan — literature, hypotheses, protocol included. Free to
+            experiment plan - literature, hypotheses, protocol included. Free to
             start.
           </p>
           <Link

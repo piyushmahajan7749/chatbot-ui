@@ -223,10 +223,10 @@ function toSearchResult(doc: PaperFinderDocument): SearchResult | null {
     getFirstString(candidates, "journal", "publication", "venue", "source") ||
     undefined
   // Source-tag resolution order:
-  //   1. origins[0].provider     — set explicitly by paper-finder for
+  //   1. origins[0].provider     - set explicitly by paper-finder for
   //      OpenAlex docs ("openalex"). NULL for S2 docs - their provider
   //      is implicit in the query_type.
-  //   2. origins[0].query_type   — the retrieval arm:
+  //   2. origins[0].query_type   - the retrieval arm:
   //        - "dense"                          → S2 snippet search
   //        - "s2_relevance_search"            → S2 paper_search
   //        - "s2_bulk_search" / "s2_title_*"  → S2 variants
@@ -466,7 +466,7 @@ function normalizeNumber(value: any): number | undefined {
 function normalizeSource(raw?: string | null): SearchResult["source"] {
   if (!raw) return "scholar"
   const value = raw.toLowerCase()
-  // OpenAlex first — its query_type "openalex_search" + provider
+  // OpenAlex first - its query_type "openalex_search" + provider
   // "openalex" both contain "openalex". Match the work-ID URL too.
   if (value.includes("openalex")) return "openalex"
   // PubMed: query_type "pubmed_search" + provider "pubmed".

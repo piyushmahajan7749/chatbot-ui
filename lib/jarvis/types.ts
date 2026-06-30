@@ -1,6 +1,6 @@
 /**
  * Shared types for the Jarvis memory layer. Mirrors the schema from
- * docs/markdown-vault-memory-guide.md — kept here so the rest of the
+ * docs/markdown-vault-memory-guide.md - kept here so the rest of the
  * app can import without pulling in `js-yaml` or the storage adapter.
  */
 

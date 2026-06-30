@@ -360,10 +360,10 @@ function buildSystemPrompt(opts: {
           .map(ep => {
             const fm = ep.frontmatter
             const when = ep.createdAt.toISOString().slice(0, 10)
-            const topics = fm.topics.join(", ") || "—"
+            const topics = fm.topics.join(", ") || "-"
             const excerpt = ep.body.slice(0, 500).replace(/\n+/g, " ").trim()
             let block =
-              `\n— ${when} · ${fm.title} ` +
+              `\n- ${when} · ${fm.title} ` +
               `(intent: ${fm.intent} · topics: ${topics} · priority: ${fm.priority})\n` +
               `  ${excerpt}`
             if (fm.breakthrough_quote) {

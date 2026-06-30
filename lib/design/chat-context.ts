@@ -61,7 +61,7 @@ export function buildDesignChatContext(input: DesignChatContextInput): string {
 
   // Researcher-set presets are AUTHORITATIVE. The chat must honour them and,
   // crucially, must not silently override one (e.g. a stated "8 conditions
-  // only" cap) — see the override-confirmation rule in the patch instructions.
+  // only" cap) - see the override-confirmation rule in the patch instructions.
   if (input.presets?.trim()) {
     lines.push(
       "",

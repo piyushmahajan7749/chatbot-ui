@@ -16,12 +16,12 @@
 --                 marks the referral converted. Renewals are no-ops.
 --
 -- Influencer "explore" access is granted out-of-band by an admin (a comp Max
--- plan — see billing_accounts.is_comp below and app/api/admin/*). Viewer
+-- plan - see billing_accounts.is_comp below and app/api/admin/*). Viewer
 -- discounts are delivered as granted bonus credits, NOT a price cut, so this
 -- layer has no dependency on RevenueCat/Stripe promo-code support.
 
 -- ---------------------------------------------------------------------------
--- billing_accounts.is_comp — distinguishes an admin-comped plan (e.g. an
+-- billing_accounts.is_comp - distinguishes an admin-comped plan (e.g. an
 -- influencer on Max for free) from a genuinely paid subscription, so reporting
 -- and the webhook can tell them apart. Comp plans have no RevenueCat
 -- subscription, so no EXPIRATION webhook ever downgrades them.
@@ -158,7 +158,7 @@ BEGIN
   END IF;
 
   IF ref.status <> 'signed_up' THEN
-    RETURN NULL; -- already converted/reversed — idempotent no-op
+    RETURN NULL; -- already converted/reversed - idempotent no-op
   END IF;
 
   -- Grant the viewer's bonus credits (persistent top-up balance). Ensure a

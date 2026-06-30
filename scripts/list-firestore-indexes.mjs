@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // List currently-deployed Firestore composite indexes for the project.
-// Uses the service-account creds from .env.local — listing only requires
+// Uses the service-account creds from .env.local - listing only requires
 // the runtime "Cloud Datastore User" role, which the existing SA has.
 
 import { readFileSync } from "node:fs"

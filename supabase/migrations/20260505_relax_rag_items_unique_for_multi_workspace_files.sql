@@ -1,5 +1,5 @@
 -- Files (legacy `files` table) can belong to multiple workspaces via the
--- `file_workspaces` join — when we backfill them into `rag_items` we
+-- `file_workspaces` join - when we backfill them into `rag_items` we
 -- emit one row per (file_id, workspace_id) pair so each workspace sees
 -- the chunks under its own tenancy filter.
 --

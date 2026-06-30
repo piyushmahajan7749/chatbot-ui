@@ -11,7 +11,7 @@ import { emitRagDocChanged } from "@/lib/rag/emit"
  * POST /api/design/[designid]/apply-patch
  *
  * Applies a chat-proposed `<design-patch>` to the design's stored content and
- * persists it — server-side and authoritative. This lets the "Approve & apply"
+ * persists it - server-side and authoritative. This lets the "Approve & apply"
  * button work from ANYWHERE the chat is shown (the in-design rail OR the
  * full-screen chat page, where the design page isn't mounted to catch a window
  * event). Returns the updated designs so an open editor can sync live.

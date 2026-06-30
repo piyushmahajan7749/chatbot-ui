@@ -22,7 +22,7 @@ export const AppLayout = ({ children }: AppLayoutProps) => {
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false)
   const pathname = usePathname()
   // When inside a design detail page the page provides its own left chat panel
-  // and right library sidebar — hide the workspace nav sidebar + tutorial button.
+  // and right library sidebar - hide the workspace nav sidebar + tutorial button.
   const isDesignDetail = /\/designs\/[^/]+/.test(pathname ?? "")
 
   useEffect(() => {
@@ -73,7 +73,7 @@ export const AppLayout = ({ children }: AppLayoutProps) => {
         />
       )}
 
-      {/* Sidebar — hidden on design detail pages (page has its own left chat panel) */}
+      {/* Sidebar - hidden on design detail pages (page has its own left chat panel) */}
       {!isDesignDetail && (
         <div
           className={cn(
@@ -105,7 +105,7 @@ export const AppLayout = ({ children }: AppLayoutProps) => {
 
       <GlobalSearch />
       <GuidedTour />
-      {/* Tutorial button hidden on design detail pages — no room and no need. */}
+      {/* Tutorial button hidden on design detail pages - no room and no need. */}
       {!isDesignDetail && <TutorialButton />}
     </div>
   )

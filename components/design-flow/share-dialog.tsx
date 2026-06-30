@@ -236,14 +236,14 @@ export default function ShareDialog({
         return [data.collaborator, ...next]
       })
       // The collaborator now HAS access (the permission row is the source of
-      // truth). Only claim the email was sent if it actually was — otherwise
+      // truth). Only claim the email was sent if it actually was - otherwise
       // tell the user to share the link, so a silent Resend failure doesn't
       // read as success.
       if (data.emailDelivered) {
         toast.success(
           data.collaborator.user_id
             ? `Invited ${email}`
-            : `Invite emailed to ${email} — they'll get access after signing up with that address`
+            : `Invite emailed to ${email} - they'll get access after signing up with that address`
         )
       } else {
         toast.warning(

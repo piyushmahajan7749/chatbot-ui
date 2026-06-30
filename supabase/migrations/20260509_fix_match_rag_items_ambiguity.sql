@@ -2,7 +2,7 @@
 -- via RETURNS TABLE that share names with inner-query columns (`id`,
 -- `source_type`, etc.). plpgsql resolves bare references against the
 -- nearest-bound name and raises:
---   "column reference \"id\" is ambiguous — could refer to a PL/pgSQL
+--   "column reference \"id\" is ambiguous - could refer to a PL/pgSQL
 --   variable or a table column"
 --
 -- Fix: tell plpgsql to prefer column references when there's a name

@@ -197,7 +197,7 @@ export async function findStaleDocs(): Promise<StaleDocRef[]> {
 
   // NOTE: `file` / `project_file` sources are intentionally NOT swept here.
   // They can only be (re)indexed inline via /api/retrieval/process, which holds
-  // the extracted text — indexDoc() throws for them on the rag.doc.changed path.
+  // the extracted text - indexDoc() throws for them on the rag.doc.changed path.
   // Emitting changed-events for stale files just produced unservable events that
   // failed + retried forever ("indexDoc(file) requires a precomputed
   // ExtractorResult"). A stale/failed file is re-indexed on its next upload/

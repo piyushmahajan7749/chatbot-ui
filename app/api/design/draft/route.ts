@@ -22,7 +22,7 @@ export async function POST(req: Request) {
     if (auth.response) return auth.response
     const user = auth.user
 
-    // Block enqueueing a research plan if the user is out of credits — the
+    // Block enqueueing a research plan if the user is out of credits - the
     // background pipeline (lib/inngest/functions.ts) is the heaviest AI path.
     try {
       await assertBudget(user.id)

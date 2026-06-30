@@ -14,7 +14,7 @@ import { recordReferralConversion } from "@/lib/affiliate/service"
  * the subscriber's entitlements into billing_accounts. Idempotent and
  * defensive: any unhandled event is acknowledged with `ignored: true` so
  * RevenueCat doesn't retry forever. Configure the URL + Authorization secret
- * (REVENUECAT_WEBHOOK_AUTH) in the RevenueCat dashboard — see BILLING.md.
+ * (REVENUECAT_WEBHOOK_AUTH) in the RevenueCat dashboard - see BILLING.md.
  */
 export async function POST(req: Request) {
   let admin: ReturnType<typeof getBillingAdminClient> | null = null
@@ -43,7 +43,7 @@ export async function POST(req: Request) {
     // Idempotency: claim this RevenueCat event id exactly once. A duplicate
     // delivery / retry hits the unique constraint and is skipped here, so an
     // additive credit top-up can't double-apply. (Cast: the ledger table isn't
-    // in the generated Database types yet — see the 20260611 migration.) If
+    // in the generated Database types yet - see the 20260611 migration.) If
     // processing later fails, the claim is released in catch so a real retry
     // can re-process.
     const eventId = typeof event.id === "string" ? event.id : null

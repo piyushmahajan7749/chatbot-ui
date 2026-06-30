@@ -9,7 +9,7 @@ type MessageLike = { role?: string; content?: unknown }
  * don't carry exact `usage` through the `ai` library, so tokens are ESTIMATED:
  * prompt from the input messages, completion from the final assembled text.
  * Fires in `onFinal`, which runs while the function is still alive serving the
- * stream. Best-effort — recordUsage never throws.
+ * stream. Best-effort - recordUsage never throws.
  */
 export function streamMeterCallbacks(ctx: {
   userId: string

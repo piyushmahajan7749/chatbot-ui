@@ -7,7 +7,7 @@
  * to it. Steps without a target render the tooltip centered on the viewport
  * (used for the intro / outro slides).
  *
- * Designed to be re-triggerable later from a Help menu — the consumer
+ * Designed to be re-triggerable later from a Help menu - the consumer
  * controls `open` and persists "viewed" state itself, so this component is
  * stateless apart from the current step index.
  *
@@ -105,7 +105,7 @@ export function TourOverlay({ steps, open, onClose }: TourOverlayProps) {
   if (!open || !step) return null
 
   // Compute the cutout box (target bounds + padding). Null if no target or
-  // target wasn't found — we fall back to a plain centered modal.
+  // target wasn't found - we fall back to a plain centered modal.
   const cutout = rect
     ? {
         top: rect.top - SPOTLIGHT_PADDING,

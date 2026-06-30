@@ -6,7 +6,7 @@
  * Collects the inputs needed to spin a report off a design:
  *  1. Template (mandatory, shown first)
  *  2. Objective (pre-filled from the design's objective, editable)
- *  3. Three upload slots (protocol / reference docs / data) — the parent
+ *  3. Three upload slots (protocol / reference docs / data) - the parent
  *     design already supplies the method + literature context, so only the
  *     data files are mandatory.
  *
@@ -15,7 +15,7 @@
  *  - Generate: run the AI data-completeness check; if the uploaded data
  *    doesn't cover the design's intended measurements, block with the
  *    "I do not have the complete data set" warning. Otherwise create the
- *    report in a "generating" state and open it — the report page resumes
+ *    report in a "generating" state and open it - the report page resumes
  *    generation and streams in the draft.
  */
 
@@ -225,7 +225,7 @@ export const GenerateReportModal: FC<GenerateReportModalProps> = ({
 
   const baseReportPayload = (generationStatus: "idle" | "generating") => ({
     user_id: profile!.user_id,
-    name: design?.name ? `${design.name} — report` : "Untitled report",
+    name: design?.name ? `${design.name} - report` : "Untitled report",
     description: objective.trim(),
     sharing: "private",
     source_design_id: design?.id ?? null,
@@ -294,7 +294,7 @@ export const GenerateReportModal: FC<GenerateReportModalProps> = ({
         return
       }
 
-      // 2) Create the report in a generating state and open it — the report
+      // 2) Create the report in a generating state and open it - the report
       //    page resumes generation from here.
       const report = await createReport(
         baseReportPayload("generating"),
@@ -326,7 +326,7 @@ export const GenerateReportModal: FC<GenerateReportModalProps> = ({
         </DialogHeader>
 
         <div className="space-y-5 py-1">
-          {/* 1 — Template (mandatory, first) */}
+          {/* 1 - Template (mandatory, first) */}
           <div className="space-y-2">
             <Label className="text-[12.5px]">
               Template <span className="text-red-500">*</span>
@@ -364,7 +364,7 @@ export const GenerateReportModal: FC<GenerateReportModalProps> = ({
             </div>
           </div>
 
-          {/* 2 — Objective (pre-filled from design) */}
+          {/* 2 - Objective (pre-filled from design) */}
           <div className="space-y-1.5">
             <Label className="text-[12.5px]">
               Objective <span className="text-red-500">*</span>
@@ -377,11 +377,11 @@ export const GenerateReportModal: FC<GenerateReportModalProps> = ({
               disabled={busy !== null}
             />
             <p className="text-ink-400 text-[11px]">
-              Pre-filled from the design&apos;s objective — edit if needed.
+              Pre-filled from the design&apos;s objective - edit if needed.
             </p>
           </div>
 
-          {/* 3 — Uploads. The design supplies method + literature context, so
+          {/* 3 - Uploads. The design supplies method + literature context, so
               only data files are mandatory. */}
           <div className="border-line bg-paper-2/60 text-ink-2 rounded-lg border p-3 text-[11.5px]">
             The design supplies the method and literature context for this

@@ -30,7 +30,7 @@ export const BLOG_POSTS: BlogPost[] = [
     seoTitle:
       "How to Design a Drug Discovery Experiment (2025 Step-by-Step Guide)",
     description:
-      "A practical, step-by-step guide to designing drug discovery experiments — from defining the biological target to writing a reproducible protocol. Includes checklists for hit identification, lead optimisation, and ADMET assays.",
+      "A practical, step-by-step guide to designing drug discovery experiments - from defining the biological target to writing a reproducible protocol. Includes checklists for hit identification, lead optimisation, and ADMET assays.",
     publishedAt: "2025-06-10",
     readTimeMin: 9,
     tags: [
@@ -45,7 +45,7 @@ export const BLOG_POSTS: BlogPost[] = [
     sections: [
       {
         type: "p",
-        text: "Designing a drug discovery experiment is one of the highest-stakes tasks in life sciences research. A poorly designed assay wastes months of effort; a well-structured one provides clear, reproducible data that moves a compound through the pipeline. This guide walks through every stage — from framing your biological question to writing a protocol your whole lab can follow."
+        text: "Designing a drug discovery experiment is one of the highest-stakes tasks in life sciences research. A poorly designed assay wastes months of effort; a well-structured one provides clear, reproducible data that moves a compound through the pipeline. This guide walks through every stage - from framing your biological question to writing a protocol your whole lab can follow."
       },
       {
         type: "h2",
@@ -79,10 +79,10 @@ export const BLOG_POSTS: BlogPost[] = [
       {
         type: "ul",
         items: [
-          "Biochemical assays (enzymatic inhibition, binding) — high throughput, low false-positive rate, limited for membrane proteins",
-          "Cell-based assays (reporter gene, cytotoxicity, phenotypic) — physiologically relevant, but more complex to control",
-          "Biophysical assays (SPR, ITC, DSF) — direct binding information, no requirement for enzymatic activity",
-          "Target-engagement assays (NanoBRET, CETSA) — intracellular binding confirmation in live cells"
+          "Biochemical assays (enzymatic inhibition, binding) - high throughput, low false-positive rate, limited for membrane proteins",
+          "Cell-based assays (reporter gene, cytotoxicity, phenotypic) - physiologically relevant, but more complex to control",
+          "Biophysical assays (SPR, ITC, DSF) - direct binding information, no requirement for enzymatic activity",
+          "Target-engagement assays (NanoBRET, CETSA) - intracellular binding confirmation in live cells"
         ]
       },
       {
@@ -100,10 +100,10 @@ export const BLOG_POSTS: BlogPost[] = [
       {
         type: "ul",
         items: [
-          "Positive control — a known active compound at a saturating concentration to confirm assay sensitivity",
-          "Negative control — vehicle (typically DMSO at matched concentration) to set the baseline",
-          "Blank control — assay components without target or cells, to measure background signal",
-          "Counter-screen control — for assays prone to fluorescence interference (compound-only, no enzyme)"
+          "Positive control - a known active compound at a saturating concentration to confirm assay sensitivity",
+          "Negative control - vehicle (typically DMSO at matched concentration) to set the baseline",
+          "Blank control - assay components without target or cells, to measure background signal",
+          "Counter-screen control - for assays prone to fluorescence interference (compound-only, no enzyme)"
         ]
       },
       {
@@ -124,7 +124,7 @@ export const BLOG_POSTS: BlogPost[] = [
       },
       {
         type: "p",
-        text: "A reproducible drug discovery experiment requires a complete, written protocol before the first well is plated. This is not bureaucracy — it is the only way to ensure another scientist in your lab can replicate your work, and it forces you to think through every step in advance."
+        text: "A reproducible drug discovery experiment requires a complete, written protocol before the first well is plated. This is not bureaucracy - it is the only way to ensure another scientist in your lab can replicate your work, and it forces you to think through every step in advance."
       },
       {
         type: "ul",
@@ -141,7 +141,7 @@ export const BLOG_POSTS: BlogPost[] = [
       },
       {
         type: "p",
-        text: "One of the most expensive mistakes in drug discovery is deferring ADMET (absorption, distribution, metabolism, excretion, toxicity) profiling until after a compound series has been extensively optimised for potency. Building basic ADMET flags — solubility, microsomal stability, Caco-2 permeability — into your hit-to-lead workflow avoids optimising yourself into a corner."
+        text: "One of the most expensive mistakes in drug discovery is deferring ADMET (absorption, distribution, metabolism, excretion, toxicity) profiling until after a compound series has been extensively optimised for potency. Building basic ADMET flags - solubility, microsomal stability, Caco-2 permeability - into your hit-to-lead workflow avoids optimising yourself into a corner."
       },
       {
         type: "h2",
@@ -149,11 +149,11 @@ export const BLOG_POSTS: BlogPost[] = [
       },
       {
         type: "p",
-        text: "Designing a drug discovery experiment that hits all of the above checkpoints from scratch takes an experienced scientist hours. AI tools like Shadow AI compress this to minutes — given your biological question, they scout the relevant literature, surface assay formats that have worked for similar targets, generate a hypothesis-driven experimental design, and produce a complete step-by-step protocol you can take straight to the bench."
+        text: "Designing a drug discovery experiment that hits all of the above checkpoints from scratch takes an experienced scientist hours. AI tools like Shadow AI compress this to minutes - given your biological question, they scout the relevant literature, surface assay formats that have worked for similar targets, generate a hypothesis-driven experimental design, and produce a complete step-by-step protocol you can take straight to the bench."
       },
       {
         type: "callout",
-        text: "Shadow AI is purpose-built for life sciences researchers. Describe your drug discovery question and get a structured experiment design — including controls, replication strategy, and protocol — in minutes. Free to try."
+        text: "Shadow AI is purpose-built for life sciences researchers. Describe your drug discovery question and get a structured experiment design - including controls, replication strategy, and protocol - in minutes. Free to try."
       }
     ]
   },
@@ -165,9 +165,9 @@ export const BLOG_POSTS: BlogPost[] = [
     slug: "ai-tools-for-phd-researchers-life-sciences",
     title: "10 AI Tools Every Life Sciences PhD Researcher Should Know in 2025",
     seoTitle:
-      "10 AI Tools for Life Sciences PhD Researchers (2025) — Experiment Design to Writing",
+      "10 AI Tools for Life Sciences PhD Researchers (2025) - Experiment Design to Writing",
     description:
-      "A curated list of the best AI tools for PhD researchers in life sciences — covering experiment design, literature review, data analysis, writing, and lab management. Includes honest trade-offs for each tool.",
+      "A curated list of the best AI tools for PhD researchers in life sciences - covering experiment design, literature review, data analysis, writing, and lab management. Includes honest trade-offs for each tool.",
     publishedAt: "2025-06-12",
     readTimeMin: 8,
     tags: [
@@ -182,11 +182,11 @@ export const BLOG_POSTS: BlogPost[] = [
     sections: [
       {
         type: "p",
-        text: "The AI tooling landscape for life sciences researchers has exploded. There are now AI tools for almost every step of the research process — from designing experiments and reviewing literature to writing manuscripts and managing lab data. This guide cuts through the noise and focuses on the tools that PhD researchers in molecular biology, biochemistry, drug discovery, and adjacent fields are actually using and finding valuable."
+        text: "The AI tooling landscape for life sciences researchers has exploded. There are now AI tools for almost every step of the research process - from designing experiments and reviewing literature to writing manuscripts and managing lab data. This guide cuts through the noise and focuses on the tools that PhD researchers in molecular biology, biochemistry, drug discovery, and adjacent fields are actually using and finding valuable."
       },
       {
         type: "h2",
-        text: "1. Shadow AI — Experiment Design and Protocol Generation"
+        text: "1. Shadow AI - Experiment Design and Protocol Generation"
       },
       {
         type: "p",
@@ -198,7 +198,7 @@ export const BLOG_POSTS: BlogPost[] = [
       },
       {
         type: "h2",
-        text: "2. Semantic Scholar — AI-Powered Literature Search"
+        text: "2. Semantic Scholar - AI-Powered Literature Search"
       },
       {
         type: "p",
@@ -206,23 +206,23 @@ export const BLOG_POSTS: BlogPost[] = [
       },
       {
         type: "h2",
-        text: "3. Elicit — Literature Review Automation"
+        text: "3. Elicit - Literature Review Automation"
       },
       {
         type: "p",
-        text: "Elicit extracts structured information from papers — sample sizes, outcomes, methods — and presents it in a table you can export. It is particularly strong for systematic reviews and meta-analyses, where you need to compare methodology and results across dozens of papers."
+        text: "Elicit extracts structured information from papers - sample sizes, outcomes, methods - and presents it in a table you can export. It is particularly strong for systematic reviews and meta-analyses, where you need to compare methodology and results across dozens of papers."
       },
       {
         type: "h2",
-        text: "4. Perplexity — Fast Scientific Fact-Checking"
+        text: "4. Perplexity - Fast Scientific Fact-Checking"
       },
       {
         type: "p",
-        text: "Perplexity combines a search engine with an AI summariser and cites its sources. It is useful for quick factual lookups during experiment planning — checking a molecular weight, confirming a standard assay condition, or getting a primer on an unfamiliar pathway — faster than a full literature search."
+        text: "Perplexity combines a search engine with an AI summariser and cites its sources. It is useful for quick factual lookups during experiment planning - checking a molecular weight, confirming a standard assay condition, or getting a primer on an unfamiliar pathway - faster than a full literature search."
       },
       {
         type: "h2",
-        text: "5. BioRender — Scientific Figures"
+        text: "5. BioRender - Scientific Figures"
       },
       {
         type: "p",
@@ -230,15 +230,15 @@ export const BLOG_POSTS: BlogPost[] = [
       },
       {
         type: "h2",
-        text: "6. Scite — Citation Credibility Analysis"
+        text: "6. Scite - Citation Credibility Analysis"
       },
       {
         type: "p",
-        text: "Scite classifies how a paper has been cited — whether subsequent papers support, contradict, or merely mention it. This is invaluable for life sciences research, where papers sometimes remain cited long after their central claims have been challenged or retracted."
+        text: "Scite classifies how a paper has been cited - whether subsequent papers support, contradict, or merely mention it. This is invaluable for life sciences research, where papers sometimes remain cited long after their central claims have been challenged or retracted."
       },
       {
         type: "h2",
-        text: "7. Research Rabbit — Citation Network Exploration"
+        text: "7. Research Rabbit - Citation Network Exploration"
       },
       {
         type: "p",
@@ -246,15 +246,15 @@ export const BLOG_POSTS: BlogPost[] = [
       },
       {
         type: "h2",
-        text: "8. Otter.ai — Lab Meeting Transcription"
+        text: "8. Otter.ai - Lab Meeting Transcription"
       },
       {
         type: "p",
-        text: "Otter.ai transcribes audio and video in real time and summarises the key points. For PhD students, transcribing lab meetings and supervisor sessions means you never lose a piece of feedback or a suggested experiment — and the AI summary captures the action items."
+        text: "Otter.ai transcribes audio and video in real time and summarises the key points. For PhD students, transcribing lab meetings and supervisor sessions means you never lose a piece of feedback or a suggested experiment - and the AI summary captures the action items."
       },
       {
         type: "h2",
-        text: "9. Consensus — Evidence-Based Q&A from Literature"
+        text: "9. Consensus - Evidence-Based Q&A from Literature"
       },
       {
         type: "p",
@@ -262,11 +262,11 @@ export const BLOG_POSTS: BlogPost[] = [
       },
       {
         type: "h2",
-        text: "10. Claude or GPT-4 — General Research Writing and Analysis"
+        text: "10. Claude or GPT-4 - General Research Writing and Analysis"
       },
       {
         type: "p",
-        text: "For writing — grant sections, manuscript drafts, thesis chapters, email responses to reviewers — large language models like Claude and GPT-4 are genuinely useful. They are best used as a thinking partner and first-draft generator, with all scientific claims verified against primary literature."
+        text: "For writing - grant sections, manuscript drafts, thesis chapters, email responses to reviewers - large language models like Claude and GPT-4 are genuinely useful. They are best used as a thinking partner and first-draft generator, with all scientific claims verified against primary literature."
       },
       {
         type: "h2",
@@ -278,7 +278,7 @@ export const BLOG_POSTS: BlogPost[] = [
       },
       {
         type: "callout",
-        text: "Shadow AI is free to start. Describe your next research question and get a complete experiment design — literature, hypotheses, controls, and protocol — in under five minutes."
+        text: "Shadow AI is free to start. Describe your next research question and get a complete experiment design - literature, hypotheses, controls, and protocol - in under five minutes."
       }
     ]
   },
@@ -290,7 +290,7 @@ export const BLOG_POSTS: BlogPost[] = [
     slug: "how-to-write-scientific-experimental-protocol",
     title: "How to Write a Scientific Experimental Protocol (With Examples)",
     seoTitle:
-      "How to Write a Scientific Experimental Protocol — Templates and Examples",
+      "How to Write a Scientific Experimental Protocol - Templates and Examples",
     description:
       "A complete guide to writing reproducible experimental protocols for life sciences research. Covers the essential sections, common mistakes, and examples from molecular biology, biochemistry, and cell biology.",
     publishedAt: "2025-06-14",
@@ -307,7 +307,7 @@ export const BLOG_POSTS: BlogPost[] = [
     sections: [
       {
         type: "p",
-        text: "A well-written experimental protocol is the backbone of reproducible science. It should be detailed enough that a competent scientist unfamiliar with your specific project can follow it and get the same result. In practice, most protocols in life sciences fail this test — they are written for the person who already knows the experiment, not for the person who will need to repeat it in six months."
+        text: "A well-written experimental protocol is the backbone of reproducible science. It should be detailed enough that a competent scientist unfamiliar with your specific project can follow it and get the same result. In practice, most protocols in life sciences fail this test - they are written for the person who already knows the experiment, not for the person who will need to repeat it in six months."
       },
       {
         type: "p",
@@ -327,7 +327,7 @@ export const BLOG_POSTS: BlogPost[] = [
       },
       {
         type: "p",
-        text: "The purpose section (2–4 sentences) explains the scientific rationale: what question does this protocol answer, and why is this method the right one? This matters because future users — including yourself — need to understand why a specific step is done to troubleshoot deviations intelligently."
+        text: "The purpose section (2–4 sentences) explains the scientific rationale: what question does this protocol answer, and why is this method the right one? This matters because future users - including yourself - need to understand why a specific step is done to troubleshoot deviations intelligently."
       },
       {
         type: "h3",
@@ -352,7 +352,7 @@ export const BLOG_POSTS: BlogPost[] = [
       },
       {
         type: "p",
-        text: "List hazardous materials and the corresponding PPE and disposal requirements. This is not optional and not just a formality — it is a legal requirement in most jurisdictions and an ethical obligation to everyone who will use your protocol."
+        text: "List hazardous materials and the corresponding PPE and disposal requirements. This is not optional and not just a formality - it is a legal requirement in most jurisdictions and an ethical obligation to everyone who will use your protocol."
       },
       {
         type: "h3",
@@ -360,11 +360,11 @@ export const BLOG_POSTS: BlogPost[] = [
       },
       {
         type: "p",
-        text: "Number every step. Do not combine multiple actions into a single step — each discrete action should be its own numbered item. Where timing matters, include it in the step itself ('incubate at 37°C for exactly 30 minutes') rather than in a footnote."
+        text: "Number every step. Do not combine multiple actions into a single step - each discrete action should be its own numbered item. Where timing matters, include it in the step itself ('incubate at 37°C for exactly 30 minutes') rather than in a footnote."
       },
       {
         type: "p",
-        text: "Include critical decision points: 'If the lysate appears viscous at this stage, add 5 µL of Benzonase and incubate for an additional 10 minutes before centrifugation.' These are the troubleshooting insights that exist only in experienced researchers' heads — capturing them in the protocol is high-value institutional knowledge."
+        text: "Include critical decision points: 'If the lysate appears viscous at this stage, add 5 µL of Benzonase and incubate for an additional 10 minutes before centrifugation.' These are the troubleshooting insights that exist only in experienced researchers' heads - capturing them in the protocol is high-value institutional knowledge."
       },
       {
         type: "h3",
@@ -388,7 +388,7 @@ export const BLOG_POSTS: BlogPost[] = [
       },
       {
         type: "p",
-        text: "Include a representative result figure or description. Then list the most common failure modes and their likely causes. This is the section that transforms a protocol from a procedure into a troubleshooting guide — and it dramatically reduces the time a new lab member spends chasing phantom technical problems."
+        text: "Include a representative result figure or description. Then list the most common failure modes and their likely causes. This is the section that transforms a protocol from a procedure into a troubleshooting guide - and it dramatically reduces the time a new lab member spends chasing phantom technical problems."
       },
       {
         type: "h2",
@@ -411,11 +411,11 @@ export const BLOG_POSTS: BlogPost[] = [
       },
       {
         type: "p",
-        text: "AI tools can significantly accelerate protocol writing. Shadow AI, for example, generates a complete step-by-step protocol from your experimental design — including materials lists, buffer recipes, control specifications, and troubleshooting notes — in a format you can refine rather than write from scratch. This is particularly valuable for protocols based on established methods, where the AI can pull the standard conditions from the literature and you focus on the specific parameters of your experiment."
+        text: "AI tools can significantly accelerate protocol writing. Shadow AI, for example, generates a complete step-by-step protocol from your experimental design - including materials lists, buffer recipes, control specifications, and troubleshooting notes - in a format you can refine rather than write from scratch. This is particularly valuable for protocols based on established methods, where the AI can pull the standard conditions from the literature and you focus on the specific parameters of your experiment."
       },
       {
         type: "callout",
-        text: "Shadow AI generates complete experimental protocols — including materials, controls, and troubleshooting — from your research question. Try it free."
+        text: "Shadow AI generates complete experimental protocols - including materials, controls, and troubleshooting - from your research question. Try it free."
       }
     ]
   },
@@ -457,10 +457,10 @@ export const BLOG_POSTS: BlogPost[] = [
       {
         type: "ul",
         items: [
-          "Specific — it names the molecules, conditions, and direction of effect",
-          "Mechanistic — it proposes a biological mechanism, not just a correlation",
-          "Testable — it makes a prediction that can be confirmed or refuted with available techniques",
-          "Falsifiable — there is a clear result that would disprove it"
+          "Specific - it names the molecules, conditions, and direction of effect",
+          "Mechanistic - it proposes a biological mechanism, not just a correlation",
+          "Testable - it makes a prediction that can be confirmed or refuted with available techniques",
+          "Falsifiable - there is a clear result that would disprove it"
         ]
       },
       {
@@ -489,18 +489,18 @@ export const BLOG_POSTS: BlogPost[] = [
       },
       {
         type: "p",
-        text: "A hypothesis that ignores existing evidence is not a scientific hypothesis — it is speculation. Before formulating a hypothesis, you need to know what is already established about the system you are working in, what the key mechanistic gaps are, and what results would be surprising versus expected given current knowledge."
+        text: "A hypothesis that ignores existing evidence is not a scientific hypothesis - it is speculation. Before formulating a hypothesis, you need to know what is already established about the system you are working in, what the key mechanistic gaps are, and what results would be surprising versus expected given current knowledge."
       },
       {
         type: "p",
-        text: "Effective literature review for hypothesis generation is not about reading every paper in a field. It is about identifying the mechanistic boundary — the point where experimental evidence runs out and inference begins. Your hypothesis lives at that boundary."
+        text: "Effective literature review for hypothesis generation is not about reading every paper in a field. It is about identifying the mechanistic boundary - the point where experimental evidence runs out and inference begins. Your hypothesis lives at that boundary."
       },
       {
         type: "ul",
         items: [
           "Use review articles to establish the consensus model",
           "Read primary papers at the mechanistic frontier of the field",
-          "Note conflicting results between labs — these represent real mechanistic uncertainty",
+          "Note conflicting results between labs - these represent real mechanistic uncertainty",
           "Pay attention to phenotypic observations without mechanistic explanation"
         ]
       },
@@ -511,11 +511,11 @@ export const BLOG_POSTS: BlogPost[] = [
       {
         type: "ol",
         items: [
-          "Too broad — 'PI3K signalling is important in cancer' cannot be tested by a single experiment",
-          "No directional prediction — 'X will affect Y' is not a hypothesis; 'X will increase Y by inhibiting Z' is",
-          "Circular — 'activating the pathway will activate downstream effectors' is trivially true by definition",
-          "No experimental handle — 'epigenetic mechanisms contribute to drug resistance' is a hypothesis that could take a decade to test without specifying which mechanism",
-          "Disconnected from the literature — ignoring existing evidence that already partially answers the question"
+          "Too broad - 'PI3K signalling is important in cancer' cannot be tested by a single experiment",
+          "No directional prediction - 'X will affect Y' is not a hypothesis; 'X will increase Y by inhibiting Z' is",
+          "Circular - 'activating the pathway will activate downstream effectors' is trivially true by definition",
+          "No experimental handle - 'epigenetic mechanisms contribute to drug resistance' is a hypothesis that could take a decade to test without specifying which mechanism",
+          "Disconnected from the literature - ignoring existing evidence that already partially answers the question"
         ]
       },
       {
@@ -524,7 +524,7 @@ export const BLOG_POSTS: BlogPost[] = [
       },
       {
         type: "p",
-        text: "Large-scale literature synthesis is precisely where AI systems have an advantage over individual researchers. A researcher can deeply engage with perhaps a few hundred papers in their area; AI systems can surface patterns across tens of thousands. Shadow AI, for example, uses your problem statement and the relevant literature it identifies to generate a set of mechanistically grounded, testable hypotheses — each with a rationale citing the supporting evidence."
+        text: "Large-scale literature synthesis is precisely where AI systems have an advantage over individual researchers. A researcher can deeply engage with perhaps a few hundred papers in their area; AI systems can surface patterns across tens of thousands. Shadow AI, for example, uses your problem statement and the relevant literature it identifies to generate a set of mechanistically grounded, testable hypotheses - each with a rationale citing the supporting evidence."
       },
       {
         type: "p",
@@ -540,7 +540,7 @@ export const BLOG_POSTS: BlogPost[] = [
       },
       {
         type: "callout",
-        text: "Shadow AI generates mechanistically grounded, testable hypotheses from your research question and the literature — then builds the experiment design around them. Start free."
+        text: "Shadow AI generates mechanistically grounded, testable hypotheses from your research question and the literature - then builds the experiment design around them. Start free."
       }
     ]
   },
@@ -555,7 +555,7 @@ export const BLOG_POSTS: BlogPost[] = [
     seoTitle:
       "Experimental Controls in Life Sciences: Positive, Negative, and Beyond",
     description:
-      "A comprehensive guide to experimental controls in life sciences research — what each type does, why it matters, and how to choose the right controls for your assay. Includes examples from cell biology, biochemistry, and in vivo studies.",
+      "A comprehensive guide to experimental controls in life sciences research - what each type does, why it matters, and how to choose the right controls for your assay. Includes examples from cell biology, biochemistry, and in vivo studies.",
     publishedAt: "2025-06-18",
     readTimeMin: 8,
     tags: [
@@ -570,7 +570,7 @@ export const BLOG_POSTS: BlogPost[] = [
     sections: [
       {
         type: "p",
-        text: "Controls are the backbone of valid experimental design. Without them, you have no way to know whether a result reflects the biology you are studying or an artefact of your assay conditions. Yet in practice, control design is often treated as an afterthought — a checkbox rather than a considered scientific decision. This guide explains each type of control, why each matters, and how to design a control strategy for your specific assay."
+        text: "Controls are the backbone of valid experimental design. Without them, you have no way to know whether a result reflects the biology you are studying or an artefact of your assay conditions. Yet in practice, control design is often treated as an afterthought - a checkbox rather than a considered scientific decision. This guide explains each type of control, why each matters, and how to design a control strategy for your specific assay."
       },
       {
         type: "h2",
@@ -578,7 +578,7 @@ export const BLOG_POSTS: BlogPost[] = [
       },
       {
         type: "p",
-        text: "A positive control is a condition that produces a known, expected result. Its purpose is to confirm that your assay is capable of detecting the effect you are looking for. If your positive control fails, any negative result in your experimental conditions is uninterpretable — you cannot distinguish 'the treatment had no effect' from 'the assay failed to detect the effect.'"
+        text: "A positive control is a condition that produces a known, expected result. Its purpose is to confirm that your assay is capable of detecting the effect you are looking for. If your positive control fails, any negative result in your experimental conditions is uninterpretable - you cannot distinguish 'the treatment had no effect' from 'the assay failed to detect the effect.'"
       },
       {
         type: "ul",
@@ -595,11 +595,11 @@ export const BLOG_POSTS: BlogPost[] = [
       },
       {
         type: "p",
-        text: "A negative control is a condition where no effect is expected. It establishes the baseline signal — the noise floor of your assay. Without a negative control, you cannot define what 'no effect' looks like, which means you cannot quantify the magnitude of a real effect."
+        text: "A negative control is a condition where no effect is expected. It establishes the baseline signal - the noise floor of your assay. Without a negative control, you cannot define what 'no effect' looks like, which means you cannot quantify the magnitude of a real effect."
       },
       {
         type: "p",
-        text: "The most common negative control is a vehicle control — treating cells or reactions with the solvent used to dissolve your compound (typically DMSO for small molecules) at the same final concentration. This controls for solvent effects and is mandatory for any pharmacological experiment."
+        text: "The most common negative control is a vehicle control - treating cells or reactions with the solvent used to dissolve your compound (typically DMSO for small molecules) at the same final concentration. This controls for solvent effects and is mandatory for any pharmacological experiment."
       },
       {
         type: "h2",
@@ -615,7 +615,7 @@ export const BLOG_POSTS: BlogPost[] = [
       },
       {
         type: "p",
-        text: "A blank control contains all assay components except the analyte you are measuring. It captures background signal from the assay reagents themselves — antibody non-specific binding in an ELISA, autofluorescence in a cell-based fluorescence assay, or background luminescence in a luciferase reporter system. Subtract the blank from all readings before calculating results."
+        text: "A blank control contains all assay components except the analyte you are measuring. It captures background signal from the assay reagents themselves - antibody non-specific binding in an ELISA, autofluorescence in a cell-based fluorescence assay, or background luminescence in a luciferase reporter system. Subtract the blank from all readings before calculating results."
       },
       {
         type: "h2",
@@ -623,7 +623,7 @@ export const BLOG_POSTS: BlogPost[] = [
       },
       {
         type: "p",
-        text: "Counter-screen controls identify compounds or conditions that interfere with the assay readout rather than with the biology. They are essential in fluorescence-based drug screening, where many compounds absorb light at the detection wavelength and produce false positives. A counter-screen for fluorescence interference runs the assay without the target protein — any signal reduction in this condition is a technical artefact, not target engagement."
+        text: "Counter-screen controls identify compounds or conditions that interfere with the assay readout rather than with the biology. They are essential in fluorescence-based drug screening, where many compounds absorb light at the detection wavelength and produce false positives. A counter-screen for fluorescence interference runs the assay without the target protein - any signal reduction in this condition is a technical artefact, not target engagement."
       },
       {
         type: "h2",
@@ -639,7 +639,7 @@ export const BLOG_POSTS: BlogPost[] = [
       },
       {
         type: "p",
-        text: "In siRNA, shRNA, and CRISPR experiments, a non-targeting (scrambled) control — a sequence with no complementarity to any known transcript in the organism — controls for the off-target effects of transfection, viral transduction, or nuclease delivery. Every gene silencing experiment requires this control."
+        text: "In siRNA, shRNA, and CRISPR experiments, a non-targeting (scrambled) control - a sequence with no complementarity to any known transcript in the organism - controls for the off-target effects of transfection, viral transduction, or nuclease delivery. Every gene silencing experiment requires this control."
       },
       {
         type: "h2",
@@ -647,11 +647,11 @@ export const BLOG_POSTS: BlogPost[] = [
       },
       {
         type: "p",
-        text: "The principle is minimum sufficient controls — enough to make your results interpretable, but not so many that the controls consume most of your experiment. For most cell-based assays, you need at minimum: vehicle negative control, known positive control, and a no-enzyme/no-protein blank. For immunological assays, add an isotype control. For gene silencing experiments, add a scrambled control. For assays with high false-positive rates (fluorescence screening), add a counter-screen condition."
+        text: "The principle is minimum sufficient controls - enough to make your results interpretable, but not so many that the controls consume most of your experiment. For most cell-based assays, you need at minimum: vehicle negative control, known positive control, and a no-enzyme/no-protein blank. For immunological assays, add an isotype control. For gene silencing experiments, add a scrambled control. For assays with high false-positive rates (fluorescence screening), add a counter-screen condition."
       },
       {
         type: "callout",
-        text: "Shadow AI designs your control strategy as part of the experiment design — specifying which controls are required, at what concentrations, and what each result means. Try it free."
+        text: "Shadow AI designs your control strategy as part of the experiment design - specifying which controls are required, at what concentrations, and what each result means. Try it free."
       }
     ]
   },
@@ -665,7 +665,7 @@ export const BLOG_POSTS: BlogPost[] = [
     seoTitle:
       "AI in Experiment Design: How AI Is Transforming Life Sciences Research (2025)",
     description:
-      "An honest look at how AI is changing the way bench scientists design experiments — what AI can do well, where it still falls short, and which parts of the scientific process are most affected.",
+      "An honest look at how AI is changing the way bench scientists design experiments - what AI can do well, where it still falls short, and which parts of the scientific process are most affected.",
     publishedAt: "2025-06-20",
     readTimeMin: 7,
     tags: [
@@ -680,7 +680,7 @@ export const BLOG_POSTS: BlogPost[] = [
     sections: [
       {
         type: "p",
-        text: "For most of the history of experimental science, the bottleneck has been running experiments — not designing them. Sequencing took weeks. Mass spectrometry required dedicated instruments and operators. Cell lines were difficult to maintain. All of that has changed: modern life sciences labs can generate data at extraordinary speed. The new bottleneck is interpreting data and designing the next experiment intelligently. That is precisely where AI is having the most immediate impact."
+        text: "For most of the history of experimental science, the bottleneck has been running experiments - not designing them. Sequencing took weeks. Mass spectrometry required dedicated instruments and operators. Cell lines were difficult to maintain. All of that has changed: modern life sciences labs can generate data at extraordinary speed. The new bottleneck is interpreting data and designing the next experiment intelligently. That is precisely where AI is having the most immediate impact."
       },
       {
         type: "h2",
@@ -692,7 +692,7 @@ export const BLOG_POSTS: BlogPost[] = [
       },
       {
         type: "p",
-        text: "A researcher might read 200–300 papers closely in their career. AI systems have been trained on millions. When designing an experiment, the most time-consuming step is often establishing what is already known — which cell lines have been used, which assay conditions are standard, which controls are required. AI can compress this to seconds."
+        text: "A researcher might read 200–300 papers closely in their career. AI systems have been trained on millions. When designing an experiment, the most time-consuming step is often establishing what is already known - which cell lines have been used, which assay conditions are standard, which controls are required. AI can compress this to seconds."
       },
       {
         type: "h3",
@@ -700,7 +700,7 @@ export const BLOG_POSTS: BlogPost[] = [
       },
       {
         type: "p",
-        text: "Some of the most productive scientific hypotheses come from importing a mechanism from one field into another. Researchers who work in narrow specialties rarely have the breadth to see those connections. AI systems that span the literature can surface unexpected analogies — a signalling pathway implicated in cancer that has structural parallels to one in neurodegeneration, for instance."
+        text: "Some of the most productive scientific hypotheses come from importing a mechanism from one field into another. Researchers who work in narrow specialties rarely have the breadth to see those connections. AI systems that span the literature can surface unexpected analogies - a signalling pathway implicated in cancer that has structural parallels to one in neurodegeneration, for instance."
       },
       {
         type: "h3",
@@ -708,7 +708,7 @@ export const BLOG_POSTS: BlogPost[] = [
       },
       {
         type: "p",
-        text: "Once an experimental design is specified — cell line, assay format, compound concentrations, time points, controls — generating the step-by-step protocol is largely a mechanical translation. AI does this well. Shadow AI, for example, produces complete protocols with materials lists, buffer recipes, instrument settings, and troubleshooting notes from a structured experiment design."
+        text: "Once an experimental design is specified - cell line, assay format, compound concentrations, time points, controls - generating the step-by-step protocol is largely a mechanical translation. AI does this well. Shadow AI, for example, produces complete protocols with materials lists, buffer recipes, instrument settings, and troubleshooting notes from a structured experiment design."
       },
       {
         type: "h3",
@@ -716,7 +716,7 @@ export const BLOG_POSTS: BlogPost[] = [
       },
       {
         type: "p",
-        text: "AI trained on failed and successful experiments can suggest optimisation paths for common technical problems — low transfection efficiency, high background in immunofluorescence, variable qPCR results. This is beginning to move from literature-based suggestion toward actual learned optimisation, though that capability is still maturing."
+        text: "AI trained on failed and successful experiments can suggest optimisation paths for common technical problems - low transfection efficiency, high background in immunofluorescence, variable qPCR results. This is beginning to move from literature-based suggestion toward actual learned optimisation, though that capability is still maturing."
       },
       {
         type: "h2",
@@ -728,7 +728,7 @@ export const BLOG_POSTS: BlogPost[] = [
       },
       {
         type: "p",
-        text: "AI systems learn from what has already been done. For experiments at the absolute frontier — new organisms, new techniques without established best practices, novel assay formats — AI has no training data to draw on. Here, experienced scientific judgment remains irreplaceable."
+        text: "AI systems learn from what has already been done. For experiments at the absolute frontier - new organisms, new techniques without established best practices, novel assay formats - AI has no training data to draw on. Here, experienced scientific judgment remains irreplaceable."
       },
       {
         type: "h3",
@@ -744,7 +744,7 @@ export const BLOG_POSTS: BlogPost[] = [
       },
       {
         type: "p",
-        text: "When an experiment produces a surprising result — especially one that contradicts the hypothesis — the scientist needs to decide whether the result reflects a real biological phenomenon or a technical artefact. This judgment call requires deep contextual understanding that AI does not yet reliably possess."
+        text: "When an experiment produces a surprising result - especially one that contradicts the hypothesis - the scientist needs to decide whether the result reflects a real biological phenomenon or a technical artefact. This judgment call requires deep contextual understanding that AI does not yet reliably possess."
       },
       {
         type: "h2",
@@ -752,7 +752,7 @@ export const BLOG_POSTS: BlogPost[] = [
       },
       {
         type: "p",
-        text: "AI in experiment design is most usefully thought of as a knowledgeable assistant who has read far more literature than you, can draft faster than you, and never forgets to include the controls — but who needs your scientific judgment at every decision point. The goal is to compress the time between research question and first experiment, not to remove the scientist from the loop."
+        text: "AI in experiment design is most usefully thought of as a knowledgeable assistant who has read far more literature than you, can draft faster than you, and never forgets to include the controls - but who needs your scientific judgment at every decision point. The goal is to compress the time between research question and first experiment, not to remove the scientist from the loop."
       },
       {
         type: "p",
@@ -760,7 +760,7 @@ export const BLOG_POSTS: BlogPost[] = [
       },
       {
         type: "callout",
-        text: "Shadow AI is designed to accelerate your experiment design workflow — not replace your scientific judgment. Try it free: describe your research question and get a complete design in minutes."
+        text: "Shadow AI is designed to accelerate your experiment design workflow - not replace your scientific judgment. Try it free: describe your research question and get a complete design in minutes."
       }
     ]
   },
@@ -773,7 +773,7 @@ export const BLOG_POSTS: BlogPost[] = [
     title:
       "Statistical Power and Sample Size in Biomedical Research: A Practical Guide",
     seoTitle:
-      "Statistical Power and Sample Size in Biomedical Research — A Practical Guide",
+      "Statistical Power and Sample Size in Biomedical Research - A Practical Guide",
     description:
       "Why statistical power matters in life sciences research, how to calculate the sample size you actually need, and the most common mistakes that lead to underpowered studies. Includes worked examples for cell biology and in vivo experiments.",
     publishedAt: "2025-06-22",
@@ -790,7 +790,7 @@ export const BLOG_POSTS: BlogPost[] = [
     sections: [
       {
         type: "p",
-        text: "Underpowered studies are one of the most pervasive and underappreciated problems in biomedical research. A study that lacks the statistical power to detect a real effect will produce a negative result indistinguishable from a genuine null result — and waste the resources that went into running it. Worse, if the study happens to return a positive result by chance, that result will be a false positive and will not replicate. Understanding statistical power and sample size is not a statistical nicety; it is fundamental to designing experiments worth running."
+        text: "Underpowered studies are one of the most pervasive and underappreciated problems in biomedical research. A study that lacks the statistical power to detect a real effect will produce a negative result indistinguishable from a genuine null result - and waste the resources that went into running it. Worse, if the study happens to return a positive result by chance, that result will be a false positive and will not replicate. Understanding statistical power and sample size is not a statistical nicety; it is fundamental to designing experiments worth running."
       },
       {
         type: "h2",
@@ -798,7 +798,7 @@ export const BLOG_POSTS: BlogPost[] = [
       },
       {
         type: "p",
-        text: "Statistical power is the probability that your experiment will detect a real effect, given that the effect truly exists. Power is typically set at 0.8 in biomedical research — meaning an 80% chance of detecting a real effect. A power of 0.8 means a 20% chance of missing a real effect (a false negative, or Type II error)."
+        text: "Statistical power is the probability that your experiment will detect a real effect, given that the effect truly exists. Power is typically set at 0.8 in biomedical research - meaning an 80% chance of detecting a real effect. A power of 0.8 means a 20% chance of missing a real effect (a false negative, or Type II error)."
       },
       {
         type: "p",
@@ -814,7 +814,7 @@ export const BLOG_POSTS: BlogPost[] = [
       },
       {
         type: "p",
-        text: "The most common mistake in biomedical sample size calculation is using an effect size that is too optimistic — often based on a pilot experiment with very few replicates, which will overestimate the effect due to sampling noise. Basing your power calculation on a literature-derived effect size from a well-powered study is more reliable."
+        text: "The most common mistake in biomedical sample size calculation is using an effect size that is too optimistic - often based on a pilot experiment with very few replicates, which will overestimate the effect due to sampling noise. Basing your power calculation on a literature-derived effect size from a well-powered study is more reliable."
       },
       {
         type: "h2",
@@ -842,11 +842,11 @@ export const BLOG_POSTS: BlogPost[] = [
       },
       {
         type: "p",
-        text: "One of the most consequential errors in life sciences statistics is treating technical replicates (repeated measurements on the same biological sample) as biological replicates (independent biological samples). Statistical power calculations assume biological replicates — independent experiments where each data point comes from a separate biological source."
+        text: "One of the most consequential errors in life sciences statistics is treating technical replicates (repeated measurements on the same biological sample) as biological replicates (independent biological samples). Statistical power calculations assume biological replicates - independent experiments where each data point comes from a separate biological source."
       },
       {
         type: "p",
-        text: "Twelve wells of the same cell passage treated with the same compound are twelve technical replicates — they give you one biological data point, not twelve. Three independent experiments conducted on different days with cells from different passages give you three biological data points. Power calculations require the latter."
+        text: "Twelve wells of the same cell passage treated with the same compound are twelve technical replicates - they give you one biological data point, not twelve. Three independent experiments conducted on different days with cells from different passages give you three biological data points. Power calculations require the latter."
       },
       {
         type: "h2",
@@ -869,11 +869,11 @@ export const BLOG_POSTS: BlogPost[] = [
       },
       {
         type: "p",
-        text: "In animal research, there is an ethical obligation to use the minimum number of animals necessary to answer the experimental question — but also an obligation to use enough animals to answer the question reliably. An underpowered animal study that produces an inconclusive result is not a refusal; it is animal use that produced no scientific value. Proper power calculation is therefore an ethical requirement in addition to a statistical one."
+        text: "In animal research, there is an ethical obligation to use the minimum number of animals necessary to answer the experimental question - but also an obligation to use enough animals to answer the question reliably. An underpowered animal study that produces an inconclusive result is not a refusal; it is animal use that produced no scientific value. Proper power calculation is therefore an ethical requirement in addition to a statistical one."
       },
       {
         type: "callout",
-        text: "Shadow AI includes statistical power and sample size recommendations as part of every experiment design — specifying n per group, replication strategy, and the statistical test appropriate for your design. Try it free."
+        text: "Shadow AI includes statistical power and sample size recommendations as part of every experiment design - specifying n per group, replication strategy, and the statistical test appropriate for your design. Try it free."
       }
     ]
   },
@@ -886,7 +886,7 @@ export const BLOG_POSTS: BlogPost[] = [
     title:
       "From Research Question to Runnable Protocol: How to Do It in Under an Hour",
     seoTitle:
-      "From Research Question to Experiment Protocol in Under an Hour — A Researcher's Guide",
+      "From Research Question to Experiment Protocol in Under an Hour - A Researcher's Guide",
     description:
       "A workflow for moving from a research question to a complete, runnable experimental protocol as efficiently as possible. Covers literature scoping, hypothesis selection, assay design, and AI-assisted protocol writing.",
     publishedAt: "2025-06-24",
@@ -907,7 +907,7 @@ export const BLOG_POSTS: BlogPost[] = [
       },
       {
         type: "p",
-        text: "This guide describes a disciplined, time-bounded workflow for moving from question to protocol. With practice — and with AI assistance at the right stages — this workflow can be executed in under an hour for most standard experiments."
+        text: "This guide describes a disciplined, time-bounded workflow for moving from question to protocol. With practice - and with AI assistance at the right stages - this workflow can be executed in under an hour for most standard experiments."
       },
       {
         type: "h2",
@@ -931,7 +931,7 @@ export const BLOG_POSTS: BlogPost[] = [
       },
       {
         type: "p",
-        text: "The goal of the literature scope is not to read everything relevant — it is to establish: (1) whether the question has already been answered, (2) which assay formats have been used for similar questions, and (3) what the established controls and expected effect sizes are."
+        text: "The goal of the literature scope is not to read everything relevant - it is to establish: (1) whether the question has already been answered, (2) which assay formats have been used for similar questions, and (3) what the established controls and expected effect sizes are."
       },
       {
         type: "ul",
@@ -952,7 +952,7 @@ export const BLOG_POSTS: BlogPost[] = [
       },
       {
         type: "p",
-        text: "From the literature scope, you should have enough context to write a specific, mechanistic, testable hypothesis. Write two or three candidate hypotheses — different mechanistic explanations for what you expect to observe — and select the one that is most directly testable with your available resources."
+        text: "From the literature scope, you should have enough context to write a specific, mechanistic, testable hypothesis. Write two or three candidate hypotheses - different mechanistic explanations for what you expect to observe - and select the one that is most directly testable with your available resources."
       },
       {
         type: "p",
@@ -991,7 +991,7 @@ export const BLOG_POSTS: BlogPost[] = [
       },
       {
         type: "p",
-        text: "AI tools like Shadow AI can generate a complete first-draft protocol from the experiment design in seconds — including materials list, step-by-step procedure, buffer recipes, and troubleshooting notes. The scientist's role is to review, verify against lab-specific conditions, and sign off."
+        text: "AI tools like Shadow AI can generate a complete first-draft protocol from the experiment design in seconds - including materials list, step-by-step procedure, buffer recipes, and troubleshooting notes. The scientist's role is to review, verify against lab-specific conditions, and sign off."
       },
       {
         type: "h2",
@@ -999,7 +999,7 @@ export const BLOG_POSTS: BlogPost[] = [
       },
       {
         type: "p",
-        text: "AI accelerates Steps 2, 3, and 5 dramatically. It does not replace Steps 1 and 4 — the precision of the question and the scientific judgment about which hypothesis to pursue and how to design the experiment. Those decisions require a scientist. Everything else is execution."
+        text: "AI accelerates Steps 2, 3, and 5 dramatically. It does not replace Steps 1 and 4 - the precision of the question and the scientific judgment about which hypothesis to pursue and how to design the experiment. Those decisions require a scientist. Everything else is execution."
       },
       {
         type: "callout",
@@ -1017,7 +1017,7 @@ export const BLOG_POSTS: BlogPost[] = [
     seoTitle:
       "How to Do a Scientific Literature Review for Lab Research (2025 Guide)",
     description:
-      "A practical guide to doing a literature review that informs your experiment design — not just your introduction. Covers search strategy, paper evaluation, synthesis across conflicting studies, and AI tools that accelerate the process.",
+      "A practical guide to doing a literature review that informs your experiment design - not just your introduction. Covers search strategy, paper evaluation, synthesis across conflicting studies, and AI tools that accelerate the process.",
     publishedAt: "2025-06-26",
     readTimeMin: 8,
     tags: [
@@ -1032,7 +1032,7 @@ export const BLOG_POSTS: BlogPost[] = [
     sections: [
       {
         type: "p",
-        text: "Most scientists learn to do literature reviews the same way they learned to drive — by doing it, without any formal instruction. The result is a process that is often inefficient, incomplete, and — critically — disconnected from the experiment design it is supposed to inform. This guide describes a structured approach to literature review that is useful for lab researchers: focused on what you need to design and interpret experiments, not on what you need to write an introduction."
+        text: "Most scientists learn to do literature reviews the same way they learned to drive - by doing it, without any formal instruction. The result is a process that is often inefficient, incomplete, and - critically - disconnected from the experiment design it is supposed to inform. This guide describes a structured approach to literature review that is useful for lab researchers: focused on what you need to design and interpret experiments, not on what you need to write an introduction."
       },
       {
         type: "h2",
@@ -1045,8 +1045,8 @@ export const BLOG_POSTS: BlogPost[] = [
       {
         type: "ul",
         items: [
-          "It is biased toward recent, highly-cited papers — which means you miss the foundational mechanistic work that explains why those papers reached their conclusions",
-          "It reads papers as narrative rather than as evidence — you summarise what papers claim rather than evaluating what they actually demonstrated and what the limitations are"
+          "It is biased toward recent, highly-cited papers - which means you miss the foundational mechanistic work that explains why those papers reached their conclusions",
+          "It reads papers as narrative rather than as evidence - you summarise what papers claim rather than evaluating what they actually demonstrated and what the limitations are"
         ]
       },
       {
@@ -1064,14 +1064,14 @@ export const BLOG_POSTS: BlogPost[] = [
       {
         type: "ol",
         items: [
-          "Established consensus — findings that have been replicated across multiple independent labs and model systems",
-          "Contested territory — findings that conflict between studies, often because of differences in cell lines, assay conditions, or interpretation of the same data",
-          "Mechanistic gaps — observations without a mechanistic explanation, or predictions from the current model that have not yet been tested"
+          "Established consensus - findings that have been replicated across multiple independent labs and model systems",
+          "Contested territory - findings that conflict between studies, often because of differences in cell lines, assay conditions, or interpretation of the same data",
+          "Mechanistic gaps - observations without a mechanistic explanation, or predictions from the current model that have not yet been tested"
         ]
       },
       {
         type: "p",
-        text: "Your experiment should be designed to address the contested territory or mechanistic gaps — not to replicate the established consensus. If you find yourself designing an experiment whose outcome is already well-established in the literature, you need a better research question."
+        text: "Your experiment should be designed to address the contested territory or mechanistic gaps - not to replicate the established consensus. If you find yourself designing an experiment whose outcome is already well-established in the literature, you need a better research question."
       },
       {
         type: "h2",
@@ -1082,9 +1082,9 @@ export const BLOG_POSTS: BlogPost[] = [
         items: [
           "Start with a broad search to establish the landscape, then narrow iteratively",
           "Use MeSH terms in PubMed for precision; supplement with free-text keyword searches",
-          "Search for your assay format specifically — the Methods of relevant papers often cite the original assay development papers, which contain the best controls and expected results",
+          "Search for your assay format specifically - the Methods of relevant papers often cite the original assay development papers, which contain the best controls and expected results",
           "Use citation tracking in both directions: papers that cite a key paper (forward), and papers cited by it (backward)",
-          "Look for meta-analyses and systematic reviews in your area — these have already done the synthesis work"
+          "Look for meta-analyses and systematic reviews in your area - these have already done the synthesis work"
         ]
       },
       {
@@ -1111,7 +1111,7 @@ export const BLOG_POSTS: BlogPost[] = [
       },
       {
         type: "p",
-        text: "AI tools have significantly changed the literature review workflow for bench scientists. Tools like Elicit can extract structured information from papers — sample sizes, statistical methods, key findings — across hundreds of papers simultaneously. Semantic Scholar can surface papers you would not find through keyword search alone. Shadow AI synthesises the relevant literature around your research question to identify the mechanistic gaps and generate hypotheses."
+        text: "AI tools have significantly changed the literature review workflow for bench scientists. Tools like Elicit can extract structured information from papers - sample sizes, statistical methods, key findings - across hundreds of papers simultaneously. Semantic Scholar can surface papers you would not find through keyword search alone. Shadow AI synthesises the relevant literature around your research question to identify the mechanistic gaps and generate hypotheses."
       },
       {
         type: "p",
@@ -1123,11 +1123,11 @@ export const BLOG_POSTS: BlogPost[] = [
       },
       {
         type: "p",
-        text: "Conflicting results in the literature are not a problem to be ignored — they are often the most valuable scientific signal. When two well-run studies report opposite findings, there is almost always a mechanistic explanation: a difference in cell line, passage number, assay conditions, reagent source, or timing. Investigating that discrepancy often leads directly to a productive research question."
+        text: "Conflicting results in the literature are not a problem to be ignored - they are often the most valuable scientific signal. When two well-run studies report opposite findings, there is almost always a mechanistic explanation: a difference in cell line, passage number, assay conditions, reagent source, or timing. Investigating that discrepancy often leads directly to a productive research question."
       },
       {
         type: "callout",
-        text: "Shadow AI reads the literature relevant to your research question and surfaces the key findings, mechanistic gaps, and candidate hypotheses — in minutes. Try it free."
+        text: "Shadow AI reads the literature relevant to your research question and surfaces the key findings, mechanistic gaps, and candidate hypotheses - in minutes. Try it free."
       }
     ]
   },
@@ -1142,7 +1142,7 @@ export const BLOG_POSTS: BlogPost[] = [
     seoTitle:
       "Reproducibility Crisis in Life Sciences: How Better Experiment Design Helps",
     description:
-      "A practical look at the reproducibility crisis in life sciences — what causes it, which problems are in your control as a researcher, and how better experiment design practices can fix the most common sources of irreproducibility.",
+      "A practical look at the reproducibility crisis in life sciences - what causes it, which problems are in your control as a researcher, and how better experiment design practices can fix the most common sources of irreproducibility.",
     publishedAt: "2025-06-28",
     readTimeMin: 9,
     tags: [
@@ -1157,7 +1157,7 @@ export const BLOG_POSTS: BlogPost[] = [
     sections: [
       {
         type: "p",
-        text: "The reproducibility crisis in life sciences is not a new discovery. The landmark 2011 paper by Begley and Ellis reported that Amgen scientists could only reproduce 6 out of 53 landmark cancer biology findings. Bayer HealthCare reported that two-thirds of published drug target findings could not be validated internally. More than a decade on, the problem has not been solved — but its causes are now much better understood, and many of them are in the control of individual researchers."
+        text: "The reproducibility crisis in life sciences is not a new discovery. The landmark 2011 paper by Begley and Ellis reported that Amgen scientists could only reproduce 6 out of 53 landmark cancer biology findings. Bayer HealthCare reported that two-thirds of published drug target findings could not be validated internally. More than a decade on, the problem has not been solved - but its causes are now much better understood, and many of them are in the control of individual researchers."
       },
       {
         type: "h2",
@@ -1165,7 +1165,7 @@ export const BLOG_POSTS: BlogPost[] = [
       },
       {
         type: "p",
-        text: "It is tempting to attribute the reproducibility crisis to research misconduct. But the evidence points to a much more mundane set of causes — most of which are invisible in published papers precisely because the methods sections do not report them."
+        text: "It is tempting to attribute the reproducibility crisis to research misconduct. But the evidence points to a much more mundane set of causes - most of which are invisible in published papers precisely because the methods sections do not report them."
       },
       {
         type: "h3",
@@ -1173,7 +1173,7 @@ export const BLOG_POSTS: BlogPost[] = [
       },
       {
         type: "p",
-        text: "A survey of published neuroscience studies found median statistical power of around 20% — meaning only one in five of those studies had enough subjects to reliably detect the effects they were studying. Underpowered studies that produce positive results are, almost by definition, false positives. The result is unreplicable because it was never real."
+        text: "A survey of published neuroscience studies found median statistical power of around 20% - meaning only one in five of those studies had enough subjects to reliably detect the effects they were studying. Underpowered studies that produce positive results are, almost by definition, false positives. The result is unreplicable because it was never real."
       },
       {
         type: "h3",
@@ -1218,8 +1218,8 @@ export const BLOG_POSTS: BlogPost[] = [
       {
         type: "ul",
         items: [
-          "Pre-register your analysis plan before unblinding data — specify statistical tests, inclusion/exclusion criteria, and primary outcome in advance",
-          "Calculate and report statistical power in your methods — and don't run the experiment if it is underpowered",
+          "Pre-register your analysis plan before unblinding data - specify statistical tests, inclusion/exclusion criteria, and primary outcome in advance",
+          "Calculate and report statistical power in your methods - and don't run the experiment if it is underpowered",
           "Use biological replicates, not just technical replicates, and report them honestly",
           "Authenticate your cell lines and include the passage number in every methods section",
           "Report catalogue numbers, lot numbers, and storage conditions for every critical reagent",
@@ -1234,11 +1234,11 @@ export const BLOG_POSTS: BlogPost[] = [
       },
       {
         type: "p",
-        text: "The root cause of most reproducibility failures is not in the analysis — it is in the design. An experiment that is not powered to detect the effect of interest will produce an unreliable result regardless of how carefully the statistics are run. An experiment without appropriate controls will produce uninterpretable data. An experiment whose protocol is not written down in full will be run differently by every person who attempts to repeat it."
+        text: "The root cause of most reproducibility failures is not in the analysis - it is in the design. An experiment that is not powered to detect the effect of interest will produce an unreliable result regardless of how carefully the statistics are run. An experiment without appropriate controls will produce uninterpretable data. An experiment whose protocol is not written down in full will be run differently by every person who attempts to repeat it."
       },
       {
         type: "p",
-        text: "Investing time in rigorous experiment design upfront — power calculation, control selection, complete protocol writing, pre-specified analysis plan — is the single highest-return intervention for reproducibility. This is the stage where AI tools like Shadow AI add the most value: ensuring the design includes all the elements required for a reproducible result before the first well is plated."
+        text: "Investing time in rigorous experiment design upfront - power calculation, control selection, complete protocol writing, pre-specified analysis plan - is the single highest-return intervention for reproducibility. This is the stage where AI tools like Shadow AI add the most value: ensuring the design includes all the elements required for a reproducible result before the first well is plated."
       },
       {
         type: "h2",
@@ -1246,11 +1246,11 @@ export const BLOG_POSTS: BlogPost[] = [
       },
       {
         type: "p",
-        text: "Individual researchers cannot solve the reproducibility crisis alone. Systemic changes — journals that publish null results, funding agencies that reward rigour rather than novelty, institutions that do not incentivise publication volume over quality — are necessary. But those changes are slow. In the meantime, the practices above meaningfully improve the reproducibility of your own work and make you a more trustworthy scientific collaborator."
+        text: "Individual researchers cannot solve the reproducibility crisis alone. Systemic changes - journals that publish null results, funding agencies that reward rigour rather than novelty, institutions that do not incentivise publication volume over quality - are necessary. But those changes are slow. In the meantime, the practices above meaningfully improve the reproducibility of your own work and make you a more trustworthy scientific collaborator."
       },
       {
         type: "callout",
-        text: "Shadow AI builds reproducibility best practices into every experiment design — power calculations, control specifications, and complete protocols included by default. Try it free."
+        text: "Shadow AI builds reproducibility best practices into every experiment design - power calculations, control specifications, and complete protocols included by default. Try it free."
       }
     ]
   }

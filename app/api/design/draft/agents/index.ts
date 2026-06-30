@@ -247,7 +247,7 @@ export type LiteratureScoutProgressEvent =
        * BEFORE the top-N cut (i.e. after dedup + review filter, before
        * `mergedResults.slice(0, 40)`). The UI surfaces this in the
        * "N papers surfaced · ranked by relevance · from M searched"
-       * header so the scientist sees the funnel — we didn't just find
+       * header so the scientist sees the funnel - we didn't just find
        * 10 papers, we sifted through hundreds and these 10 are the
        * cream.
        */
@@ -353,7 +353,7 @@ export async function callLiteratureScoutAgent(
   // rounds look almost identical.
   //
   // If the LLM call fails for any reason (network, parse, empty), we
-  // fall back to the heuristic optimizeSearchQuery — same shape, less
+  // fall back to the heuristic optimizeSearchQuery - same shape, less
   // intelligent, but always works.
   onProgress?.({
     step: "optimizing_query",
@@ -412,7 +412,7 @@ export async function callLiteratureScoutAgent(
     step: "optimizing_query",
     message: llmQueries
       ? `Generated ${1 + queryData.alternativeQueries.length} complementary queries (LLM-planned). Each targets a different angle.`
-      : `Built ${1 + queryData.alternativeQueries.length} search queries (fallback heuristic — LLM unavailable).`,
+      : `Built ${1 + queryData.alternativeQueries.length} search queries (fallback heuristic - LLM unavailable).`,
     primaryQuery: queryData.primaryQuery
   })
 
@@ -497,7 +497,7 @@ export async function callLiteratureScoutAgent(
       step: "searching_sources",
       message: "Casting a wide net across 6 paper indexes…",
       detail:
-        "PubMed · arXiv · Semantic Scholar · Google Scholar · OpenAlex · the web — all in parallel"
+        "PubMed · arXiv · Semantic Scholar · Google Scholar · OpenAlex · the web - all in parallel"
     })
 
     // ── Pre-warm with keyless sources (PubMed + arXiv + S2-public + Scholar
@@ -551,7 +551,7 @@ export async function callLiteratureScoutAgent(
       onProgress?.({
         step: "searching_sources",
         message:
-          "Open indexes had trouble responding — falling back to PaperFinder only.",
+          "Open indexes had trouble responding - falling back to PaperFinder only.",
         detail: e?.message ? String(e.message).slice(0, 120) : undefined
       })
     }
@@ -590,7 +590,7 @@ export async function callLiteratureScoutAgent(
     // We used to skip the PaperFinder fan-out when pre-warm already
     // produced ≥ minPapers (default 10) unique candidates. That made
     // sense when paper-finder was unreliable, slow, and used a single
-    // arm — pre-warm's 6 keyless sources could outperform it.
+    // arm - pre-warm's 6 keyless sources could outperform it.
     //
     // Today paper-finder runs 7 retrieval arms (S2 dense + S2 paper
     // search + OpenAlex + PubMed + arXiv + Scholar + Tavily) against
@@ -601,8 +601,8 @@ export async function callLiteratureScoutAgent(
     //   - ~5× the candidate count
     //
     // So we now always run paper-finder when there's at least one
-    // query to send. Pre-warm becomes purely additive — visible-fast
-    // baseline + safety net for when paper-finder is unreachable —
+    // query to send. Pre-warm becomes purely additive - visible-fast
+    // baseline + safety net for when paper-finder is unreachable -
     // not a short-circuit.
     if (roundQueries.length > 0) {
       const preWarmCount = dedupeNormalize(allResults).length

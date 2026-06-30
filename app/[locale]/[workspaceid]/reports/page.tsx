@@ -4,7 +4,7 @@ import { useEffect } from "react"
 import { useParams, useRouter } from "next/navigation"
 
 /**
- * The standalone Reports list was removed from the streamlined sidebar — reports
+ * The standalone Reports list was removed from the streamlined sidebar - reports
  * now live under each project's Reports tab. Redirect any old link to the
  * workspace dashboard.
  */

@@ -6,7 +6,7 @@
  * Report generation (/api/report/outline) runs three gpt-5.5 structured-output
  * agents whose zod schemas define the sections every report must contain. The
  * report route is too entangled (canvas/d3/langgraph + ESM transitive deps) to
- * import in jest, and Next forbids exporting its agents — so we guard the
+ * import in jest, and Next forbids exporting its agents - so we guard the
  * SCHEMAS (the output contract). The shared parse mechanism (azure Proxy +
  * zodResponseFormat) is already covered by the design-pipeline test.
  *
@@ -55,7 +55,7 @@ describe("report output contract", () => {
       ...Object.keys(DataAnalysisSchema.shape)
     ].sort()
     // If someone adds a field to the final report but not to an agent's schema
-    // (or vice-versa), the report would have a missing/orphan section — caught here.
+    // (or vice-versa), the report would have a missing/orphan section - caught here.
     expect(sectionKeys).toEqual(outputKeys)
   })
 

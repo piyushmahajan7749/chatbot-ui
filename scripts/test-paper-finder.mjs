@@ -12,7 +12,8 @@ const envPath = path.resolve(process.cwd(), ".env.local")
 if (fs.existsSync(envPath)) {
   for (const line of fs.readFileSync(envPath, "utf8").split("\n")) {
     const m = line.match(/^\s*([A-Z0-9_]+)\s*=\s*(.*)\s*$/)
-    if (m && !process.env[m[1]]) process.env[m[1]] = m[2].replace(/^["']|["']$/g, "")
+    if (m && !process.env[m[1]])
+      process.env[m[1]] = m[2].replace(/^["']|["']$/g, "")
   }
 }
 
@@ -96,12 +97,12 @@ function normalizeDocs(response) {
   const coll = response?.doc_collection
   const docs = Array.isArray(coll)
     ? coll
-    : coll?.documents ??
+    : (coll?.documents ??
       coll?.docs ??
       coll?.items ??
       coll?.results ??
       coll?.doc_results ??
-      []
+      [])
   const out = []
   for (const doc of docs) {
     const candidates = [
@@ -122,10 +123,17 @@ function normalizeDocs(response) {
       url ??= firstStr(c, "url", "paper_url", "source_url", "link", "pdf_url")
       const a = firstStr(c, "abstract", "summary", "description", "content")
       if (a) abstract = a
-      const pd = firstStr(c, "published_date", "publication_date", "year", "date")
+      const pd = firstStr(
+        c,
+        "published_date",
+        "publication_date",
+        "year",
+        "date"
+      )
       if (pd) publishedDate = pd
       sourceRaw ??= firstStr(c, "source", "provider", "origin", "collection")
-      const pt = c?.publication_types ?? c?.publicationTypes ?? c?.publication_type
+      const pt =
+        c?.publication_types ?? c?.publicationTypes ?? c?.publication_type
       if (Array.isArray(pt)) pubTypes = pubTypes.concat(pt.map(String))
       else if (typeof pt === "string") pubTypes.push(pt)
     }
@@ -271,7 +279,7 @@ async function main() {
       .filter(([, n]) => n > 0)
       .map(([k, n]) => `${k}=${n}`)
       .join(", ")
-    console.log(`  sources: ${srcStr || "—"}\n`)
+    console.log(`  sources: ${srcStr || "-"}\n`)
   }
 
   console.log("=".repeat(78))
@@ -299,7 +307,7 @@ async function main() {
         String(r.reviews).padEnd(9),
         String(r.primary).padEnd(9),
         String(r.delivered).padEnd(11),
-        srcStr || "—"
+        srcStr || "-"
       ].join("")
     )
   }
@@ -311,7 +319,9 @@ async function main() {
     under++
     console.log(`\n  ✗ "${r.label}" delivered ${r.delivered}/10`)
     if (r.rounds.every(rr => rr.error)) {
-      console.log(`    → All rounds errored. Likely PAPER_FINDER_URL down / unreachable.`)
+      console.log(
+        `    → All rounds errored. Likely PAPER_FINDER_URL down / unreachable.`
+      )
       for (const rr of r.rounds) console.log(`      ${rr.error}`)
       continue
     }

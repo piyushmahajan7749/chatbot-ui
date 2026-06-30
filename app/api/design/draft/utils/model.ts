@@ -50,7 +50,7 @@ export async function callModel(
     // `unsupported_value: temperature does not support N. Only the default
     // (1) value is supported.`. The shared SDK shim in lib/azure-openai.ts
     // coerces this to 1 regardless of what callers pass, so the parameter
-    // here is API-compatible only — we keep `_temperature` ignored.
+    // here is API-compatible only - we keep `_temperature` ignored.
     temperature: _temperature,
     maxTokens,
     timeoutMs = DEFAULT_TIMEOUT_MS,

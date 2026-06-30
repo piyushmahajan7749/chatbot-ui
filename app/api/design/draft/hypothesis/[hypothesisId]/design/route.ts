@@ -182,7 +182,7 @@ export async function POST(
     }
 
     const stepTimings: { step: string; durationMs: number }[] = []
-    // Every step here runs an AI agent — wrap each in a metering scope so the
+    // Every step here runs an AI agent - wrap each in a metering scope so the
     // azure-openai Proxy attributes its token usage to this user (feature
     // "design"). meterRun is a no-op flush when a step makes no AI calls.
     const trackStep = async <T>(step: string, fn: () => Promise<T>) => {

@@ -26,7 +26,7 @@ interface GuidedStep {
   side?: "top" | "bottom" | "left" | "right"
   /** Run when the step becomes active (focus/scroll a field). */
   onShow?: (ctx: StepCtx) => void
-  /** Run when Next is clicked (drive the app — e.g. open New design). */
+  /** Run when Next is clicked (drive the app - e.g. open New design). */
   onNext?: (ctx: StepCtx) => void
   last?: boolean
 }
@@ -70,7 +70,7 @@ const SCRIPT: GuidedStep[] = [
     kind: "spotlight",
     target: "[data-tour='design-question']",
     title: "Type your research question",
-    body: "Put the question on your mind here, then Create — I'll turn it into a full experiment. Take your time; I'll wait.",
+    body: "Put the question on your mind here, then Create - I'll turn it into a full experiment. Take your time; I'll wait.",
     side: "top",
     onShow: () => focusTarget("[data-tour='design-question']")
   },

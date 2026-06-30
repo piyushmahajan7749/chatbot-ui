@@ -9,7 +9,7 @@ Allow: /terms
 Allow: /signup
 Allow: /login
 
-# Block authenticated app routes — nothing useful for crawlers here
+# Block authenticated app routes - nothing useful for crawlers here
 Disallow: /*/designs/
 Disallow: /*/reports/
 Disallow: /*/chats/

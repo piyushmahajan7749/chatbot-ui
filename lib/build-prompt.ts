@@ -120,8 +120,8 @@ export async function buildFinalMessages(
 
     // ALWAYS include the most recent message (the user's current question), even
     // if the system prompt already blew the token budget. When the system prompt
-    // is large — e.g. the tier-3 design chat dumps the whole experiment into it,
-    // ~25k tokens vs a default contextLength of 4096 — remainingTokens goes
+    // is large - e.g. the tier-3 design chat dumps the whole experiment into it,
+    // ~25k tokens vs a default contextLength of 4096 - remainingTokens goes
     // negative and this loop would otherwise drop EVERY message, leaving the
     // model with only the system prompt. It then replies with a content-free
     // greeting ("Ready." / "How can I help?") instead of answering. Keeping at

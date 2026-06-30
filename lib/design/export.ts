@@ -66,7 +66,7 @@ function literatureLines(content: any): string[] {
       .join(" · ")
     out.push(
       "",
-      `${i + 1}. ${p.title ?? "Untitled"}${meta ? ` — ${meta}` : ""}`
+      `${i + 1}. ${p.title ?? "Untitled"}${meta ? ` - ${meta}` : ""}`
     )
     if (p.summary) out.push(`   ${p.summary}`)
   })
@@ -171,7 +171,7 @@ const splitTableCells = (line: string): string[] => {
  * Split a section body into text runs and markdown tables. Tolerant of the
  * model's slightly-malformed tables: a continuation line (no pipes, following a
  * row) is folded back into the previous row's last cell, and ragged rows are
- * padded / merged to the header's column count — so wide conditions / materials
+ * padded / merged to the header's column count - so wide conditions / materials
  * tables render as real grids instead of mangled pipe-soup.
  */
 export function parseMarkdownBlocks(body: string): PdfBlock[] {
@@ -198,8 +198,8 @@ export function parseMarkdownBlocks(body: string): PdfBlock[] {
         if (l.trim() === "") break
         const cells = splitTableCells(l)
         // A genuine row has >= 2 cells (>= 1 internal pipe). A continuation of a
-        // wrapped cell yields a single cell — even if it carries the row's stray
-        // trailing pipe — so fold it (sans pipe) into the last cell instead of
+        // wrapped cell yields a single cell - even if it carries the row's stray
+        // trailing pipe - so fold it (sans pipe) into the last cell instead of
         // mistaking it for a new row.
         if (cells.length >= 2) {
           rows.push(cells)
@@ -233,7 +233,7 @@ export function parseMarkdownBlocks(body: string): PdfBlock[] {
 /**
  * Text-based PDF of the design (problem + each generated design's sections).
  * Uses jsPDF's text engine (real selectable text, proper margins + pagination)
- * rather than an html2canvas screenshot — neater, sharper, and it works off the
+ * rather than an html2canvas screenshot - neater, sharper, and it works off the
  * stored content so it needs no on-screen element/ref to capture. Markdown
  * tables are rendered as real tables via jspdf-autotable.
  */
@@ -304,7 +304,7 @@ export async function downloadDesignPdf(design: ExportableDesign) {
       writeBlock(s.heading, { size: 13, bold: true, gap: 4 })
       const blocks = parseMarkdownBlocks(s.body || "")
       if (blocks.length === 0) {
-        writeBlock("—", { size: 10.5, gap: 10 })
+        writeBlock("-", { size: 10.5, gap: 10 })
       }
       for (const block of blocks) {
         if (block.type === "text") {
@@ -344,11 +344,11 @@ export async function downloadDesignPdf(design: ExportableDesign) {
 
 // ── Focused, downloadable artifacts (the design Overview "Create" actions) ───
 // Three role-specific PDFs built from SUBSETS of the design's sections:
-//  • Bench execution guide — the executable setup work (materials, calcs,
+//  • Bench execution guide - the executable setup work (materials, calcs,
 //    prep, method) + a conditions overview. No rationale/citations.
-//  • Rationale & citations — literature, citations and the hypothesis rationale
+//  • Rationale & citations - literature, citations and the hypothesis rationale
 //    + a conditions overview only. No materials/calcs/methods.
-//  • SOP — a replicable protocol: short theory/rationale, then materials /
+//  • SOP - a replicable protocol: short theory/rationale, then materials /
 //    methods / execution + safety + disposal.
 // Heading allow-lists are matched case-insensitively and include BOTH the new
 // streamlined headings and the older ones, so the artifacts work for designs
@@ -412,7 +412,7 @@ async function renderArtifactPdf(design: ExportableDesign, spec: ArtifactSpec) {
   const renderBody = (body: string) => {
     const blocks = parseMarkdownBlocks(body || "")
     if (blocks.length === 0) {
-      writeBlock("—", { size: 10.5, gap: 8 })
+      writeBlock("-", { size: 10.5, gap: 8 })
       return
     }
     for (const block of blocks) {
@@ -530,7 +530,7 @@ export function downloadBenchExecutionGuide(design: ExportableDesign) {
     fileSuffix: "bench-execution-guide",
     docTitle: "Bench Execution Guide",
     subtitle:
-      "Executable setup work — materials, calculations, preparation and method — for the design conditions below.",
+      "Executable setup work - materials, calculations, preparation and method - for the design conditions below.",
     sectionHeadings: [
       "Conditions Table",
       "Tools & Equipment",
@@ -550,7 +550,7 @@ export function downloadRationaleCitations(design: ExportableDesign) {
     fileSuffix: "rationale-and-citations",
     docTitle: "Rationale & Citations",
     subtitle:
-      "Why this design — literature, citations and the hypothesis rationale — with a conditions overview. No materials or methods.",
+      "Why this design - literature, citations and the hypothesis rationale - with a conditions overview. No materials or methods.",
     includeProblem: true,
     includeHypotheses: "full",
     includeLiterature: true,

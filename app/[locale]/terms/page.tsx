@@ -4,7 +4,7 @@ import Link from "next/link"
 export const metadata: Metadata = {
   title: "Terms of Service",
   description:
-    "Shadow AI terms of service — the terms governing your use of the Shadow AI experiment design platform.",
+    "Shadow AI terms of service - the terms governing your use of the Shadow AI experiment design platform.",
   alternates: { canonical: "/terms" },
   robots: { index: true, follow: true }
 }

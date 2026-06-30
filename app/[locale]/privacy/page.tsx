@@ -4,7 +4,7 @@ import Link from "next/link"
 export const metadata: Metadata = {
   title: "Privacy Policy",
   description:
-    "Shadow AI privacy policy — how we collect, use, and protect your data. We take the privacy of life sciences researchers seriously.",
+    "Shadow AI privacy policy - how we collect, use, and protect your data. We take the privacy of life sciences researchers seriously.",
   alternates: { canonical: "/privacy" },
   robots: { index: true, follow: true }
 }

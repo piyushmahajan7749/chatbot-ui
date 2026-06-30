@@ -13,7 +13,7 @@ import { Loader2 } from "lucide-react"
  * then redirect them into the editor under THEIR OWN workspace
  * (/{locale}/{theirWorkspaceId}/designs/{designId}). That path is RLS-safe (they
  * own the workspace) and the editor loads the design by id with server-side
- * access checks — an invited editor gets edit access, a viewer read-only.
+ * access checks - an invited editor gets edit access, a viewer read-only.
  */
 export default function OpenDesignResolver({
   params
@@ -40,7 +40,7 @@ export default function OpenDesignResolver({
         }
 
         // Confirm the design exists and this user can at least view it before
-        // routing into the editor — gives a clean "no access" message instead
+        // routing into the editor - gives a clean "no access" message instead
         // of bouncing them into an editor that would 403 on load.
         const res = await fetch(`/api/design/${params.designId}`)
         if (!res.ok) {

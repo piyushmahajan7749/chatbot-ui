@@ -87,7 +87,7 @@ export function ScopedChatRail({
   const [pinnedChat, setPinnedChat] = useState<Tables<"chats"> | null>(null)
   // `resolved` flips true only once the scope lookup has SETTLED (found a
   // thread or confirmed there's none). The auto-start effect waits on this so
-  // it can't fire before the lookup completes — the old `resolving`-starts-
+  // it can't fire before the lookup completes - the old `resolving`-starts-
   // false flag let auto-start race ahead and create a duplicate thread (or, on
   // a swallowed createChat error, leave the rail stuck with nothing started).
   const [resolved, setResolved] = useState(false)
@@ -267,7 +267,7 @@ export function ScopedChatRail({
             <div className="relative min-h-0 flex-1">
               {/* Key on the prompt length so that when the context sync below
                   rewrites chat.prompt (design dump), ChatUI remounts and
-                  re-fetches the FRESH prompt into chatSettings — otherwise it
+                  re-fetches the FRESH prompt into chatSettings - otherwise it
                   keeps the stale prompt it loaded first and answers without the
                   design context. */}
               <ChatUI

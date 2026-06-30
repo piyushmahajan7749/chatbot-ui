@@ -1,7 +1,7 @@
 "use client"
 
 /**
- * Full-screen "Refine" step shown BEFORE a report is generated — a single page
+ * Full-screen "Refine" step shown BEFORE a report is generated - a single page
  * of clarifying questions (audience, depth, focus, format) so the generated
  * report is tailored. Mirrors the design Refine flow but the questions are a
  * fixed, report-specific set (no model round-trip needed). Answers are

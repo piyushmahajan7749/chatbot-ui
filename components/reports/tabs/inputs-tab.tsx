@@ -293,7 +293,7 @@ export const InputsTab: FC<InputsTabProps> = ({
             </p>
           </div>
 
-          {/* Data files first (mandatory) — the analysis agent works
+          {/* Data files first (mandatory) - the analysis agent works
               directly from these. The design already supplies the
               protocol/method, so no protocol upload field here. */}
           {renderFileField({
@@ -305,7 +305,7 @@ export const InputsTab: FC<InputsTabProps> = ({
             caption: "Experimental data the analysis agent should work from."
           })}
 
-          {/* Reference documents (optional) — supporting context to cite. */}
+          {/* Reference documents (optional) - supporting context to cite. */}
           {renderFileField({
             label: "Reference Documents / Other Files",
             type: "papers",

@@ -9,7 +9,7 @@ export interface MeterContext {
 
 /**
  * Run `fn` inside a usage-accumulator scope and flush the captured tokens to the
- * DB afterwards. Does NOT pre-check the budget — use when the caller has already
+ * DB afterwards. Does NOT pre-check the budget - use when the caller has already
  * asserted (e.g. streaming routes that must gate before opening the stream).
  *
  * The flush is awaited so it persists within the function's lifetime (Vercel

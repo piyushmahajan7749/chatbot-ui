@@ -14,7 +14,7 @@ const config: Config = {
     "^@/(.*)$": "<rootDir>/$1"
   },
   // Playwright specs live under __tests__/playwright-test and run via the
-  // Playwright runner — exclude them so `jest` (the CI gate) doesn't try to
+  // Playwright runner - exclude them so `jest` (the CI gate) doesn't try to
   // execute them (they fail under jest: no test/expect from @playwright/test).
   testPathIgnorePatterns: [
     "<rootDir>/node_modules/",

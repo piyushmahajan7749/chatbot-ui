@@ -3,7 +3,7 @@
  *
  * Guards the token-budget bug that broke the design chat: when the system prompt
  * is large (the tier-3 design dump, ~25k tokens) and contextLength is the small
- * workspace default (4096), buildFinalMessages used to drop EVERY chat message —
+ * workspace default (4096), buildFinalMessages used to drop EVERY chat message -
  * the model then got only the system prompt and replied with a content-free
  * greeting ("Ready."). The user's latest question must always survive.
  */
@@ -81,7 +81,7 @@ describe("buildFinalMessages token budget", () => {
 
     const messages = await buildFinalMessages(payload, profile, [])
     const userTurns = messages.filter((m: any) => m.role === "user")
-    // Only the most recent survives the negative budget — but it DOES survive.
+    // Only the most recent survives the negative budget - but it DOES survive.
     expect(userTurns).toHaveLength(1)
     expect(userTurns[0].content).toContain("the newest question")
   })

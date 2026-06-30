@@ -1,4 +1,4 @@
-/** Coarse feature buckets — MUST match the CHECK constraint on usage_events. */
+/** Coarse feature buckets - MUST match the CHECK constraint on usage_events. */
 export type UsageFeature =
   | "design"
   | "lit_search"

@@ -41,7 +41,7 @@ export interface DesignReportContext {
   /** Best-guess objective to pre-fill the report objective field. */
   objective: string
   /**
-   * Markdown summary of the design — problem, hypotheses, procedure,
+   * Markdown summary of the design - problem, hypotheses, procedure,
    * analysis, literature. Fed to the report generator as protocol/method
    * context and rendered read-only in the report's design side-panel.
    */
@@ -131,7 +131,7 @@ export function buildDesignReportContext(
     })
   }
 
-  // Experimental design — newest design set (or the version snapshot).
+  // Experimental design - newest design set (or the version snapshot).
   let designs = Array.isArray(content?.designs)
     ? (content!.designs as Array<Record<string, unknown>>)
     : []
@@ -154,7 +154,7 @@ export function buildDesignReportContext(
         if (heading) lines.push("", `**${heading}**`)
         if (body) lines.push(body)
         // The analysis / results / measurement sections describe the data
-        // the experiment is expected to produce — feed them to the check.
+        // the experiment is expected to produce - feed them to the check.
         if (
           /analy|result|measure|outcome|readout|endpoint|data/i.test(heading)
         ) {

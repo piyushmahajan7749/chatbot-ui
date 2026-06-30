@@ -99,7 +99,7 @@ const MODE_COPY: Record<
 > = {
   "from-scratch": {
     title: "New design",
-    subtitle: "Start with your research problem — I'll take it from there.",
+    subtitle: "Start with your research problem - I'll take it from there.",
     icon: IconSparkles,
     cta: "Create"
   },
@@ -629,7 +629,7 @@ export const CreateDesign: FC<CreateDesignProps> = ({
             </div>
           )}
 
-          {/* Project picker — hide when already inside a project context
+          {/* Project picker - hide when already inside a project context
               (projectId prop supplied). Showing it there is confusing:
               the user already knows which project they're in. */}
           {!projectId && (

@@ -151,13 +151,13 @@ function normalizeDocs(response: any): NormalizedPaper[] {
         firstStr(c, "published_date", "publication_date", "year", "date") ??
         publishedDate
       sourceRaw ??= firstStr(c, "source", "provider", "origin", "collection")
-      const pt = c?.publication_types ?? c?.publicationTypes ?? c?.publication_type
+      const pt =
+        c?.publication_types ?? c?.publicationTypes ?? c?.publication_type
       if (Array.isArray(pt)) pubTypes = pubTypes.concat(pt.map(String))
       else if (typeof pt === "string") pubTypes.push(pt)
     }
     if (!title && !url && !abstract) continue
-    const resolvedUrl =
-      url || (doi ? `https://doi.org/${doi}` : "") || ""
+    const resolvedUrl = url || (doi ? `https://doi.org/${doi}` : "") || ""
     out.push({
       title: title ?? "Untitled",
       authors: [],
@@ -268,7 +268,10 @@ async function runScenario(sc: Scenario): Promise<ScenarioResult> {
   const t0 = Date.now()
   const rounds: RoundResult[] = []
   const all: NormalizedPaper[] = []
-  const queries = [sc.description, ...sc.alternatives.map(q => `${sc.description}\nAlternative query: ${q}`)]
+  const queries = [
+    sc.description,
+    ...sc.alternatives.map(q => `${sc.description}\nAlternative query: ${q}`)
+  ]
   for (const q of queries) {
     const r0 = Date.now()
     try {
@@ -342,7 +345,7 @@ async function main() {
       .filter(([, n]) => n > 0)
       .map(([k, n]) => `${k}=${n}`)
       .join(", ")
-    console.log(`  sources: ${srcStr || "—"}\n`)
+    console.log(`  sources: ${srcStr || "-"}\n`)
   }
 
   console.log("=".repeat(78))
@@ -370,7 +373,7 @@ async function main() {
         String(r.reviews).padEnd(9),
         String(r.primary).padEnd(9),
         String(r.delivered).padEnd(11),
-        srcStr || "—"
+        srcStr || "-"
       ].join("")
     )
   }
@@ -382,7 +385,9 @@ async function main() {
     under++
     console.log(`\n  ✗ "${r.label}" delivered ${r.delivered}/10`)
     if (r.rounds.every(rr => rr.error)) {
-      console.log(`    → All rounds errored. Likely PAPER_FINDER_URL down / unreachable.`)
+      console.log(
+        `    → All rounds errored. Likely PAPER_FINDER_URL down / unreachable.`
+      )
       for (const rr of r.rounds) console.log(`      ${rr.error}`)
       continue
     }

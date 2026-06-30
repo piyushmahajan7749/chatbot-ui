@@ -87,7 +87,7 @@ export async function getAffiliateForUser(
 /**
  * Record that `referredUserId` signed up via `rawCode`. Idempotent and
  * defensive: ignores unknown/inactive codes, self-referrals, and any user who
- * is already attributed (the UNIQUE on referred_user_id). Best-effort — never
+ * is already attributed (the UNIQUE on referred_user_id). Best-effort - never
  * throws into the signup flow.
  */
 export async function attributeReferral(params: {
@@ -125,7 +125,7 @@ export async function attributeReferral(params: {
 /**
  * On a referred viewer's first paid purchase: book the commission and grant the
  * viewer's bonus credits, atomically and exactly once (the RPC no-ops on
- * renewals / already-converted referrals). Best-effort — never throws into the
+ * renewals / already-converted referrals). Best-effort - never throws into the
  * webhook.
  */
 export async function recordReferralConversion(params: {

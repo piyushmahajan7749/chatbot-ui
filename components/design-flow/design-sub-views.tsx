@@ -1,7 +1,7 @@
 "use client"
 
 /**
- * Per-design sub-views — Reports / Chats / Files scoped to ONE design, rendered
+ * Per-design sub-views - Reports / Chats / Files scoped to ONE design, rendered
  * inside the design page's secondary tab bar. Each is self-contained (fetches
  * its own scoped data) and mirrors the SlabRow list style used elsewhere.
  *
@@ -9,8 +9,8 @@
  *  - Reports: rows with source_design_id === designId
  *  - Chats:   chats with scope === "design" && scope_id === designId
  *  - Files:   saved papers whose source_design_ids include designId, PLUS the
- *             project's uploaded files (uploads are project-level — no per-design
- *             FK in the data model — so they're shared across the project).
+ *             project's uploaded files (uploads are project-level - no per-design
+ *             FK in the data model - so they're shared across the project).
  */
 
 import { FC, useCallback, useEffect, useMemo, useRef, useState } from "react"
@@ -252,7 +252,7 @@ export const DesignReportsView: FC<{ ctx: DesignSubViewContext }> = ({
         <EmptyHint
           icon={<IconFileText size={26} className="text-orange-product" />}
           title="No reports for this design yet"
-          body="Generate a report from this design — it'll be listed here."
+          body="Generate a report from this design - it'll be listed here."
           cta={cta}
         />
       ) : (
@@ -562,7 +562,7 @@ export const DesignFilesView: FC<{ ctx: DesignSubViewContext }> = ({ ctx }) => {
         </h3>
         {shownPapers.length === 0 ? (
           <p className="text-ink-400 py-4 text-xs">
-            No papers saved under this design yet — use the save icon on a paper
+            No papers saved under this design yet - use the save icon on a paper
             in the Literature step.
           </p>
         ) : (

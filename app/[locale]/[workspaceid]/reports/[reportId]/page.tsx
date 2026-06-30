@@ -945,7 +945,7 @@ export default function ReportDetailPage() {
             </div>
           </div>
         </div>
-        {/* The parent-design / files rail was removed — that information already
+        {/* The parent-design / files rail was removed - that information already
             lives in the main content (Overview links to the design; Inputs lists
             the files), so the right column was redundant. */}
       </div>

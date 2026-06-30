@@ -399,7 +399,7 @@ export async function POST(
           }
 
           // Run the generation agents; if they ALL transiently fail (the pool
-          // comes back empty — typically an Azure OpenAI 429/5xx burst that
+          // comes back empty - typically an Azure OpenAI 429/5xx burst that
           // takes down the whole batch), retry the batch ONCE with fresh task
           // ids before giving up. This is the root cause of the reported
           // "hypotheses failed the first time, worked on the third try" bug:
@@ -656,7 +656,7 @@ Return every hypothesis with its original index number, a score, and a one-sente
           const hypotheses: Hypothesis[] = topHypotheses.map(h => ({
             id: h.id,
             text: h.text,
-            // Reasoning is just the scientific explanation — the internal
+            // Reasoning is just the scientific explanation - the internal
             // rank / feasibility / novelty scores are NOT surfaced to the
             // user (they're ranking signals only, and reading like grades on
             // a hypothesis confused scientists).
@@ -773,7 +773,7 @@ Return every hypothesis with its original index number, a score, and a one-sente
           const wantsReplicates = ctx.includeReplicates === "yes"
           const replicateDirective = wantsReplicates
             ? `\n\nREPLICATES: The researcher WANTS replicates. Include a sensible biological/technical replicate scheme (state n per group) and factor it into every vial-count, the conditions-table "n" column, all material totals, and the statistical power calculation.`
-            : `\n\nREPLICATES: The researcher does NOT want replicates — design a SINGLE run per condition (n = 1). Do NOT multiply any count by a replicate factor. State plainly in the replicates/conditions field: "No replicates — single run per condition (n = 1)". Every conditions-table "n" column = 1, and all material totals = conditions × 1 × volume-per-sample (dead-volume buffer only, no replicate multiplier). The statistics section must reflect n = 1 (no replicate-based power calc; note the single-run limitation).`
+            : `\n\nREPLICATES: The researcher does NOT want replicates - design a SINGLE run per condition (n = 1). Do NOT multiply any count by a replicate factor. State plainly in the replicates/conditions field: "No replicates - single run per condition (n = 1)". Every conditions-table "n" column = 1, and all material totals = conditions × 1 × volume-per-sample (dead-volume buffer only, no replicate multiplier). The statistics section must reflect n = 1 (no replicate-based power calc; note the single-run limitation).`
 
           for (let hypIdx = 0; hypIdx < selected.length; hypIdx++) {
             const hyp = selected[hypIdx]
@@ -1157,7 +1157,7 @@ Never use placeholder text like "TBD" - if a spec is reasonable to infer, infer 
       // any other error: fail open, assertBudget already logged it
     }
 
-    // Free-experiment paywall — only the DESIGN payoff is gated (cheap problem/
+    // Free-experiment paywall - only the DESIGN payoff is gated (cheap problem/
     // literature/hypotheses stay open). 402 when a free user is out of free
     // experiments and EXPERIMENT_PAYWALL is on.
     if (body.phase === "design") {
@@ -1180,7 +1180,7 @@ Never use placeholder text like "TBD" - if a spec is reasonable to infer, infer 
     // return 202. The client polls GET /api/design/[id] for `designJob`
     // progress + completion. Only `simulation` (sync, no LLM) stays inline.
     // The matching runPhase cases below are therefore unreachable for these
-    // phases — the real logic lives in lib/design/{literature,hypotheses}-phase
+    // phases - the real logic lives in lib/design/{literature,hypotheses}-phase
     // + design-sections.ts.
     if (
       body.phase === "literature" ||

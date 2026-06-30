@@ -45,7 +45,7 @@ export async function getOrCreateAccount(
     .single()
 
   if (created.error) {
-    // Lost an insert race — re-read.
+    // Lost an insert race - re-read.
     const again = await admin
       .from("billing_accounts")
       .select("*")
@@ -59,7 +59,7 @@ export async function getOrCreateAccount(
 }
 
 /**
- * Tokens treated as consumed this period — 0 if the stored period has already
+ * Tokens treated as consumed this period - 0 if the stored period has already
  * elapsed (the DB rolls it lazily on the next consume_tokens call; reads just
  * compute the effective value so users aren't blocked at the start of a month).
  */
@@ -114,7 +114,7 @@ export async function getUsageSummary(userId: string): Promise<UsageSummary> {
       ? Math.min(100, Math.round((usedTokens / plan.monthlyTokens) * 100))
       : 0
 
-  // Per-feature breakdown for the current period. Aggregated in JS — fine for
+  // Per-feature breakdown for the current period. Aggregated in JS - fine for
   // an infrequently-opened settings panel; capped to bound the read.
   const breakdownMap = new Map<string, number>()
   try {
@@ -178,7 +178,7 @@ export async function getUsageSummary(userId: string): Promise<UsageSummary> {
  * always runs; this gate only controls whether running out of credits actually
  * blocks a request. Default OFF so we can launch metering-only, validate the
  * credit calibration against real usage_events, then flip enforcement on with a
- * single env change (BILLING_ENFORCE=true) — no redeploy. Accepts 1/true/on/yes.
+ * single env change (BILLING_ENFORCE=true) - no redeploy. Accepts 1/true/on/yes.
  */
 export function isBillingEnforced(): boolean {
   return /^(1|true|on|yes)$/i.test((process.env.BILLING_ENFORCE ?? "").trim())
@@ -186,7 +186,7 @@ export function isBillingEnforced(): boolean {
 
 /**
  * Pre-flight gate. Throws BudgetExceededError if the user has no credits left
- * AND enforcement is enabled. Fails OPEN on infra errors — a billing/DB hiccup
+ * AND enforcement is enabled. Fails OPEN on infra errors - a billing/DB hiccup
  * must not lock everyone out.
  */
 export async function assertBudget(userId: string): Promise<void> {
@@ -201,7 +201,7 @@ export async function assertBudget(userId: string): Promise<void> {
       // Metering-only mode: record that they're over, but don't block.
       console.warn(
         `[billing] user ${userId} is over budget (plan=${plan.id}) but ` +
-          `BILLING_ENFORCE is off — allowing the request (metering-only mode).`
+          `BILLING_ENFORCE is off - allowing the request (metering-only mode).`
       )
     }
   } catch (e) {
@@ -213,7 +213,7 @@ export async function assertBudget(userId: string): Promise<void> {
 /**
  * Whether the free-experiment paywall HARD BLOCK is enforced. Default OFF
  * (count-only) so we can ship the counter, watch real conversion, then flip it
- * on for launch with EXPERIMENT_PAYWALL=true — no redeploy. Accepts 1/true/on/yes.
+ * on for launch with EXPERIMENT_PAYWALL=true - no redeploy. Accepts 1/true/on/yes.
  */
 export function isExperimentPaywallEnabled(): boolean {
   return /^(1|true|on|yes)$/i.test(
@@ -255,7 +255,7 @@ export async function assertExperimentQuota(userId: string): Promise<void> {
       }
       console.warn(
         `[billing] user ${userId} over free-experiment limit ` +
-          `(${used}/${FREE_EXPERIMENT_LIMIT}) but EXPERIMENT_PAYWALL is off — allowing.`
+          `(${used}/${FREE_EXPERIMENT_LIMIT}) but EXPERIMENT_PAYWALL is off - allowing.`
       )
     }
   } catch (e) {
@@ -266,7 +266,7 @@ export async function assertExperimentQuota(userId: string): Promise<void> {
 
 /**
  * +1 to the user's lifetime generated-design count. Called once when a design
- * generation completes (Inngest worker). Best-effort — never throws.
+ * generation completes (Inngest worker). Best-effort - never throws.
  */
 export async function incrementDesignsGenerated(userId: string): Promise<void> {
   if (!userId) return
@@ -287,7 +287,7 @@ export async function incrementDesignsGenerated(userId: string): Promise<void> {
 
 /**
  * Record consumed tokens: atomic balance update (consume_tokens RPC) + an
- * append-only usage_events row. Best-effort — never throws into the caller, so
+ * append-only usage_events row. Best-effort - never throws into the caller, so
  * metering can't break a feature.
  */
 export async function recordUsage(params: {
@@ -306,7 +306,7 @@ export async function recordUsage(params: {
   try {
     const admin = getBillingAdminClient()
 
-    // Allowance comes from plans.ts (single source of truth) — read the plan,
+    // Allowance comes from plans.ts (single source of truth) - read the plan,
     // default to free if anything goes wrong.
     let allowance = getPlan("free").monthlyTokens
     try {
@@ -341,7 +341,7 @@ export async function recordUsage(params: {
  * Convenience for non-streaming routes that hold the response directly: record
  * an OpenAI completion's `usage` against a feature. Best-effort; safe to call
  * fire-and-forget or await. Use this (NOT meterRun) on routes that read the
- * completion themselves — the two mechanisms must not both run on one route.
+ * completion themselves - the two mechanisms must not both run on one route.
  */
 export function recordCompletionUsage(
   ctx: { userId: string; feature: UsageFeature; model?: string | null },

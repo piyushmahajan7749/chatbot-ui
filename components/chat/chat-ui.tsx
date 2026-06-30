@@ -436,9 +436,9 @@ const ChatAnswerStyleToggle: FC = () => {
 
 /**
  * Back arrow in the chat header. The Chats list on the dashboard is the
- * canonical home for chats, so — unless an explicit `?ret=` return path was
+ * canonical home for chats, so - unless an explicit `?ret=` return path was
  * supplied (e.g. the design rail's Expand, which returns to the design being
- * edited) — Back lands on the dashboard Chats list. This fixes two reports:
+ * edited) - Back lands on the dashboard Chats list. This fixes two reports:
  * a design-scoped chat used to return to that design's Overview, and an
  * all-designs chat used to return to the project folder; both should go to
  * the dashboard Chats list instead.
@@ -449,7 +449,7 @@ const ChatBackNav: FC = () => {
   const searchParams = useSearchParams()
 
   const handleBack = () => {
-    // Explicit return path (rail Expand) wins — independent of whether
+    // Explicit return path (rail Expand) wins - independent of whether
     // selectedChat has loaded yet.
     const ret = searchParams?.get("ret")
     if (ret && ret.startsWith("/")) {

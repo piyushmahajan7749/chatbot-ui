@@ -38,7 +38,7 @@ export const AuthHero: FC = () => {
           </span>
         </h2>
         <p className="mt-3 max-w-[420px] text-[14px] leading-relaxed text-[#A3A0C2]">
-          Shadow AI is your experiment design and planning agent — turn a
+          Shadow AI is your experiment design and planning agent - turn a
           research question into a citation-grounded, run-ready protocol in
           minutes.
         </p>

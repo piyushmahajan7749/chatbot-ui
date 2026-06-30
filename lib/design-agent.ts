@@ -135,7 +135,7 @@ export interface ProblemContext {
   /** Optional success criteria the researcher specified for the design. */
   successCriteria?: string
   /**
-   * Mandatory free-text operating parameters captured on the Problem step —
+   * Mandatory free-text operating parameters captured on the Problem step -
    * molecule operating concentration range, buffer systems, temperatures, pH,
    * sample matrix, equipment on hand, etc. Threaded into the literature,
    * hypotheses, and design prompts to keep their output specific.
@@ -341,7 +341,7 @@ export interface DesignContentV2 {
   /**
    * Aggregate stats captured during the most recent literature search. Lives
    * in the persisted content so the Literature tab can keep showing
-   * "from N searched" after the user navigates away and back — previously
+   * "from N searched" after the user navigates away and back - previously
    * that number lived only on the in-memory progress stream and vanished
    * on remount.
    */

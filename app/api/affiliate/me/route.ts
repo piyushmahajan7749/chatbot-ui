@@ -8,7 +8,7 @@ import type { AffiliateMe } from "@/lib/affiliate/types"
  * GET /api/affiliate/me
  * The signed-in user's affiliate dashboard if they're a creator; otherwise
  * their application state (so the panel can show apply / pending / rejected).
- * Aggregated stats only — never returns raw referred ids.
+ * Aggregated stats only - never returns raw referred ids.
  */
 export async function GET(req: Request) {
   const auth = await requireUser()

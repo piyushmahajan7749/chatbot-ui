@@ -1,7 +1,7 @@
 "use client"
 
 /**
- * "Continue with Google" — Supabase OAuth. Redirects to the hosted Google
+ * "Continue with Google" - Supabase OAuth. Redirects to the hosted Google
  * consent screen, which returns to /auth/callback (existing) to exchange the
  * code for a session, then on to `next`. Requires the Google provider to be
  * enabled in the Supabase dashboard (Auth → Providers) with the callback URL

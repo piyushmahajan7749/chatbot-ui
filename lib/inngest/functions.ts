@@ -112,7 +112,7 @@ export const processDesignDraft = inngest.createFunction(
       return fetchedPlan
     })
 
-    // Owner of this plan — used to attribute background AI token usage.
+    // Owner of this plan - used to attribute background AI token usage.
     const billingUserId = (plan as { userId?: string }).userId || ""
 
     // Helper to ensure array
@@ -466,7 +466,7 @@ export const processDesignDraft = inngest.createFunction(
 //
 // literature / hypotheses / design all run too long for a 300s serverless
 // request (gpt-5.5 is slow; design alone is 6-12 min). Each runs here as Inngest
-// steps — on Vercel every step.run is its own <300s invocation and Inngest
+// steps - on Vercel every step.run is its own <300s invocation and Inngest
 // persists state between them, so the whole pipeline has no single invocation
 // over the cap. The client polls the design doc's `designJob` field
 // (state/phase/progress) and reads the resulting content. simulation stays
@@ -477,7 +477,7 @@ type DesignPhaseName = "literature" | "hypotheses" | "design"
 interface DesignPhasePayload {
   designId: string
   userId: string
-  /** Actor's email — lets the worker resolve an editor invite addressed by
+  /** Actor's email - lets the worker resolve an editor invite addressed by
    *  email when the permission row hasn't been linked to a user_id yet. */
   userEmail?: string | null
   phase: DesignPhaseName

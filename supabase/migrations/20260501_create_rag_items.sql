@@ -1,4 +1,4 @@
--- Unified RAG corpus across all source types — replaces `file_items` after
+-- Unified RAG corpus across all source types - replaces `file_items` after
 -- PR-9 soak completes. Single table + single RPC keeps tier-1/2/3 retrieval
 -- scope changes to a WHERE-clause edit (see lib/rag/retrieve.ts).
 --
@@ -39,7 +39,7 @@ CREATE TABLE IF NOT EXISTS rag_items (
   -- Content. `content` is what we show the LLM; `contextualized_content` is
   -- what we embed (Anthropic-style chunk context blurb prepended). For
   -- `source_type='file'` v1 we set contextualized_content := content (skip
-  -- Haiku — files have natural context like filenames + page headers).
+  -- Haiku - files have natural context like filenames + page headers).
   content                TEXT NOT NULL,
   contextualized_content TEXT NOT NULL,
   openai_embedding       vector(1536),
@@ -47,7 +47,7 @@ CREATE TABLE IF NOT EXISTS rag_items (
                          GENERATED ALWAYS AS
                          (to_tsvector('english', coalesce(contextualized_content,''))) STORED,
 
-  -- Denormalized for inline citation rendering — avoids N follow-up
+  -- Denormalized for inline citation rendering - avoids N follow-up
   -- Firestore reads when the chat UI builds reference chips. Re-index on
   -- save (PR-4) keeps these fresh.
   source_title       TEXT,
@@ -87,7 +87,7 @@ CREATE INDEX IF NOT EXISTS rag_items_workspace_src_idx
 CREATE INDEX IF NOT EXISTS rag_items_source_idx
   ON rag_items (source_type, source_id);
 
--- RLS. Mirrors file_items pattern — workspace owner has full access; service
+-- RLS. Mirrors file_items pattern - workspace owner has full access; service
 -- role bypasses RLS automatically. Sharing across workspace members is a
 -- separate future feature (workspaces are single-owner today).
 ALTER TABLE rag_items ENABLE ROW LEVEL SECURITY;

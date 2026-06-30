@@ -1,7 +1,7 @@
 /**
  * Row shapes for the affiliate tables. Hand-typed (rather than from the
  * generated Database types) so the service layer is strongly typed without a
- * types regen — mirrors the processed_webhook_events approach in the webhook.
+ * types regen - mirrors the processed_webhook_events approach in the webhook.
  */
 
 export type AffiliateStatus = "active" | "disabled"

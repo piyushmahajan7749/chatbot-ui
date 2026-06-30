@@ -23,7 +23,7 @@ function coerceReasoningParams<T extends Record<string, any>>(params: T): T {
   // "Could not parse response content as the length limit was reached", which
   // made every hypothesis/design/report agent come back empty. Since the field
   // is an upper BOUND (you only pay for tokens actually produced), raising a
-  // too-low cap can't increase cost — it only stops premature truncation.
+  // too-low cap can't increase cost - it only stops premature truncation.
   // Callers wanting a smaller ceiling can set AZURE_OPENAI_MIN_COMPLETION_TOKENS.
   if (
     "max_completion_tokens" in out &&
@@ -38,7 +38,7 @@ function coerceReasoningParams<T extends Record<string, any>>(params: T): T {
   // which blew through Vercel's 300s function timeout when the lit-scout
   // hit summarization (40 papers × abstracts ≈ 20k tokens). Probing
   // gpt-5.5 with `reasoning_effort: "low"` on a 8.4k-prompt: 0 reasoning
-  // tokens, 3.8s total — easily within budget.
+  // tokens, 3.8s total - easily within budget.
   // Callers can override by passing an explicit `reasoning_effort` value.
   if (!("reasoning_effort" in out)) out.reasoning_effort = "low"
   return out as T
@@ -76,7 +76,7 @@ function wrapForReasoningModel(client: AzureOpenAI): AzureOpenAI {
                   }
                 },
                 () => {
-                  /* swallow — caller handles the rejection */
+                  /* swallow - caller handles the rejection */
                 }
               )
             }

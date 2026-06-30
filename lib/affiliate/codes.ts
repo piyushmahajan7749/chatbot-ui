@@ -8,7 +8,7 @@ export function normalizeCode(raw: string | null | undefined): string {
   return (raw ?? "").toUpperCase().replace(/[^A-Z0-9]/g, "")
 }
 
-/** Whether a normalized code is well-formed (3–32 chars — matches the DB CHECK). */
+/** Whether a normalized code is well-formed (3–32 chars - matches the DB CHECK). */
 export function isValidCode(code: string): boolean {
   return /^[A-Z0-9]{3,32}$/.test(code)
 }

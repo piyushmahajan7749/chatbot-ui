@@ -109,7 +109,7 @@ export interface CitationItem {
    * Route handler normalizes to [0, 1] before converting to Paper.
    */
   relevanceScore?: number
-  /** Citation count (impact signal) — a secondary sort key in the UI. */
+  /** Citation count (impact signal) - a secondary sort key in the UI. */
   citationCount?: number
 }
 

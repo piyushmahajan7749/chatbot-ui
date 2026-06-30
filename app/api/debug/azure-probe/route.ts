@@ -1,5 +1,5 @@
 /**
- * /api/debug/azure-probe — runtime diagnostic for the Azure OpenAI design
+ * /api/debug/azure-probe - runtime diagnostic for the Azure OpenAI design
  * deployment. Reports back: which deployment / endpoint / api-version are in
  * effect, plus the actual results of three real model calls (basic, beta
  * parse with json_schema, max_tokens fallback). Goal is to surface the
@@ -50,7 +50,7 @@ async function timed<T>(
       detail: detail(r).slice(0, 240)
     }
   } catch (e: any) {
-    // Log the full error to Vercel runtime logs — surfaces the exact
+    // Log the full error to Vercel runtime logs - surfaces the exact
     // unsupported_value / 404 / auth failure for diagnosis.
     console.error(`[azure-probe] ${label} FAILED`, {
       status: e?.status,
@@ -106,7 +106,7 @@ export async function GET(req: Request) {
     resolvedDesignDeployment: deployment
   }
 
-  // Each call passes a non-1 temperature on purpose — confirms the shim
+  // Each call passes a non-1 temperature on purpose - confirms the shim
   // coerces it (this is the runtime equivalent of the local probe).
   const client = getAzureOpenAIForDesign()
   const model = deployment

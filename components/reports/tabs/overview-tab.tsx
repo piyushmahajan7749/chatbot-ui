@@ -52,7 +52,7 @@ const toPlain = (s: unknown, limit = 420): string => {
   if (typeof s !== "string") return ""
   const t = s
     .replace(/```[\s\S]*?```/g, " ")
-    .replace(/\|.*\|/g, " ") // drop table rows — too dense for a poster box
+    .replace(/\|.*\|/g, " ") // drop table rows - too dense for a poster box
     .replace(/[#>*_`]/g, "")
     .replace(/^\s*[-•]\s+/gm, "• ")
     .replace(/\n{2,}/g, "\n")
@@ -217,7 +217,7 @@ export const OverviewTab: FC<OverviewTabProps> = ({
 
           <div className="border-ink-200 flex items-center justify-between border-t px-5 py-3">
             <span className="text-ink-400 text-xs">
-              A summary — open the full report for every section.
+              A summary - open the full report for every section.
             </span>
             <Button
               size="sm"
@@ -253,7 +253,7 @@ export const OverviewTab: FC<OverviewTabProps> = ({
     {
       key: "report",
       title: "Report",
-      summary: "Pending — generate to see sections",
+      summary: "Pending - generate to see sections",
       icon: <IconFileText size={20} />,
       accent: "text-teal-journey"
     }

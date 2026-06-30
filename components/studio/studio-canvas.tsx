@@ -573,7 +573,7 @@ export function StudioCanvas({
                       {(() => {
                         // Report is now generated from INSIDE the design (its
                         // Reports tab), not from the slab. The slab only shows a
-                        // passive indicator when a report already exists — and
+                        // passive indicator when a report already exists - and
                         // nothing (no "create" affordance) when one doesn't.
                         const rep = reportStatusOf(d.id)
                         if (!rep) return null
@@ -776,7 +776,7 @@ function EmptyDesigns(props: { hasAny: boolean; onNew: () => void }) {
       <p className="text-ink-700 text-sm font-semibold">No designs yet</p>
       <p className="text-ink-400 max-w-sm text-xs">
         Kick off your research by starting a Design. Move through Problem,
-        Literature, Hypothesis, and Final Design in a guided flow — reports,
+        Literature, Hypothesis, and Final Design in a guided flow - reports,
         chats, and files live inside each design.
       </p>
       <Button

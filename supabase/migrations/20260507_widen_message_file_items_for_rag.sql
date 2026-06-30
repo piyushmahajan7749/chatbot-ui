@@ -4,7 +4,7 @@
 --
 -- Pre-PR-6: every row had `file_item_id NOT NULL` FK to `file_items`,
 -- with PK `(message_id, file_item_id)`. Post-cutover, retrieved chunks
--- live in `rag_items` instead — we already added `rag_item_id` (PR-1's
+-- live in `rag_items` instead - we already added `rag_item_id` (PR-1's
 -- migration 20260504) but couldn't make `file_item_id` nullable
 -- without dropping the PK.
 --

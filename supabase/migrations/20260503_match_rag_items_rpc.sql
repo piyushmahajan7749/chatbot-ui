@@ -1,5 +1,5 @@
 -- Hybrid retrieval RPC. Returns BOTH a dense similarity score and a BM25
--- rank — RRF fusion + recency boost + chat-content multiplier are computed
+-- rank - RRF fusion + recency boost + chat-content multiplier are computed
 -- in TypeScript (lib/rag/retrieve.ts) so they can be tweaked without a
 -- migration.
 --

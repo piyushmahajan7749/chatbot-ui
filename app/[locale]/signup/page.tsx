@@ -14,7 +14,7 @@ import { REFERRAL_COOKIE } from "@/lib/affiliate/constants"
 export const metadata: Metadata = {
   title: "Create Your Account",
   description:
-    "Join thousands of life sciences researchers using Shadow AI to design experiments faster. Free to start — no credit card required.",
+    "Join thousands of life sciences researchers using Shadow AI to design experiments faster. Free to start - no credit card required.",
   alternates: { canonical: "/signup" },
   robots: { index: false, follow: false }
 }
@@ -111,7 +111,7 @@ export default async function SignupPage({
     }
 
     // Influencer referral attribution: if this signup came in via a ?ref code
-    // (captured into a cookie by middleware), record it. Best-effort — never
+    // (captured into a cookie by middleware), record it. Best-effort - never
     // blocks the signup.
     const refCode = cookieStore.get(REFERRAL_COOKIE)?.value
     if (data?.user && refCode) {
@@ -161,7 +161,7 @@ export default async function SignupPage({
     >
       {invitedByReferral && (
         <p className="bg-paper-2 text-ink-2 border-line mb-4 rounded-md border p-3 text-center text-[12.5px]">
-          🎁 You were invited by a creator — you’ll get bonus credits when you
+          🎁 You were invited by a creator - you’ll get bonus credits when you
           subscribe.
         </p>
       )}

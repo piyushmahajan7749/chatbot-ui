@@ -56,7 +56,7 @@ export async function semFilter(
   console.log(
     `🧪 [DEEPSCHOLAR][FILTER] Starting filter on ${papers.length} candidates`
   )
-  // Capture the FIRST error to surface as a representative cause — when
+  // Capture the FIRST error to surface as a representative cause - when
   // every paper fails for the same reason (e.g. bad api-version → 404 on
   // every call), this gives operators something concrete to grep for in
   // Vercel logs instead of a silent empty result.
@@ -79,7 +79,7 @@ export async function semFilter(
           { role: "system", content: sys },
           { role: "user", content: user }
         ],
-        // Reasoning model — temperature is forced to 1 by the SDK shim.
+        // Reasoning model - temperature is forced to 1 by the SDK shim.
         temperature: 1,
         response_format: zodResponseFormat(RelevanceSchema, "rel")
       })
@@ -102,7 +102,7 @@ export async function semFilter(
     }
   }
 
-  // PARALLELISE with a concurrency cap — gpt-5.5 reasoning calls take 1-2s
+  // PARALLELISE with a concurrency cap - gpt-5.5 reasoning calls take 1-2s
   // each; running 75+ papers serially blew through Vercel's 300s function
   // limit and the route timed out mid-stream (user-visible "no papers
   // found"). 8 concurrent calls keeps total < 30s on a 75-paper pool and
@@ -116,7 +116,7 @@ export async function semFilter(
     for (const r of results) if (r) filtered.push(r)
   }
   if (errorCount > 0) {
-    // Loud, single summary line — easier to spot in Vercel logs than per-
+    // Loud, single summary line - easier to spot in Vercel logs than per-
     // paper errors, and surfaces the smoking-gun status / code / message.
     console.error(
       `❌ [DEEPSCHOLAR][FILTER] Azure relevance call failed on ${errorCount}/${papers.length} papers. First error:`,

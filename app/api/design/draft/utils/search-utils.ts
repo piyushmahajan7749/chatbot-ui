@@ -408,7 +408,7 @@ export async function generateSearchQueriesWithLLM(
   } catch (err: any) {
     // Surface the full Azure error shape (status / code / param) so we can
     // pinpoint things like `unsupported_value: temperature` or a 404 from
-    // a bad api-version — previously this was a silent `console.warn` with
+    // a bad api-version - previously this was a silent `console.warn` with
     // just `.message`, which masked the real cause when the lit-scout
     // returned empty in production.
     console.error(
@@ -746,7 +746,7 @@ export async function searchOpenAlexEnhanced(
         // Bias OpenAlex toward PRIMARY research. Without this, broad
         // biomedical queries (e.g. antibody formulation/aggregation) come
         // back dominated by review articles, which the downstream review
-        // filter then drops — and when OpenAlex is the only live arm that
+        // filter then drops - and when OpenAlex is the only live arm that
         // leaves an all-reviews pool. `type:article|preprint` excludes
         // `review` (and datasets/paratext) at the source. Valid OpenAlex
         // filter syntax; the call is wrapped in try/catch so a bad filter
@@ -1239,7 +1239,7 @@ Provide specific, actionable insights relevant to experimental design.`
         },
         { role: "user", content: synthesisPrompt }
       ],
-      // Reasoning model — temperature is forced to 1 by the SDK shim.
+      // Reasoning model - temperature is forced to 1 by the SDK shim.
       temperature: 1
     })
 

@@ -66,9 +66,9 @@ export function DesignCoach({
   if (busy) {
     step = "Working…"
     body =
-      "I'm running this step — literature and design can take a few minutes. You can keep this tab open."
+      "I'm running this step - literature and design can take a few minutes. You can keep this tab open."
   } else if (activeTab === "design" && hasDesign) {
-    step = "Done — that's your design 🎉"
+    step = "Done - that's your design 🎉"
     body =
       "Bench-ready: protocol, materials, controls, and stats. Edit any field inline, or open Chat to refine it. That's the whole flow!"
     done = true
@@ -79,7 +79,7 @@ export function DesignCoach({
   } else if (activeTab === "literature") {
     step = "Step 2 · Literature"
     body =
-      "I scouted primary research for you. Tick the papers most relevant — your picks become the basis for the hypotheses."
+      "I scouted primary research for you. Tick the papers most relevant - your picks become the basis for the hypotheses."
   } else if (activeTab === "hypotheses") {
     step = "Step 3 · Hypotheses"
     body =

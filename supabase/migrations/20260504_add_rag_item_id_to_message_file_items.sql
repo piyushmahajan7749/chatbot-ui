@@ -5,13 +5,13 @@
 -- `rag_items` rows (replace-by-source). Without snapshot fields a chat
 -- thread loses its citation chips on the next re-index.
 --
--- This migration is purely additive — `file_item_id` keeps working for
+-- This migration is purely additive - `file_item_id` keeps working for
 -- legacy rows. New citations (PR-6 onward) write `rag_item_id` + the
 -- denormalized snapshot fields. Renderer falls back to the snapshot when
 -- the FK is null/dangling and shows a "(source updated)" badge.
 --
 -- We deliberately DO NOT drop the existing PK `(message_id, file_item_id)`
--- in this PR — the table only stores legacy rows. PR-6 will introduce a
+-- in this PR - the table only stores legacy rows. PR-6 will introduce a
 -- synthetic id PK + `(message_id, file_item_id)` partial unique once we
 -- start inserting rag-only rows where `file_item_id IS NULL`.
 

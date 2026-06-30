@@ -4,7 +4,7 @@
  * Full-screen "Refine" step. A sharp-reviewer Q&A shown between Problem →
  * Literature and Hypothesis → Design. MCQ (model-picked options) + always-on
  * free-text "other" + a per-question "Not sure / skip". Adaptive: a second
- * round drills in if the model wants more — capped (CLARIFY_MAX_*). On finish
+ * round drills in if the model wants more - capped (CLARIFY_MAX_*). On finish
  * it hands the accumulated answers back; failures fall through (never block).
  */
 
@@ -48,15 +48,15 @@ export const ClarifyStep: FC<ClarifyStepProps> = ({
 
   const title =
     checkpoint === "problem"
-      ? "Refine — sharpen the literature search"
+      ? "Refine - sharpen the literature search"
       : checkpoint === "hypothesis"
-        ? "Refine — sharpen the hypotheses"
-        : "Refine — make the design specific"
+        ? "Refine - sharpen the hypotheses"
+        : "Refine - make the design specific"
   const subtitle =
     checkpoint === "problem"
       ? "A few questions so I find the right primary research and scope the study to your system."
       : checkpoint === "hypothesis"
-        ? "A few questions so the hypotheses build sharply on the papers you selected — mechanism, direction, and what would falsify them."
+        ? "A few questions so the hypotheses build sharply on the papers you selected - mechanism, direction, and what would falsify them."
         : "A few questions so the generated design uses your real parameters, controls, and conditions."
 
   const fetchRound = useCallback(
@@ -75,7 +75,7 @@ export const ClarifyStep: FC<ClarifyStepProps> = ({
         })
         const json = await res.json().catch(() => ({}))
         if (!res.ok) {
-          // A genuine budget block (402) shouldn't pretend to ask questions —
+          // A genuine budget block (402) shouldn't pretend to ask questions -
           // skip straight through. Any other failure (timeout/5xx) surfaces a
           // retry instead of silently dumping the user into literature.
           if (res.status === 402) {

@@ -3,7 +3,7 @@ import { NextResponse } from "next/server"
 /**
  * Guard for operator-only admin endpoints (affiliate minting, comp grants).
  * Authenticated by a shared bearer secret (ADMIN_API_SECRET). Fails CLOSED:
- * if the secret isn't configured, every request is rejected — an admin route
+ * if the secret isn't configured, every request is rejected - an admin route
  * must never be open.
  *
  * Usage:

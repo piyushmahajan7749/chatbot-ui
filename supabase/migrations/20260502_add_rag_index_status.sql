@@ -4,7 +4,7 @@
 --
 -- Firestore-resident sources (designs, reports, paper_library,
 -- data_collections, project_files) carry the same fields as plain doc
--- properties — written lazily by lib/rag/index-doc.ts. No Firestore
+-- properties - written lazily by lib/rag/index-doc.ts. No Firestore
 -- "schema migration" exists; the contract lives in lib/rag/types.ts.
 
 ALTER TABLE files

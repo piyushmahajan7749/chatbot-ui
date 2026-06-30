@@ -7,7 +7,7 @@
 --       OR (scope IS NOT NULL AND scope_id IS NOT NULL))
 --
 -- But the product intentionally creates chats with a scope and NO scope_id to
--- mean "all of that scope type" — specifically the "Start chat" button on the
+-- mean "all of that scope type" - specifically the "Start chat" button on the
 -- Designs page creates a chat with scope='design', scope_id=NULL, which
 -- retrieve.ts (lib/rag/retrieve.ts) treats as "every design in the workspace".
 -- The old constraint rejected that INSERT with a CHECK violation, so the

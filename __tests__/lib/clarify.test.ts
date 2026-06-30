@@ -27,7 +27,7 @@ describe("clarifyAnswersToText", () => {
     ])
     expect(out).toBe(
       "- Working concentration?: 1–10 mM\n" +
-        "- Controls?: Vehicle, Untreated — plus a heat-stressed arm"
+        "- Controls?: Vehicle, Untreated - plus a heat-stressed arm"
     )
   })
 

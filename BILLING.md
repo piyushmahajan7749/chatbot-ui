@@ -4,15 +4,15 @@ Shadow AI meters every AI action (experiment design, literature search, knowledg
 chat, reports, …) against a per-user monthly credit allowance, with three plans
 backed by **RevenueCat Web Billing**.
 
-| Plan | Price | Monthly credits | Raw tokens |
-|------|-------|-----------------|-----------|
-| Free | $0 | 2,000 | 2,000,000 |
-| Pro | $20/mo | 20,000 | 20,000,000 |
-| Max | $100/mo | 200,000 | 200,000,000 |
+| Plan | Price   | Monthly credits | Raw tokens  |
+| ---- | ------- | --------------- | ----------- |
+| Free | $0      | 2,000           | 2,000,000   |
+| Pro  | $20/mo  | 20,000          | 20,000,000  |
+| Max  | $100/mo | 200,000         | 200,000,000 |
 
 **Unit:** `1 credit = 1,000 raw model tokens` (prompt + completion + reasoning).
 Free is calibrated to comfortably cover **≥5 full experiments** plus chat/lit-search.
-All limits live in **`lib/billing/plans.ts`** — the single source of truth. Retune
+All limits live in **`lib/billing/plans.ts`** - the single source of truth. Retune
 there (no migration needed); the DB takes the allowance as a parameter.
 
 ---
@@ -28,7 +28,7 @@ there (no migration needed); the DB takes the allowance as a parameter.
 - **Capture (single-call routes):** call `recordCompletionUsage(ctx, completion)` directly.
 - **Capture (streaming):** exact where the route reads raw chunks (`include_usage`, e.g.
   jarvis); otherwise estimated with `gpt-tokenizer` (`lib/billing/stream-meter.ts`, e.g.
-  knowledge chat) — estimates are within ~10–15%.
+  knowledge chat) - estimates are within ~10–15%.
 - **Background pipeline:** the Inngest research worker (`lib/inngest/functions.ts`) meters
   each LLM step against the plan owner.
 - **Persistence:** `recordUsage` calls the atomic `consume_tokens` RPC (rolls the period,
@@ -45,7 +45,7 @@ there (no migration needed); the DB takes the allowance as a parameter.
 Metered (our Azure cost): design, literature search, knowledge chat (Azure), reports,
 data-collection, embeddings/indexing, chat titles, tools, jarvis assistant.
 
-**Not metered** — bring-your-own-key / external providers run on the user's own key:
+**Not metered** - bring-your-own-key / external providers run on the user's own key:
 `/api/chat/openai`, `/api/chat/groq`, `/api/chat/perplexity`, `/api/chat/openrouter`,
 `/api/chat/custom`, `/api/chat/mistral`, and `/api/command`. Whisper transcription
 (`/api/data-collection/transcribe`) is billed by audio duration, not tokens, so it's
@@ -59,7 +59,7 @@ excluded.
 
 ## Database
 
-Migration: `supabase/migrations/20260605_create_billing.sql` — creates `billing_accounts`,
+Migration: `supabase/migrations/20260605_create_billing.sql` - creates `billing_accounts`,
 `usage_events`, the `consume_tokens` / `add_custom_credits` RPCs, an auto-provision trigger,
 and a backfill of existing users.
 
@@ -87,6 +87,7 @@ npm run db-types   # regenerates supabase/types.ts from the live schema
 ### Env vars
 
 Server:
+
 ```
 SUPABASE_SERVICE_ROLE_KEY=...            # already used elsewhere; required for billing writes
 REVENUECAT_WEBHOOK_AUTH=...              # shared secret for the webhook Authorization header
@@ -94,6 +95,7 @@ REVENUECAT_CREDIT_PRODUCTS={"credits_10k":10000000}   # optional: product_id →
 ```
 
 Client (public):
+
 ```
 NEXT_PUBLIC_REVENUECAT_WEB_PUBLIC_KEY=...   # RevenueCat Web Billing public API key
 NEXT_PUBLIC_REVENUECAT_PRO_PACKAGE=...      # offering package identifier for Pro
@@ -103,7 +105,7 @@ NEXT_PUBLIC_REVENUECAT_PORTAL_URL=...       # optional: hosted manage-subscripti
 ```
 
 Until `NEXT_PUBLIC_REVENUECAT_WEB_PUBLIC_KEY` is set, the Usage & Billing tab renders the
-plans read-only ("Coming soon") and everyone stays on Free — metering still works.
+plans read-only ("Coming soon") and everyone stays on Free - metering still works.
 
 ---
 

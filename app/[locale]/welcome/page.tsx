@@ -2,7 +2,7 @@
 
 /**
  * First-run greeting: three intro slides about Shadow AI, then a CTA into
- * signup. A split hero — narrative copy on the left, an animated product
+ * signup. A split hero - narrative copy on the left, an animated product
  * preview on the right that illustrates each slide. Auto-advancing progress
  * bars (pause on interaction). Sets a `seen_welcome` cookie so returning
  * visitors skip straight to the app/auth. Middleware redirects an
@@ -41,13 +41,13 @@ const SLIDES: {
     icon: IconFlask,
     eyebrow: "Design",
     title: "From a question to a bench-ready design",
-    body: "Type a plain research question. Shadow AI builds the whole experiment — hypothesis, DOE, controls, materials, and a statistical plan — in minutes."
+    body: "Type a plain research question. Shadow AI builds the whole experiment - hypothesis, DOE, controls, materials, and a statistical plan - in minutes."
   },
   {
     icon: IconShieldCheck,
     eyebrow: "Defend",
     title: "Rigor you can defend",
-    body: "Every design is literature-backed, cited, and auditable — built to stand up in group meeting, cross-functional review, and regulatory scrutiny."
+    body: "Every design is literature-backed, cited, and auditable - built to stand up in group meeting, cross-functional review, and regulatory scrutiny."
   },
   {
     icon: IconChecklist,
@@ -240,7 +240,7 @@ export default function WelcomePage() {
 }
 
 // ---------------------------------------------------------------------------
-// Preview — a small mock of the product that matches the active slide.
+// Preview - a small mock of the product that matches the active slide.
 // ---------------------------------------------------------------------------
 function Preview({ index }: { index: number }) {
   return (
@@ -349,7 +349,7 @@ function PreviewWorkflow() {
       </div>
       <div className="flex justify-start">
         <div className="border-line bg-paper text-ink-2 max-w-[82%] rounded-2xl rounded-bl-sm border px-3 py-2 text-[12px]">
-          <span className="text-ink font-medium">Updated the DOE</span> — 5
+          <span className="text-ink font-medium">Updated the DOE</span> - 5
           temperature levels, n=4, controls held. Power still ≥ 0.8.
         </div>
       </div>

@@ -192,7 +192,7 @@ export function renderSnapshotForPrompt(snap: CrossWorkspaceSnapshot): string {
   }
   const lines: string[] = ["LIVE CONTEXT:"]
   lines.push(
-    `- Workspaces: ${snap.totals.workspaces} (active: ${snap.activeWorkspaceName ?? "—"})`
+    `- Workspaces: ${snap.totals.workspaces} (active: ${snap.activeWorkspaceName ?? "-"})`
   )
   lines.push(
     `- Across all workspaces: ${snap.totals.designs} design${snap.totals.designs === 1 ? "" : "s"}, ${snap.totals.reports} report${snap.totals.reports === 1 ? "" : "s"}, ${snap.totals.chats} chat${snap.totals.chats === 1 ? "" : "s"}, ${snap.totals.papers} paper${snap.totals.papers === 1 ? "" : "s"} in library`

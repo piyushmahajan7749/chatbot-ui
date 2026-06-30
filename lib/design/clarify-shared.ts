@@ -1,5 +1,5 @@
 /**
- * Client-safe pieces of the Refine flow — constants, the checkpoint type, and
+ * Client-safe pieces of the Refine flow - constants, the checkpoint type, and
  * the pure answer→text flattener. Kept FREE of the Azure/OpenAI SDK so client
  * components (the design page, ClarifyStep) can import them without dragging
  * server-only deps (node:async_hooks) into the browser bundle. The server-only
@@ -11,7 +11,7 @@ export type ClarifyCheckpoint = "problem" | "hypothesis" | "design"
 
 /**
  * Hard caps. ROUNDS = 1 keeps every checkpoint to a SINGLE page of questions
- * (the user wants "ask the questions on 1 page every time" — no multi-step
+ * (the user wants "ask the questions on 1 page every time" - no multi-step
  * drill-down), with up to TOTAL questions on that one page.
  */
 export const CLARIFY_MAX_ROUNDS = 1
