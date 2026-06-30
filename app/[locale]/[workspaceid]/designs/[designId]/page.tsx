@@ -541,7 +541,7 @@ export default function DesignDetailPage() {
   const [showRail, setShowRail] = useState(false)
   // Width of the design chat rail (px). User-resizable via the drag handle on
   // its left edge so they can give the chat more room.
-  const [railWidth, setRailWidth] = useState(300)
+  const [railWidth, setRailWidth] = useState(380)
 
   // Agent popover
   const [agentPopoverOpen, setAgentPopoverOpen] = useState(false)
@@ -2110,6 +2110,9 @@ Rules:
       pushUndoSnapshot(generatedDesignsRef.current) // snapshot pre-edit state
       generatedDesignsRef.current = nextDesigns
       setGeneratedDesigns(nextDesigns)
+      // Close the chat and surface the updated design directly.
+      setShowRail(false)
+      setActiveTab("design")
       void persistContent({ designs: nextDesigns })
         .then(() =>
           toast({
@@ -2145,7 +2148,12 @@ Rules:
         pushUndoSnapshot(generatedDesignsRef.current) // snapshot pre-edit state
         generatedDesignsRef.current = detail.designs
         setGeneratedDesigns(detail.designs)
+        setActiveDesignId(prev => prev ?? detail.designs?.[0]?.id ?? null)
       }
+      // Approving a change closes the chat and drops the user straight onto the
+      // updated design so they see the edit applied, not the chat.
+      setShowRail(false)
+      setActiveTab("design")
     }
     window.addEventListener(
       "design:content-updated",
@@ -2224,36 +2232,43 @@ Rules:
 
   return (
     <div className="bg-ink-50 relative flex h-full overflow-hidden">
-      {/* LEFT: collapsible design chat panel — full height, flanks the page */}
+      {/* LEFT: design chat — overlays the page (does NOT shrink it), full
+          height on the left with a dimmed click-to-close backdrop. */}
       {showRail && (
-        <div
-          className="border-ink-200 relative flex shrink-0 flex-col border-r"
-          style={{ width: railWidth }}
-        >
+        <>
           <div
-            onMouseDown={startRailResize}
-            className="hover:bg-brick/40 absolute right-0 top-0 z-20 h-full w-1.5 translate-x-1/2 cursor-col-resize"
-            title="Drag to resize the chat"
+            className="absolute inset-0 z-30 bg-black/20"
+            onClick={() => setShowRail(false)}
           />
-          <div className="min-h-0 min-w-0 flex-1">
-            <ScopedChatRail
-              scope="design"
-              scopeId={designId}
-              scopeName={title || design?.name || "Design"}
-              autoStart
-              contextPrompt={chatContextPrompt}
-              headerSlot={
-                <button
-                  onClick={toggleChatRail}
-                  title="Close chat"
-                  className="text-ink-3 hover:bg-paper-2 hover:text-ink rounded p-1"
-                >
-                  <IconX size={16} />
-                </button>
-              }
+          <div
+            className="border-ink-200 absolute left-0 top-0 z-40 flex h-full flex-col border-r bg-white shadow-2xl"
+            style={{ width: railWidth }}
+          >
+            <div
+              onMouseDown={startRailResize}
+              className="hover:bg-brick/40 absolute right-0 top-0 z-20 h-full w-1.5 translate-x-1/2 cursor-col-resize"
+              title="Drag to resize the chat"
             />
+            <div className="min-h-0 min-w-0 flex-1">
+              <ScopedChatRail
+                scope="design"
+                scopeId={designId}
+                scopeName={title || design?.name || "Design"}
+                autoStart
+                contextPrompt={chatContextPrompt}
+                headerSlot={
+                  <button
+                    onClick={toggleChatRail}
+                    title="Close chat"
+                    className="text-ink-3 hover:bg-paper-2 hover:text-ink rounded p-1"
+                  >
+                    <IconX size={16} />
+                  </button>
+                }
+              />
+            </div>
           </div>
-        </div>
+        </>
       )}
 
       {/* CENTER COLUMN: header + stepper + tab content */}
