@@ -19,6 +19,10 @@ function stripLocale(pathname: string, locales: string[]): string {
   return pathname
 }
 
+function isAdminPath(pathname: string): boolean {
+  return pathname === "/admin" || pathname.startsWith("/admin/")
+}
+
 // Supabase's SSR client sets refreshed auth cookies on the `response` object
 // we captured from createClient(). Building a fresh NextResponse for a redirect
 // discards those cookies and loops the user through refresh on every request.
@@ -72,6 +76,20 @@ export async function middleware(request: NextRequest) {
     const isAbout = pathname === "/about"
     const isPrivacy = pathname === "/privacy"
     const isTerms = pathname === "/terms"
+    // Internal ops dashboard - gated by its own ADMIN_API_SECRET password
+    // prompt, not Supabase login. It must be reachable REGARDLESS of session
+    // state, so it's handled as an early bypass below rather than folded into
+    // isPublicAuth - that list also gets redirect-AWAY-from-it treatment for
+    // already-logged-in users (see the `isPublicAuth || isRoot` branch further
+    // down), which would lock out an admin who's also signed into their own
+    // account.
+    if (isAdminPath(pathname)) {
+      const i18nResult = i18nRouter(request, i18nConfig)
+      response.cookies.getAll().forEach(cookie => {
+        i18nResult.cookies.set(cookie)
+      })
+      return i18nResult
+    }
     // All public pages an unauthenticated user is allowed to see.
     const isPublicAuth =
       isLogin || isSignup || isForgotPassword || isWelcome || isBlog || isAbout || isPrivacy || isTerms

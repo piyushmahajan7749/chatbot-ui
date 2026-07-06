@@ -19,6 +19,11 @@ Disallow: /*/onboarding
 Disallow: /api/
 Disallow: /auth/
 
+# Internal ops dashboard - never crawl
+Disallow: /admin
+Disallow: /admin/
+Disallow: /*/admin/
+
 # AI training opt-out for scraper bots
 User-agent: GPTBot
 Allow: /blog/

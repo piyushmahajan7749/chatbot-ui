@@ -10,25 +10,34 @@ import type { AffiliateRow } from "./types"
 const TOKENS_PER_CREDIT = 1000
 
 /**
- * Resolve a Supabase auth user id from an email. Service-role only - reads the
- * `auth.users` table directly (the auth schema isn't in the generated public
- * Database types, hence the cast). Returns null if no such user.
+ * Resolve a Supabase auth user id from an email. Service-role only.
+ *
+ * Uses the Admin Auth API (`auth.admin.listUsers`), NOT a direct PostgREST
+ * query against `auth.users` - the `auth` schema isn't exposed over the Data
+ * API by default, so `.schema("auth").from("users")` always errors and (the
+ * bug this replaced) silently swallowed that error into a false "no account
+ * found", breaking every affiliate/comp mint by email. Same pattern as the
+ * design-collaborators lookup (app/api/design/[designid]/collaborators/route.ts).
  */
 export async function getUserIdByEmail(email: string): Promise<string | null> {
   const e = (email ?? "").trim().toLowerCase()
   if (!e) return null
   const admin = getBillingAdminClient()
-  const { data, error } = await (admin as any)
-    .schema("auth")
-    .from("users")
-    .select("id")
-    .ilike("email", e)
-    .maybeSingle()
+  // listUsers' `email` filter matches exactly (Supabase does the normalization);
+  // paginate defensively in case of a future large user base + hash collisions.
+  const { data, error } = await admin.auth.admin.listUsers({
+    page: 1,
+    perPage: 1,
+    email: e
+  } as any)
   if (error) {
     console.error("[affiliate/admin] getUserIdByEmail failed", error)
     return null
   }
-  return (data as { id: string } | null)?.id ?? null
+  const match = data?.users?.find(
+    u => (u.email ?? "").trim().toLowerCase() === e
+  )
+  return match?.id ?? null
 }
 
 export interface CreateAffiliateInput {
