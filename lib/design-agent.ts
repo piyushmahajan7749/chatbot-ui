@@ -294,6 +294,7 @@ export type PhaseKey =
   | "literature"
   | "hypotheses"
   | "design"
+  | "validate"
   | "simulation"
 
 export const PHASE_ORDER: PhaseKey[] = [
@@ -301,6 +302,7 @@ export const PHASE_ORDER: PhaseKey[] = [
   "literature",
   "hypotheses",
   "design",
+  "validate",
   "simulation"
 ]
 
@@ -322,6 +324,58 @@ export interface DesignVersionSnapshot {
   designs: GeneratedDesign[]
   createdAt: string
   note?: string
+}
+
+/** How a round of lab data landed against the hypothesis under test. */
+export type ValidationVerdict =
+  | "supported"
+  | "partially_supported"
+  | "refuted"
+  | "inconclusive"
+
+/**
+ * One design → run-in-lab → analyze cycle. The scientist runs the current
+ * design, brings back data, and the Validate agent judges the hypothesis and
+ * proposes what to change. Iterations accumulate so later rounds reason over
+ * the full history (job story: "at iteration 17 it knows every pattern so far").
+ */
+export interface ExperimentIteration {
+  id: string
+  /** 1-based round number. */
+  index: number
+  /** The design that was actually run this round (snapshot, not a live ref). */
+  designSnapshot: GeneratedDesign[]
+  /** The hypothesis being tested when this data was collected. */
+  hypothesisText?: string
+  /** The scientist's lab results for this round. */
+  data: {
+    /** Free-text results / observations they typed or pasted. */
+    raw?: string
+    /** Uploaded data-file metadata (content resolved server-side at run time). */
+    files?: { id?: string; name: string; size?: number; type?: string }[]
+  }
+  verdict: ValidationVerdict
+  /** 0..1 model confidence in the verdict. */
+  confidence?: number
+  /** The agent's reasoning for the verdict. */
+  reasoning?: string
+  /** New patterns / findings surfaced this round. */
+  insights: string[]
+  /** Concrete changes to try next (design and/or hypothesis level). */
+  suggestedChanges: string[]
+  /** If refuted, a sharper hypothesis the data points toward. */
+  revisedHypothesis?: string
+  createdAt: string
+}
+
+/**
+ * The running validation loop for a design. `cumulativeInsights` is the
+ * synthesis the agent refines every round — the compact "memory" fed back into
+ * hypothesis + design regeneration so each iteration gets more focused.
+ */
+export interface ValidationState {
+  iterations: ExperimentIteration[]
+  cumulativeInsights?: string
 }
 
 export interface DesignContentV2 {
@@ -359,6 +413,12 @@ export interface DesignContentV2 {
     hypothesis?: ClarifyAnswer[]
     design?: ClarifyAnswer[]
   }
+  /**
+   * The validate-and-iterate loop: lab-data-driven rounds that test the
+   * hypothesis and steer the next design. Empty/absent until the scientist
+   * reaches the Validate stage and runs their first round.
+   */
+  validation?: ValidationState
 }
 
 /** A clarifying question shown at a Refine checkpoint (MCQ + free-text other). */

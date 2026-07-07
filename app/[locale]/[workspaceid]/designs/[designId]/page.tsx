@@ -50,6 +50,7 @@ import {
 import type { ClarifyAnswer } from "@/lib/design-agent"
 import type { Sharing } from "@/types/sharing"
 import { addPaperToLibrary } from "@/db/paper-library"
+import { createFileBasedOnExtension } from "@/db/files"
 import { supabase } from "@/lib/supabase/browser-client"
 import { ChatbotUIContext } from "@/context/context"
 import { useToast } from "@/app/hooks/use-toast"
@@ -66,11 +67,14 @@ import {
   type DesignPhase,
   type DesignSection,
   type DesignVersionSnapshot,
+  type ExperimentIteration,
   type GeneratedDesign,
   type Hypothesis,
   type Paper,
   type PhaseKey,
-  type ProblemContext
+  type ProblemContext,
+  type ValidationState,
+  type ValidationVerdict
 } from "@/lib/design-agent"
 import { buildDesignChatContext } from "@/lib/design/chat-context"
 import {
@@ -104,6 +108,7 @@ import {
   IconInfoCircle,
   IconLayoutGrid,
   IconListDetails,
+  IconLoader2,
   IconNote,
   IconPencil,
   IconQuote,
@@ -391,7 +396,13 @@ export default function DesignDetailPage() {
   // phase once the loader catches up.
   const initialTab = (() => {
     const t = searchParams?.get("tab") ?? ""
-    return ["problem", "literature", "hypotheses", "design"].includes(t)
+    return [
+      "problem",
+      "literature",
+      "hypotheses",
+      "design",
+      "validate"
+    ].includes(t)
       ? t
       : "problem"
   })()
@@ -470,6 +481,13 @@ export default function DesignDetailPage() {
     hypothesis?: ClarifyAnswer[]
     design?: ClarifyAnswer[]
   }>({})
+
+  // Validate-and-iterate loop: lab-data rounds testing the hypothesis, each
+  // feeding the next. Persisted into content.validation.
+  const [validation, setValidation] = useState<ValidationState>({
+    iterations: []
+  })
+  const [validating, setValidating] = useState(false)
 
   // Literature tab state
   const [papers, setPapers] = useState<Paper[]>([])
@@ -671,6 +689,7 @@ export default function DesignDetailPage() {
         ((problem as any).additionalDetails as string | undefined) ?? ""
       )
       if (content?.clarifications) setClarifications(content.clarifications)
+      if (content?.validation) setValidation(content.validation)
 
       if (content?.papers) setPapers(content.papers)
       // Restore the "from N searched" total from prior runs so the
@@ -1178,8 +1197,113 @@ export default function DesignDetailPage() {
     ]
     setApprovedPhases(nextApproved)
     await persistContent({ approvedPhases: nextApproved })
-    setActiveTab("design")
-    toast({ title: "Design finalized", description: "All phases approved." })
+    // Design approved unlocks Validate — send them there to run it in the lab.
+    setActiveTab("validate")
+    toast({
+      title: "Design approved",
+      description: "Run it in the lab, then validate with your data."
+    })
+  }
+
+  // ── Validate-and-iterate loop ─────────────────────────────────────────────
+
+  const handleRunValidation = async (
+    raw: string,
+    dataFiles: { id?: string; name: string; size?: number; type?: string }[]
+  ) => {
+    if (!ensureCanEdit()) return
+    setValidating(true)
+    try {
+      const res = await fetch(`/api/design/${designId}/validate`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ raw, dataFiles })
+      })
+      if (res.status === 402) {
+        await handleBudgetError(res)
+        return
+      }
+      const json = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        toast({
+          title: "Validation failed",
+          description: json?.error ?? "Try again.",
+          variant: "destructive"
+        })
+        return
+      }
+      const nextValidation = json.validation as ValidationState
+      setValidation(nextValidation)
+      // Server already persisted; mirror into the ref + approvedPhases so a
+      // reload and the tab gating stay consistent without a second write.
+      latestContentRef.current = {
+        ...latestContentRef.current,
+        validation: nextValidation
+      }
+      if (!approvedPhases.includes("validate")) {
+        setApprovedPhases(prev =>
+          prev.includes("validate") ? prev : [...prev, "validate"]
+        )
+      }
+      const v = (json.iteration as ExperimentIteration)?.verdict
+      toast({
+        title: `Iteration ${json.iteration?.index}: ${verdictLabel(v)}`,
+        description:
+          v === "supported"
+            ? "Your data supports the hypothesis."
+            : "See the insights and suggested next steps below."
+      })
+    } catch {
+      toast({
+        title: "Couldn't reach the validator",
+        description: "Check your connection and try again.",
+        variant: "destructive"
+      })
+    } finally {
+      setValidating(false)
+    }
+  }
+
+  // "Always re-open hypothesis + design": carry the accumulated memory forward
+  // into the generation context, then drop the user on Hypotheses to re-run the
+  // loop. The prior design is already snapshotted inside the iteration record.
+  const handleStartNextIteration = async () => {
+    if (!ensureCanEdit()) return
+    const last = validation.iterations[validation.iterations.length - 1]
+    const nextRound = validation.iterations.length + 1
+    const memoryBlock = [
+      `[Iteration ${nextRound} — carried forward from ${validation.iterations.length} prior round(s)]`,
+      validation.cumulativeInsights
+        ? `Cumulative insights: ${validation.cumulativeInsights}`
+        : "",
+      last?.suggestedChanges?.length
+        ? `Changes to try this round: ${last.suggestedChanges.join("; ")}`
+        : "",
+      last?.revisedHypothesis
+        ? `Revised hypothesis to test: ${last.revisedHypothesis}`
+        : ""
+    ]
+      .filter(Boolean)
+      .join("\n")
+
+    // Replace any prior iteration block in additionalDetails (marker-bounded)
+    // so successive iterations don't stack stale memory.
+    const MARK = "\n\n<<ITERATION MEMORY>>\n"
+    const base = additionalDetails.split(MARK)[0].trimEnd()
+    const nextDetails = `${base}${MARK}${memoryBlock}`
+    setAdditionalDetails(nextDetails)
+    await persistContent({
+      problem: { ...currentProblem(), additionalDetails: nextDetails }
+    })
+
+    // Re-open the loop at Hypotheses (approvedPhases keeps prior stages
+    // unlocked; regenerating there flows the memory into hyp + design prompts).
+    setActiveTab("hypotheses")
+    toast({
+      title: `Starting iteration ${nextRound}`,
+      description:
+        "Insights carried forward. Regenerate hypotheses, then the design."
+    })
   }
 
   // ── Regenerate handlers ───────────────────────────────────────────────
@@ -1774,6 +1898,16 @@ export default function DesignDetailPage() {
             : "No designs",
         accent: "sage-brand",
         icon: <IconClipboardText size={18} />
+      },
+      {
+        key: "validate",
+        label: "Validate",
+        sublabel:
+          validation.iterations.length > 0
+            ? `${validation.iterations.length} iteration${validation.iterations.length === 1 ? "" : "s"}`
+            : "Test with data",
+        accent: "teal-journey",
+        icon: <IconRefresh size={18} />
       }
     ]
 
@@ -2406,19 +2540,21 @@ Rules:
           </div>
         </div>
 
-        {/* Stage stepper — 4-stage rail (overview removed) */}
+        {/* Stage stepper — 5-stage rail (problem → … → validate) */}
         {(() => {
           const tabToStage: Record<string, DesignStageId> = {
             problem: "problem",
             literature: "lit",
             hypotheses: "hyp",
-            design: "design"
+            design: "design",
+            validate: "validate"
           }
           const stageToTab: Record<DesignStageId, string> = {
             problem: "problem",
             lit: "literature",
             hyp: "hypotheses",
-            design: "design"
+            design: "design",
+            validate: "validate"
           }
           const completedStages: DesignStageId[] = approvedPhases
             .filter(p => p !== "simulation")
@@ -2440,7 +2576,11 @@ Rules:
             design:
               generatedDesigns.length > 0
                 ? `${generatedDesigns.length} design${generatedDesigns.length === 1 ? "" : "s"}`
-                : "no designs"
+                : "no designs",
+            validate:
+              validation.iterations.length > 0
+                ? `iteration ${validation.iterations.length}`
+                : "no data yet"
           }
           const currentStage = tabToStage[activeTab] || "problem"
           return (
@@ -2591,6 +2731,20 @@ Rules:
                   onEditSection={handleEditSection}
                 />
               </>
+            )}
+
+            {activeTab === "validate" && (
+              <ValidateTab
+                validation={validation}
+                hasDesign={generatedDesigns.length > 0}
+                canEdit={canEdit}
+                isValidating={validating}
+                onValidate={handleRunValidation}
+                onIterate={handleStartNextIteration}
+                designId={designId}
+                userId={profile?.user_id ?? null}
+                selectedWorkspace={selectedWorkspace}
+              />
             )}
           </div>
         </div>
@@ -3232,6 +3386,414 @@ function progressToEvents(
     }
     return { step: ev.step, message: ev.message }
   })
+}
+
+// ── Validate-and-iterate stage ────────────────────────────────────────────
+function verdictLabel(v: ValidationVerdict | undefined): string {
+  switch (v) {
+    case "supported":
+      return "Supported"
+    case "partially_supported":
+      return "Partially supported"
+    case "refuted":
+      return "Refuted"
+    case "inconclusive":
+      return "Inconclusive"
+    default:
+      return "—"
+  }
+}
+
+function verdictTone(v: ValidationVerdict | undefined): {
+  bg: string
+  text: string
+  dot: string
+} {
+  switch (v) {
+    case "supported":
+      return {
+        bg: "bg-emerald-50",
+        text: "text-emerald-700",
+        dot: "bg-emerald-500"
+      }
+    case "partially_supported":
+      return { bg: "bg-amber-50", text: "text-amber-700", dot: "bg-amber-500" }
+    case "refuted":
+      return { bg: "bg-rust-soft", text: "text-rust", dot: "bg-rust" }
+    default:
+      return { bg: "bg-ink-50", text: "text-ink-600", dot: "bg-ink-300" }
+  }
+}
+
+type ValidateFile = { id?: string; name: string; size?: number; type?: string }
+
+function ValidateTab(props: {
+  validation: ValidationState
+  hasDesign: boolean
+  canEdit: boolean
+  isValidating: boolean
+  onValidate: (raw: string, files: ValidateFile[]) => void
+  onIterate: () => void
+  designId: string
+  userId: string | null
+  selectedWorkspace: any
+}) {
+  const {
+    validation,
+    hasDesign,
+    canEdit,
+    isValidating,
+    onValidate,
+    onIterate,
+    userId,
+    selectedWorkspace
+  } = props
+  const [raw, setRaw] = useState("")
+  const [files, setFiles] = useState<ValidateFile[]>([])
+  const [uploading, setUploading] = useState(false)
+  const fileRef = useRef<HTMLInputElement>(null)
+
+  const iterations = validation.iterations
+  const latest = iterations[iterations.length - 1]
+  const nextRound = iterations.length + 1
+  const canSubmit = (raw.trim().length > 0 || files.length > 0) && !isValidating
+
+  const handleUpload = async (list: FileList | null) => {
+    if (!list || list.length === 0) return
+    if (!userId || !selectedWorkspace) {
+      toast.error("Sign in and select a workspace before uploading.")
+      return
+    }
+    setUploading(true)
+    try {
+      for (const file of Array.from(list)) {
+        try {
+          const created = await createFileBasedOnExtension(
+            file,
+            {
+              user_id: userId,
+              description: "",
+              file_path: "",
+              name: file.name,
+              size: file.size,
+              tokens: 0,
+              type: file.type,
+              sharing: "private"
+            },
+            selectedWorkspace.id,
+            (selectedWorkspace.embeddings_provider as "openai" | "local") ??
+              "openai"
+          )
+          setFiles(prev => [
+            ...prev,
+            {
+              id: (created as any).id,
+              name: file.name,
+              size: file.size,
+              type: file.type
+            }
+          ])
+        } catch {
+          toast.error(`Upload failed: ${file.name}`)
+        }
+      }
+    } finally {
+      setUploading(false)
+    }
+  }
+
+  if (!hasDesign) {
+    return (
+      <div className="border-ink-200 mx-auto max-w-xl rounded-2xl border border-dashed bg-white p-8 text-center">
+        <div className="bg-ink-50 text-ink-500 mx-auto mb-3 flex size-11 items-center justify-center rounded-full">
+          <IconRefresh size={20} />
+        </div>
+        <h3 className="text-ink-900 text-[15px] font-semibold">
+          Validate needs a design first
+        </h3>
+        <p className="text-ink-500 mt-1 text-[13px]">
+          Generate and approve an experiment design, run it in the lab, then
+          come back to test your hypothesis against the data.
+        </p>
+      </div>
+    )
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <div>
+        <div className="text-teal-journey flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.13em]">
+          <IconRefresh size={13} /> Validate &amp; iterate
+        </div>
+        <h2 className="text-ink-900 mt-1 text-xl font-bold">
+          {iterations.length === 0
+            ? "Test your hypothesis with real data"
+            : `Iteration ${iterations.length} recorded`}
+        </h2>
+        <p className="text-ink-500 mt-1 max-w-2xl text-[13px]">
+          Ran the design in the lab? Add your results below. Each round is
+          judged against the hypothesis and everything learned so far, then
+          points you to the next experiment.
+        </p>
+      </div>
+
+      {/* Cumulative memory */}
+      {validation.cumulativeInsights && (
+        <div className="border-teal-journey/30 bg-teal-journey-tint/40 rounded-2xl border p-4">
+          <div className="text-teal-journey mb-1 flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider">
+            <IconSparkles size={13} /> What we&apos;ve learned so far
+            <span className="text-ink-400 font-medium normal-case tracking-normal">
+              · across {iterations.length} round
+              {iterations.length === 1 ? "" : "s"}
+            </span>
+          </div>
+          <p className="text-ink-700 whitespace-pre-wrap text-[13px] leading-relaxed">
+            {validation.cumulativeInsights}
+          </p>
+        </div>
+      )}
+
+      {/* Latest verdict */}
+      {latest && (
+        <div className="border-ink-200 overflow-hidden rounded-2xl border bg-white">
+          <div
+            className={cn(
+              "flex items-center justify-between px-5 py-3",
+              verdictTone(latest.verdict).bg
+            )}
+          >
+            <div className="flex items-center gap-2">
+              <span
+                className={cn(
+                  "size-2 rounded-full",
+                  verdictTone(latest.verdict).dot
+                )}
+              />
+              <span
+                className={cn(
+                  "text-[14px] font-bold",
+                  verdictTone(latest.verdict).text
+                )}
+              >
+                Iteration {latest.index}: {verdictLabel(latest.verdict)}
+              </span>
+            </div>
+            {typeof latest.confidence === "number" && (
+              <span className="text-ink-500 font-mono text-[12px] tabular-nums">
+                {Math.round(latest.confidence * 100)}% confidence
+              </span>
+            )}
+          </div>
+          <div className="space-y-4 p-5">
+            {latest.reasoning && (
+              <p className="text-ink-700 text-[13px] leading-relaxed">
+                {latest.reasoning}
+              </p>
+            )}
+            {latest.insights.length > 0 && (
+              <div>
+                <div className="text-ink-400 mb-1.5 text-[11px] font-semibold uppercase tracking-wider">
+                  Insights this round
+                </div>
+                <ul className="space-y-1">
+                  {latest.insights.map((ins, i) => (
+                    <li
+                      key={i}
+                      className="text-ink-700 flex gap-2 text-[13px] leading-snug"
+                    >
+                      <IconBulb
+                        size={14}
+                        className="text-teal-journey mt-0.5 shrink-0"
+                      />
+                      {ins}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            {latest.suggestedChanges.length > 0 && (
+              <div>
+                <div className="text-ink-400 mb-1.5 text-[11px] font-semibold uppercase tracking-wider">
+                  Try next
+                </div>
+                <ul className="space-y-1">
+                  {latest.suggestedChanges.map((c, i) => (
+                    <li
+                      key={i}
+                      className="text-ink-700 flex gap-2 text-[13px] leading-snug"
+                    >
+                      <span className="text-ink-400 mt-0.5 shrink-0 font-mono text-[11px]">
+                        {i + 1}.
+                      </span>
+                      {c}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            {latest.revisedHypothesis && (
+              <div className="border-ink-100 bg-ink-50 rounded-lg border p-3">
+                <div className="text-ink-400 mb-0.5 text-[11px] font-semibold uppercase tracking-wider">
+                  Sharper hypothesis to test
+                </div>
+                <p className="text-ink-800 text-[13px]">
+                  {latest.revisedHypothesis}
+                </p>
+              </div>
+            )}
+
+            {latest.verdict !== "supported" && canEdit && (
+              <button
+                type="button"
+                onClick={onIterate}
+                className="bg-brick hover:bg-brick-hover flex items-center gap-2 rounded-lg px-4 py-2.5 text-[13px] font-semibold text-white transition-colors"
+              >
+                <IconRefresh size={15} />
+                Start iteration {nextRound} — carry insights forward
+              </button>
+            )}
+            {latest.verdict === "supported" && (
+              <div className="flex items-center gap-2 text-[13px] font-medium text-emerald-700">
+                <IconCheck size={16} /> Hypothesis supported — export a report
+                from the Library, or start a new iteration to push further.
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Data entry for the next round */}
+      {canEdit && (
+        <div className="border-ink-200 rounded-2xl border bg-white p-5">
+          <h3 className="text-ink-900 text-[14px] font-semibold">
+            {iterations.length === 0
+              ? "Add your lab results"
+              : `Log iteration ${nextRound} data`}
+          </h3>
+          <p className="text-ink-500 mt-0.5 text-[12.5px]">
+            Paste measurements and observations, and/or attach a data file (CSV,
+            PDF, image).
+          </p>
+          <textarea
+            value={raw}
+            onChange={e => setRaw(e.target.value)}
+            rows={5}
+            placeholder="e.g. At 20 mM the readout rose to 3.1 ± 0.2 vs 1.0 control; 40 mM plateaued at 3.0 with higher variance. n = 3 per arm…"
+            className="border-ink-200 focus:border-teal-journey mt-3 w-full rounded-lg border p-3 text-[13px] outline-none transition-colors"
+          />
+          {files.length > 0 && (
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              {files.map((f, i) => (
+                <span
+                  key={i}
+                  className="border-ink-200 text-ink-700 bg-ink-50 inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[12px]"
+                >
+                  {f.name}
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setFiles(prev => prev.filter((_, j) => j !== i))
+                    }
+                    className="text-ink-400 hover:text-ink-700"
+                  >
+                    <IconX size={12} />
+                  </button>
+                </span>
+              ))}
+            </div>
+          )}
+          <div className="mt-3 flex items-center justify-between gap-3">
+            <input
+              ref={fileRef}
+              type="file"
+              accept=".pdf,.csv,.txt,.docx,.jpeg,.jpg,.png"
+              multiple
+              className="hidden"
+              onChange={e => {
+                void handleUpload(e.target.files)
+                e.target.value = ""
+              }}
+            />
+            <button
+              type="button"
+              onClick={() => fileRef.current?.click()}
+              disabled={uploading}
+              className="border-ink-200 text-ink-700 hover:bg-ink-50 flex items-center gap-1.5 rounded-lg border px-3 py-2 text-[12.5px] font-medium disabled:opacity-50"
+            >
+              {uploading ? (
+                <IconLoader2 size={14} className="animate-spin" />
+              ) : (
+                <IconUpload size={14} />
+              )}
+              Attach data file
+            </button>
+            <button
+              type="button"
+              onClick={() => onValidate(raw.trim(), files)}
+              disabled={!canSubmit}
+              className="bg-brick hover:bg-brick-hover flex items-center gap-2 rounded-lg px-4 py-2 text-[13px] font-semibold text-white transition-colors disabled:opacity-50"
+            >
+              {isValidating ? (
+                <IconLoader2 size={15} className="animate-spin" />
+              ) : (
+                <IconRefresh size={15} />
+              )}
+              {isValidating ? "Validating…" : "Validate hypothesis"}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Iteration timeline */}
+      {iterations.length > 0 && (
+        <div>
+          <div className="text-ink-400 mb-2 text-[11px] font-semibold uppercase tracking-wider">
+            Iteration history
+          </div>
+          <ol className="space-y-2">
+            {[...iterations].reverse().map(it => (
+              <li
+                key={it.id}
+                className="border-ink-200 rounded-xl border bg-white p-3.5"
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span
+                      className={cn(
+                        "size-2 rounded-full",
+                        verdictTone(it.verdict).dot
+                      )}
+                    />
+                    <span className="text-ink-900 text-[13px] font-semibold">
+                      Iteration {it.index}
+                    </span>
+                    <span
+                      className={cn(
+                        "rounded-full px-2 py-0.5 text-[11px] font-semibold",
+                        verdictTone(it.verdict).bg,
+                        verdictTone(it.verdict).text
+                      )}
+                    >
+                      {verdictLabel(it.verdict)}
+                    </span>
+                  </div>
+                  <span className="text-ink-400 font-mono text-[11px] tabular-nums">
+                    {new Date(it.createdAt).toLocaleDateString()}
+                  </span>
+                </div>
+                {it.insights.length > 0 && (
+                  <p className="text-ink-500 mt-1.5 line-clamp-2 text-[12.5px]">
+                    {it.insights.join(" · ")}
+                  </p>
+                )}
+              </li>
+            ))}
+          </ol>
+        </div>
+      )}
+    </div>
+  )
 }
 
 // ── Library sidebar ───────────────────────────────────────────────────────
