@@ -10,6 +10,10 @@ import {
   isBudgetExceededError
 } from "@/lib/billing/errors"
 import { resolveSupabaseFilesToText } from "@/lib/report/file-content"
+import {
+  isImageFile,
+  resolveFilesToImageDataUrls
+} from "@/lib/design/lab-images"
 import { parseLabData, runValidation } from "@/lib/design/validate"
 import type {
   DesignContentV2,
@@ -127,41 +131,71 @@ export async function POST(
       .map((s: any) => `### ${s.heading}\n${s.body}`)
       .join("\n\n")
 
-    // Resolve uploaded data files to extracted text (same path the report
-    // data-check uses), and combine with the free-text results.
+    // Split uploads: IMAGES go to the vision model as-is (gel photos, scans,
+    // instrument screenshots); everything else (text-layer PDF, CSV, docx) uses
+    // the cheap text-extraction path.
     let fileText = ""
     let fileWarn = ""
+    let images: string[] = []
     if (dataFiles.length > 0) {
-      const fileIds = dataFiles.map(f => f.id).filter(Boolean) as string[]
-      if (fileIds.length === 0) {
+      const withId = dataFiles.filter(f => f.id)
+      if (withId.length === 0) {
         fileWarn =
-          "The uploaded file finished uploading but has no id yet — re-attach it and try again."
+          "The file is still uploading (no id yet) — wait a second and re-attach it."
       } else {
-        try {
-          const resolved = await resolveSupabaseFilesToText(fileIds, {
-            maxCharsPerFile: 20_000
-          })
-          fileText = resolved
-            .map(r => `## ${r.fileName || "data file"}\n${r.content || ""}`)
-            .join("\n\n")
-          if (!fileText.trim()) {
-            fileWarn =
-              "Couldn't read any text from the uploaded file — it may be an image-only scan. Type the key numbers in the box instead."
+        const imageIds = withId
+          .filter(f => isImageFile(f))
+          .map(f => f.id as string)
+        const docIds = withId
+          .filter(f => !isImageFile(f))
+          .map(f => f.id as string)
+
+        if (docIds.length > 0) {
+          try {
+            const resolved = await resolveSupabaseFilesToText(docIds, {
+              maxCharsPerFile: 20_000
+            })
+            fileText = resolved
+              .map(r => `## ${r.fileName || "data file"}\n${r.content || ""}`)
+              .join("\n\n")
+            if (!fileText.trim()) {
+              fileWarn =
+                "That PDF has no readable text layer (likely a scan). Export the page as an image (PNG/JPG) and upload that — we read images directly."
+            }
+          } catch (e: any) {
+            console.error("[VALIDATE] doc resolve failed", e)
+            fileWarn = `Couldn't read the uploaded document (${e?.message ?? "unknown error"}). Try an image export or paste the numbers.`
           }
-        } catch (e: any) {
-          console.error("[VALIDATE] file resolve failed", e)
-          fileWarn = `Couldn't read the uploaded file (${e?.message ?? "unknown error"}). Type the key numbers in the box instead.`
+        }
+
+        // Images are only needed to BUILD the structured table (parse step).
+        // On validate we already have `structured`, so skip the re-download.
+        if (imageIds.length > 0 && mode === "parse") {
+          try {
+            const resolvedImages = await resolveFilesToImageDataUrls(imageIds)
+            images = resolvedImages.map(i => i.dataUrl)
+            if (images.length === 0) {
+              fileWarn =
+                "Couldn't decode the uploaded image(s). Try re-exporting as PNG or JPG."
+            }
+          } catch (e: any) {
+            console.error("[VALIDATE] image resolve failed", e)
+            fileWarn = `Couldn't read the uploaded image (${e?.message ?? "unknown error"}).`
+          }
         }
       }
     }
     const roundData = [raw, fileText].filter(Boolean).join("\n\n")
 
-    if (!roundData.trim()) {
+    // Need SOMETHING to work with: text, an image to read (parse), or an
+    // already-parsed table carried over from the parse step (validate).
+    const hasStructured = mode === "validate" && !!body.structured
+    if (!roundData.trim() && images.length === 0 && !hasStructured) {
       return NextResponse.json(
         {
           error:
             fileWarn ||
-            "No usable data found. Paste your results as text or attach a data file with numbers."
+            "No usable data found. Paste your results, attach a data file, or upload an image of your results."
         },
         { status: 400 }
       )
@@ -173,7 +207,7 @@ export async function POST(
         structured,
         completion: pc,
         model: pm
-      } = await parseLabData({ hypothesisText, designText, roundData })
+      } = await parseLabData({ hypothesisText, designText, roundData, images })
       await recordCompletionUsage(
         { userId: user.id, feature: "design", model: pm },
         pc

@@ -3711,9 +3711,10 @@ function ValidateTab(props: {
               : `Log iteration ${nextRound} data`}
           </h3>
           <p className="text-ink-500 mt-0.5 text-[12.5px]">
-            Paste measurements and observations, and/or attach a data file (CSV,
-            PDF, image). We&apos;ll read it into a table you can check before
-            validating.
+            Paste measurements, attach a CSV/PDF, or upload a{" "}
+            <b className="text-ink-700 font-medium">photo</b> — a gel, an
+            instrument screenshot, or a snap of your notebook page. A vision
+            model reads it into a table you can check before validating.
           </p>
           <textarea
             value={raw}

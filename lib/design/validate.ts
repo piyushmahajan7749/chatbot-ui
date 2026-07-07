@@ -41,12 +41,14 @@ export interface ParseLabDataArgs {
   designText: string
   /** Free text + extracted file text for this round. */
   roundData: string
+  /** Image data URLs (gel photos, screenshots, scans) for the vision model. */
+  images?: string[]
 }
 
 export async function parseLabData(args: ParseLabDataArgs) {
-  const { hypothesisText, designText, roundData } = args
+  const { hypothesisText, designText, roundData, images = [] } = args
 
-  const system = `You are a meticulous lab-data extractor. Given a scientist's raw results (typed notes and/or text extracted from an uploaded PDF/CSV), pull the QUANTITATIVE data into a single clean table and summarize what it shows. Do NOT judge the hypothesis — only organize and describe the data faithfully.
+  const system = `You are a meticulous lab-data extractor. Given a scientist's raw results — typed notes, text extracted from an uploaded PDF/CSV, and/or IMAGES (gel photos, instrument screenshots, scanned result sheets, photos of a notebook page) — pull the QUANTITATIVE data into a single clean table and summarize what it shows. Read numbers, axes, legends, and table cells directly from any images. Do NOT judge the hypothesis — only organize and describe the data faithfully.
 
 Return JSON with exactly:
 - summary — 2-4 plain sentences: what was measured, the headline numbers, and the apparent trend. State only what the data shows.
@@ -56,16 +58,24 @@ Return JSON with exactly:
 
 If there is genuinely no usable data, return summary explaining that, empty rows, and a caveat.`
 
-  const user = `HYPOTHESIS BEING TESTED:
+  const userText = `HYPOTHESIS BEING TESTED:
 ${hypothesisText || "Not specified"}
 
 DESIGN THAT WAS RUN (for context on expected readouts):
 ${designText.slice(0, 6_000) || "(unavailable)"}
 
-RAW LAB DATA TO EXTRACT:
-${roundData.slice(0, 24_000) || "(no data provided)"}
+RAW LAB DATA TO EXTRACT (text):
+${roundData.slice(0, 24_000) || "(none — read the attached image(s))"}
+${images.length ? `\n${images.length} image(s) attached below — read the data out of them.` : ""}
 
 Extract the data into a table and summarize it.`
+
+  // Multimodal message when images are present: text part + one image_url part
+  // each. The design deployment (gpt-5.x) is multimodal.
+  const userContent: any[] = [{ type: "text", text: userText }]
+  for (const url of images.slice(0, 6)) {
+    userContent.push({ type: "image_url", image_url: { url, detail: "high" } })
+  }
 
   const openai = getAzureOpenAIForDesign()
   const model = getDesignDeployment()
@@ -75,7 +85,7 @@ Extract the data into a table and summarize it.`
     temperature: 0.1,
     messages: [
       { role: "system", content: system },
-      { role: "user", content: user }
+      { role: "user", content: images.length ? userContent : userText }
     ],
     response_format: zodResponseFormat(parsedDataSchema, "parsedData")
   })
