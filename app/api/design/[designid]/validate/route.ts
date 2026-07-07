@@ -10,12 +10,13 @@ import {
   isBudgetExceededError
 } from "@/lib/billing/errors"
 import { resolveSupabaseFilesToText } from "@/lib/report/file-content"
-import { runValidation } from "@/lib/design/validate"
+import { parseLabData, runValidation } from "@/lib/design/validate"
 import type {
   DesignContentV2,
   ExperimentIteration,
   GeneratedDesign,
-  Hypothesis
+  Hypothesis,
+  ParsedLabData
 } from "@/lib/design-agent"
 
 /**
@@ -59,9 +60,12 @@ export async function POST(
     }
 
     const body = (await request.json().catch(() => ({}))) as {
+      mode?: "parse" | "validate"
       raw?: string
       dataFiles?: { id?: string; name: string; size?: number; type?: string }[]
+      structured?: ParsedLabData
     }
+    const mode = body.mode === "parse" ? "parse" : "validate"
     const raw = (body.raw ?? "").trim()
     const dataFiles = Array.isArray(body.dataFiles) ? body.dataFiles : []
 
@@ -126,16 +130,62 @@ export async function POST(
     // Resolve uploaded data files to extracted text (same path the report
     // data-check uses), and combine with the free-text results.
     let fileText = ""
+    let fileWarn = ""
     if (dataFiles.length > 0) {
-      const resolved = await resolveSupabaseFilesToText(
-        dataFiles.map(f => f.id).filter(Boolean) as string[],
-        { maxCharsPerFile: 20_000 }
-      ).catch(() => [])
-      fileText = resolved
-        .map(r => `## ${r.fileName || "data file"}\n${r.content || ""}`)
-        .join("\n\n")
+      const fileIds = dataFiles.map(f => f.id).filter(Boolean) as string[]
+      if (fileIds.length === 0) {
+        fileWarn =
+          "The uploaded file finished uploading but has no id yet — re-attach it and try again."
+      } else {
+        try {
+          const resolved = await resolveSupabaseFilesToText(fileIds, {
+            maxCharsPerFile: 20_000
+          })
+          fileText = resolved
+            .map(r => `## ${r.fileName || "data file"}\n${r.content || ""}`)
+            .join("\n\n")
+          if (!fileText.trim()) {
+            fileWarn =
+              "Couldn't read any text from the uploaded file — it may be an image-only scan. Type the key numbers in the box instead."
+          }
+        } catch (e: any) {
+          console.error("[VALIDATE] file resolve failed", e)
+          fileWarn = `Couldn't read the uploaded file (${e?.message ?? "unknown error"}). Type the key numbers in the box instead.`
+        }
+      }
     }
     const roundData = [raw, fileText].filter(Boolean).join("\n\n")
+
+    if (!roundData.trim()) {
+      return NextResponse.json(
+        {
+          error:
+            fileWarn ||
+            "No usable data found. Paste your results as text or attach a data file with numbers."
+        },
+        { status: 400 }
+      )
+    }
+
+    // ── PARSE mode: extract a structured table + summary, no persistence. ────
+    if (mode === "parse") {
+      const {
+        structured,
+        completion: pc,
+        model: pm
+      } = await parseLabData({ hypothesisText, designText, roundData })
+      await recordCompletionUsage(
+        { userId: user.id, feature: "design", model: pm },
+        pc
+      )
+      if (!structured) {
+        return NextResponse.json(
+          { error: "Couldn't parse the data. Try again." },
+          { status: 502 }
+        )
+      }
+      return NextResponse.json({ structured, warning: fileWarn || undefined })
+    }
 
     const prior = content.validation?.iterations ?? []
     const cumulativeInsights = content.validation?.cumulativeInsights
@@ -146,7 +196,8 @@ export async function POST(
       designText,
       roundData,
       priorIterations: prior,
-      cumulativeInsights
+      cumulativeInsights,
+      structured: body.structured ?? null
     })
 
     await recordCompletionUsage(
@@ -170,6 +221,7 @@ export async function POST(
         raw: raw || undefined,
         files: dataFiles.length ? dataFiles : undefined
       },
+      structuredData: body.structured ?? undefined,
       verdict: result.verdict,
       confidence: result.confidence,
       reasoning: result.reasoning,

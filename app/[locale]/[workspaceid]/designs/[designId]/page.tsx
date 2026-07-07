@@ -71,6 +71,7 @@ import {
   type GeneratedDesign,
   type Hypothesis,
   type Paper,
+  type ParsedLabData,
   type PhaseKey,
   type ProblemContext,
   type ValidationState,
@@ -1209,7 +1210,8 @@ export default function DesignDetailPage() {
 
   const handleRunValidation = async (
     raw: string,
-    dataFiles: { id?: string; name: string; size?: number; type?: string }[]
+    dataFiles: { id?: string; name: string; size?: number; type?: string }[],
+    structured?: ParsedLabData | null
   ) => {
     if (!ensureCanEdit()) return
     setValidating(true)
@@ -1217,7 +1219,7 @@ export default function DesignDetailPage() {
       const res = await fetch(`/api/design/${designId}/validate`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ raw, dataFiles })
+        body: JSON.stringify({ mode: "validate", raw, dataFiles, structured })
       })
       if (res.status === 402) {
         await handleBudgetError(res)
@@ -3432,7 +3434,11 @@ function ValidateTab(props: {
   hasDesign: boolean
   canEdit: boolean
   isValidating: boolean
-  onValidate: (raw: string, files: ValidateFile[]) => void
+  onValidate: (
+    raw: string,
+    files: ValidateFile[],
+    structured: ParsedLabData | null
+  ) => void
   onIterate: () => void
   designId: string
   userId: string | null
@@ -3445,18 +3451,51 @@ function ValidateTab(props: {
     isValidating,
     onValidate,
     onIterate,
+    designId,
     userId,
     selectedWorkspace
   } = props
   const [raw, setRaw] = useState("")
   const [files, setFiles] = useState<ValidateFile[]>([])
   const [uploading, setUploading] = useState(false)
+  const [parsing, setParsing] = useState(false)
+  const [parsed, setParsed] = useState<ParsedLabData | null>(null)
   const fileRef = useRef<HTMLInputElement>(null)
 
   const iterations = validation.iterations
   const latest = iterations[iterations.length - 1]
   const nextRound = iterations.length + 1
-  const canSubmit = (raw.trim().length > 0 || files.length > 0) && !isValidating
+  const hasData = raw.trim().length > 0 || files.length > 0
+
+  // Step 1: parse the data into a reviewable table + summary (no persistence),
+  // so the scientist SEES what was read before it drives a verdict.
+  const doParse = async () => {
+    if (!hasData || parsing) return
+    setParsing(true)
+    setParsed(null)
+    try {
+      const res = await fetch(`/api/design/${designId}/validate`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          mode: "parse",
+          raw: raw.trim(),
+          dataFiles: files
+        })
+      })
+      const json = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        toast.error(json?.error ?? "Couldn't parse the data.")
+        return
+      }
+      setParsed(json.structured as ParsedLabData)
+      if (json.warning) toast.warning(json.warning)
+    } catch {
+      toast.error("Couldn't reach the parser. Try again.")
+    } finally {
+      setParsing(false)
+    }
+  }
 
   const handleUpload = async (list: FileList | null) => {
     if (!list || list.length === 0) return
@@ -3663,7 +3702,7 @@ function ValidateTab(props: {
         </div>
       )}
 
-      {/* Data entry for the next round */}
+      {/* Step 1 — data entry + parse */}
       {canEdit && (
         <div className="border-ink-200 rounded-2xl border bg-white p-5">
           <h3 className="text-ink-900 text-[14px] font-semibold">
@@ -3673,11 +3712,15 @@ function ValidateTab(props: {
           </h3>
           <p className="text-ink-500 mt-0.5 text-[12.5px]">
             Paste measurements and observations, and/or attach a data file (CSV,
-            PDF, image).
+            PDF, image). We&apos;ll read it into a table you can check before
+            validating.
           </p>
           <textarea
             value={raw}
-            onChange={e => setRaw(e.target.value)}
+            onChange={e => {
+              setRaw(e.target.value)
+              setParsed(null)
+            }}
             rows={5}
             placeholder="e.g. At 20 mM the readout rose to 3.1 ± 0.2 vs 1.0 control; 40 mM plateaued at 3.0 with higher variance. n = 3 per arm…"
             className="border-ink-200 focus:border-teal-journey mt-3 w-full rounded-lg border p-3 text-[13px] outline-none transition-colors"
@@ -3692,9 +3735,10 @@ function ValidateTab(props: {
                   {f.name}
                   <button
                     type="button"
-                    onClick={() =>
+                    onClick={() => {
                       setFiles(prev => prev.filter((_, j) => j !== i))
-                    }
+                      setParsed(null)
+                    }}
                     className="text-ink-400 hover:text-ink-700"
                   >
                     <IconX size={12} />
@@ -3726,20 +3770,108 @@ function ValidateTab(props: {
               ) : (
                 <IconUpload size={14} />
               )}
-              Attach data file
+              {uploading ? "Uploading…" : "Attach data file"}
             </button>
             <button
               type="button"
-              onClick={() => onValidate(raw.trim(), files)}
-              disabled={!canSubmit}
-              className="bg-brick hover:bg-brick-hover flex items-center gap-2 rounded-lg px-4 py-2 text-[13px] font-semibold text-white transition-colors disabled:opacity-50"
+              onClick={doParse}
+              disabled={!hasData || parsing || uploading}
+              className="bg-ink text-paper flex items-center gap-2 rounded-lg px-4 py-2 text-[13px] font-semibold transition-opacity hover:opacity-90 disabled:opacity-50"
+            >
+              {parsing ? (
+                <IconLoader2 size={15} className="animate-spin" />
+              ) : (
+                <IconSparkles size={15} />
+              )}
+              {parsing ? "Reading data…" : "Parse data"}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Step 2 — parsed data review + validate */}
+      {parsed && canEdit && (
+        <div className="border-ink-200 overflow-hidden rounded-2xl border bg-white">
+          <div className="border-ink-100 flex items-center gap-2 border-b px-5 py-3">
+            <IconClipboardText size={15} className="text-teal-journey" />
+            <span className="text-ink-900 text-[14px] font-semibold">
+              What we read from your data
+            </span>
+          </div>
+          <div className="space-y-4 p-5">
+            {parsed.summary && (
+              <p className="text-ink-700 text-[13px] leading-relaxed">
+                {parsed.summary}
+              </p>
+            )}
+            {parsed.rows.length > 0 ? (
+              <div className="border-ink-200 overflow-x-auto rounded-lg border">
+                <table className="w-full text-[12.5px]">
+                  <thead>
+                    <tr className="border-ink-200 bg-ink-50 border-b">
+                      {parsed.columns.map((c, i) => (
+                        <th
+                          key={i}
+                          className="text-ink-500 px-3 py-2 text-left text-[11px] font-semibold uppercase tracking-wide"
+                        >
+                          {c}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {parsed.rows.map((row, ri) => (
+                      <tr
+                        key={ri}
+                        className="border-ink-100 border-b last:border-0"
+                      >
+                        {row.map((cell, ci) => (
+                          <td
+                            key={ci}
+                            className="text-ink-800 px-3 py-2 tabular-nums"
+                          >
+                            {cell}
+                          </td>
+                        ))}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <div className="border-ink-200 text-ink-500 rounded-lg border border-dashed p-3 text-[12.5px]">
+                No numeric rows extracted. You can still validate on the
+                summary, or add clearer numbers above and re-parse.
+              </div>
+            )}
+            {parsed.caveats.length > 0 && (
+              <div className="rounded-lg border border-amber-200 bg-amber-50 p-3">
+                <div className="mb-1 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-amber-700">
+                  <IconAlertTriangle size={13} /> Data-quality notes
+                </div>
+                <ul className="space-y-0.5">
+                  {parsed.caveats.map((c, i) => (
+                    <li key={i} className="text-[12.5px] text-amber-800">
+                      • {c}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            <button
+              type="button"
+              onClick={() => onValidate(raw.trim(), files, parsed)}
+              disabled={isValidating}
+              className="bg-brick hover:bg-brick-hover flex items-center gap-2 rounded-lg px-4 py-2.5 text-[13px] font-semibold text-white transition-colors disabled:opacity-50"
             >
               {isValidating ? (
                 <IconLoader2 size={15} className="animate-spin" />
               ) : (
                 <IconRefresh size={15} />
               )}
-              {isValidating ? "Validating…" : "Validate hypothesis"}
+              {isValidating
+                ? "Validating…"
+                : "Validate hypothesis against this data"}
             </button>
           </div>
         </div>

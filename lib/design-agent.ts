@@ -334,6 +334,24 @@ export type ValidationVerdict =
   | "inconclusive"
 
 /**
+ * The scientist's lab data, extracted into a reviewable table BEFORE the
+ * hypothesis is judged — "here's the data I read, and what I understood from
+ * it". Extraction and judgment are separate steps so a bad parse (unreadable
+ * PDF, missing columns) is visible and fixable instead of silently producing
+ * an "inconclusive" verdict.
+ */
+export interface ParsedLabData {
+  /** Plain-English recap of what the data shows. */
+  summary: string
+  /** Table headers (e.g. Condition, Readout, Value, Unit, n). */
+  columns: string[]
+  /** One array of cell strings per row, aligned to `columns`. */
+  rows: string[][]
+  /** Data-quality caveats: missing controls, low n, high variance, etc. */
+  caveats: string[]
+}
+
+/**
  * One design → run-in-lab → analyze cycle. The scientist runs the current
  * design, brings back data, and the Validate agent judges the hypothesis and
  * proposes what to change. Iterations accumulate so later rounds reason over
@@ -354,6 +372,8 @@ export interface ExperimentIteration {
     /** Uploaded data-file metadata (content resolved server-side at run time). */
     files?: { id?: string; name: string; size?: number; type?: string }[]
   }
+  /** The parsed, structured view of this round's data (from the parse step). */
+  structuredData?: ParsedLabData
   verdict: ValidationVerdict
   /** 0..1 model confidence in the verdict. */
   confidence?: number

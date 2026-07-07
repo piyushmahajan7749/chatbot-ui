@@ -21,9 +21,77 @@ import {
 } from "@/lib/azure-openai"
 import type {
   ExperimentIteration,
+  ParsedLabData,
   ProblemContext,
   ValidationVerdict
 } from "@/lib/design-agent"
+
+// ── Parse step ─────────────────────────────────────────────────────────────
+// Extract the scientist's raw data (typed notes + PDF/CSV text) into a compact
+// table + summary so they can SEE what was read before it drives a verdict.
+export const parsedDataSchema = z.object({
+  summary: z.string(),
+  columns: z.array(z.string()),
+  rows: z.array(z.array(z.string())),
+  caveats: z.array(z.string())
+})
+
+export interface ParseLabDataArgs {
+  hypothesisText: string
+  designText: string
+  /** Free text + extracted file text for this round. */
+  roundData: string
+}
+
+export async function parseLabData(args: ParseLabDataArgs) {
+  const { hypothesisText, designText, roundData } = args
+
+  const system = `You are a meticulous lab-data extractor. Given a scientist's raw results (typed notes and/or text extracted from an uploaded PDF/CSV), pull the QUANTITATIVE data into a single clean table and summarize what it shows. Do NOT judge the hypothesis — only organize and describe the data faithfully.
+
+Return JSON with exactly:
+- summary — 2-4 plain sentences: what was measured, the headline numbers, and the apparent trend. State only what the data shows.
+- columns — the table header cells. Choose the columns that best fit the data (e.g. Condition, Readout, Value, Unit, n, Notes). Keep it tight (3-7 columns).
+- rows — one array of cell strings per data point, each aligned to columns. Numbers as strings with units where relevant. If the source has an actual table, preserve its rows. If the data is only prose, extract every measurement you can into rows.
+- caveats — data-quality flags a reviewer needs: missing controls, low/absent replication (n), high variance, unclear units, or "no numeric data found". [] if none.
+
+If there is genuinely no usable data, return summary explaining that, empty rows, and a caveat.`
+
+  const user = `HYPOTHESIS BEING TESTED:
+${hypothesisText || "Not specified"}
+
+DESIGN THAT WAS RUN (for context on expected readouts):
+${designText.slice(0, 6_000) || "(unavailable)"}
+
+RAW LAB DATA TO EXTRACT:
+${roundData.slice(0, 24_000) || "(no data provided)"}
+
+Extract the data into a table and summarize it.`
+
+  const openai = getAzureOpenAIForDesign()
+  const model = getDesignDeployment()
+
+  const completion = await openai.beta.chat.completions.parse({
+    model,
+    temperature: 0.1,
+    messages: [
+      { role: "system", content: system },
+      { role: "user", content: user }
+    ],
+    response_format: zodResponseFormat(parsedDataSchema, "parsedData")
+  })
+
+  const parsed = completion.choices[0]?.message?.parsed
+  const structured: ParsedLabData | null = parsed
+    ? {
+        summary: parsed.summary ?? "",
+        columns: parsed.columns ?? [],
+        rows: parsed.rows ?? [],
+        caveats: parsed.caveats ?? []
+      }
+    : null
+
+  return { structured, completion, model }
+}
 
 export const validationResultSchema = z.object({
   verdict: z.enum([
@@ -62,6 +130,23 @@ export interface RunValidationArgs {
   priorIterations: ExperimentIteration[]
   /** The running synthesis refined so far (empty on round 1). */
   cumulativeInsights?: string
+  /** The parsed table (from the parse step), if available — sharpens judgment. */
+  structured?: ParsedLabData | null
+}
+
+function structuredBlock(s: ParsedLabData | null | undefined): string {
+  if (!s || (s.rows.length === 0 && !s.summary)) return ""
+  const table = s.columns.length
+    ? [s.columns.join(" | "), ...s.rows.map(r => r.join(" | "))].join("\n")
+    : ""
+  return [
+    "PARSED DATA TABLE (already extracted from this round's data):",
+    s.summary ? `Summary: ${s.summary}` : "",
+    table,
+    s.caveats.length ? `Caveats: ${s.caveats.join("; ")}` : ""
+  ]
+    .filter(Boolean)
+    .join("\n")
 }
 
 function priorBlock(
@@ -106,7 +191,8 @@ export async function runValidation(args: RunValidationArgs) {
     designText,
     roundData,
     priorIterations,
-    cumulativeInsights
+    cumulativeInsights,
+    structured
   } = args
 
   const round = priorIterations.length + 1
@@ -144,7 +230,9 @@ ${designText.slice(0, 12_000) || "(design text unavailable)"}
 
 ${priorBlock(priorIterations, cumulativeInsights)}
 
-LAB DATA FROM THIS ROUND:
+${structuredBlock(structured)}
+
+RAW LAB DATA FROM THIS ROUND:
 ${roundData.slice(0, 20_000) || "(no data provided)"}
 
 Judge the hypothesis against this round's data, update your cumulative memory, and propose what to try next.`
