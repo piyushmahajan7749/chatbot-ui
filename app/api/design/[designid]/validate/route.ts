@@ -203,18 +203,25 @@ export async function POST(
 
     // ── PARSE mode: extract a structured table + summary, no persistence. ────
     if (mode === "parse") {
+      console.log(
+        `[VALIDATE] parse: text=${roundData.length}c images=${images.length}`
+      )
       const {
         structured,
         completion: pc,
-        model: pm
+        model: pm,
+        reason
       } = await parseLabData({ hypothesisText, designText, roundData, images })
-      await recordCompletionUsage(
-        { userId: user.id, feature: "design", model: pm },
-        pc
-      )
+      if (pc) {
+        await recordCompletionUsage(
+          { userId: user.id, feature: "design", model: pm },
+          pc
+        )
+      }
       if (!structured) {
+        console.error("[VALIDATE] parse returned no structure:", reason)
         return NextResponse.json(
-          { error: "Couldn't parse the data. Try again." },
+          { error: `Couldn't read the data — ${reason ?? "unknown reason"}.` },
           { status: 502 }
         )
       }

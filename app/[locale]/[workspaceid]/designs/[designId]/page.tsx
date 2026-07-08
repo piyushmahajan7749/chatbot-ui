@@ -3483,14 +3483,20 @@ function ValidateTab(props: {
           dataFiles: files
         })
       })
-      const json = await res.json().catch(() => ({}))
+      const json = await res.json().catch(() => null)
       if (!res.ok) {
-        toast.error(json?.error ?? "Couldn't parse the data.")
+        // Surface the real cause; the generic fallback hid server 500s.
+        const msg =
+          json?.error ??
+          `Parse failed (HTTP ${res.status}). Check the server logs.`
+        console.error("[validate/parse] failed", res.status, json)
+        toast.error(msg)
         return
       }
       setParsed(json.structured as ParsedLabData)
       if (json.warning) toast.warning(json.warning)
-    } catch {
+    } catch (e) {
+      console.error("[validate/parse] network error", e)
       toast.error("Couldn't reach the parser. Try again.")
     } finally {
       setParsing(false)

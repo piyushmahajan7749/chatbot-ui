@@ -80,17 +80,34 @@ Extract the data into a table and summarize it.`
   const openai = getAzureOpenAIForDesign()
   const model = getDesignDeployment()
 
-  const completion = await openai.beta.chat.completions.parse({
-    model,
-    temperature: 0.1,
-    messages: [
-      { role: "system", content: system },
-      { role: "user", content: images.length ? userContent : userText }
-    ],
-    response_format: zodResponseFormat(parsedDataSchema, "parsedData")
-  })
+  let completion: any = null
+  let reason: string | undefined
+  try {
+    completion = await openai.beta.chat.completions.parse({
+      model,
+      temperature: 0.1,
+      max_completion_tokens: 16000,
+      messages: [
+        { role: "system", content: system },
+        { role: "user", content: images.length ? userContent : userText }
+      ],
+      response_format: zodResponseFormat(parsedDataSchema, "parsedData")
+    })
+  } catch (e: any) {
+    // finish_reason:"length"/content_filter can make .parse() THROW rather than
+    // return null — capture the real cause instead of a generic failure.
+    reason = `model call failed: ${e?.status ? `HTTP ${e.status} ` : ""}${e?.message ?? e}`
+  }
 
-  const parsed = completion.choices[0]?.message?.parsed
+  const choice = completion?.choices?.[0]
+  const parsed = choice?.message?.parsed
+  if (!parsed && !reason) {
+    reason =
+      choice?.message?.refusal ||
+      (choice?.finish_reason
+        ? `no structured output (finish_reason: ${choice.finish_reason})`
+        : "the model returned no structured output")
+  }
   const structured: ParsedLabData | null = parsed
     ? {
         summary: parsed.summary ?? "",
@@ -100,7 +117,7 @@ Extract the data into a table and summarize it.`
       }
     : null
 
-  return { structured, completion, model }
+  return { structured, completion, model, reason }
 }
 
 export const validationResultSchema = z.object({
@@ -253,6 +270,7 @@ Judge the hypothesis against this round's data, update your cumulative memory, a
   const completion = await openai.beta.chat.completions.parse({
     model,
     temperature: 0.3,
+    max_completion_tokens: 16000,
     messages: [
       { role: "system", content: system },
       { role: "user", content: user }
