@@ -63,6 +63,9 @@
     "app/api/design/[designid]/clarify/route.ts": {
       "maxDuration": 120
     },
+    "app/api/design/[designid]/validate/route.ts": {
+      "maxDuration": 300
+    },
     "app/api/design/extract-materials/route.ts": {
       "maxDuration": 240
     },
