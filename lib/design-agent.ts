@@ -388,11 +388,64 @@ export interface ExperimentIteration {
   createdAt: string
 }
 
+/** Summary statistics over the Monte-Carlo replicates of the primary readout. */
+export interface SimDistribution {
+  mean: number
+  sd: number
+  median: number
+  /** 10th percentile of the readout across trials. */
+  p10: number
+  /** 90th percentile of the readout across trials. */
+  p90: number
+  unit?: string
+}
+
 /**
- * A pre-lab simulation pass: the agent predicts what the current design would
- * yield, judges it against the desired outcome, and (reasoning through internal
- * iterations) proposes the design changes that would make the target reachable
- * — all BEFORE the researcher spends bench time.
+ * One-factor-at-a-time sensitivity: how much a single design knob moves the
+ * outcome. `effect` is a 0..1 normalized magnitude (share of total swing), so
+ * factors sort by leverage.
+ */
+export interface SimSensitivity {
+  /** The design knob varied (e.g. "excipient concentration", "replicates n"). */
+  factor: string
+  /** 0..1 normalized leverage on the outcome (higher = matters more). */
+  effect: number
+  direction: "increases" | "decreases" | "nonmonotonic"
+  /** The concrete change this factor suggests (e.g. "raise to 40 mM"). */
+  recommendedChange: string
+}
+
+/** A feasibility/soundness flag the simulation surfaced about the design. */
+export interface SimGotcha {
+  issue: string
+  severity: "high" | "medium" | "low"
+  fix: string
+}
+
+/**
+ * One round of the internal improve-loop: the base design is round 1; each
+ * later round re-runs the same Monte-Carlo model with numeric parameter edits
+ * applied, so the UI can show the design getting better across rounds.
+ */
+export interface SimRound {
+  /** 1-based round number (round 1 = the design as currently written). */
+  round: number
+  /** Human-readable parameter edits applied vs the prior round ([] for base). */
+  changesApplied: string[]
+  /** Fraction of Monte-Carlo trials (0..1) that met the target this round. */
+  meetRate: number
+  distribution: SimDistribution
+  summary: string
+}
+
+/**
+ * A pre-lab simulation pass. The agent picks a quantitative model for the
+ * design, RUNS it as an executed Monte-Carlo (many in-silico replicates) to
+ * predict the readout distribution and the fraction of runs that hit the
+ * target, surfaces the design knobs that move the outcome and the feasibility
+ * gotchas, then iterates on the numeric parameters to show what would close the
+ * gap — all BEFORE the researcher spends bench time. Falls back to a reasoned
+ * (non-executed) prediction if code generation/execution isn't available.
  */
 export interface PreLabSimulation {
   /** Plain-English prediction of the likely results of running this design. */
@@ -408,6 +461,31 @@ export interface PreLabSimulation {
   /** How many internal what-if iterations the agent reasoned through. */
   iterationsReasoned: number
   createdAt: string
+
+  // ── Executed-simulation fields (optional: absent on reasoned fallback and on
+  //    records written before the modeled-simulation upgrade). ────────────────
+  /** true when a real Monte-Carlo program executed; false = reasoned estimate. */
+  executed?: boolean
+  /** The quantitative model chosen (e.g. "dose_response_hill", "two_group"). */
+  modelUsed?: string
+  /** Why that model fits this design. */
+  modelRationale?: string
+  /** Number of Monte-Carlo replicates run per round. */
+  nTrials?: number
+  /** Fraction of trials (0..1) meeting the target for the CURRENT design (round 1). */
+  meetRate?: number
+  /** Readout distribution for the current design. */
+  distribution?: SimDistribution
+  /** Design knobs ranked by leverage on the outcome. */
+  sensitivity?: SimSensitivity[]
+  /** Feasibility / soundness flags (missing controls, underpowered n, etc.). */
+  gotchas?: SimGotcha[]
+  /** The improve-loop trajectory: round 1 (as written) + optimized re-runs. */
+  rounds?: SimRound[]
+  /** What the readout is + the target it's judged against. */
+  targetMetric?: string
+  targetThreshold?: number
+  targetDirection?: ">=" | "<=" | "==" | "approx"
 }
 
 /**

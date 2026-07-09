@@ -150,15 +150,48 @@ export function buildDesignChatContext(input: DesignChatContextInput): string {
       lines.push(v.cumulativeInsights.trim())
     }
     if (v.simulation) {
+      const s = v.simulation
       lines.push("", "### Latest pre-lab simulation")
+      if (s.executed) {
+        lines.push(
+          `Modeled simulation (${s.modelUsed ?? "monte-carlo"}, ${s.nTrials ?? "?"} in-silico runs).`
+        )
+        if (typeof s.meetRate === "number")
+          lines.push(
+            `As-written design met the target in ${Math.round(s.meetRate * 100)}% of runs (target: ${s.targetMetric ?? "?"} ${s.targetDirection ?? ""} ${s.targetThreshold ?? "?"}).`
+          )
+        if (s.distribution)
+          lines.push(
+            `Readout distribution: mean ${s.distribution.mean}, sd ${s.distribution.sd}, median ${s.distribution.median}, p10 ${s.distribution.p10}, p90 ${s.distribution.p90}.`
+          )
+        if (s.sensitivity?.length)
+          lines.push(
+            `Highest-leverage knobs: ${[...s.sensitivity]
+              .sort((a, b) => b.effect - a.effect)
+              .slice(0, 4)
+              .map(x => `${x.factor} (${x.direction})`)
+              .join(", ")}.`
+          )
+        if (s.gotchas?.length)
+          lines.push(
+            `Gotchas: ${s.gotchas.map(g => `${g.issue} → ${g.fix}`).join("; ")}.`
+          )
+        if (s.rounds && s.rounds.length > 1)
+          lines.push(
+            `Optimization trajectory (meet-rate by round): ${s.rounds
+              .map(r => `r${r.round} ${Math.round(r.meetRate * 100)}%`)
+              .join(" → ")}.`
+          )
+      }
       lines.push(
-        `Predicted: ${v.simulation.predictedResults}`,
-        `Meets target: ${v.simulation.meetsTarget ? "yes" : "no"} (${Math.round(
-          v.simulation.confidence * 100
+        `Predicted: ${s.predictedResults}`,
+        `Meets target: ${s.meetsTarget ? "yes" : "no"} (${Math.round(
+          s.confidence * 100
         )}% confidence).`
       )
-      if (v.simulation.gapAnalysis)
-        lines.push(`Gap: ${v.simulation.gapAnalysis}`)
+      if (s.gapAnalysis) lines.push(`Gap: ${s.gapAnalysis}`)
+      if (s.optimizedChanges?.length)
+        lines.push(`Suggested edits: ${s.optimizedChanges.join("; ")}.`)
     }
     ;(v.iterations ?? []).forEach(it => {
       lines.push("", `### Iteration ${it.index} — verdict: ${it.verdict}`)

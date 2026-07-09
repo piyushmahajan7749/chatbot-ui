@@ -3599,6 +3599,14 @@ function ValidateTab(props: {
   )
   const fileRef = useRef<HTMLInputElement>(null)
 
+  // Compact number formatter for simulation stats (avoid 12-decimal noise).
+  const fmtNum = (x?: number) => {
+    if (typeof x !== "number" || !Number.isFinite(x)) return "—"
+    const a = Math.abs(x)
+    if (a !== 0 && (a < 0.01 || a >= 100000)) return x.toExponential(2)
+    return String(Math.round(x * 1000) / 1000)
+  }
+
   const iterations = validation.iterations
   const latest = iterations[iterations.length - 1]
   const nextRound = iterations.length + 1
@@ -3776,10 +3784,88 @@ function ValidateTab(props: {
                 </span>
                 <span className="text-ink-400 font-mono text-[11px] tabular-nums">
                   {Math.round(validation.simulation.confidence * 100)}%
-                  confidence · {validation.simulation.iterationsReasoned}{" "}
-                  what-if iterations
+                  confidence ·{" "}
+                  {validation.simulation.executed
+                    ? `${validation.simulation.iterationsReasoned} simulated round${
+                        validation.simulation.iterationsReasoned === 1 ? "" : "s"
+                      }`
+                    : `${validation.simulation.iterationsReasoned} what-if iterations`}
                 </span>
               </div>
+
+              {/* Executed-simulation telemetry: model + meet-rate + spread */}
+              {validation.simulation.executed && (
+                <div className="border-ink-200 bg-ink-50/50 rounded-xl border p-3.5">
+                  <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                    <span className="bg-teal-journey-tint text-teal-journey inline-flex items-center gap-1 rounded-md px-2 py-0.5 font-mono text-[10.5px] font-semibold">
+                      <IconChartBar size={11} />
+                      {validation.simulation.modelUsed || "monte-carlo"}
+                    </span>
+                    <span className="text-ink-500 text-[11px]">
+                      {validation.simulation.nTrials?.toLocaleString() ?? "—"}{" "}
+                      in-silico runs
+                    </span>
+                    {validation.simulation.targetMetric && (
+                      <span className="text-ink-500 font-mono text-[11px]">
+                        target: {validation.simulation.targetMetric}{" "}
+                        {validation.simulation.targetDirection}{" "}
+                        {fmtNum(validation.simulation.targetThreshold)}{" "}
+                        {validation.simulation.distribution?.unit ?? ""}
+                      </span>
+                    )}
+                  </div>
+                  {typeof validation.simulation.meetRate === "number" && (
+                    <div className="mt-2.5">
+                      <div className="text-ink-500 mb-1 flex items-center justify-between text-[11px]">
+                        <span>
+                          Runs meeting target (design as written)
+                        </span>
+                        <span className="text-ink-800 font-mono font-semibold tabular-nums">
+                          {Math.round(validation.simulation.meetRate * 100)}%
+                        </span>
+                      </div>
+                      <div className="bg-ink-200 h-2 w-full overflow-hidden rounded-full">
+                        <div
+                          className={cn(
+                            "h-full rounded-full",
+                            validation.simulation.meetRate >= 0.8
+                              ? "bg-emerald-500"
+                              : validation.simulation.meetRate >= 0.5
+                                ? "bg-amber-500"
+                                : "bg-brick"
+                          )}
+                          style={{
+                            width: `${Math.round(
+                              validation.simulation.meetRate * 100
+                            )}%`
+                          }}
+                        />
+                      </div>
+                    </div>
+                  )}
+                  {validation.simulation.distribution && (
+                    <div className="text-ink-500 mt-2.5 grid grid-cols-3 gap-2 font-mono text-[11px] tabular-nums sm:grid-cols-5">
+                      {(
+                        [
+                          ["mean", validation.simulation.distribution.mean],
+                          ["sd", validation.simulation.distribution.sd],
+                          ["median", validation.simulation.distribution.median],
+                          ["p10", validation.simulation.distribution.p10],
+                          ["p90", validation.simulation.distribution.p90]
+                        ] as const
+                      ).map(([label, val]) => (
+                        <div key={label}>
+                          <div className="text-ink-400 text-[9.5px] uppercase tracking-wider">
+                            {label}
+                          </div>
+                          <div className="text-ink-800">{fmtNum(val)}</div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              )}
+
               <div>
                 <div className="text-ink-400 mb-0.5 text-[11px] font-semibold uppercase tracking-wider">
                   Predicted results
@@ -3788,6 +3874,115 @@ function ValidateTab(props: {
                   {validation.simulation.predictedResults}
                 </p>
               </div>
+
+              {/* Improve-loop trajectory: how edits moved the meet-rate */}
+              {validation.simulation.rounds &&
+                validation.simulation.rounds.length > 1 && (
+                  <div>
+                    <div className="text-ink-400 mb-1 text-[11px] font-semibold uppercase tracking-wider">
+                      Optimization trajectory
+                    </div>
+                    <div className="space-y-1.5">
+                      {validation.simulation.rounds.map(r => (
+                        <div
+                          key={r.round}
+                          className="flex items-start gap-2.5 text-[12px]"
+                        >
+                          <span className="text-ink-400 mt-0.5 w-14 shrink-0 font-mono text-[10.5px]">
+                            round {r.round}
+                          </span>
+                          <span
+                            className={cn(
+                              "mt-0.5 w-10 shrink-0 font-mono text-[11px] font-semibold tabular-nums",
+                              r.meetRate >= 0.8
+                                ? "text-emerald-600"
+                                : r.meetRate >= 0.5
+                                  ? "text-amber-600"
+                                  : "text-brick"
+                            )}
+                          >
+                            {Math.round(r.meetRate * 100)}%
+                          </span>
+                          <span className="text-ink-600 leading-snug">
+                            {r.changesApplied.length
+                              ? r.changesApplied.join("; ")
+                              : "design as written"}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+              {/* Factor sensitivity: which knobs move the outcome most */}
+              {validation.simulation.sensitivity &&
+                validation.simulation.sensitivity.length > 0 && (
+                  <div>
+                    <div className="text-ink-400 mb-1 text-[11px] font-semibold uppercase tracking-wider">
+                      What moves the outcome
+                    </div>
+                    <div className="space-y-1.5">
+                      {validation.simulation.sensitivity
+                        .slice()
+                        .sort((a, b) => b.effect - a.effect)
+                        .slice(0, 6)
+                        .map((s, i) => (
+                          <div key={i} className="flex items-center gap-2">
+                            <span className="text-ink-700 w-36 shrink-0 truncate text-[12px]">
+                              {s.factor}
+                            </span>
+                            <div className="bg-ink-100 h-1.5 flex-1 overflow-hidden rounded-full">
+                              <div
+                                className="bg-teal-journey h-full rounded-full"
+                                style={{
+                                  width: `${Math.max(4, Math.round(s.effect * 100))}%`
+                                }}
+                              />
+                            </div>
+                            <span className="text-ink-400 w-24 shrink-0 text-right text-[10.5px]">
+                              {s.direction}
+                            </span>
+                          </div>
+                        ))}
+                    </div>
+                  </div>
+                )}
+
+              {/* Gotchas: feasibility / soundness flags */}
+              {validation.simulation.gotchas &&
+                validation.simulation.gotchas.length > 0 && (
+                  <div>
+                    <div className="text-ink-400 mb-1 text-[11px] font-semibold uppercase tracking-wider">
+                      Gotchas to fix before the bench
+                    </div>
+                    <div className="space-y-1.5">
+                      {validation.simulation.gotchas.map((g, i) => (
+                        <div
+                          key={i}
+                          className="border-ink-100 flex items-start gap-2 rounded-lg border p-2.5"
+                        >
+                          <span
+                            className={cn(
+                              "mt-0.5 inline-flex shrink-0 items-center rounded px-1.5 py-0.5 text-[9.5px] font-bold uppercase",
+                              g.severity === "high"
+                                ? "bg-brick/10 text-brick"
+                                : g.severity === "medium"
+                                  ? "bg-amber-100 text-amber-700"
+                                  : "bg-ink-100 text-ink-500"
+                            )}
+                          >
+                            {g.severity}
+                          </span>
+                          <div className="text-[12.5px] leading-snug">
+                            <span className="text-ink-800">{g.issue}</span>{" "}
+                            <span className="text-ink-500">— {g.fix}</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
               {validation.simulation.gapAnalysis && (
                 <div>
                   <div className="text-ink-400 mb-0.5 text-[11px] font-semibold uppercase tracking-wider">

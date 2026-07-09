@@ -14,11 +14,8 @@ import {
   isImageFile,
   resolveFilesToImageDataUrls
 } from "@/lib/design/lab-images"
-import {
-  parseLabData,
-  runValidation,
-  simulateDesign
-} from "@/lib/design/validate"
+import { parseLabData, runValidation } from "@/lib/design/validate"
+import { simulateDesign } from "@/lib/design/simulate"
 import type {
   DesignContentV2,
   ExperimentIteration,
@@ -152,9 +149,10 @@ export async function POST(
       ).trim()
       const {
         result: sim,
-        completion: sc,
+        completions: scs,
         model: sm,
-        reason
+        reason,
+        executed
       } = await simulateDesign({
         problem: content.problem ?? {},
         hypothesisText,
@@ -162,12 +160,18 @@ export async function POST(
         desiredOutcome,
         cumulativeInsights: content.validation?.cumulativeInsights
       })
-      if (sc) {
-        await recordCompletionUsage(
-          { userId: user.id, feature: "design", model: sm },
-          sc
-        )
+      // The modeled sim makes several model calls (plan + one interpret per
+      // improve-round) — meter every one against the design owner.
+      for (const sc of scs) {
+        if (sc)
+          await recordCompletionUsage(
+            { userId: user.id, feature: "design", model: sm },
+            sc
+          )
       }
+      console.log(
+        `[VALIDATE] simulate: executed=${executed} rounds=${sim?.rounds?.length ?? 0} meetRate=${sim?.meetRate ?? "n/a"}${reason ? ` reason="${reason}"` : ""}`
+      )
       if (!sim) {
         console.error("[VALIDATE] simulate returned nothing:", reason)
         return NextResponse.json(

@@ -23,111 +23,12 @@ import type {
   ExperimentIteration,
   ParsedLabData,
   ProblemContext,
-  PreLabSimulation,
   ValidationVerdict
 } from "@/lib/design-agent"
 
-// ── Pre-lab simulation (5a) ──────────────────────────────────────────────────
-// The reasoning model iterates INTERNALLY: predict results → compare to the
-// desired outcome → if short, revise the design in its head and re-predict,
-// looping until the target is reachable — then returns the prediction, whether
-// the CURRENT design already meets it, and the concrete changes that would.
-const simulationSchema = z.object({
-  predictedResults: z.string(),
-  meetsTarget: z.boolean(),
-  confidence: z.number().min(0).max(1),
-  gapAnalysis: z.string(),
-  optimizedChanges: z.array(z.string()),
-  iterationsReasoned: z.number().int().min(1)
-})
-
-export interface SimulateDesignArgs {
-  problem: ProblemContext
-  hypothesisText: string
-  designText: string
-  desiredOutcome: string
-  /** Optional running memory from prior real-data rounds. */
-  cumulativeInsights?: string
-}
-
-export async function simulateDesign(args: SimulateDesignArgs) {
-  const { problem, hypothesisText, designText, desiredOutcome } = args
-
-  const problemBlock = [
-    `Research problem: ${[problem.title, problem.problemStatement].filter(Boolean).join(" - ") || "Not specified"}`,
-    problem.objective ? `Objective: ${problem.objective}` : "",
-    problem.domain ? `Domain: ${problem.domain}` : ""
-  ]
-    .filter(Boolean)
-    .join("\n")
-
-  const system = `You are a rigorous experimental scientist running a PRE-LAB simulation. Given a hypothesis, a proposed experimental design, and the researcher's DESIRED OUTCOME, predict — grounded in domain knowledge and typical effect sizes — what running this design would most likely yield, and whether that hits the target.
-
-Then ITERATE INTERNALLY: if the current design would NOT reach the desired outcome, mentally revise it (conditions, ranges, controls, replication, readouts, factor levels) and re-predict, repeating until you either reach a design that plausibly hits the target or conclude the target is out of reach. Report how many internal iterations you reasoned through.
-
-Return JSON with exactly:
-- predictedResults — 2-4 sentences: the most likely outcome of the CURRENT design, with rough directions/magnitudes. Be concrete and honest, not optimistic.
-- meetsTarget — true only if the CURRENT design (as written) plausibly achieves the desired outcome.
-- confidence — 0..1 that the design (after your proposed changes) reaches the target.
-- gapAnalysis — if meetsTarget is false, exactly what falls short and why (underpowered, wrong range, missing control, insensitive readout, etc.). Empty string if it already meets the target.
-- optimizedChanges — the concrete, prioritized design changes that would make the target reachable (each a specific actionable change: a range, a control, a readout, an n, a factor level). EMPTY array only if meetsTarget is already true.
-- iterationsReasoned — integer ≥ 1: how many what-if design revisions you worked through internally.
-
-Never claim data you don't have — this is a prediction, clearly reasoned from the design and domain priors.`
-
-  const user = `${problemBlock}
-
-HYPOTHESIS:
-${hypothesisText || "Not specified"}
-
-DESIRED OUTCOME (the target to optimize toward):
-${desiredOutcome || "Not specified — infer a sensible success target from the objective."}
-
-PROPOSED DESIGN TO SIMULATE:
-${designText.slice(0, 14_000) || "(design text unavailable)"}
-${args.cumulativeInsights ? `\nWHAT PRIOR REAL ROUNDS TAUGHT US:\n${args.cumulativeInsights}` : ""}
-
-Simulate the design, iterate internally toward the desired outcome, and return the prediction + the changes that would get there.`
-
-  const openai = getAzureOpenAIForDesign()
-  const model = getDesignDeployment()
-
-  let completion: any = null
-  let reason: string | undefined
-  try {
-    completion = await openai.beta.chat.completions.parse({
-      model,
-      temperature: 0.3,
-      max_completion_tokens: 16000,
-      messages: [
-        { role: "system", content: system },
-        { role: "user", content: user }
-      ],
-      response_format: zodResponseFormat(simulationSchema, "simulation")
-    })
-  } catch (e: any) {
-    reason = `model call failed: ${e?.status ? `HTTP ${e.status} ` : ""}${e?.message ?? e}`
-  }
-  const parsed = completion?.choices?.[0]?.message?.parsed
-  if (!parsed && !reason) {
-    reason =
-      completion?.choices?.[0]?.message?.refusal ||
-      `no structured output (finish_reason: ${completion?.choices?.[0]?.finish_reason})`
-  }
-  const result: PreLabSimulation | null = parsed
-    ? {
-        predictedResults: parsed.predictedResults ?? "",
-        meetsTarget: !!parsed.meetsTarget,
-        confidence: parsed.confidence ?? 0,
-        gapAnalysis: parsed.gapAnalysis ?? "",
-        optimizedChanges: parsed.optimizedChanges ?? [],
-        iterationsReasoned: parsed.iterationsReasoned ?? 1,
-        createdAt: new Date().toISOString()
-      }
-    : null
-
-  return { result, completion, model, reason }
-}
+// NOTE: the pre-lab simulation engine (5a) moved to `lib/design/simulate.ts`
+// — it now generates + EXECUTES a Monte-Carlo model instead of predicting in
+// prose. This module keeps the parse + real-data validation steps.
 
 // ── Parse step ─────────────────────────────────────────────────────────────
 // Extract the scientist's raw data (typed notes + PDF/CSV text) into a compact
