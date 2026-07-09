@@ -1266,46 +1266,103 @@ export default function DesignDetailPage() {
     }
   }
 
-  // "Always re-open hypothesis + design": carry the accumulated memory forward
-  // into the generation context, then drop the user on Hypotheses to re-run the
-  // loop. The prior design is already snapshotted inside the iteration record.
-  const handleStartNextIteration = async () => {
+  // 5b: apply the user's SELECTED suggested changes and regenerate the DESIGN
+  // directly (snapshotting the current one as a version), rather than re-opening
+  // the whole hypothesis→design loop. The chosen changes + running memory are
+  // injected into the design prompt.
+  const handleApplyIterationChanges = async (
+    changes: string[],
+    revisedHypothesis?: string
+  ) => {
     if (!ensureCanEdit()) return
-    const last = validation.iterations[validation.iterations.length - 1]
+    if (changes.length === 0 && !revisedHypothesis) {
+      toast({
+        title: "Nothing selected",
+        description: "Pick at least one change to apply.",
+        variant: "destructive"
+      })
+      return
+    }
     const nextRound = validation.iterations.length + 1
-    const memoryBlock = [
-      `[Iteration ${nextRound} — carried forward from ${validation.iterations.length} prior round(s)]`,
+    const directive = [
+      `[Design iteration ${nextRound} — apply these changes the researcher selected after reviewing the data]`,
       validation.cumulativeInsights
-        ? `Cumulative insights: ${validation.cumulativeInsights}`
+        ? `Everything learned so far: ${validation.cumulativeInsights}`
         : "",
-      last?.suggestedChanges?.length
-        ? `Changes to try this round: ${last.suggestedChanges.join("; ")}`
-        : "",
-      last?.revisedHypothesis
-        ? `Revised hypothesis to test: ${last.revisedHypothesis}`
+      changes.length ? `Apply these changes:\n- ${changes.join("\n- ")}` : "",
+      revisedHypothesis
+        ? `Test this sharper hypothesis: ${revisedHypothesis}`
         : ""
     ]
       .filter(Boolean)
       .join("\n")
 
-    // Replace any prior iteration block in additionalDetails (marker-bounded)
-    // so successive iterations don't stack stale memory.
     const MARK = "\n\n<<ITERATION MEMORY>>\n"
     const base = additionalDetails.split(MARK)[0].trimEnd()
-    const nextDetails = `${base}${MARK}${memoryBlock}`
+    const nextDetails = `${base}${MARK}${directive}`
     setAdditionalDetails(nextDetails)
-    await persistContent({
-      problem: { ...currentProblem(), additionalDetails: nextDetails }
-    })
+    const nextProblem = { ...currentProblem(), additionalDetails: nextDetails }
 
-    // Re-open the loop at Hypotheses (approvedPhases keeps prior stages
-    // unlocked; regenerating there flows the memory into hyp + design prompts).
-    setActiveTab("hypotheses")
-    toast({
-      title: `Starting iteration ${nextRound}`,
-      description:
-        "Insights carried forward. Regenerate hypotheses, then the design."
-    })
+    // Snapshot the current design as a version before overwriting it.
+    let snapshotVersions = designVersions
+    if (generatedDesigns.length > 0) {
+      const nextVersionNumber = (designVersions[0]?.versionNumber ?? 0) + 1 || 1
+      const snapshot: DesignVersionSnapshot = {
+        id:
+          typeof crypto !== "undefined" && "randomUUID" in crypto
+            ? crypto.randomUUID()
+            : `v-${Date.now()}`,
+        versionNumber: nextVersionNumber,
+        designs: generatedDesigns,
+        createdAt: new Date().toISOString()
+      }
+      snapshotVersions = [snapshot, ...designVersions]
+      setDesignVersions(snapshotVersions)
+    }
+
+    setActiveTab("design")
+    setBusy("design")
+    setDesignProgress([])
+    try {
+      const content = await runPhaseBackground(
+        designId,
+        {
+          phase: "design",
+          problem: nextProblem,
+          hypotheses,
+          approvedPhases
+        },
+        ev => setDesignProgress(prev => [...prev, ev])
+      )
+      latestContentRef.current = {
+        ...content,
+        designVersions: snapshotVersions,
+        problem: nextProblem
+      }
+      if (content.designs) {
+        setGeneratedDesigns(content.designs)
+        setActiveDesignId(content.designs[0]?.id ?? null)
+      }
+      void persistContent({
+        designs: content.designs,
+        designVersions: snapshotVersions,
+        problem: nextProblem
+      })
+      toast({
+        title: `Design iteration ${nextRound} generated`,
+        description: "Your selected changes are applied. Prior version saved."
+      })
+    } catch (e: any) {
+      if (e?.message !== "__paywall__") {
+        toast({
+          title: "Couldn't generate the iteration",
+          description: e?.message ?? "Try again.",
+          variant: "destructive"
+        })
+      }
+    } finally {
+      setBusy(null)
+    }
   }
 
   // ── Regenerate handlers ───────────────────────────────────────────────
@@ -2742,7 +2799,8 @@ Rules:
                 canEdit={canEdit}
                 isValidating={validating}
                 onValidate={handleRunValidation}
-                onIterate={handleStartNextIteration}
+                onApplyChanges={handleApplyIterationChanges}
+                isGenerating={busy === "design"}
                 designId={designId}
                 userId={profile?.user_id ?? null}
                 selectedWorkspace={selectedWorkspace}
@@ -3439,7 +3497,8 @@ function ValidateTab(props: {
     files: ValidateFile[],
     structured: ParsedLabData | null
   ) => void
-  onIterate: () => void
+  onApplyChanges: (changes: string[], revisedHypothesis?: string) => void
+  isGenerating: boolean
   designId: string
   userId: string | null
   selectedWorkspace: any
@@ -3450,7 +3509,8 @@ function ValidateTab(props: {
     canEdit,
     isValidating,
     onValidate,
-    onIterate,
+    onApplyChanges,
+    isGenerating,
     designId,
     userId,
     selectedWorkspace
@@ -3460,6 +3520,10 @@ function ValidateTab(props: {
   const [uploading, setUploading] = useState(false)
   const [parsing, setParsing] = useState(false)
   const [parsed, setParsed] = useState<ParsedLabData | null>(null)
+  // 5b: which suggested changes (by index) + the revised hypothesis the user
+  // has ticked to roll into the next design iteration.
+  const [pickedChanges, setPickedChanges] = useState<Set<number>>(new Set())
+  const [pickHypothesis, setPickHypothesis] = useState(false)
   const fileRef = useRef<HTMLInputElement>(null)
 
   const iterations = validation.iterations
@@ -3657,51 +3721,101 @@ function ValidateTab(props: {
                 </ul>
               </div>
             )}
-            {latest.suggestedChanges.length > 0 && (
-              <div>
-                <div className="text-ink-400 mb-1.5 text-[11px] font-semibold uppercase tracking-wider">
-                  Try next
+            {/* 5b: pick which changes to roll into the next design iteration */}
+            {(latest.suggestedChanges.length > 0 || latest.revisedHypothesis) &&
+              canEdit && (
+                <div className="border-ink-200 rounded-xl border p-3.5">
+                  <div className="text-ink-400 mb-2 text-[11px] font-semibold uppercase tracking-wider">
+                    Pick changes to apply → new design iteration
+                  </div>
+                  <div className="space-y-1.5">
+                    {latest.suggestedChanges.map((c, i) => {
+                      const on = pickedChanges.has(i)
+                      return (
+                        <button
+                          key={i}
+                          type="button"
+                          onClick={() =>
+                            setPickedChanges(prev => {
+                              const next = new Set(prev)
+                              next.has(i) ? next.delete(i) : next.add(i)
+                              return next
+                            })
+                          }
+                          className="hover:bg-ink-50 flex w-full items-start gap-2.5 rounded-lg px-2 py-1.5 text-left"
+                        >
+                          <span
+                            className={cn(
+                              "mt-0.5 flex size-4 shrink-0 items-center justify-center rounded border",
+                              on
+                                ? "border-brick bg-brick text-white"
+                                : "border-ink-300"
+                            )}
+                          >
+                            {on && <IconCheck size={11} stroke={3} />}
+                          </span>
+                          <span className="text-ink-700 text-[13px] leading-snug">
+                            {c}
+                          </span>
+                        </button>
+                      )
+                    })}
+                    {latest.revisedHypothesis && (
+                      <button
+                        type="button"
+                        onClick={() => setPickHypothesis(v => !v)}
+                        className="hover:bg-ink-50 flex w-full items-start gap-2.5 rounded-lg px-2 py-1.5 text-left"
+                      >
+                        <span
+                          className={cn(
+                            "mt-0.5 flex size-4 shrink-0 items-center justify-center rounded border",
+                            pickHypothesis
+                              ? "border-brick bg-brick text-white"
+                              : "border-ink-300"
+                          )}
+                        >
+                          {pickHypothesis && <IconCheck size={11} stroke={3} />}
+                        </span>
+                        <span className="text-ink-700 text-[13px] leading-snug">
+                          <span className="text-ink-400 font-medium">
+                            Test sharper hypothesis:{" "}
+                          </span>
+                          {latest.revisedHypothesis}
+                        </span>
+                      </button>
+                    )}
+                  </div>
+                  <button
+                    type="button"
+                    disabled={
+                      isGenerating ||
+                      (pickedChanges.size === 0 && !pickHypothesis)
+                    }
+                    onClick={() =>
+                      onApplyChanges(
+                        latest.suggestedChanges.filter((_, i) =>
+                          pickedChanges.has(i)
+                        ),
+                        pickHypothesis ? latest.revisedHypothesis : undefined
+                      )
+                    }
+                    className="bg-brick hover:bg-brick-hover mt-3 flex items-center gap-2 rounded-lg px-4 py-2.5 text-[13px] font-semibold text-white transition-colors disabled:opacity-50"
+                  >
+                    {isGenerating ? (
+                      <IconLoader2 size={15} className="animate-spin" />
+                    ) : (
+                      <IconRefresh size={15} />
+                    )}
+                    {isGenerating
+                      ? "Generating…"
+                      : `Apply ${pickedChanges.size + (pickHypothesis ? 1 : 0)} → generate design iteration ${nextRound}`}
+                  </button>
                 </div>
-                <ul className="space-y-1">
-                  {latest.suggestedChanges.map((c, i) => (
-                    <li
-                      key={i}
-                      className="text-ink-700 flex gap-2 text-[13px] leading-snug"
-                    >
-                      <span className="text-ink-400 mt-0.5 shrink-0 font-mono text-[11px]">
-                        {i + 1}.
-                      </span>
-                      {c}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
-            {latest.revisedHypothesis && (
-              <div className="border-ink-100 bg-ink-50 rounded-lg border p-3">
-                <div className="text-ink-400 mb-0.5 text-[11px] font-semibold uppercase tracking-wider">
-                  Sharper hypothesis to test
-                </div>
-                <p className="text-ink-800 text-[13px]">
-                  {latest.revisedHypothesis}
-                </p>
-              </div>
-            )}
-
-            {latest.verdict !== "supported" && canEdit && (
-              <button
-                type="button"
-                onClick={onIterate}
-                className="bg-brick hover:bg-brick-hover flex items-center gap-2 rounded-lg px-4 py-2.5 text-[13px] font-semibold text-white transition-colors"
-              >
-                <IconRefresh size={15} />
-                Start iteration {nextRound} — carry insights forward
-              </button>
-            )}
+              )}
             {latest.verdict === "supported" && (
               <div className="flex items-center gap-2 text-[13px] font-medium text-emerald-700">
                 <IconCheck size={16} /> Hypothesis supported — export a report
-                from the Library, or start a new iteration to push further.
+                from the Library, or apply changes to push further.
               </div>
             )}
           </div>
