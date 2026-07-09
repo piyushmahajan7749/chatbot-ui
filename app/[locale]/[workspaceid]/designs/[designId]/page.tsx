@@ -2280,7 +2280,9 @@ export default function DesignDetailPage() {
     papers,
     generatedDesigns,
     activeDesign,
-    presets: chatPresets
+    presets: chatPresets,
+    validation,
+    designVersions
   })
   // When the user asks for a change ("change the buffer to 20 mM",
   // "swap the readout method") we want the assistant to PROPOSE an edit
