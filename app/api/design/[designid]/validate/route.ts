@@ -14,7 +14,11 @@ import {
   isImageFile,
   resolveFilesToImageDataUrls
 } from "@/lib/design/lab-images"
-import { parseLabData, runValidation } from "@/lib/design/validate"
+import {
+  parseLabData,
+  runValidation,
+  simulateDesign
+} from "@/lib/design/validate"
 import type {
   DesignContentV2,
   ExperimentIteration,
@@ -64,16 +68,23 @@ export async function POST(
     }
 
     const body = (await request.json().catch(() => ({}))) as {
-      mode?: "parse" | "validate"
+      mode?: "parse" | "validate" | "simulate"
       raw?: string
       dataFiles?: { id?: string; name: string; size?: number; type?: string }[]
       structured?: ParsedLabData
+      desiredOutcome?: string
     }
-    const mode = body.mode === "parse" ? "parse" : "validate"
+    const mode =
+      body.mode === "parse"
+        ? "parse"
+        : body.mode === "simulate"
+          ? "simulate"
+          : "validate"
     const raw = (body.raw ?? "").trim()
     const dataFiles = Array.isArray(body.dataFiles) ? body.dataFiles : []
 
-    if (!raw && dataFiles.length === 0) {
+    // Simulate needs no lab data (it predicts from the design); other modes do.
+    if (mode !== "simulate" && !raw && dataFiles.length === 0) {
       return NextResponse.json(
         { error: "Add your lab results as text or upload a data file first." },
         { status: 400 }
@@ -130,6 +141,59 @@ export async function POST(
     const designText = (activeDesign?.sections ?? [])
       .map((s: any) => `### ${s.heading}\n${s.body}`)
       .join("\n\n")
+
+    // ── SIMULATE mode (5a): pre-lab prediction + design optimization. ────────
+    if (mode === "simulate") {
+      const desiredOutcome = (
+        body.desiredOutcome ||
+        content.problem?.successCriteria ||
+        content.problem?.objective ||
+        ""
+      ).trim()
+      const {
+        result: sim,
+        completion: sc,
+        model: sm,
+        reason
+      } = await simulateDesign({
+        problem: content.problem ?? {},
+        hypothesisText,
+        designText,
+        desiredOutcome,
+        cumulativeInsights: content.validation?.cumulativeInsights
+      })
+      if (sc) {
+        await recordCompletionUsage(
+          { userId: user.id, feature: "design", model: sm },
+          sc
+        )
+      }
+      if (!sim) {
+        console.error("[VALIDATE] simulate returned nothing:", reason)
+        return NextResponse.json(
+          { error: `Couldn't simulate — ${reason ?? "unknown reason"}.` },
+          { status: 502 }
+        )
+      }
+      const nextValidation = {
+        ...(content.validation ?? { iterations: [] }),
+        iterations: content.validation?.iterations ?? [],
+        desiredOutcome,
+        simulation: sim
+      }
+      await docRef.update({
+        content: JSON.stringify({
+          ...content,
+          schemaVersion: 2,
+          validation: nextValidation,
+          approvedPhases: Array.from(
+            new Set([...(content.approvedPhases ?? []), "validate" as const])
+          )
+        }),
+        updated_at: new Date().toISOString()
+      })
+      return NextResponse.json({ simulation: sim, validation: nextValidation })
+    }
 
     // Split uploads: IMAGES go to the vision model as-is (gel photos, scans,
     // instrument screenshots); everything else (text-layer PDF, CSV, docx) uses

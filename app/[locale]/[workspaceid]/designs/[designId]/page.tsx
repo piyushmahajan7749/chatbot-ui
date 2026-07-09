@@ -489,6 +489,7 @@ export default function DesignDetailPage() {
     iterations: []
   })
   const [validating, setValidating] = useState(false)
+  const [simulating, setSimulating] = useState(false)
 
   // Literature tab state
   const [papers, setPapers] = useState<Paper[]>([])
@@ -1207,6 +1208,61 @@ export default function DesignDetailPage() {
   }
 
   // ── Validate-and-iterate loop ─────────────────────────────────────────────
+
+  // 5a: pre-lab simulation — predict results vs the desired outcome and get the
+  // design changes that would hit the target, before running anything.
+  const handleSimulate = async (desiredOutcome: string) => {
+    if (!ensureCanEdit()) return
+    setSimulating(true)
+    try {
+      const res = await fetch(`/api/design/${designId}/validate`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ mode: "simulate", desiredOutcome })
+      })
+      if (res.status === 402) {
+        await handleBudgetError(res)
+        return
+      }
+      const json = await res.json().catch(() => null)
+      if (!res.ok) {
+        toast({
+          title: "Simulation failed",
+          description: json?.error ?? `Simulate failed (HTTP ${res.status}).`,
+          variant: "destructive"
+        })
+        return
+      }
+      const nextValidation = json.validation as ValidationState
+      setValidation(nextValidation)
+      latestContentRef.current = {
+        ...latestContentRef.current,
+        validation: nextValidation
+      }
+      if (!approvedPhases.includes("validate")) {
+        setApprovedPhases(prev =>
+          prev.includes("validate") ? prev : [...prev, "validate"]
+        )
+      }
+      const sim = json.simulation
+      toast({
+        title: sim?.meetsTarget
+          ? "Simulation: design should hit your target"
+          : "Simulation: design needs tuning",
+        description: sim?.meetsTarget
+          ? "Predicted to reach the desired outcome. Run it, then validate with real data."
+          : "See the predicted gap + the changes that would get there below."
+      })
+    } catch {
+      toast({
+        title: "Couldn't run the simulation",
+        description: "Try again in a moment.",
+        variant: "destructive"
+      })
+    } finally {
+      setSimulating(false)
+    }
+  }
 
   const handleRunValidation = async (
     raw: string,
@@ -2800,6 +2856,9 @@ Rules:
                 isValidating={validating}
                 onValidate={handleRunValidation}
                 onApplyChanges={handleApplyIterationChanges}
+                onSimulate={handleSimulate}
+                isSimulating={simulating}
+                outcomePrefill={successCriteria || objective || ""}
                 isGenerating={busy === "design"}
                 designId={designId}
                 userId={profile?.user_id ?? null}
@@ -3498,6 +3557,9 @@ function ValidateTab(props: {
     structured: ParsedLabData | null
   ) => void
   onApplyChanges: (changes: string[], revisedHypothesis?: string) => void
+  onSimulate: (desiredOutcome: string) => void
+  isSimulating: boolean
+  outcomePrefill: string
   isGenerating: boolean
   designId: string
   userId: string | null
@@ -3510,11 +3572,17 @@ function ValidateTab(props: {
     isValidating,
     onValidate,
     onApplyChanges,
+    onSimulate,
+    isSimulating,
+    outcomePrefill,
     isGenerating,
     designId,
     userId,
     selectedWorkspace
   } = props
+  const [desiredOutcome, setDesiredOutcome] = useState(
+    validation.desiredOutcome || outcomePrefill || ""
+  )
   const [raw, setRaw] = useState("")
   const [files, setFiles] = useState<ValidateFile[]>([])
   const [uploading, setUploading] = useState(false)
@@ -3524,6 +3592,9 @@ function ValidateTab(props: {
   // has ticked to roll into the next design iteration.
   const [pickedChanges, setPickedChanges] = useState<Set<number>>(new Set())
   const [pickHypothesis, setPickHypothesis] = useState(false)
+  const [pickedSimChanges, setPickedSimChanges] = useState<Set<number>>(
+    new Set()
+  )
   const fileRef = useRef<HTMLInputElement>(null)
 
   const iterations = validation.iterations
@@ -3641,11 +3712,155 @@ function ValidateTab(props: {
             : `Iteration ${iterations.length} recorded`}
         </h2>
         <p className="text-ink-500 mt-1 max-w-2xl text-[13px]">
-          Ran the design in the lab? Add your results below. Each round is
-          judged against the hypothesis and everything learned so far, then
-          points you to the next experiment.
+          First simulate the design to check it can hit your target, tune it,
+          then run it in the lab and add your real results. Every round is
+          judged against the hypothesis and everything learned so far.
         </p>
       </div>
+
+      {/* 5a — pre-lab simulation & optimization */}
+      {canEdit && (
+        <div className="border-ink-200 rounded-2xl border bg-white p-5">
+          <h3 className="text-ink-900 text-[14px] font-semibold">
+            Simulate before the bench
+          </h3>
+          <p className="text-ink-500 mt-0.5 text-[12.5px]">
+            Predict what this design would yield against your target, and get
+            the changes that would reach it — before spending lab time.
+          </p>
+          <label className="text-ink-400 mt-3 block text-[11px] font-semibold uppercase tracking-wider">
+            Desired outcome (target to optimize toward)
+          </label>
+          <textarea
+            value={desiredOutcome}
+            onChange={e => setDesiredOutcome(e.target.value)}
+            rows={2}
+            placeholder="e.g. ≥2× viscosity reduction vs control at ≤50 mM excipient, with p < 0.05 across n = 3"
+            className="border-ink-200 focus:border-teal-journey mt-1.5 w-full rounded-lg border p-3 text-[13px] outline-none transition-colors"
+          />
+          <button
+            type="button"
+            onClick={() => onSimulate(desiredOutcome.trim())}
+            disabled={isSimulating}
+            className="bg-ink text-paper mt-3 flex items-center gap-2 rounded-lg px-4 py-2 text-[13px] font-semibold transition-opacity hover:opacity-90 disabled:opacity-50"
+          >
+            {isSimulating ? (
+              <IconLoader2 size={15} className="animate-spin" />
+            ) : (
+              <IconSparkles size={15} />
+            )}
+            {isSimulating ? "Simulating…" : "Simulate & optimize design"}
+          </button>
+
+          {validation.simulation && (
+            <div className="border-ink-100 mt-4 space-y-3 border-t pt-4">
+              <div className="flex items-center gap-2">
+                <span
+                  className={cn(
+                    "inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[11px] font-semibold",
+                    validation.simulation.meetsTarget
+                      ? "bg-emerald-50 text-emerald-700"
+                      : "bg-amber-50 text-amber-700"
+                  )}
+                >
+                  {validation.simulation.meetsTarget ? (
+                    <IconCheck size={12} />
+                  ) : (
+                    <IconAlertTriangle size={12} />
+                  )}
+                  {validation.simulation.meetsTarget
+                    ? "Predicted to hit target"
+                    : "Predicted to fall short"}
+                </span>
+                <span className="text-ink-400 font-mono text-[11px] tabular-nums">
+                  {Math.round(validation.simulation.confidence * 100)}%
+                  confidence · {validation.simulation.iterationsReasoned}{" "}
+                  what-if iterations
+                </span>
+              </div>
+              <div>
+                <div className="text-ink-400 mb-0.5 text-[11px] font-semibold uppercase tracking-wider">
+                  Predicted results
+                </div>
+                <p className="text-ink-700 text-[13px] leading-relaxed">
+                  {validation.simulation.predictedResults}
+                </p>
+              </div>
+              {validation.simulation.gapAnalysis && (
+                <div>
+                  <div className="text-ink-400 mb-0.5 text-[11px] font-semibold uppercase tracking-wider">
+                    Gap to target
+                  </div>
+                  <p className="text-ink-700 text-[13px] leading-relaxed">
+                    {validation.simulation.gapAnalysis}
+                  </p>
+                </div>
+              )}
+              {validation.simulation.optimizedChanges.length > 0 && (
+                <div className="border-ink-200 rounded-xl border p-3.5">
+                  <div className="text-ink-400 mb-2 text-[11px] font-semibold uppercase tracking-wider">
+                    Pick changes → optimize the design
+                  </div>
+                  <div className="space-y-1.5">
+                    {validation.simulation.optimizedChanges.map((c, i) => {
+                      const on = pickedSimChanges.has(i)
+                      return (
+                        <button
+                          key={i}
+                          type="button"
+                          onClick={() =>
+                            setPickedSimChanges(prev => {
+                              const next = new Set(prev)
+                              next.has(i) ? next.delete(i) : next.add(i)
+                              return next
+                            })
+                          }
+                          className="hover:bg-ink-50 flex w-full items-start gap-2.5 rounded-lg px-2 py-1.5 text-left"
+                        >
+                          <span
+                            className={cn(
+                              "mt-0.5 flex size-4 shrink-0 items-center justify-center rounded border",
+                              on
+                                ? "border-brick bg-brick text-white"
+                                : "border-ink-300"
+                            )}
+                          >
+                            {on && <IconCheck size={11} stroke={3} />}
+                          </span>
+                          <span className="text-ink-700 text-[13px] leading-snug">
+                            {c}
+                          </span>
+                        </button>
+                      )
+                    })}
+                  </div>
+                  <button
+                    type="button"
+                    disabled={isGenerating || pickedSimChanges.size === 0}
+                    onClick={() =>
+                      onApplyChanges(
+                        validation.simulation!.optimizedChanges.filter((_, i) =>
+                          pickedSimChanges.has(i)
+                        )
+                      )
+                    }
+                    className="bg-brick hover:bg-brick-hover mt-3 flex items-center gap-2 rounded-lg px-4 py-2.5 text-[13px] font-semibold text-white transition-colors disabled:opacity-50"
+                  >
+                    {isGenerating ? (
+                      <IconLoader2 size={15} className="animate-spin" />
+                    ) : (
+                      <IconRefresh size={15} />
+                    )}
+                    {isGenerating
+                      ? "Optimizing…"
+                      : `Apply ${pickedSimChanges.size} → regenerate optimized design`}
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Cumulative memory */}
       {validation.cumulativeInsights && (

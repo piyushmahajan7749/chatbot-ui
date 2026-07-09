@@ -389,6 +389,28 @@ export interface ExperimentIteration {
 }
 
 /**
+ * A pre-lab simulation pass: the agent predicts what the current design would
+ * yield, judges it against the desired outcome, and (reasoning through internal
+ * iterations) proposes the design changes that would make the target reachable
+ * — all BEFORE the researcher spends bench time.
+ */
+export interface PreLabSimulation {
+  /** Plain-English prediction of the likely results of running this design. */
+  predictedResults: string
+  /** Does the current design plausibly achieve the desired outcome? */
+  meetsTarget: boolean
+  /** 0..1 confidence the (optimized) design hits the target. */
+  confidence: number
+  /** Where the current design falls short of the desired outcome. */
+  gapAnalysis: string
+  /** Concrete design changes that would close the gap (empty if meetsTarget). */
+  optimizedChanges: string[]
+  /** How many internal what-if iterations the agent reasoned through. */
+  iterationsReasoned: number
+  createdAt: string
+}
+
+/**
  * The running validation loop for a design. `cumulativeInsights` is the
  * synthesis the agent refines every round — the compact "memory" fed back into
  * hypothesis + design regeneration so each iteration gets more focused.
@@ -396,6 +418,11 @@ export interface ExperimentIteration {
 export interface ValidationState {
   iterations: ExperimentIteration[]
   cumulativeInsights?: string
+  /** The success target the sim/validation loop optimizes toward. Prefilled
+   *  from the design's success criteria, editable per problem. */
+  desiredOutcome?: string
+  /** Latest pre-lab simulation pass (5a). */
+  simulation?: PreLabSimulation
 }
 
 export interface DesignContentV2 {
