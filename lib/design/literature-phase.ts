@@ -27,12 +27,13 @@ function toAgentState(ctx: ProblemContext): ExperimentDesignState {
     ...((ctx as { constraints?: string[] }).constraints ?? [])
   ]
   if (ctx.additionalDetails?.trim()) {
-    // Loose context only - bias the search toward the researcher's system but
-    // do NOT require papers to match these exact values (they mainly drive the
-    // hypotheses + design). Finding methodologically strong primary research in
-    // the same area matters more than matching every parameter.
+    // The researcher's Refine answers. STEER the search with these — especially
+    // the intended APPROACH/methodology and target system — so results match the
+    // kind of work they're doing (e.g. formulation vs computational). Numeric
+    // values (concentrations, ranges) are directional, NOT hard filters: still
+    // surface methodologically strong adjacent primary research and reviews.
     considerations.push(
-      `Background context (use to bias relevance, do NOT over-filter to these exact values): ${ctx.additionalDetails.trim()}`
+      `SEARCH DIRECTION from the researcher (weight heavily to pick the right KIND of paper — approach, system, mechanism family, readouts — but do not exclude strong adjacent work that falls outside exact numeric values): ${ctx.additionalDetails.trim()}`
     )
   }
   return {
