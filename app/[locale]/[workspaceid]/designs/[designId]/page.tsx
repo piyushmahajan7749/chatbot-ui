@@ -2649,9 +2649,9 @@ Rules:
                 size="sm"
                 onClick={() => setShowLibrary(s => !s)}
                 className="gap-1.5"
-                title="Open Library - generate reports, protocols, and documents"
+                title="Open Export - generate reports, protocols, and documents from any design iteration"
               >
-                <IconBooks size={14} /> Library
+                <IconBooks size={14} /> Export
               </Button>
             </div>
           </div>
@@ -2892,11 +2892,26 @@ Rules:
                 chatSettings
               }}
               design={design}
-              getExportable={() => ({
+              iterations={[
+                {
+                  id: "current",
+                  label: `Latest (v${(designVersions[0]?.versionNumber ?? 0) + 1})`,
+                  designs: generatedDesigns
+                },
+                ...designVersions.map(v => ({
+                  id: v.id,
+                  label: `Iteration v${v.versionNumber}`,
+                  designs: v.designs
+                }))
+              ]}
+              getExportable={(designsOverride?: GeneratedDesign[]) => ({
                 id: designId,
                 name: title || design?.name,
                 description: design?.description,
-                content: latestContentRef.current
+                content:
+                  designsOverride && latestContentRef.current
+                    ? { ...latestContentRef.current, designs: designsOverride }
+                    : latestContentRef.current
               })}
               onClose={() => setShowLibrary(false)}
             />
@@ -4227,7 +4242,7 @@ function ValidateTab(props: {
             {latest.verdict === "supported" && (
               <div className="flex items-center gap-2 text-[13px] font-medium text-emerald-700">
                 <IconCheck size={16} /> Hypothesis supported — export a report
-                from the Library, or apply changes to push further.
+                from Export, or apply changes to push further.
               </div>
             )}
           </div>
@@ -4538,23 +4553,38 @@ const LIBRARY_ARTIFACTS: LibraryArtifact[] = [
 function DesignLibrarySidebar({
   ctx,
   design,
+  iterations,
   getExportable,
   onClose
 }: {
   ctx: DesignSubViewContext
   design: any
-  /** Builds an ExportableDesign from the LIVE design content at click time. */
-  getExportable: () => ExportableDesign
+  /** The design's iteration series (latest first-of-list = "current", then
+   *  each saved version) so the user can generate assets for whichever one. */
+  iterations: { id: string; label: string; designs: GeneratedDesign[] }[]
+  /** Builds an ExportableDesign from the LIVE design content at click time.
+   *  Pass a version's designs to export THAT iteration instead of the latest. */
+  getExportable: (designsOverride?: GeneratedDesign[]) => ExportableDesign
   onClose: () => void
 }) {
   const [reportModalOpen, setReportModalOpen] = useState(false)
+  // Which iteration to generate assets from. Defaults to the latest design.
+  const [selectedIterId, setSelectedIterId] = useState("current")
+  const selectedIter =
+    iterations.find(i => i.id === selectedIterId) ?? iterations[0]
+  const hasIterations = iterations.length > 1
 
   const handleArtifact = async (a: LibraryArtifact) => {
     if (a.action === "report") {
       setReportModalOpen(true)
       return
     }
-    const exportable = getExportable()
+    // Export the SELECTED iteration's designs (latest = live content).
+    const exportable = getExportable(
+      selectedIter && selectedIter.id !== "current"
+        ? selectedIter.designs
+        : undefined
+    )
     const hasDesign =
       Array.isArray((exportable.content as any)?.designs) &&
       (exportable.content as any).designs.length > 0
@@ -4585,7 +4615,7 @@ function DesignLibrarySidebar({
         <div className="flex items-center gap-2">
           <IconBooks size={18} className="text-ink-700" />
           <span className="text-ink-900 text-[17px] font-semibold tracking-tight">
-            Library
+            Export
           </span>
         </div>
         <button
@@ -4609,6 +4639,39 @@ function DesignLibrarySidebar({
           Each artifact is built from this design&apos;s problem, literature,
           and locked protocol.
         </p>
+
+        {/* Iteration picker: choose WHICH design version the assets are built
+            from. Only shown once there's more than one iteration. */}
+        {hasIterations && (
+          <div className="mt-4">
+            <p className="text-ink-400 mb-1.5 text-[11px] font-bold uppercase tracking-[0.14em]">
+              Iteration
+            </p>
+            <div className="flex flex-wrap gap-1.5">
+              {iterations.map(it => (
+                <button
+                  key={it.id}
+                  type="button"
+                  onClick={() => setSelectedIterId(it.id)}
+                  className={`rounded-lg border px-2.5 py-1 text-[12px] font-medium transition-colors ${
+                    selectedIter?.id === it.id
+                      ? "border-ink-900 bg-ink-900 text-white"
+                      : "border-ink-200 text-ink-600 hover:bg-ink-50"
+                  }`}
+                >
+                  {it.label}
+                </button>
+              ))}
+            </div>
+            <p className="text-ink-400 mt-1.5 text-[11px] leading-snug">
+              Assets below are generated from{" "}
+              <span className="text-ink-600 font-medium">
+                {selectedIter?.label}
+              </span>
+              .
+            </p>
+          </div>
+        )}
 
         <div className="mt-4 grid grid-cols-2 gap-2.5">
           {LIBRARY_ARTIFACTS.map(a => (
