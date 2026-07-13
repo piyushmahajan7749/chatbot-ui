@@ -344,8 +344,12 @@ export async function generateSearchQueriesWithLLM(
     constraintLines.length
       ? `Constraints:\n- ${constraintLines.join("\n- ")}`
       : null,
+    // SECONDARY steering only. Cap the count so a long list of design-stage
+    // considerations can't hijack the queries away from the problem+objective.
     ctx.specialConsiderations?.length
-      ? `Special considerations:\n- ${ctx.specialConsiderations.join("\n- ")}`
+      ? `Special considerations (secondary steering — do NOT make these the subject of queries):\n- ${ctx.specialConsiderations
+          .slice(0, 2)
+          .join("\n- ")}`
       : null
   ]
     .filter(Boolean)
@@ -353,12 +357,15 @@ export async function generateSearchQueriesWithLLM(
 
   const systemPrompt = [
     "You are an expert biomedical research librarian working for a senior scientist.",
-    "Your job: turn the scientist's structured experiment-design context into a small set of literature-search queries that, run in parallel, will surface the most relevant primary research from PubMed / Semantic Scholar / OpenAlex / arXiv.",
+    "Your job: turn the scientist's structured experiment-design context into a small set of literature-search queries that, run in parallel, will surface the most relevant EXPERIMENTAL / METHODOLOGY primary research from PubMed / Semantic Scholar / OpenAlex / arXiv.",
     "",
     "Hard rules:",
+    "- ANCHOR every query on the PROBLEM STATEMENT and the OBJECTIVE. They define the search. Keep all queries pointed in that ONE direction — sharpen it, do not widen it.",
+    "- Treat 'Special considerations' and answered clarifications as SECONDARY STEERING, not as query subjects. Do NOT spawn a separate query per consideration — that dilutes the search and returns off-target papers. Fold at most the one or two considerations that change WHICH papers exist (system, mechanism family, readout) into the queries; ignore the rest here.",
+    "- Target BENCH / wet-lab EXPERIMENTAL and METHODOLOGY papers — studies that generate real data and describe how it was done. Bias STRONGLY AWAY from: review/survey/meta-analysis articles, and purely computational / machine-learning / predictive-modeling / in-silico papers. This is a wet-lab program; modeling-only papers are noise unless the objective is explicitly computational. Prefer methods/experimental vocabulary ('assay', 'protocol', 'measured', 'in vitro', named techniques) over modeling vocabulary ('prediction', 'neural network', 'in silico').",
     "- The PRIMARY query is the strongest single-shot version. Make it tight, natural-language, 6-15 words. Use domain-specific terminology (mechanisms named after their authors, standard assays, canonical proteins/factors). Avoid hedge words, filler, or jargon-stacking.",
-    "- 2-4 ALTERNATIVE queries, each targeting a DIFFERENT angle and using DIFFERENT vocabulary. Don't just shuffle the primary query's words. Each alternative carries an intent label so the agent knows what kind of paper it expects back.",
-    "- Intent labels are: mechanism (molecular/physical basis), methods (assays, techniques, instruments), applications (case studies, prior deployments), recent_advances (latest 3-5 years), comparative (vs alternatives, benchmarks), failure_modes (pitfalls, what goes wrong, common artifacts).",
+    "- 2-4 ALTERNATIVE queries, each targeting a DIFFERENT angle within the SAME problem+objective direction, using DIFFERENT vocabulary. Don't just shuffle the primary query's words. Each alternative carries an intent label so the agent knows what kind of paper it expects back.",
+    "- Intent labels are: mechanism (molecular/physical basis), methods (assays, techniques, instruments), applications (case studies, prior deployments), recent_advances (latest 3-5 years), comparative (vs alternatives, benchmarks), failure_modes (pitfalls, what goes wrong, common artifacts). Favor mechanism + methods + failure_modes for a bench program.",
     "- Pick intents that fit THIS problem. If the user is in early discovery, mechanism + recent_advances are usually right. If they're in optimization, methods + failure_modes + comparative often beat the rest. Don't force all 6.",
     "- Keywords: 5-10 short tokens distilled from the context. These are used downstream for filtering, not as standalone queries.",
     "",

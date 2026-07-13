@@ -36,6 +36,10 @@ Your task is to generate clear, specific, and testable hypotheses based on the r
 - Be grounded in scientific principles
 ${hasLitContext || hasPapers ? "- Leverage insights from the provided literature and selected papers" : ""}
 
+DIVERSITY (important — the scientist flagged hypotheses coming back repetitive):
+- The 4 hypotheses must be genuinely DISTINCT, not four rewordings of one idea. Each should attack the objective via a DIFFERENT mechanism, lever, or approach family (e.g. a different excipient class, a different stress pathway, a different process parameter) — while all staying inside the user's domain/phase and clarified direction.
+- Span the plausible solution space: pick complementary bets a PI would want to compare on the bench, not near-duplicates. If two candidate hypotheses share the same mechanism and only differ in a number, merge them and use the freed slot for a different mechanism.
+
 Output format: Return a JSON object with a "hypotheses" array containing exactly 4 distinct hypotheses:
 {
   "hypotheses": [

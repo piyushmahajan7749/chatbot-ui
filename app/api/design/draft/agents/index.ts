@@ -776,8 +776,26 @@ export async function callLiteratureScoutAgent(
       remaining: filteredPool.length
     })
 
+    // ── Downrank computational / ML-only papers ─────────────────────────
+    // This is a BENCH / wet-lab program. Purely computational, machine-
+    // learning, or predictive-modeling papers were dominating the output
+    // (scientist's complaint). We DON'T drop them (a title can mislead), we
+    // just push them below real experimental work so the top of the list is
+    // methodology/primary research. Penalty only reorders within the pool.
+    const ML_SIGNAL =
+      /\b(machine learning|deep learning|neural network|convolutional|transformer model|predictive model(?:ing|ling)?|in silico|computational model|random forest|gradient boost|XGBoost|generative model|large language model|graph neural)\b/i
+    const WETLAB_SIGNAL =
+      /\b(assay|in vitro|in vivo|protocol|measured|purified|incubated|SDS-PAGE|HPLC|ELISA|western blot|chromatograph|titration|formulation|cell culture|expressed|crystalliz)\b/i
+    const scoreOf = (p: SearchResult): number => {
+      const hay = `${p.title ?? ""} ${(p as any).abstract ?? ""}`
+      let s = p.relevanceScore ?? 0
+      // ML-only (no wet-lab signal) → heavy penalty; ML + wet-lab (e.g. an
+      // assay paper that also models) → small penalty; wet-lab → untouched.
+      if (ML_SIGNAL.test(hay)) s -= WETLAB_SIGNAL.test(hay) ? 0.1 : 0.5
+      return s
+    }
     const mergedResults = [...filteredPool]
-      .sort((a, b) => (b.relevanceScore ?? 0) - (a.relevanceScore ?? 0))
+      .sort((a, b) => scoreOf(b) - scoreOf(a))
       .slice(0, 40)
 
     // ── Problem-aware summaries ────────────────────────────────────────

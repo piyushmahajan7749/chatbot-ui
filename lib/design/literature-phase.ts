@@ -27,13 +27,13 @@ function toAgentState(ctx: ProblemContext): ExperimentDesignState {
     ...((ctx as { constraints?: string[] }).constraints ?? [])
   ]
   if (ctx.additionalDetails?.trim()) {
-    // The researcher's Refine answers. STEER the search with these — especially
-    // the intended APPROACH/methodology and target system — so results match the
-    // kind of work they're doing (e.g. formulation vs computational). Numeric
-    // values (concentrations, ranges) are directional, NOT hard filters: still
-    // surface methodologically strong adjacent primary research and reviews.
+    // The researcher's Refine answers — SECONDARY steering only. The search is
+    // anchored on the problem statement + objective (below); these answers just
+    // nudge the KIND of paper (system, mechanism family, readout). They are NOT
+    // hard filters and must NOT become the subject of the search — that dilutes
+    // it. Numeric values (concentrations, ranges) are directional only.
     considerations.push(
-      `SEARCH DIRECTION from the researcher (weight heavily to pick the right KIND of paper — approach, system, mechanism family, readouts — but do not exclude strong adjacent work that falls outside exact numeric values): ${ctx.additionalDetails.trim()}`
+      `Secondary steering from the researcher (nudge the KIND of paper — system, mechanism family, readouts — but keep the search anchored on the problem + objective, and do not exclude strong methodologically-relevant adjacent work): ${ctx.additionalDetails.trim()}`
     )
   }
   return {
@@ -63,9 +63,10 @@ export async function runLiteraturePhase(
   const existingPapers = existing.papers ?? []
 
   const agentState = toAgentState(ctx)
-  // Initial run targets 10 unique papers (#13). "Generate more" (append)
-  // targets 5 NEW papers on top of what's already there (#19) and excludes
-  // current urls/titles so rounds aren't blocked re-finding the same ones.
+  // Initial run targets 18 unique papers (scientist wanted a fuller first
+  // pool). "Generate more" (append) targets 12 NEW papers on top of what's
+  // already there and excludes current urls/titles so rounds aren't blocked
+  // re-finding the same ones (fixes "search more returned nothing new").
   const result = await callLiteratureScoutAgent(
     agentState,
     undefined,
@@ -74,13 +75,13 @@ export async function runLiteraturePhase(
       ? {
           bypassCache: true,
           shuffleQueries: true,
-          minPapers: 5,
+          minPapers: 12,
           excludeUrls: existingPapers
             .map(p => p.sourceUrl || "")
             .filter(Boolean),
           excludeTitles: existingPapers.map(p => p.title)
         }
-      : { minPapers: 10 }
+      : { minPapers: 18 }
   )
   const litOutput = result.output
 
