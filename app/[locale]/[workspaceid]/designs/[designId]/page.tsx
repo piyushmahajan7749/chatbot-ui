@@ -40,13 +40,9 @@ import { ScopedChatRail } from "@/components/canvas/scoped-chat-rail"
 import ShareDialog from "@/components/design-flow/share-dialog"
 import type { DesignSubViewContext } from "@/components/design-flow/design-sub-views"
 import { GenerateReportModal } from "@/components/designs/generate-report-modal"
-import { ClarifyStep } from "@/components/design-flow/clarify-step"
 import { handleBudgetError } from "@/lib/billing/handle-budget-error"
 import { DesignCoach } from "@/components/onboarding/design-coach"
-import {
-  clarifyAnswersToText,
-  type ClarifyCheckpoint
-} from "@/lib/design/clarify-shared"
+import { clarifyAnswersToText } from "@/lib/design/clarify-shared"
 import type { ClarifyAnswer } from "@/lib/design-agent"
 import type { Sharing } from "@/types/sharing"
 import { addPaperToLibrary } from "@/db/paper-library"
@@ -472,11 +468,11 @@ export default function DesignDetailPage() {
   // phases as before.
   const [additionalDetails, setAdditionalDetails] = useState("")
 
-  // "Refine" clarifying-question step. Set to a checkpoint to show the
-  // full-screen Q&A before that phase runs; null = not refining. Answers are
-  // persisted into content.clarifications for audit + re-open.
-  const [refineCheckpoint, setRefineCheckpoint] =
-    useState<ClarifyCheckpoint | null>(null)
+  // Clarifying questions ("Refine") were REMOVED from the flow — they were
+  // overriding the tuned agent prompts/guardrails and degrading output. Each
+  // phase now runs straight off the Problem tab's structured fields. Only the
+  // LOAD path writes this now, so designs created while Refine existed still
+  // show their captured answers (banner + chat context).
   const [clarifications, setClarifications] = useState<{
     problem?: ClarifyAnswer[]
     hypothesis?: ClarifyAnswer[]
@@ -925,9 +921,8 @@ export default function DesignDetailPage() {
       setActiveTab("literature")
       return
     }
-    // Open the Refine clarifying-question step; it runs literature on complete.
     track("literature_search_started")
-    setRefineCheckpoint("problem")
+    void runLiteratureGeneration()
   }
 
   const runLiteratureGeneration = async (clarifyText?: string) => {
@@ -1009,7 +1004,7 @@ export default function DesignDetailPage() {
       return
     }
     track("hypothesis_generation_started", { papers: selectedPapers.length })
-    setRefineCheckpoint("hypothesis")
+    void runHypothesisGeneration()
   }
 
   const runHypothesisGeneration = async (clarifyText?: string) => {
@@ -1075,15 +1070,15 @@ export default function DesignDetailPage() {
       setActiveTab("design")
       return
     }
-    // Open the Refine clarifying-question step; it runs design on complete.
     track("design_generation_started", {
       hypotheses: selectedHypotheses.length
     })
-    setRefineCheckpoint("design")
+    void runDesignGeneration()
   }
 
-  // Step 2: run generation with the Refine answers as the authoritative design
-  // spec (buildDesignBlocks reads designSpec).
+  // Runs the design phase straight from the problem + selected hypotheses +
+  // the researcher's Lab standards. No injected designSpec — the tuned design
+  // prompts/guardrails in buildDesignBlocks drive the output unmodified.
   const runDesignGeneration = async (clarifyText?: string) => {
     if (!ensureCanEdit()) return
     const nextApproved: PhaseKey[] = ["problem", "literature", "hypotheses"]
@@ -1138,29 +1133,6 @@ export default function DesignDetailPage() {
     }
   }
 
-  // ── Refine (clarifying questions) → run the gated phase ────────────────
-  const handleClarifyComplete = async (answers: ClarifyAnswer[]) => {
-    const cp = refineCheckpoint
-    setRefineCheckpoint(null)
-    if (!cp) return
-    const text = clarifyAnswersToText(answers)
-    const nextClarifications = { ...clarifications, [cp]: answers }
-    setClarifications(nextClarifications)
-    void persistContent({ clarifications: nextClarifications })
-    if (cp === "problem") {
-      setAdditionalDetails(text) // carrier for the downstream phases
-      await runLiteratureGeneration(text)
-    } else if (cp === "hypothesis") {
-      await runHypothesisGeneration(text)
-    } else {
-      await runDesignGeneration(text)
-    }
-  }
-
-  const handleClarifyCancel = () => {
-    // Back out to the prior step - no phase run.
-    setRefineCheckpoint(null)
-  }
 
   // Step back to the design state before the last chat-applied edit.
   const handleUndo = () => {
@@ -2227,10 +2199,10 @@ export default function DesignDetailPage() {
     } else if (autoAction === "make-plan") {
       void handleMakePlan()
     } else if (autoAction === "literature") {
-      // from-scratch dialog already captured problem+objective - auto-open
-      // the Refine step so the user skips re-entering on the Problem tab (#8)
+      // from-scratch dialog already captured problem+objective - run the
+      // literature search straight away (#8)
       if (problemValid && papers.length === 0 && !busy) {
-        setRefineCheckpoint("problem")
+        void runLiteratureGeneration()
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -2465,21 +2437,6 @@ Rules:
   }
   // A completed (Design-approved) design is locked - edits require duplicating.
   const designLocked = approvedPhases.includes("design")
-
-  // Full-screen "Refine" clarifying-question step. Replaces the page while
-  // active; on complete/cancel it runs the gated phase (or backs out).
-  if (refineCheckpoint) {
-    return (
-      <div className="bg-ink-50 h-full">
-        <ClarifyStep
-          designId={designId}
-          checkpoint={refineCheckpoint}
-          onComplete={handleClarifyComplete}
-          onCancel={handleClarifyCancel}
-        />
-      </div>
-    )
-  }
 
   return (
     <div className="bg-ink-50 relative flex h-full overflow-hidden">
@@ -2756,6 +2713,8 @@ Rules:
                 setVariablesUnknown={setVariablesUnknown}
                 successCriteria={successCriteria}
                 setSuccessCriteria={setSuccessCriteria}
+                additionalDetails={additionalDetails}
+                setAdditionalDetails={setAdditionalDetails}
                 includeReplicates={includeReplicates}
                 setIncludeReplicates={setIncludeReplicates}
                 onApproveAndGenerate={handleApproveAndGenerateLiterature}
@@ -2769,10 +2728,7 @@ Rules:
 
             {activeTab === "literature" && (
               <>
-                <ClarifyAnswersBanner
-                  answers={clarifications.problem ?? []}
-                  onEdit={() => setRefineCheckpoint("problem")}
-                />
+                <ClarifyAnswersBanner answers={clarifications.problem ?? []} />
                 <LiteratureTab
                   papers={papers}
                   onTogglePaper={handleTogglePaper}
@@ -2797,7 +2753,6 @@ Rules:
               <>
                 <ClarifyAnswersBanner
                   answers={clarifications.hypothesis ?? []}
-                  onEdit={() => setRefineCheckpoint("hypothesis")}
                 />
                 <HypothesesTab
                   hypotheses={hypotheses}
@@ -2826,7 +2781,6 @@ Rules:
                     ...(clarifications.hypothesis ?? []),
                     ...(clarifications.design ?? [])
                   ]}
-                  onEdit={() => setRefineCheckpoint("design")}
                 />
                 <DesignTab
                   designs={generatedDesigns}
@@ -3040,6 +2994,8 @@ function ProblemTab(props: {
   setVariablesUnknown: (v: string) => void
   successCriteria: string
   setSuccessCriteria: (v: string) => void
+  additionalDetails: string
+  setAdditionalDetails: (v: string) => void
   includeReplicates: "" | "yes" | "no"
   setIncludeReplicates: (v: "" | "yes" | "no") => void
   onApproveAndGenerate: () => void
@@ -3072,6 +3028,8 @@ function ProblemTab(props: {
     setVariablesUnknown,
     successCriteria,
     setSuccessCriteria,
+    additionalDetails,
+    setAdditionalDetails,
     includeReplicates,
     setIncludeReplicates,
     onApproveAndGenerate,
@@ -3194,6 +3152,22 @@ function ProblemTab(props: {
               onChange={e => setSuccessCriteria(e.target.value)}
               placeholder="What would count as a successful experiment? e.g. viscosity below 20 cP at 100 mg/mL; recovery > 95%."
               rows={2}
+              disabled={isApproved || !canEdit}
+            />
+          </div>
+
+          {/* Additional details — free-text operating parameters. Read by the
+              literature (steering), hypotheses, and design prompts. Restored as
+              a visible field when the Refine question flow was removed; that
+              flow had been its only writer. Optional: keeping it non-blocking
+              avoids stranding designs that predate it. */}
+          <div className="space-y-1.5">
+            <Label>Additional details</Label>
+            <Textarea
+              value={additionalDetails}
+              onChange={e => setAdditionalDetails(e.target.value)}
+              placeholder="Concrete operating parameters the agents should honour. e.g. mAb at 150 mg/mL in 20 mM histidine pH 5.5; sucrose + polysorbate 80 available; 25 °C and 40 °C stress arms."
+              rows={3}
               disabled={isApproved || !canEdit}
             />
           </div>
