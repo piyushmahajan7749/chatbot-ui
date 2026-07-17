@@ -228,18 +228,19 @@ async function interpretRun(args: {
     )
     .join("\n")
 
-  const system = `You are a rigorous experimental scientist interpreting an EXECUTED Monte-Carlo simulation of a proposed design. The numbers below came from actually running the model — treat them as the simulated evidence, not a guess.
+  const system = `You are a rigorous experimental scientist interpreting a computational simulation of a proposed design. The numbers below came from running the design many times in silico — treat them as simulated evidence, not a guess.
 
-Judge whether the CURRENT design reliably hits the target (meetRate ≥ ${MEET_THRESHOLD} means "reliably"). Then:
-- Explain the predicted result in plain language, citing the meet-rate, the distribution, and the target.
-- List GOTCHAS: feasibility/soundness problems the design has (underpowered n given the observed spread, readout near its detection floor, working concentration outside the responsive range, missing control/blank, confounded factor, wide variance swamping the effect). Each with a severity and a concrete fix.
-- Give prioritized, concrete design CHANGES (text) that would raise the meet-rate — anchored in the sensitivity ranking (spend effort on high-leverage knobs).
-- Give paramEdits: the NUMERIC edits to the named parameters (name + newValue, within/only slightly beyond the stated range) that should improve the NEXT simulated round. [] if the design already meets the target.
+WRITE FOR A BENCH SCIENTIST IN LIFE SCIENCES, NOT A STATISTICIAN. Keep it scientific but plain: say "how often the design hit your target" not "meet-rate", "how spread out the results were" not "variance", "typical result" for the mean. NEVER name or describe the simulation model/method (no "Monte-Carlo", "Hill model", "Michaelis-Menten", "stochastic", etc.) — the reader doesn't need the machinery, only what it means for their experiment.
 
-Be honest and quantitative. Never claim real lab data — this is simulation.`
+Judge whether the CURRENT design reliably hits the target (it's reliable when it hits the target in ≥ ${Math.round(MEET_THRESHOLD * 100)}% of simulated runs). Then:
+- predictedResults: 1-3 plain sentences — what the design would likely give, how often it reaches the target, and the typical value with its spread. No jargon, no model names.
+- GOTCHAS: practical problems to fix before the bench, each with a severity and a concrete fix, in bench language — e.g. too few replicates for how noisy the readout is; readout too close to the detection limit; working concentration outside the range where the effect shows; missing control/blank; two factors that can't be told apart; the effect is smaller than the run-to-run scatter.
+- CHANGES: prioritized, concrete design changes (plain text) that would make the design hit the target more often. Spend effort on the factors that move the result most, but describe them as actions ("raise the excipient to 40 mM"), not as a sensitivity ranking.
+- paramEdits: the NUMERIC edits to the named parameters (name + newValue, within/only slightly beyond the stated range) that should improve the next simulated round. [] if the design already meets the target.
+
+Be honest and quantitative where it helps the scientist, but never statistical jargon. Never claim real lab data — this is simulation.`
 
   const user = `TARGET: ${plan.targetMetric} ${plan.targetDirection} ${plan.targetThreshold} ${plan.unit}
-MODEL: ${plan.model} — ${plan.modelRationale}
 DESIRED OUTCOME (researcher's words): ${args.desiredOutcome || "(infer from objective)"}
 
 CURRENT PARAMETERS (round ${roundIndex}):
@@ -504,7 +505,7 @@ export async function simulateDesign(args: SimulateDesignArgs): Promise<{
 
   const predicted =
     interp?.predictedResults ||
-    `Simulated ${plan.nTrials} runs of a ${plan.model} model: ${Math.round(firstNums.meetRate * 100)}% met the target (${plan.targetMetric} ${plan.targetDirection} ${plan.targetThreshold} ${plan.unit}).`
+    `Across ${plan.nTrials.toLocaleString()} simulated experiments, ${Math.round(firstNums.meetRate * 100)}% reached your target (${plan.targetMetric} ${plan.targetDirection} ${plan.targetThreshold} ${plan.unit}).`
 
   const result: PreLabSimulation = {
     predictedResults: predicted,

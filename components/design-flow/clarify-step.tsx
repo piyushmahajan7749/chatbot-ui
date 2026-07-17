@@ -45,6 +45,25 @@ export const ClarifyStep: FC<ClarifyStepProps> = ({
   const [selected, setSelected] = useState<Record<string, string[]>>({})
   const [other, setOther] = useState<Record<string, string>>({})
   const [skipped, setSkipped] = useState<Record<string, boolean>>({})
+  // Free-text notes the researcher can add alongside the answers — any extra
+  // instruction/context that the questions didn't cover. Folded into the
+  // answers as an extra entry so downstream prompts honour it.
+  const [notes, setNotes] = useState("")
+
+  // Append the notes (if any) as a synthetic answer the flattener will pick up.
+  const withNotes = (answers: ClarifyAnswer[]): ClarifyAnswer[] =>
+    notes.trim()
+      ? [
+          ...answers,
+          {
+            id: "researcher-notes",
+            prompt: "Additional notes / instructions from the researcher",
+            selected: [],
+            other: notes.trim(),
+            skipped: false
+          }
+        ]
+      : answers
 
   const title =
     checkpoint === "problem"
@@ -155,7 +174,7 @@ export const ClarifyStep: FC<ClarifyStepProps> = ({
       setSubmitting(false)
       return
     }
-    onComplete(all)
+    onComplete(withNotes(all))
   }
 
   const handleSkipAll = () => {
@@ -169,7 +188,7 @@ export const ClarifyStep: FC<ClarifyStepProps> = ({
       selected: [],
       skipped: true
     }))
-    onComplete([...accumulated, ...skippedAll])
+    onComplete(withNotes([...accumulated, ...skippedAll]))
   }
 
   return (
@@ -280,6 +299,24 @@ export const ClarifyStep: FC<ClarifyStepProps> = ({
                   </button>
                 </div>
               ))}
+
+              {/* Free-text notes — considered alongside the answers above. */}
+              <div className="border-ink-200 rounded-2xl border bg-white p-5">
+                <div className="text-ink-900 text-[15px] font-semibold">
+                  Anything else? (optional)
+                </div>
+                <div className="text-ink-400 mt-1 text-xs">
+                  Extra context or instructions for the agent — considered
+                  together with your answers above.
+                </div>
+                <textarea
+                  value={notes}
+                  onChange={e => setNotes(e.target.value)}
+                  rows={3}
+                  placeholder="e.g. prioritise excipients we already have in-house; keep osmolality isotonic; avoid polysorbates."
+                  className="border-ink-200 focus:border-ink-300 mt-3 w-full rounded-lg border p-3 text-[13px] outline-none transition-colors"
+                />
+              </div>
             </div>
           )}
         </div>

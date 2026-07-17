@@ -853,12 +853,13 @@ export async function callLiteratureScoutAgent(
         tavily: curated.sources.tavily.length,
         openalex: curated.sources.openalex.length
       }
-      // `totalCandidates` is the count BEFORE the .slice(0, 40) cut, so
-      // the UI can show "10 surfaced · ranked by relevance · from
-      // <totalCandidates> searched". This is `filteredPool.length`
-      // which is post-dedup + post-review-filter (or post-dedup if
-      // we fell back to including reviews).
-      const totalCandidates = filteredPool.length
+      // `totalCandidates` = how many UNIQUE papers the pipeline actually
+      // examined (post-dedup, before the review-filter + top-N cut). The UI
+      // shows "10 surfaced · from <totalCandidates> examined" so the scientist
+      // always sees the funnel, not just the surfaced count. Uses
+      // `deduped.length` (all unique hits) rather than `filteredPool.length`
+      // so review-filtered papers still count as "examined".
+      const totalCandidates = deduped.length
       onProgress?.({
         step: "papers_found",
         message:
