@@ -40,6 +40,7 @@ import { ScopedChatRail } from "@/components/canvas/scoped-chat-rail"
 import ShareDialog from "@/components/design-flow/share-dialog"
 import type { DesignSubViewContext } from "@/components/design-flow/design-sub-views"
 import { GenerateReportModal } from "@/components/designs/generate-report-modal"
+import { ClarifyStep } from "@/components/design-flow/clarify-step"
 import { handleBudgetError } from "@/lib/billing/handle-budget-error"
 import { DesignCoach } from "@/components/onboarding/design-coach"
 import { clarifyAnswersToText } from "@/lib/design/clarify-shared"
@@ -461,18 +462,20 @@ export default function DesignDetailPage() {
   const [includeReplicates, setIncludeReplicates] = useState<"" | "yes" | "no">(
     ""
   )
-  // Mandatory free-text field. Captures concrete operating parameters the
-  // hypothesis + design agents need to stay specific. NOT a visible field
-  // anymore - it's the CARRIER populated from the "Refine" problem-checkpoint
-  // answers (clarifyAnswersToText) and read by the literature/hypotheses/design
-  // phases as before.
+  // Visible free-text field on the Problem tab. Captures concrete operating
+  // parameters; read by the literature (steering), hypotheses, and design
+  // prompts. This is the ONLY problem-stage context now that the literature
+  // search runs without clarifying questions.
   const [additionalDetails, setAdditionalDetails] = useState("")
 
-  // Clarifying questions ("Refine") were REMOVED from the flow — they were
-  // overriding the tuned agent prompts/guardrails and degrading output. Each
-  // phase now runs straight off the Problem tab's structured fields. Only the
-  // LOAD path writes this now, so designs created while Refine existed still
-  // show their captured answers (banner + chat context).
+  // "Refine" clarifying questions. Set to a checkpoint to show the full-screen
+  // Q&A before that phase runs; null = not refining.
+  // NOTE: the PROBLEM checkpoint is deliberately gone — questions there were
+  // diluting the literature search, which now runs straight off the Problem
+  // tab. Only "hypothesis" and "design" ask questions.
+  const [refineCheckpoint, setRefineCheckpoint] = useState<
+    "hypothesis" | "design" | null
+  >(null)
   const [clarifications, setClarifications] = useState<{
     problem?: ClarifyAnswer[]
     hypothesis?: ClarifyAnswer[]
@@ -1003,8 +1006,9 @@ export default function DesignDetailPage() {
       setActiveTab("hypotheses")
       return
     }
+    // Open the Refine clarifying-question step; it runs hypotheses on complete.
     track("hypothesis_generation_started", { papers: selectedPapers.length })
-    void runHypothesisGeneration()
+    setRefineCheckpoint("hypothesis")
   }
 
   const runHypothesisGeneration = async (clarifyText?: string) => {
@@ -1070,15 +1074,15 @@ export default function DesignDetailPage() {
       setActiveTab("design")
       return
     }
+    // Open the Refine clarifying-question step; it runs design on complete.
     track("design_generation_started", {
       hypotheses: selectedHypotheses.length
     })
-    void runDesignGeneration()
+    setRefineCheckpoint("design")
   }
 
-  // Runs the design phase straight from the problem + selected hypotheses +
-  // the researcher's Lab standards. No injected designSpec — the tuned design
-  // prompts/guardrails in buildDesignBlocks drive the output unmodified.
+  // Step 2: run generation with the Refine answers as the design spec
+  // (buildDesignBlocks reads designSpec).
   const runDesignGeneration = async (clarifyText?: string) => {
     if (!ensureCanEdit()) return
     const nextApproved: PhaseKey[] = ["problem", "literature", "hypotheses"]
@@ -1133,6 +1137,28 @@ export default function DesignDetailPage() {
     }
   }
 
+  // ── Refine (clarifying questions) → run the gated phase ────────────────
+  // Only "hypothesis" and "design" reach here; the problem checkpoint was
+  // removed (its questions diluted the literature search).
+  const handleClarifyComplete = async (answers: ClarifyAnswer[]) => {
+    const cp = refineCheckpoint
+    setRefineCheckpoint(null)
+    if (!cp) return
+    const text = clarifyAnswersToText(answers)
+    const nextClarifications = { ...clarifications, [cp]: answers }
+    setClarifications(nextClarifications)
+    void persistContent({ clarifications: nextClarifications })
+    if (cp === "hypothesis") {
+      await runHypothesisGeneration(text)
+    } else {
+      await runDesignGeneration(text)
+    }
+  }
+
+  const handleClarifyCancel = () => {
+    // Back out to the prior step - no phase run.
+    setRefineCheckpoint(null)
+  }
 
   // Step back to the design state before the last chat-applied edit.
   const handleUndo = () => {
@@ -2438,6 +2464,22 @@ Rules:
   // A completed (Design-approved) design is locked - edits require duplicating.
   const designLocked = approvedPhases.includes("design")
 
+  // Full-screen "Refine" clarifying-question step (hypothesis + design only).
+  // Replaces the page while active; on complete/cancel it runs the gated phase
+  // (or backs out).
+  if (refineCheckpoint) {
+    return (
+      <div className="bg-ink-50 h-full">
+        <ClarifyStep
+          designId={designId}
+          checkpoint={refineCheckpoint}
+          onComplete={handleClarifyComplete}
+          onCancel={handleClarifyCancel}
+        />
+      </div>
+    )
+  }
+
   return (
     <div className="bg-ink-50 relative flex h-full overflow-hidden">
       {/* LEFT: design chat — overlays the page (does NOT shrink it), full
@@ -2753,6 +2795,7 @@ Rules:
               <>
                 <ClarifyAnswersBanner
                   answers={clarifications.hypothesis ?? []}
+                  onEdit={() => setRefineCheckpoint("hypothesis")}
                 />
                 <HypothesesTab
                   hypotheses={hypotheses}
@@ -2781,6 +2824,7 @@ Rules:
                     ...(clarifications.hypothesis ?? []),
                     ...(clarifications.design ?? [])
                   ]}
+                  onEdit={() => setRefineCheckpoint("design")}
                 />
                 <DesignTab
                   designs={generatedDesigns}
