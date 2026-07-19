@@ -613,6 +613,8 @@ export const processDesignPhase = inngest.createFunction(
           await pushProgress({
             step: "hyp_setup",
             message: `${label} Experimental setup`,
+            detail:
+              "Deciding what gets tested and measured, the control and experimental arms, sample types, and the replicate scheme.",
             hypothesisIndex: i + 1,
             totalHypotheses: selected.length
           })
@@ -624,6 +626,8 @@ export const processDesignPhase = inngest.createFunction(
           await pushProgress({
             step: "hyp_materials",
             message: `${label} Materials & setup`,
+            detail:
+              "Costing out reagents and equipment, working the dilution and volume calculations, and writing the prep, storage and disposal steps.",
             hypothesisIndex: i + 1,
             totalHypotheses: selected.length
           })
@@ -635,6 +639,8 @@ export const processDesignPhase = inngest.createFunction(
           await pushProgress({
             step: "hyp_protocol",
             message: `${label} Protocol & timeline`,
+            detail:
+              "Laying out the bench steps in order, building the full conditions table arm by arm, and timing the run.",
             hypothesisIndex: i + 1,
             totalHypotheses: selected.length
           })
@@ -648,6 +654,8 @@ export const processDesignPhase = inngest.createFunction(
           await pushProgress({
             step: "hyp_complete",
             message: `${label} Design complete`,
+            detail:
+              "Set the data-collection plan and statistics, added safety notes, and wrote up the rationale.",
             hypothesisIndex: i + 1,
             totalHypotheses: selected.length
           })

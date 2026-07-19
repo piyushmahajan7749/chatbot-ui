@@ -26,6 +26,10 @@ import type {
 
 // ── Schemas (one per section) ──────────────────────────────────────────────
 const experimentSetupSchema = z.object({
+  // Short, complete headline for the design. Previously the title was
+  // `hypothesis.slice(0, 80)`, which cut mid-sentence and rendered as a
+  // dangling fragment in the UI.
+  designTitle: z.string(),
   whatWillBeTested: z.string(),
   whatWillBeMeasured: z.string(),
   controlGroups: z.string(),
@@ -164,6 +168,7 @@ export async function genSetup(blocks: DesignBlocks): Promise<SetupSection> {
 
 Fields to produce:
 
+- **designTitle** - a SHORT, COMPLETE title naming what this design does. HARD RULES: at most 70 characters; a self-contained noun phrase that reads as a finished label, never a truncated sentence; no trailing ellipsis, no trailing punctuation, no "A study to…" preamble. Name the intervention/approach and the readout or goal. Good: "Excipient screen for viscosity reduction at 150 mg/mL". Bad: "This experiment will evaluate whether the addition of arginine…".
 - **whatWillBeTested** - one short paragraph stating the concrete test objective, then a bulleted list of the 2–4 specific variables / factors being manipulated.
 - **whatWillBeMeasured** - bullet list. Each bullet: \`**Readout** - method - unit - expected range\`.
 - **controlGroups** - bullet list. Each bullet: \`**Control name** - what it isolates / why it's needed\`. PURPOSE only - do NOT restate the full per-arm value matrix (that lives in the Conditions Table downstream).
@@ -327,10 +332,22 @@ export function assembleDesign(
   protocol: ProtocolSection,
   analysis: AnalysisSection
 ): GeneratedDesign {
+  // Prefer the model's short headline. Fall back to the hypothesis only if it
+  // came back empty — and then cut on a WORD boundary so the label never ends
+  // mid-word (the old `.slice(0, 80)` produced dangling fragments).
+  const cleanTitle = (setup.designTitle ?? "").trim().replace(/[.…]+$/, "")
+  const fallback = hyp.text.trim()
+  const title =
+    cleanTitle.length > 0
+      ? cleanTitle
+      : fallback.length <= 80
+        ? fallback
+        : `${fallback.slice(0, 80).replace(/\s+\S*$/, "")}…`
+
   return {
     id: `d-${uuidv4()}`,
     hypothesisId: hyp.id,
-    title: hyp.text.slice(0, 80),
+    title,
     // Streamlined section set (no repetition): the Conditions Table is the
     // single enumerated source of every arm + n, so the old separate "Control
     // Groups", "Experimental Groups" and "Replicates & Conditions" sections are

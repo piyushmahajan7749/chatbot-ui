@@ -937,6 +937,11 @@ export default function DesignDetailPage() {
     setBusy("literature")
     setLiteratureProgress([])
     try {
+      // Accumulate the streamed events LOCALLY as well as into state. Reading
+      // the `literatureProgress` state here instead would capture the stale
+      // render-time value (empty at kick-off), so the examined-count was never
+      // persisted and vanished on revisit.
+      const runEvents: LiteratureProgress[] = []
       const content = await runPhaseBackground(
         designId,
         {
@@ -949,18 +954,18 @@ export default function DesignDetailPage() {
           },
           approvedPhases: nextApproved
         },
-        ev => setLiteratureProgress(prev => [...prev, ev])
+        ev => {
+          runEvents.push(ev)
+          setLiteratureProgress(prev => [...prev, ev])
+        }
       )
       latestContentRef.current = content
       if (content.papers) setPapers(content.papers)
-      // Persist the "from N searched" total alongside the papers so the
-      // Literature header still shows it when the user navigates away and
-      // comes back. We pluck it from the just-streamed progress events; if
-      // nothing reported (legacy run, pre-warm only, etc.), the field stays
-      // undefined and the header gracefully drops the total.
+      // Persist the "N examined" total alongside the papers so the Literature
+      // header still shows it when the user navigates away and comes back.
       let totalFromRun: number | undefined
-      for (let i = literatureProgress.length - 1; i >= 0; i--) {
-        const ev = literatureProgress[i]
+      for (let i = runEvents.length - 1; i >= 0; i--) {
+        const ev = runEvents[i]
         if (
           ev.step === "papers_found" &&
           typeof ev.totalCandidates === "number"
@@ -1540,6 +1545,9 @@ export default function DesignDetailPage() {
     setBusy("literature")
     setLiteratureProgress([])
     try {
+      // Local accumulation — see the note in runLiteratureGeneration; reading
+      // the state here captures the stale render-time value.
+      const runEvents: LiteratureProgress[] = []
       const content = await runPhaseBackground(
         designId,
         {
@@ -1548,18 +1556,18 @@ export default function DesignDetailPage() {
           problem: currentProblem(),
           approvedPhases
         },
-        ev => setLiteratureProgress(prev => [...prev, ev])
+        ev => {
+          runEvents.push(ev)
+          setLiteratureProgress(prev => [...prev, ev])
+        }
       )
       latestContentRef.current = content
       if (content.papers) setPapers(content.papers)
-      // Persist the "from N searched" total alongside the papers so the
-      // Literature header still shows it when the user navigates away and
-      // comes back. We pluck it from the just-streamed progress events; if
-      // nothing reported (legacy run, pre-warm only, etc.), the field stays
-      // undefined and the header gracefully drops the total.
+      // Persist the "N examined" total alongside the papers so the header
+      // still shows it after navigating away and back.
       let totalFromRun: number | undefined
-      for (let i = literatureProgress.length - 1; i >= 0; i--) {
-        const ev = literatureProgress[i]
+      for (let i = runEvents.length - 1; i >= 0; i--) {
+        const ev = runEvents[i]
         if (
           ev.step === "papers_found" &&
           typeof ev.totalCandidates === "number"
@@ -3324,11 +3332,20 @@ function ProblemTab(props: {
               avoids stranding designs that predate it. */}
           <div className="space-y-1.5">
             <Label>Additional details</Label>
+            <p className="text-ink-500 text-[12px] leading-relaxed">
+              The more concrete you are here, the more exact the calculations
+              and prep steps come out. Useful things to include: what you have
+              and at what <b>stock concentration</b>; buffer/diluent and pH;
+              available excipients or reagents; plate/tube format and working
+              volumes; instruments and their settings; incubation time and
+              temperature; controls you always run; replicate count; anything
+              that must not change.
+            </p>
             <Textarea
               value={additionalDetails}
               onChange={e => setAdditionalDetails(e.target.value)}
-              placeholder="Concrete operating parameters the agents should honour. e.g. mAb at 150 mg/mL in 20 mM histidine pH 5.5; sucrose + polysorbate 80 available; 25 °C and 40 °C stress arms."
-              rows={3}
+              placeholder="e.g. mAb at 150 mg/mL in 20 mM histidine pH 5.5, ~40 mg left; sucrose, trehalose, arginine-HCl and PS80 in stock; 96-well plate, 200 µL working volume; plate reader at 600 nm; 25 °C and 40 °C arms, 2 weeks; always run a buffer-only blank; n = 3."
+              rows={4}
               disabled={isApproved || !canEdit}
             />
           </div>

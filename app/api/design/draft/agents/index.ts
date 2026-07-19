@@ -748,27 +748,44 @@ export async function callLiteratureScoutAgent(
     // paper-finder.ts/toSearchResult via publication-type tags + title
     // heuristic. We keep the dropped reviews around in a separate bucket
     // so we can re-introduce them if the primary list comes back empty.
+    // We want a MIX, not a purge. Dropping every review starved the pool
+    // (reviews are how a scientist gets the lay of the land + alternative
+    // approaches), but letting them dominate buries the methodology papers
+    // that actually describe how to run something. So: keep ALL primary
+    // research, plus the most-cited reviews capped at REVIEW_SHARE of the
+    // pool. Citations are the tie-breaker so the reviews that survive are the
+    // authoritative ones, not the newest blog-ish ones.
+    const REVIEW_SHARE = 0.3
     const primaryResearch = deduped.filter(p => !p.isReview)
-    const droppedReviews = deduped.length - primaryResearch.length
-    if (droppedReviews > 0) {
-      console.log(
-        `🚫 [LITERATURE_SCOUT_FILTER] Dropped ${droppedReviews} review article(s); ${primaryResearch.length} primary research papers remain.`
-      )
-    }
+    const reviews = deduped.filter(p => p.isReview)
+    const reviewQuota =
+      primaryResearch.length > 0
+        ? Math.max(
+            2,
+            Math.round(
+              (primaryResearch.length / (1 - REVIEW_SHARE)) * REVIEW_SHARE
+            )
+          )
+        : reviews.length
+    const keptReviews = [...reviews]
+      .sort((a, b) => ((b as any).citationCount ?? 0) - ((a as any).citationCount ?? 0))
+      .slice(0, reviewQuota)
+    const droppedReviews = reviews.length - keptReviews.length
+    console.log(
+      `📚 [LITERATURE_SCOUT_FILTER] Mixing ${primaryResearch.length} primary research + ${keptReviews.length} review(s) (dropped ${droppedReviews} surplus review(s)).`
+    )
     onProgress?.({
       step: "filtering_reviews",
-      message:
-        droppedReviews > 0
-          ? `Filtered ${droppedReviews} review article${droppedReviews === 1 ? "" : "s"}, kept ${primaryResearch.length} primary research paper${primaryResearch.length === 1 ? "" : "s"}.`
-          : "No review articles to filter.",
+      message: `Balancing the pool: ${primaryResearch.length} methodology/research paper${primaryResearch.length === 1 ? "" : "s"} + ${keptReviews.length} high-impact review${keptReviews.length === 1 ? "" : "s"}.`,
       dropped: droppedReviews,
-      remaining: primaryResearch.length
+      remaining: primaryResearch.length + keptReviews.length
     })
 
-    // Fall back to including reviews ONLY when the primary pool is
-    // empty - better than blank UI. We still flag them as reviews
-    // downstream so the LLM is told to treat them with caution.
-    const filteredPool = primaryResearch.length > 0 ? primaryResearch : deduped
+    // Fall back to the raw deduped pool only when there's nothing else.
+    const filteredPool =
+      primaryResearch.length > 0 || keptReviews.length > 0
+        ? [...primaryResearch, ...keptReviews]
+        : deduped
 
     onProgress?.({
       step: "ranking",
@@ -792,6 +809,13 @@ export async function callLiteratureScoutAgent(
       // ML-only (no wet-lab signal) → heavy penalty; ML + wet-lab (e.g. an
       // assay paper that also models) → small penalty; wet-lab → untouched.
       if (ML_SIGNAL.test(hay)) s -= WETLAB_SIGNAL.test(hay) ? 0.1 : 0.5
+      // Citation boost — the scientist wants well-established work near the
+      // top. Log-scaled and capped so a 10k-citation classic can't outrank a
+      // genuinely on-topic paper on citations alone.
+      const cites = (p as any).citationCount
+      if (typeof cites === "number" && cites > 0) {
+        s += Math.min(0.2, Math.log10(1 + cites) / 25)
+      }
       return s
     }
     const mergedResults = [...filteredPool]
