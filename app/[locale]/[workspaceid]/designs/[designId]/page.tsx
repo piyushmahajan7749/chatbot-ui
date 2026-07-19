@@ -409,6 +409,9 @@ export default function DesignDetailPage() {
   // scoped Reports / Chats / Files. Reports/chats/files now live under the
   // design (not the project), so they only appear once a design is opened.
   const [showLibrary, setShowLibrary] = useState(false)
+  // Full-page decision step after Design → Next: finalise now, or simulate
+  // before the bench. Replaces the page while open.
+  const [showDesignGate, setShowDesignGate] = useState(false)
   const [busy, setBusy] = useState<
     | null
     | "literature"
@@ -1306,8 +1309,19 @@ export default function DesignDetailPage() {
       )
   }
 
-  const handleApproveDesignAndContinue = async () => {
+  // "Next" on the Design tab opens the decision page rather than finalising
+  // outright — the scientist chooses between shipping the design as-is and
+  // simulating it first.
+  const handleApproveDesignAndContinue = () => {
     if (!ensureCanEdit()) return
+    if (generatedDesigns.length === 0) return
+    setShowDesignGate(true)
+  }
+
+  /** Gate option A — finalise. Approves the design, returns to it, and opens
+   *  Export so the download formats are right there (items 10 / 15). */
+  const handleFinalizeDesign = async () => {
+    setShowDesignGate(false)
     const nextApproved: PhaseKey[] = [
       "problem",
       "literature",
@@ -1316,12 +1330,22 @@ export default function DesignDetailPage() {
     ]
     setApprovedPhases(nextApproved)
     await persistContent({ approvedPhases: nextApproved })
-    // Design approved unlocks Validate — send them there to run it in the lab.
-    setActiveTab("validate")
+    setActiveTab("design")
+    setShowLibrary(true)
     toast({
-      title: "Design approved",
-      description: "Run it in the lab, then validate with your data."
+      title: "Design finalised",
+      description: "Pick a format on the right to download it."
     })
+  }
+
+  /** Gate option B — simulate first. Lands on Validate and kicks the
+   *  simulation off immediately (item 11). */
+  const handleGoSimulate = () => {
+    setShowDesignGate(false)
+    setActiveTab("validate")
+    if (!validation.simulation && !simulating) {
+      void handleSimulate((successCriteria || objective || "").trim())
+    }
   }
 
   // ── Validate-and-iterate loop ─────────────────────────────────────────────
@@ -2586,6 +2610,74 @@ Rules:
   // A completed (Design-approved) design is locked - edits require duplicating.
   const designLocked = approvedPhases.includes("design")
 
+  // Full-screen decision step after Design → Next. Two clearly-explained
+  // paths: finalise the design now, or simulate it before spending bench time.
+  if (showDesignGate) {
+    return (
+      <div className="bg-ink-50 h-full overflow-auto">
+        <div className="mx-auto max-w-[760px] px-6 py-12">
+          <div className="text-teal-journey flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.13em]">
+            <IconFlask size={13} /> Design ready
+          </div>
+          <h1 className="text-ink-900 mt-1 text-2xl font-extrabold tracking-tight">
+            What next?
+          </h1>
+          <p className="text-ink-500 mt-1 text-sm">
+            Your design is written. You can take it to the bench as it stands,
+            or have it stress-tested on the computer first.
+          </p>
+
+          <div className="mt-6 space-y-3">
+            <div className="border-ink-200 rounded-2xl border bg-white p-5">
+              <h2 className="text-ink-900 text-[15px] font-semibold">
+                Use this design
+              </h2>
+              <p className="text-ink-500 mt-1 text-[13px] leading-relaxed">
+                Finalise it as-is and go straight to downloads — protocol, SOP,
+                material list, bench guide. Pick this when you&apos;re confident
+                in the plan and ready to run it.
+              </p>
+              <Button
+                onClick={() => void handleFinalizeDesign()}
+                className="bg-brick hover:bg-brick-hover mt-3 gap-2"
+              >
+                <IconCheck size={16} /> Approve &amp; finalise design
+              </Button>
+            </div>
+
+            <div className="border-ink-200 rounded-2xl border bg-white p-5">
+              <h2 className="text-ink-900 text-[15px] font-semibold">
+                Simulate the results first
+              </h2>
+              <p className="text-ink-500 mt-1 text-[13px] leading-relaxed">
+                We run your design on the computer many times over to estimate
+                what it would produce and how reliably it would hit your target
+                — then flag the problems to fix and the changes most likely to
+                get you there. Pick this to tighten the design before using up
+                material and bench time.
+              </p>
+              <Button
+                variant="outline"
+                onClick={handleGoSimulate}
+                className="mt-3 gap-2"
+              >
+                <IconSparkles size={16} /> Simulate before the bench
+              </Button>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => setShowDesignGate(false)}
+            className="text-ink-400 hover:text-ink-700 mt-6 text-[13px]"
+          >
+            Back to the design
+          </button>
+        </div>
+      </div>
+    )
+  }
+
   // Full-screen "Refine" clarifying-question step (hypothesis + design only).
   // Replaces the page while active; on complete/cancel it runs the gated phase
   // (or backs out).
@@ -2785,14 +2877,16 @@ Rules:
             literature: "lit",
             hypotheses: "hyp",
             design: "design",
-            validate: "validate"
+            validate: "validate",
+            iterate: "iterate"
           }
           const stageToTab: Record<DesignStageId, string> = {
             problem: "problem",
             lit: "literature",
             hyp: "hypotheses",
             design: "design",
-            validate: "validate"
+            validate: "validate",
+            iterate: "iterate"
           }
           const completedStages: DesignStageId[] = approvedPhases
             .filter(p => p !== "simulation")
@@ -2815,10 +2909,15 @@ Rules:
               generatedDesigns.length > 0
                 ? `${generatedDesigns.length} design${generatedDesigns.length === 1 ? "" : "s"}`
                 : "no designs",
-            validate:
+            validate: validation.simulation
+              ? validation.simulation.meetsTarget
+                ? "predicted to hit"
+                : "predicted short"
+              : "not simulated",
+            iterate:
               validation.iterations.length > 0
-                ? `iteration ${validation.iterations.length}`
-                : "no data yet"
+                ? `${validation.iterations.length} round${validation.iterations.length === 1 ? "" : "s"}`
+                : "no lab data yet"
           }
           const currentStage = tabToStage[activeTab] || "problem"
           return (
@@ -2955,7 +3054,6 @@ Rules:
                   activeId={activeDesignId}
                   onSelect={setActiveDesignId}
                   activeDesign={activeDesign}
-                  onSave={handleSaveDesign}
                   onApproveAndContinue={handleApproveDesignAndContinue}
                   onRegenerate={handleRegenerateDesign}
                   isApproved={isPhaseApproved("design")}
@@ -5981,7 +6079,6 @@ function DesignTab(props: {
   activeId: string | null
   onSelect: (id: string) => void
   activeDesign?: GeneratedDesign
-  onSave: (id: string) => void
   onApproveAndContinue: () => void
   onRegenerate: () => void
   isApproved: boolean
@@ -6004,7 +6101,6 @@ function DesignTab(props: {
     activeId,
     onSelect,
     activeDesign,
-    onSave,
     onApproveAndContinue,
     onRegenerate,
     isApproved,
@@ -6227,7 +6323,6 @@ function DesignTab(props: {
                     ))}
                   </div>
 
-                  <DesignActionsBar design={activeDesign} onSave={onSave} />
                 </CardContent>
               </Card>
             </div>
@@ -6235,39 +6330,17 @@ function DesignTab(props: {
         </>
       )}
 
+      {/* Save + "Approve & Finalize" were replaced by a single Next, which
+          opens the decision page (finalise now vs simulate first). */}
       <PhaseActionBar
         onApprove={onApproveAndContinue}
-        approveLabel="Approve & Finalize Design"
+        approveLabel="Next"
         approveDisabled={designs.length === 0 || !canEdit}
         onRegenerate={designs.length > 0 ? onRegenerate : undefined}
         regenerateLabel="Regenerate Designs"
         isBusy={isBusy}
         isApproved={isApproved}
       />
-    </div>
-  )
-}
-
-function DesignActionsBar(props: {
-  design: GeneratedDesign
-  onSave: (id: string) => void
-}) {
-  const { design, onSave } = props
-
-  // Download + Share moved out of this bar: Save is the only per-design action
-  // here now. Export (Markdown / JSON / PDF) and sharing/collaborators live in
-  // the top-right Share dialog so there's a single place to manage them.
-  return (
-    <div className="border-ink-100 mt-4 flex flex-wrap items-center justify-end gap-2 border-t pt-3">
-      <Button
-        size="sm"
-        onClick={() => onSave(design.id)}
-        disabled={design.saved}
-        className="bg-brick hover:bg-brick-hover gap-1.5"
-      >
-        <IconFlask size={14} />
-        {design.saved ? "Saved" : "Save Design"}
-      </Button>
     </div>
   )
 }

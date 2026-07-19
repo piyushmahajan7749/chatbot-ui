@@ -324,6 +324,12 @@ export interface DesignVersionSnapshot {
   designs: GeneratedDesign[]
   createdAt: string
   note?: string
+  /**
+   * Where this version came from. Drives the label in the design page's
+   * iteration timeline ("Original design", "Simulated version", "From lab
+   * data") so a scholar can read the series at a glance.
+   */
+  origin?: "original" | "simulation" | "lab-data" | "manual"
 }
 
 /** How a round of lab data landed against the hypothesis under test. */

@@ -3,6 +3,7 @@
 import {
   IconBook,
   IconBulb,
+  IconChartHistogram,
   IconCheck,
   IconFlask,
   IconRefresh,
@@ -12,7 +13,13 @@ import {
 
 import { cn } from "@/lib/utils"
 
-export type StageId = "problem" | "lit" | "hyp" | "design" | "validate"
+export type StageId =
+  | "problem"
+  | "lit"
+  | "hyp"
+  | "design"
+  | "validate"
+  | "iterate"
 
 interface StageDef {
   id: StageId
@@ -26,7 +33,8 @@ export const STAGES: StageDef[] = [
   { id: "lit", label: "Literature", icon: IconBook, short: "02" },
   { id: "hyp", label: "Hypotheses", icon: IconBulb, short: "03" },
   { id: "design", label: "Design", icon: IconFlask, short: "04" },
-  { id: "validate", label: "Validate", icon: IconRefresh, short: "05" }
+  { id: "validate", label: "Validate", icon: IconChartHistogram, short: "05" },
+  { id: "iterate", label: "Iterate", icon: IconRefresh, short: "06" }
 ]
 
 type Status = "active" | "done" | "idle"
