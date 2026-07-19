@@ -52,6 +52,18 @@ import { supabase } from "@/lib/supabase/browser-client"
 import { ChatbotUIContext } from "@/context/context"
 import { useToast } from "@/app/hooks/use-toast"
 import { toast } from "sonner"
+import {
+  Bar,
+  BarChart,
+  CartesianGrid,
+  Legend as RLegend,
+  Line,
+  LineChart,
+  ResponsiveContainer,
+  Tooltip as RTooltip,
+  XAxis,
+  YAxis
+} from "recharts"
 import { cn } from "@/lib/utils"
 import ReactMarkdown from "react-markdown"
 import remarkGfm from "remark-gfm"
@@ -412,6 +424,10 @@ export default function DesignDetailPage() {
   // Full-page decision step after Design → Next: finalise now, or simulate
   // before the bench. Replaces the page while open.
   const [showDesignGate, setShowDesignGate] = useState(false)
+  // Provenance of the CURRENT design, used to label it in the iteration rail.
+  const [designOrigin, setDesignOrigin] = useState<
+    "original" | "simulation" | "lab-data" | "manual"
+  >("original")
   const [busy, setBusy] = useState<
     | null
     | "literature"
@@ -1338,6 +1354,13 @@ export default function DesignDetailPage() {
     })
   }
 
+  /** Leave Validate/Iterate and go back to the design with Export open, so
+   *  the download formats are right there (items 10 / 15). */
+  const handleContinueToDesign = () => {
+    setActiveTab("design")
+    setShowLibrary(true)
+  }
+
   /** Gate option B — simulate first. Lands on Validate and kicks the
    *  simulation off immediately (item 11). */
   const handleGoSimulate = () => {
@@ -1469,7 +1492,8 @@ export default function DesignDetailPage() {
   // injected into the design prompt.
   const handleApplyIterationChanges = async (
     changes: string[],
-    revisedHypothesis?: string
+    revisedHypothesis?: string,
+    origin: "simulation" | "lab-data" = "lab-data"
   ) => {
     if (!ensureCanEdit()) return
     if (changes.length === 0 && !revisedHypothesis) {
@@ -1500,7 +1524,10 @@ export default function DesignDetailPage() {
     setAdditionalDetails(nextDetails)
     const nextProblem = { ...currentProblem(), additionalDetails: nextDetails }
 
-    // Snapshot the current design as a version before overwriting it.
+    // Snapshot the current design as a version before overwriting it. The
+    // snapshot carries the provenance of the design being SAVED (the first one
+    // is the original); the new design takes on this round's origin, so the
+    // timeline reads "Original → Simulated → From lab data".
     let snapshotVersions = designVersions
     if (generatedDesigns.length > 0) {
       const nextVersionNumber = (designVersions[0]?.versionNumber ?? 0) + 1 || 1
@@ -1511,10 +1538,12 @@ export default function DesignDetailPage() {
             : `v-${Date.now()}`,
         versionNumber: nextVersionNumber,
         designs: generatedDesigns,
-        createdAt: new Date().toISOString()
+        createdAt: new Date().toISOString(),
+        origin: designOrigin
       }
       snapshotVersions = [snapshot, ...designVersions]
       setDesignVersions(snapshotVersions)
+      setDesignOrigin(origin)
     }
 
     setActiveTab("design")
@@ -3063,14 +3092,16 @@ Rules:
                   progress={designProgress}
                   onRevise={() => handleRevisePhase("design")}
                   designVersions={designVersions}
+                  currentOrigin={designOrigin}
                   onRestoreVersion={handleRestoreDesignVersion}
                   onEditSection={handleEditSection}
                 />
               </>
             )}
 
-            {activeTab === "validate" && (
+            {(activeTab === "validate" || activeTab === "iterate") && (
               <ValidateTab
+                mode={activeTab === "validate" ? "simulate" : "iterate"}
                 validation={validation}
                 hasDesign={generatedDesigns.length > 0}
                 canEdit={canEdit}
@@ -3078,6 +3109,10 @@ Rules:
                 onValidate={handleRunValidation}
                 onApplyChanges={handleApplyIterationChanges}
                 onSimulate={handleSimulate}
+                onContinueToDesign={handleContinueToDesign}
+                nextVersionNumber={
+                  (designVersions[0]?.versionNumber ?? 0) + 2 || 2
+                }
                 isSimulating={simulating}
                 outcomePrefill={successCriteria || objective || ""}
                 isGenerating={busy === "design"}
@@ -3834,7 +3869,108 @@ function verdictTone(v: ValidationVerdict | undefined): {
 
 type ValidateFile = { id?: string; name: string; size?: number; type?: string }
 
+/**
+ * Chart the parsed lab table. The first column is treated as the category
+ * axis (condition / arm / timepoint) and every column that parses as numeric
+ * across most rows becomes a series. Bars for a handful of discrete
+ * conditions, lines once it looks like a series (many points / a numeric
+ * x-axis) — which is the shape most bench readouts arrive in.
+ * Renders nothing when the table has no numeric column, rather than an
+ * empty axis.
+ */
+function ParsedDataChart({ parsed }: { parsed: ParsedLabData }) {
+  const chart = useMemo(() => {
+    if (!parsed?.rows?.length || !parsed?.columns?.length) return null
+    const toNum = (v: string) => {
+      // Tolerate "3.1 ± 0.2", "12%", "1,200", "< 0.05"
+      const m = String(v ?? "")
+        .replace(/,/g, "")
+        .match(/-?\d+(\.\d+)?([eE][-+]?\d+)?/)
+      return m ? Number(m[0]) : NaN
+    }
+    const numericCols = parsed.columns
+      .map((c, i) => ({ name: c, i }))
+      .slice(1)
+      .filter(({ i }) => {
+        const vals = parsed.rows.map(r => toNum(r[i]))
+        const good = vals.filter(v => Number.isFinite(v)).length
+        return good >= Math.max(2, Math.ceil(parsed.rows.length * 0.6))
+      })
+    if (numericCols.length === 0) return null
+    const data = parsed.rows.map((r, ri) => {
+      const point: Record<string, string | number> = {
+        __label: String(r[0] ?? `Row ${ri + 1}`)
+      }
+      numericCols.forEach(({ name, i }) => {
+        const v = toNum(r[i])
+        if (Number.isFinite(v)) point[name] = v
+      })
+      return point
+    })
+    const xIsNumeric = parsed.rows.every(r => Number.isFinite(toNum(r[0])))
+    return {
+      data,
+      series: numericCols.map(c => c.name),
+      kind: (xIsNumeric || data.length > 8 ? "line" : "bar") as "line" | "bar"
+    }
+  }, [parsed])
+
+  if (!chart) return null
+  const COLORS = ["#B4462F", "#2F6F6B", "#8A6D3B", "#3D5A80", "#6B4E71"]
+
+  return (
+    <div className="border-ink-200 rounded-lg border p-3">
+      <div className="text-ink-400 mb-2 text-[11px] font-semibold uppercase tracking-wider">
+        Your data, charted
+      </div>
+      <div style={{ width: "100%", height: 260 }}>
+        <ResponsiveContainer>
+          {chart.kind === "bar" ? (
+            <BarChart data={chart.data} margin={{ left: 4, right: 8, top: 8 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#E7E3DC" />
+              <XAxis dataKey="__label" tick={{ fontSize: 11 }} />
+              <YAxis tick={{ fontSize: 11 }} />
+              <RTooltip />
+              <RLegend wrapperStyle={{ fontSize: 11 }} />
+              {chart.series.map((s, i) => (
+                <Bar key={s} dataKey={s} fill={COLORS[i % COLORS.length]} />
+              ))}
+            </BarChart>
+          ) : (
+            <LineChart data={chart.data} margin={{ left: 4, right: 8, top: 8 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#E7E3DC" />
+              <XAxis dataKey="__label" tick={{ fontSize: 11 }} />
+              <YAxis tick={{ fontSize: 11 }} />
+              <RTooltip />
+              <RLegend wrapperStyle={{ fontSize: 11 }} />
+              {chart.series.map((s, i) => (
+                <Line
+                  key={s}
+                  type="monotone"
+                  dataKey={s}
+                  stroke={COLORS[i % COLORS.length]}
+                  strokeWidth={2}
+                  dot={{ r: 3 }}
+                />
+              ))}
+            </LineChart>
+          )}
+        </ResponsiveContainer>
+      </div>
+    </div>
+  )
+}
+
+/**
+ * Drives BOTH the Validate and Iterate tabs off one component:
+ *  - mode="simulate" → pre-lab simulation only. No lab-data entry at all.
+ *  - mode="iterate"  → real lab data: upload → parse → verdict → charts →
+ *                      suggested changes.
+ * They share the verdict/insight vocabulary and the apply-changes plumbing,
+ * so one component with a mode switch beats two near-duplicates.
+ */
 function ValidateTab(props: {
+  mode: "simulate" | "iterate"
   validation: ValidationState
   hasDesign: boolean
   canEdit: boolean
@@ -3844,8 +3980,16 @@ function ValidateTab(props: {
     files: ValidateFile[],
     structured: ParsedLabData | null
   ) => void
-  onApplyChanges: (changes: string[], revisedHypothesis?: string) => void
+  onApplyChanges: (
+    changes: string[],
+    revisedHypothesis?: string,
+    origin?: "simulation" | "lab-data"
+  ) => void
   onSimulate: (desiredOutcome: string) => void
+  /** Leave the loop and go finalise/download the current design. */
+  onContinueToDesign: () => void
+  /** Version number an "apply changes" would create — shown on the button. */
+  nextVersionNumber: number
   isSimulating: boolean
   outcomePrefill: string
   isGenerating: boolean
@@ -3854,6 +3998,7 @@ function ValidateTab(props: {
   selectedWorkspace: any
 }) {
   const {
+    mode,
     validation,
     hasDesign,
     canEdit,
@@ -3861,6 +4006,8 @@ function ValidateTab(props: {
     onValidate,
     onApplyChanges,
     onSimulate,
+    onContinueToDesign,
+    nextVersionNumber,
     isSimulating,
     outcomePrefill,
     isGenerating,
@@ -4000,22 +4147,32 @@ function ValidateTab(props: {
       {/* Header */}
       <div>
         <div className="text-teal-journey flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.13em]">
-          <IconRefresh size={13} /> Validate &amp; iterate
+          {mode === "simulate" ? (
+            <>
+              <IconChartBar size={13} /> Validate
+            </>
+          ) : (
+            <>
+              <IconRefresh size={13} /> Iterate
+            </>
+          )}
         </div>
         <h2 className="text-ink-900 mt-1 text-xl font-bold">
-          {iterations.length === 0
-            ? "Test your hypothesis with real data"
-            : `Iteration ${iterations.length} recorded`}
+          {mode === "simulate"
+            ? "Check the design before the bench"
+            : iterations.length === 0
+              ? "Test your hypothesis with real data"
+              : `Iteration ${iterations.length} recorded`}
         </h2>
         <p className="text-ink-500 mt-1 max-w-2xl text-[13px]">
-          First simulate the design to check it can hit your target, tune it,
-          then run it in the lab and add your real results. Every round is
-          judged against the hypothesis and everything learned so far.
+          {mode === "simulate"
+            ? "We estimate what this design would produce and how reliably it reaches your target, so you can tighten it before using up material and bench time."
+            : "Add the results you actually got. We read the data, judge it against your hypothesis, chart it, and suggest what to change next — carrying forward everything learned in earlier rounds."}
         </p>
       </div>
 
       {/* 5a — pre-lab simulation & optimization */}
-      {canEdit && (
+      {mode === "simulate" && canEdit && (
         <div className="border-ink-200 rounded-2xl border bg-white p-5">
           <h3 className="text-ink-900 text-[14px] font-semibold">
             Simulate before the bench
@@ -4124,6 +4281,40 @@ function ValidateTab(props: {
                       </span>
                     </div>
                   )}
+                  {/* What the simulation actually ran (item 12) — kept plain:
+                      run count + the range it saw, no model machinery. */}
+                  <div className="border-ink-200 text-ink-500 mt-3 border-t pt-2.5 text-[11.5px] leading-relaxed">
+                    Ran{" "}
+                    <span className="text-ink-800 font-semibold tabular-nums">
+                      {(validation.simulation.nTrials ?? 0).toLocaleString()}
+                    </span>{" "}
+                    simulated experiments
+                    {validation.simulation.iterationsReasoned > 1 && (
+                      <>
+                        {" "}
+                        across{" "}
+                        <span className="text-ink-800 font-semibold tabular-nums">
+                          {validation.simulation.iterationsReasoned}
+                        </span>{" "}
+                        design variations
+                      </>
+                    )}
+                    {validation.simulation.distribution && (
+                      <>
+                        , with results spanning{" "}
+                        <span className="text-ink-800 font-semibold tabular-nums">
+                          {fmtNum(validation.simulation.distribution.p10)}
+                        </span>{" "}
+                        to{" "}
+                        <span className="text-ink-800 font-semibold tabular-nums">
+                          {fmtNum(validation.simulation.distribution.p90)}
+                        </span>{" "}
+                        {validation.simulation.distribution.unit ?? ""} in most
+                        runs
+                      </>
+                    )}
+                    .
+                  </div>
                 </div>
               )}
 
@@ -4219,27 +4410,43 @@ function ValidateTab(props: {
                       )
                     })}
                   </div>
-                  <button
-                    type="button"
-                    disabled={isGenerating || pickedSimChanges.size === 0}
-                    onClick={() =>
-                      onApplyChanges(
-                        validation.simulation!.optimizedChanges.filter((_, i) =>
-                          pickedSimChanges.has(i)
+                  {/* Item 14 — both exits are offered explicitly, and the
+                      apply button names the version it will create. */}
+                  <div className="mt-3 flex flex-wrap items-center gap-2">
+                    <button
+                      type="button"
+                      disabled={isGenerating || pickedSimChanges.size === 0}
+                      onClick={() =>
+                        onApplyChanges(
+                          validation.simulation!.optimizedChanges.filter(
+                            (_, i) => pickedSimChanges.has(i)
+                          ),
+                          undefined,
+                          "simulation"
                         )
-                      )
-                    }
-                    className="bg-brick hover:bg-brick-hover mt-3 flex items-center gap-2 rounded-lg px-4 py-2.5 text-[13px] font-semibold text-white transition-colors disabled:opacity-50"
-                  >
-                    {isGenerating ? (
-                      <IconLoader2 size={15} className="animate-spin" />
-                    ) : (
-                      <IconRefresh size={15} />
-                    )}
-                    {isGenerating
-                      ? "Optimizing…"
-                      : `Apply ${pickedSimChanges.size} → regenerate optimized design`}
-                  </button>
+                      }
+                      className="bg-brick hover:bg-brick-hover flex items-center gap-2 rounded-lg px-4 py-2.5 text-[13px] font-semibold text-white transition-colors disabled:opacity-50"
+                    >
+                      {isGenerating ? (
+                        <IconLoader2 size={15} className="animate-spin" />
+                      ) : (
+                        <IconRefresh size={15} />
+                      )}
+                      {isGenerating
+                        ? "Optimising…"
+                        : `Apply ${pickedSimChanges.size} change${
+                            pickedSimChanges.size === 1 ? "" : "s"
+                          } → design v${nextVersionNumber}`}
+                    </button>
+                    <button
+                      type="button"
+                      disabled={isGenerating}
+                      onClick={onContinueToDesign}
+                      className="border-ink-200 text-ink-700 hover:bg-ink-50 flex items-center gap-2 rounded-lg border px-4 py-2.5 text-[13px] font-medium transition-colors disabled:opacity-50"
+                    >
+                      Skip the changes, continue with this design
+                    </button>
+                  </div>
                 </div>
               )}
             </div>
@@ -4248,7 +4455,7 @@ function ValidateTab(props: {
       )}
 
       {/* Cumulative memory */}
-      {validation.cumulativeInsights && (
+      {mode === "iterate" && validation.cumulativeInsights && (
         <div className="border-teal-journey/30 bg-teal-journey-tint/40 rounded-2xl border p-4">
           <div className="text-teal-journey mb-1 flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider">
             <IconSparkles size={13} /> What we&apos;ve learned so far
@@ -4264,7 +4471,7 @@ function ValidateTab(props: {
       )}
 
       {/* Latest verdict */}
-      {latest && (
+      {mode === "iterate" && latest && (
         <div className="border-ink-200 overflow-hidden rounded-2xl border bg-white">
           <div
             className={cn(
@@ -4385,45 +4592,66 @@ function ValidateTab(props: {
                       </button>
                     )}
                   </div>
-                  <button
-                    type="button"
-                    disabled={
-                      isGenerating ||
-                      (pickedChanges.size === 0 && !pickHypothesis)
-                    }
-                    onClick={() =>
-                      onApplyChanges(
-                        latest.suggestedChanges.filter((_, i) =>
-                          pickedChanges.has(i)
-                        ),
-                        pickHypothesis ? latest.revisedHypothesis : undefined
-                      )
-                    }
-                    className="bg-brick hover:bg-brick-hover mt-3 flex items-center gap-2 rounded-lg px-4 py-2.5 text-[13px] font-semibold text-white transition-colors disabled:opacity-50"
-                  >
-                    {isGenerating ? (
-                      <IconLoader2 size={15} className="animate-spin" />
-                    ) : (
-                      <IconRefresh size={15} />
-                    )}
-                    {isGenerating
-                      ? "Generating…"
-                      : `Apply ${pickedChanges.size + (pickHypothesis ? 1 : 0)} → generate design iteration ${nextRound}`}
-                  </button>
+                  <div className="mt-3 flex flex-wrap items-center gap-2">
+                    <button
+                      type="button"
+                      disabled={
+                        isGenerating ||
+                        (pickedChanges.size === 0 && !pickHypothesis)
+                      }
+                      onClick={() =>
+                        onApplyChanges(
+                          latest.suggestedChanges.filter((_, i) =>
+                            pickedChanges.has(i)
+                          ),
+                          pickHypothesis ? latest.revisedHypothesis : undefined,
+                          "lab-data"
+                        )
+                      }
+                      className="bg-brick hover:bg-brick-hover flex items-center gap-2 rounded-lg px-4 py-2.5 text-[13px] font-semibold text-white transition-colors disabled:opacity-50"
+                    >
+                      {isGenerating ? (
+                        <IconLoader2 size={15} className="animate-spin" />
+                      ) : (
+                        <IconRefresh size={15} />
+                      )}
+                      {isGenerating
+                        ? "Generating…"
+                        : `Make these changes → design v${nextVersionNumber}`}
+                    </button>
+                    <button
+                      type="button"
+                      disabled={isGenerating}
+                      onClick={onContinueToDesign}
+                      className="border-ink-200 text-ink-700 hover:bg-ink-50 flex items-center gap-2 rounded-lg border px-4 py-2.5 text-[13px] font-medium transition-colors disabled:opacity-50"
+                    >
+                      Continue without iterating
+                    </button>
+                  </div>
                 </div>
               )}
             {latest.verdict === "supported" && (
-              <div className="flex items-center gap-2 text-[13px] font-medium text-emerald-700">
-                <IconCheck size={16} /> Hypothesis supported — export a report
-                from Export, or apply changes to push further.
+              <div className="space-y-3">
+                <div className="flex items-center gap-2 text-[13px] font-medium text-emerald-700">
+                  <IconCheck size={16} /> Hypothesis supported — you can take
+                  this design forward, or push further with another round.
+                </div>
+                <button
+                  type="button"
+                  onClick={onContinueToDesign}
+                  className="border-ink-200 text-ink-700 hover:bg-ink-50 flex items-center gap-2 rounded-lg border px-4 py-2.5 text-[13px] font-medium transition-colors"
+                >
+                  Continue with this design
+                </button>
               </div>
             )}
           </div>
         </div>
       )}
 
-      {/* Step 1 — data entry + parse */}
-      {canEdit && (
+      {/* Step 1 — data entry + parse (Iterate only; item 13 removed it from
+          Validate, which is now purely pre-lab simulation) */}
+      {mode === "iterate" && canEdit && (
         <div className="border-ink-200 rounded-2xl border bg-white p-5">
           <h3 className="text-ink-900 text-[14px] font-semibold">
             {iterations.length === 0
@@ -4511,7 +4739,7 @@ function ValidateTab(props: {
       )}
 
       {/* Step 2 — parsed data review + validate */}
-      {parsed && canEdit && (
+      {mode === "iterate" && parsed && canEdit && (
         <div className="border-ink-200 overflow-hidden rounded-2xl border bg-white">
           <div className="border-ink-100 flex items-center gap-2 border-b px-5 py-3">
             <IconClipboardText size={15} className="text-teal-journey" />
@@ -4565,6 +4793,7 @@ function ValidateTab(props: {
                 summary, or add clearer numbers above and re-parse.
               </div>
             )}
+            {parsed.rows.length > 0 && <ParsedDataChart parsed={parsed} />}
             {parsed.caveats.length > 0 && (
               <div className="rounded-lg border border-amber-200 bg-amber-50 p-3">
                 <div className="mb-1 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-amber-700">
@@ -4599,7 +4828,7 @@ function ValidateTab(props: {
       )}
 
       {/* Iteration timeline */}
-      {iterations.length > 0 && (
+      {mode === "iterate" && iterations.length > 0 && (
         <div>
           <div className="text-ink-400 mb-2 text-[11px] font-semibold uppercase tracking-wider">
             Iteration history
@@ -6088,6 +6317,8 @@ function DesignTab(props: {
   progress?: PhaseProgress[]
   onRevise: () => void
   designVersions?: DesignVersionSnapshot[]
+  /** Provenance of the live design — labels the newest rail entry. */
+  currentOrigin?: "original" | "simulation" | "lab-data" | "manual"
   onRestoreVersion?: (versionId: string) => void
   onEditSection?: (
     designId: string,
@@ -6110,6 +6341,7 @@ function DesignTab(props: {
     progress,
     onRevise,
     designVersions = [],
+    currentOrigin = "original",
     onRestoreVersion,
     onEditSection
   } = props
@@ -6123,8 +6355,102 @@ function DesignTab(props: {
 
   const scrollContainerId = "design-detail-scroll"
 
+  // Iteration timeline (item 16). Oldest → newest, with the live design last.
+  // designVersions is stored newest-first, so reverse it for the rail.
+  const timeline: {
+    key: string
+    version: number
+    label: string
+    createdAt?: string
+    isCurrent: boolean
+    versionId?: string
+  }[] = [
+    ...[...designVersions].reverse().map(v => ({
+      key: v.id,
+      version: v.versionNumber,
+      label: originLabel(v.origin),
+      createdAt: v.createdAt,
+      isCurrent: false,
+      versionId: v.id
+    })),
+    {
+      key: "current",
+      version: (designVersions[0]?.versionNumber ?? 0) + 1,
+      label: originLabel(currentOrigin),
+      isCurrent: true
+    }
+  ]
+
   return (
-    <div className="space-y-4">
+    <div className="flex gap-5">
+      {/* LEFT: sequential iteration rail. Only once there's more than one
+          version — a single design doesn't need a timeline. */}
+      {designs.length > 0 && timeline.length > 1 && (
+        <aside className="hidden w-48 shrink-0 lg:block">
+          <div className="text-ink-400 mb-2 text-[11px] font-semibold uppercase tracking-wider">
+            Design iterations
+          </div>
+          <ol className="relative space-y-1">
+            {timeline.map((t, i) => (
+              <li key={t.key} className="relative">
+                {i < timeline.length - 1 && (
+                  <span className="bg-ink-200 absolute left-[7px] top-[22px] h-[calc(100%-14px)] w-px" />
+                )}
+                <button
+                  type="button"
+                  disabled={t.isCurrent || !onRestoreVersion}
+                  onClick={() =>
+                    t.versionId && onRestoreVersion?.(t.versionId)
+                  }
+                  title={
+                    t.isCurrent
+                      ? "You're viewing this version"
+                      : "Restore this version (the current one is saved first)"
+                  }
+                  className={cn(
+                    "flex w-full items-start gap-2 rounded-lg px-2 py-1.5 text-left transition-colors",
+                    t.isCurrent
+                      ? "bg-ink-50 cursor-default"
+                      : "hover:bg-ink-50 cursor-pointer"
+                  )}
+                >
+                  <span
+                    className={cn(
+                      "mt-0.5 size-[15px] shrink-0 rounded-full border-2 bg-white",
+                      t.isCurrent ? "border-brick" : "border-ink-300"
+                    )}
+                  />
+                  <span className="min-w-0">
+                    <span
+                      className={cn(
+                        "block text-[12px] font-semibold",
+                        t.isCurrent ? "text-ink-900" : "text-ink-700"
+                      )}
+                    >
+                      v{t.version}
+                      {t.isCurrent && (
+                        <span className="text-brick ml-1 font-medium">
+                          · current
+                        </span>
+                      )}
+                    </span>
+                    <span className="text-ink-500 block text-[11px] leading-snug">
+                      {t.label}
+                    </span>
+                    {t.createdAt && (
+                      <span className="text-ink-400 block font-mono text-[10px]">
+                        {new Date(t.createdAt).toLocaleDateString()}
+                      </span>
+                    )}
+                  </span>
+                </button>
+              </li>
+            ))}
+          </ol>
+        </aside>
+      )}
+
+      <div className="min-w-0 flex-1 space-y-4">
       <PhaseBanner
         isApproved={isApproved}
         phaseName="Experiment Design"
@@ -6341,8 +6667,25 @@ function DesignTab(props: {
         isBusy={isBusy}
         isApproved={isApproved}
       />
+      </div>
     </div>
   )
+}
+
+/** Human label for a design version's provenance, used by the iteration rail. */
+function originLabel(
+  origin?: "original" | "simulation" | "lab-data" | "manual"
+): string {
+  switch (origin) {
+    case "simulation":
+      return "Simulated version"
+    case "lab-data":
+      return "From lab data"
+    case "manual":
+      return "Edited by hand"
+    default:
+      return "Original design"
+  }
 }
 
 function OverviewTab(props: {
