@@ -1,5 +1,4 @@
 import axios from "axios"
-import { TavilySearchResults } from "@langchain/community/tools/tavily_search"
 import { SERPGoogleScholarAPITool } from "@langchain/community/tools/google_scholar"
 import { zodResponseFormat } from "openai/helpers/zod"
 import { z } from "zod"
@@ -23,14 +22,10 @@ if (process.env.SERPAPI_API_KEY) {
   )
 }
 
-// Initialize Tavily for comprehensive web search (if API key available)
-let tavilyTool: TavilySearchResults | null = null
-if (process.env.TAVILY_API_KEY) {
-  tavilyTool = new TavilySearchResults({
-    apiKey: process.env.TAVILY_API_KEY,
-    maxResults: 10
-  })
-}
+// Tavily is called over its REST API directly in `searchTavilyEnhanced` (the
+// LangChain tool wrapper was being passed an object where it expects a string,
+// which made every call 422). Nothing to construct here - we just read
+// TAVILY_API_KEY at call time.
 
 const openai = () => getAzureOpenAI()
 const MODEL_NAME = () => getAzureOpenAIModel()
@@ -666,7 +661,7 @@ export async function searchTavilyEnhanced(
   query: string,
   maxResults: number = 10
 ): Promise<SearchResult[]> {
-  if (!tavilyTool) {
+  if (!process.env.TAVILY_API_KEY) {
     console.log("⚠️ [TAVILY] Tavily API key not configured, skipping...")
     return []
   }
@@ -675,34 +670,44 @@ export async function searchTavilyEnhanced(
     await rateLimiter.checkAndWait("tavily", 5)
     console.log(`🔍 [TAVILY_ENHANCED] Searching for: ${query}`)
 
-    const searchResults = await tavilyTool.invoke({
-      query: `${query} research paper academic study`,
-      maxResults
+    // Call Tavily's REST API directly rather than through
+    // `TavilySearchResults.invoke()`. The LangChain tool takes a STRING
+    // query; we were handing it an object ({query, maxResults}), which it
+    // forwarded as a malformed request - Tavily rejected every single call
+    // with "422 Unprocessable Entity", silently killing the web arm. Verified
+    // the key + endpoint are fine: the same search over REST returns 200.
+    const res = await fetch("https://api.tavily.com/search", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        api_key: process.env.TAVILY_API_KEY,
+        query: `${query} research paper academic study`,
+        max_results: maxResults,
+        search_depth: "basic"
+      })
     })
 
-    const results: SearchResult[] = []
-
-    if (typeof searchResults === "string") {
-      try {
-        const parsed = JSON.parse(searchResults)
-        const webResults = parsed.results || []
-
-        webResults.forEach((result: any, index: number) => {
-          results.push({
-            title: result.title || `Tavily Result ${index + 1}`,
-            authors: [], // Tavily doesn't typically provide author info
-            abstract: result.content?.substring(0, 500) || result.snippet || "",
-            url: result.url || "",
-            publishedDate: "Recent", // Tavily focuses on recent/real-time
-            source: "tavily" as const,
-            relevanceScore: result.score || 0.7 + index * -0.05,
-            keywords: query.split(" ").filter(word => word.length > 3)
-          })
-        })
-      } catch (parseError) {
-        console.error("❌ [TAVILY] Parse error:", parseError)
-      }
+    if (!res.ok) {
+      const detail = await res.text().catch(() => "")
+      console.error(
+        `❌ [TAVILY_ENHANCED] HTTP ${res.status}: ${detail.slice(0, 200)}`
+      )
+      return []
     }
+
+    const parsed = (await res.json()) as { results?: any[] }
+    const results: SearchResult[] = (parsed.results ?? []).map(
+      (result: any, index: number) => ({
+        title: result.title || `Tavily Result ${index + 1}`,
+        authors: [], // Tavily doesn't typically provide author info
+        abstract: result.content?.substring(0, 500) || result.snippet || "",
+        url: result.url || "",
+        publishedDate: "Recent", // Tavily focuses on recent/real-time
+        source: "tavily" as const,
+        relevanceScore: result.score || 0.7 + index * -0.05,
+        keywords: query.split(" ").filter(word => word.length > 3)
+      })
+    )
 
     console.log(`✅ [TAVILY_ENHANCED] Found ${results.length} results`)
     return results
