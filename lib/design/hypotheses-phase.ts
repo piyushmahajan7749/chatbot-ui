@@ -16,16 +16,16 @@ import {
 } from "@/lib/azure-openai"
 import { runTasksWithConcurrency } from "@/app/api/design/draft/worker"
 import type { AgentTask } from "@/app/api/design/draft/types/interfaces"
-import type {
-  DesignContentV2,
-  Hypothesis,
-  Paper,
-  ProblemContext
+import {
+  resolveEffortConfig,
+  type DesignContentV2,
+  type Hypothesis,
+  type Paper,
+  type ProblemContext
 } from "@/lib/design-agent"
 
 const GENERATION_AGENT_COUNT = 5
 const GENERATION_CONCURRENCY = 4
-const FINAL_TOP_N = 5
 
 interface RankedHypothesis {
   id: string
@@ -48,6 +48,8 @@ export async function runHypothesesPhase(
   onProgress: Progress
 ): Promise<Partial<DesignContentV2>> {
   const { ctx, existing, body, designId } = args
+  // Effort scales how many hypotheses survive the tournament to the user.
+  const FINAL_TOP_N = resolveEffortConfig(ctx.effort).finalHypotheses
   const litCtx = existing.literatureContext
   const planMeta = {
     title: ctx.title || "Untitled",

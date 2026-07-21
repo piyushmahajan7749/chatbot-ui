@@ -108,12 +108,63 @@ export interface ProblemContextVariables {
   unknown?: string
 }
 
+/**
+ * Effort level for a generative design run, set on the create-design modal.
+ * Scales how much work each phase does (literature rounds + target papers,
+ * how many hypotheses survive the tournament). Higher = more thorough + slower.
+ */
+export type DesignEffort = "low" | "medium" | "high" | "extra" | "max"
+
+export const DESIGN_EFFORT_LEVELS: DesignEffort[] = [
+  "low",
+  "medium",
+  "high",
+  "extra",
+  "max"
+]
+
+export const DESIGN_EFFORT_LABELS: Record<DesignEffort, string> = {
+  low: "Low",
+  medium: "Medium",
+  high: "High",
+  extra: "Extra",
+  max: "Max"
+}
+
+export interface DesignEffortConfig {
+  /** PaperFinder query-rounds to run (0 = no cap, run every planned query). */
+  litRounds: number
+  /** Target unique papers for the literature pool. */
+  minPapers: number
+  /** How many hypotheses survive the tournament and surface to the user. */
+  finalHypotheses: number
+}
+
+export const DESIGN_EFFORT_CONFIG: Record<DesignEffort, DesignEffortConfig> = {
+  low: { litRounds: 2, minPapers: 8, finalHypotheses: 3 },
+  medium: { litRounds: 3, minPapers: 15, finalHypotheses: 4 },
+  high: { litRounds: 5, minPapers: 25, finalHypotheses: 5 },
+  extra: { litRounds: 8, minPapers: 35, finalHypotheses: 6 },
+  max: { litRounds: 0, minPapers: 50, finalHypotheses: 8 }
+}
+
+export const DEFAULT_DESIGN_EFFORT: DesignEffort = "medium"
+
+/** Resolve an arbitrary value to a known effort config, defaulting to medium. */
+export function resolveEffortConfig(
+  effort: DesignEffort | string | undefined
+): DesignEffortConfig {
+  return DESIGN_EFFORT_CONFIG[effort as DesignEffort] ?? DESIGN_EFFORT_CONFIG.medium
+}
+
 export interface ProblemContext {
   title?: string
   problemStatement?: string
   domain?: DesignDomain
   phase?: DesignPhase
   objective?: string
+  /** Effort level for this run (create-design modal). Scales phase work. */
+  effort?: DesignEffort
   /** Structured v3 constraints - Material/Time/Equipment. */
   constraintsStructured?: ProblemContextConstraints
   /** Structured v3 variables - known vs unknown open text. */

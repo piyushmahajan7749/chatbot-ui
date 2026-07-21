@@ -9,9 +9,13 @@ import {
   IconX
 } from "@tabler/icons-react"
 import {
+  DEFAULT_DESIGN_EFFORT,
   DESIGN_DOMAIN_OPTIONS,
+  DESIGN_EFFORT_LABELS,
+  DESIGN_EFFORT_LEVELS,
   DESIGN_PHASE_OPTIONS,
   type DesignDomain,
+  type DesignEffort,
   type DesignPhase
 } from "@/lib/design-agent"
 import { useParams, useRouter } from "next/navigation"
@@ -41,6 +45,7 @@ import {
   SelectTrigger,
   SelectValue
 } from "@/components/ui/select"
+import { Switch } from "@/components/ui/switch"
 import { Textarea } from "@/components/ui/textarea"
 import { cn } from "@/lib/utils"
 
@@ -162,6 +167,10 @@ export const CreateDesign: FC<CreateDesignProps> = ({
   /** Files attached to the new design (every mode supports this). */
   const [attachedFiles, setAttachedFiles] = useState<File[]>([])
   const [creating, setCreating] = useState(false)
+  // Run controls (from-scratch only): Auto mode runs the whole pipeline in one
+  // shot with no stops; Effort scales how much work each phase does.
+  const [autoMode, setAutoMode] = useState(false)
+  const [effort, setEffort] = useState<DesignEffort>(DEFAULT_DESIGN_EFFORT)
   const nameRef = useRef<HTMLInputElement>(null)
 
   // Project dropdown - scientists asked for the new-design dialog to
@@ -208,6 +217,8 @@ export const CreateDesign: FC<CreateDesignProps> = ({
     setPlanText("")
     setExternalDesignText("")
     setAttachedFiles([])
+    setAutoMode(false)
+    setEffort(DEFAULT_DESIGN_EFFORT)
     setSelectedProjectId(projectId ?? "none")
     setTimeout(() => nameRef.current?.focus(), 0)
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -334,7 +345,8 @@ export const CreateDesign: FC<CreateDesignProps> = ({
             objective: trimmedObjective,
             goal: trimmedObjective,
             domain: fsDomain || undefined,
-            phase: fsPhase || undefined
+            phase: fsPhase || undefined,
+            effort
           },
           papers: [],
           hypotheses: []
@@ -500,9 +512,10 @@ export const CreateDesign: FC<CreateDesignProps> = ({
       } else if (mode === "make-plan") {
         qs = "?auto=make-plan&tab=design"
       } else if (mode === "from-scratch") {
-        // Dialog already captured problem + domain + phase; auto-open
-        // the Refine/clarify step so user never sees the Problem tab (#8).
-        qs = "?auto=literature"
+        // Auto mode → run the whole pipeline hands-free (lit → hypotheses →
+        // design). Otherwise just kick the literature search and let the user
+        // drive each stage. Effort rides along in content.problem.effort.
+        qs = autoMode ? "?auto=full" : "?auto=literature"
       } else if (mode === "from-hypothesis") {
         // Problem + Literature + Hypothesis pre-approved upstream;
         // land on Hypotheses so the user can pick + run Design next.
@@ -612,6 +625,58 @@ export const CreateDesign: FC<CreateDesignProps> = ({
                       ))}
                     </SelectContent>
                   </Select>
+                </div>
+              </div>
+
+              {/* ── Run controls ──────────────────────────────────────── */}
+              <div className="border-line space-y-3 rounded-md border p-3">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <Label htmlFor="auto-mode" className="flex items-center gap-1.5">
+                      <IconSparkles size={14} className="text-rust" /> Auto mode
+                    </Label>
+                    <p className="text-ink-3 mt-0.5 text-[11.5px] leading-snug">
+                      Generate everything in one shot — literature, hypotheses,
+                      and the design — without stopping to ask. Leave off to
+                      review and steer each stage.
+                    </p>
+                  </div>
+                  <Switch
+                    id="auto-mode"
+                    checked={autoMode}
+                    onCheckedChange={setAutoMode}
+                  />
+                </div>
+
+                <div className="border-line/60 border-t pt-3">
+                  <div className="flex items-center justify-between">
+                    <Label>Effort</Label>
+                    <span className="text-ink-2 text-[12px] font-medium">
+                      {DESIGN_EFFORT_LABELS[effort]}
+                    </span>
+                  </div>
+                  <p className="text-ink-3 mt-0.5 text-[11.5px] leading-snug">
+                    Higher effort searches more papers, runs more literature
+                    rounds, and explores more hypotheses — more thorough, slower.
+                  </p>
+                  <div className="border-line mt-2 flex overflow-hidden rounded-md border">
+                    {DESIGN_EFFORT_LEVELS.map((lvl, i) => (
+                      <button
+                        key={lvl}
+                        type="button"
+                        onClick={() => setEffort(lvl)}
+                        className={cn(
+                          "flex-1 px-2 py-1.5 text-[12px] font-medium transition-colors",
+                          i > 0 && "border-line border-l",
+                          effort === lvl
+                            ? "bg-rust text-white"
+                            : "text-ink-2 hover:bg-paper-2"
+                        )}
+                      >
+                        {DESIGN_EFFORT_LABELS[lvl]}
+                      </button>
+                    ))}
+                  </div>
                 </div>
               </div>
             </>

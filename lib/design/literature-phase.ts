@@ -18,11 +18,12 @@ import {
   type LiteratureScoutSearchOptions
 } from "@/app/api/design/draft/agents"
 import type { ExperimentDesignState } from "@/app/api/design/draft/types"
-import type {
-  DesignContentV2,
-  Paper,
-  ProblemContext,
-  StoredLiteratureContext
+import {
+  resolveEffortConfig,
+  type DesignContentV2,
+  type Paper,
+  type ProblemContext,
+  type StoredLiteratureContext
 } from "@/lib/design-agent"
 
 function toAgentState(ctx: ProblemContext): ExperimentDesignState {
@@ -74,20 +75,24 @@ export function buildLiteratureInputs(args: LiteraturePhaseArgs): {
 } {
   const appendMode = args.mode === "append"
   const existingPapers = args.existing.papers ?? []
+  // Effort scales the literature pool: how many unique papers to target and how
+  // many query-rounds to run (0 = no cap). Falls back to medium.
+  const eff = resolveEffortConfig(args.ctx.effort)
   return {
     agentState: toAgentState(args.ctx),
-    // Initial run targets a fuller first pool; "generate more" (append) targets
-    // NEW papers on top of what's already there and excludes current urls/titles
-    // so rounds aren't blocked re-finding the same ones.
+    // Initial run targets the effort-scaled pool; "generate more" (append)
+    // targets NEW papers on top of what's already there and excludes current
+    // urls/titles so rounds aren't blocked re-finding the same ones.
     searchOptions: appendMode
       ? {
           bypassCache: true,
           shuffleQueries: true,
-          minPapers: 12,
+          minPapers: Math.max(8, Math.round(eff.minPapers * 0.6)),
+          maxRounds: eff.litRounds,
           excludeUrls: existingPapers.map(p => p.sourceUrl || "").filter(Boolean),
           excludeTitles: existingPapers.map(p => p.title)
         }
-      : { minPapers: 18 }
+      : { minPapers: eff.minPapers, maxRounds: eff.litRounds }
   }
 }
 

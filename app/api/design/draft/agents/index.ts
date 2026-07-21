@@ -297,6 +297,10 @@ export type LiteratureScoutProgressCallback = (
 export interface LiteratureScoutSearchOptions {
   /** Target minimum unique papers before early-exit. Default 10. */
   minPapers?: number
+  /** Cap the number of PaperFinder query-rounds (0/undefined = no cap, run
+   *  every planned query). Set per-run from the design's effort level;
+   *  overrides the LIT_SCOUT_MAX_ROUNDS env fallback. */
+  maxRounds?: number
   /** If true, bypass PaperFinder cache so repeat calls produce fresh results. */
   bypassCache?: boolean
   /** If true, shuffle the alternative queries before fanning out. */
@@ -474,9 +478,11 @@ export async function planLiteratureSearch(
       ;[alternatives[i], alternatives[j]] = [alternatives[j], alternatives[i]]
     }
   }
-  // All planned queries run as rounds (primary + every alternative).
-  // LIT_SCOUT_MAX_ROUNDS can bound it (0/unset = no cap).
-  const maxRounds = Number(process.env.LIT_SCOUT_MAX_ROUNDS) || 0
+  // Per-run round cap from effort (searchOptions.maxRounds) takes precedence;
+  // LIT_SCOUT_MAX_ROUNDS env is the fallback. 0/unset = no cap (every query).
+  const maxRounds =
+    searchOptions.maxRounds ??
+    (Number(process.env.LIT_SCOUT_MAX_ROUNDS) || 0)
   const roundQueries = (() => {
     const qs = [queryData.primaryQuery, ...alternatives].filter(Boolean)
     return maxRounds > 0 ? qs.slice(0, maxRounds) : qs
