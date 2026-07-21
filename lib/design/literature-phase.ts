@@ -9,7 +9,13 @@
  */
 import {
   callLiteratureScoutAgent,
-  type LiteratureScoutProgressEvent
+  planLiteratureSearch,
+  runLiteratureRound,
+  type LiteraturePlan,
+  type LiteraturePrecomputed,
+  type LiteratureRoundResult,
+  type LiteratureScoutProgressEvent,
+  type LiteratureScoutSearchOptions
 } from "@/app/api/design/draft/agents"
 import type { ExperimentDesignState } from "@/app/api/design/draft/types"
 import type {
@@ -50,38 +56,57 @@ function toAgentState(ctx: ProblemContext): ExperimentDesignState {
   }
 }
 
-export async function runLiteraturePhase(
-  args: {
-    ctx: ProblemContext
-    existing: DesignContentV2
-    mode?: "append" | "replace"
-  },
-  onProgress: (ev: LiteratureScoutProgressEvent) => void
-): Promise<Partial<DesignContentV2>> {
-  const { ctx, existing } = args
-  const appendMode = args.mode === "append"
-  const existingPapers = existing.papers ?? []
+export interface LiteraturePhaseArgs {
+  ctx: ProblemContext
+  existing: DesignContentV2
+  mode?: "append" | "replace"
+}
 
-  const agentState = toAgentState(ctx)
-  // Initial run targets 18 unique papers (scientist wanted a fuller first
-  // pool). "Generate more" (append) targets 12 NEW papers on top of what's
-  // already there and excludes current urls/titles so rounds aren't blocked
-  // re-finding the same ones (fixes "search more returned nothing new").
-  const result = await callLiteratureScoutAgent(
-    agentState,
-    undefined,
-    (ev: LiteratureScoutProgressEvent) => onProgress(ev),
-    appendMode
+/**
+ * The agent state + searchOptions for a phase run. Extracted so the Inngest
+ * worker's plan step and the synthesis step derive them IDENTICALLY (both from
+ * the same ctx) — the fan-out/fan-in split only works if the plan the rounds
+ * ran against is the plan synthesis uses.
+ */
+export function buildLiteratureInputs(args: LiteraturePhaseArgs): {
+  agentState: ReturnType<typeof toAgentState>
+  searchOptions: LiteratureScoutSearchOptions
+} {
+  const appendMode = args.mode === "append"
+  const existingPapers = args.existing.papers ?? []
+  return {
+    agentState: toAgentState(args.ctx),
+    // Initial run targets a fuller first pool; "generate more" (append) targets
+    // NEW papers on top of what's already there and excludes current urls/titles
+    // so rounds aren't blocked re-finding the same ones.
+    searchOptions: appendMode
       ? {
           bypassCache: true,
           shuffleQueries: true,
           minPapers: 12,
-          excludeUrls: existingPapers
-            .map(p => p.sourceUrl || "")
-            .filter(Boolean),
+          excludeUrls: existingPapers.map(p => p.sourceUrl || "").filter(Boolean),
           excludeTitles: existingPapers.map(p => p.title)
         }
       : { minPapers: 18 }
+  }
+}
+
+export async function runLiteraturePhase(
+  args: LiteraturePhaseArgs,
+  onProgress: (ev: LiteratureScoutProgressEvent) => void,
+  /** When the worker ran planning + the PaperFinder rounds as separate Inngest
+   *  steps, it passes them here and the agent goes straight to synthesis. */
+  precomputed?: LiteraturePrecomputed
+): Promise<Partial<DesignContentV2>> {
+  const { ctx, existing } = args
+
+  const { agentState, searchOptions } = buildLiteratureInputs(args)
+  const result = await callLiteratureScoutAgent(
+    agentState,
+    undefined,
+    (ev: LiteratureScoutProgressEvent) => onProgress(ev),
+    searchOptions,
+    precomputed
   )
   const litOutput = result.output
 
@@ -201,6 +226,8 @@ export async function runLiteraturePhase(
 
   let papers: Paper[]
   const sourceNewPapers = qualityPapers
+  const appendMode = args.mode === "append"
+  const existingPapers = existing.papers ?? []
   if (appendMode) {
     const seenUrls = new Set(
       existingPapers.map(p => (p.sourceUrl || "").toLowerCase()).filter(Boolean)
