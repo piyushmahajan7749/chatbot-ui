@@ -37,7 +37,7 @@
       "maxDuration": 300
     },
     "app/api/inngest/route.ts": {
-      "maxDuration": 300
+      "maxDuration": 600
     },
     "app/api/design/draft/hypothesis/[hypothesisId]/design/route.ts": {
       "maxDuration": 300

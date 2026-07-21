@@ -485,20 +485,16 @@ export async function callLiteratureScoutAgent(
         ;[alternatives[i], alternatives[j]] = [alternatives[j], alternatives[i]]
       }
     }
-    // Cap the number of PaperFinder rounds. They fan out in "parallel" but all
-    // queue behind PaperFinder's rate-limited S2 backend (concurrency 1), so
-    // round latency climbs with each extra query (observed 59s → 104s → 159s →
-    // 228s for 5 rounds) while adding little unique coverage — the queries
-    // overlap heavily. Primary + 2 alternatives lands well inside the time
-    // budget below and still gives the multi-angle coverage. Override via
-    // LIT_SCOUT_MAX_ROUNDS.
-    const maxRounds = Math.max(
-      1,
-      Number(process.env.LIT_SCOUT_MAX_ROUNDS) || 3
-    )
-    const roundQueries = [queryData.primaryQuery, ...alternatives]
-      .filter(Boolean)
-      .slice(0, maxRounds)
+    // All planned queries run as rounds (primary + every alternative). They
+    // fan out in parallel; PaperFinder's rate-limited S2 backend serialises
+    // them somewhat, but with the Inngest function ceiling at 600s there's room
+    // for the full set — we don't cap coverage. `LIT_SCOUT_MAX_ROUNDS` can
+    // still bound it if a future need arises (0/unset = no cap).
+    const maxRounds = Number(process.env.LIT_SCOUT_MAX_ROUNDS) || 0
+    const roundQueries = (() => {
+      const qs = [queryData.primaryQuery, ...alternatives].filter(Boolean)
+      return maxRounds > 0 ? qs.slice(0, maxRounds) : qs
+    })()
 
     let curated = buildCuratedAggregatedResults([])
     const responseTexts: string[] = []
@@ -621,18 +617,18 @@ export async function callLiteratureScoutAgent(
 
       // ── Overall time budget ──────────────────────────────────────────────
       // The ENTIRE scout (query-gen + prewarm + this fan-out + summaries +
-      // synthesis) runs inside ONE Inngest step on a 300s Vercel function.
-      // With PaperFinder healthy again, a slow round can take 200s+, so the
-      // fan-out was eating the whole budget and the final synthesis LLM call
-      // then blew the 300s cap → 504 → Inngest retried ("a second search") →
-      // 504 again → the user got zero papers. We now hold the fan-out to a
-      // deadline that RESERVES time for everything after it, so synthesis
-      // always runs and the step always returns. Rounds still in flight at the
-      // deadline are abandoned; whatever landed (plus the prewarm pool) is
-      // used. Tunable via LIT_SCOUT_BUDGET_MS / LIT_SCOUT_TAIL_RESERVE_MS.
-      const totalBudgetMs = Number(process.env.LIT_SCOUT_BUDGET_MS) || 280000
+      // synthesis) runs inside ONE Inngest step. The Vercel function ceiling is
+      // 600s (see vercel.json), so we hold the fan-out to a deadline that still
+      // RESERVES a tail for summaries + synthesis — that call must always get
+      // to run, so the step always returns a real result instead of the whole
+      // thing 504-ing (which made Inngest retry → "a second search" → zero
+      // papers). Rounds still in flight at the deadline are abandoned; whatever
+      // landed (plus the ~30-paper keyless pre-warm pool) is used. Generous by
+      // default now that the ceiling is 600s; tunable via LIT_SCOUT_BUDGET_MS /
+      // LIT_SCOUT_TAIL_RESERVE_MS.
+      const totalBudgetMs = Number(process.env.LIT_SCOUT_BUDGET_MS) || 540000
       const tailReserveMs =
-        Number(process.env.LIT_SCOUT_TAIL_RESERVE_MS) || 70000
+        Number(process.env.LIT_SCOUT_TAIL_RESERVE_MS) || 90000
       const fanOutDeadline = startTime + totalBudgetMs - tailReserveMs
 
       console.log(

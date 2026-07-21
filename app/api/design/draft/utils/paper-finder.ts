@@ -77,14 +77,15 @@ export async function runPaperFinder(
   // abort, falling back to just the pre-warm pool of ~3-10 papers (the
   // 2026-05-19 "only 3 papers shown in UI" regression). Override via
   // PAPER_FINDER_TIMEOUT_MS in env if you need a tighter or looser cap.
-  // 240s. Measured against the live service (2026-07-20): a broad round runs
-  // ~170s end-to-end (query analysis ~29s + retrieval ~94s + rerank + relevance
-  // judgement) and returns 200 with ~75 docs. The previous 150s default cut
-  // those rounds off just before they landed, so every round aborted and the
-  // scout silently fell back to the keyless pre-warm pool. 240s also sits just
-  // past Azure App Service's ~230s gateway cap, so the platform (not us) is the
-  // one that decides a round has genuinely run too long.
-  const timeoutMs = Number(process.env.PAPER_FINDER_TIMEOUT_MS || 240000)
+  // 420s per call. A single broad round runs ~170s server-side, but the scout
+  // fires several rounds at once and they queue behind PaperFinder's
+  // rate-limited S2 backend (concurrency 1), so a LATE round's wall-clock (queue
+  // wait + its own run) can exceed 300s even though the service is fine. With
+  // the Inngest function ceiling now 600s and the fan-out holding an overall
+  // deadline (see callLiteratureScoutAgent), the aggregate is bounded there —
+  // this per-call value just needs to be generous enough not to cut a legit
+  // late round short. Override with PAPER_FINDER_TIMEOUT_MS.
+  const timeoutMs = Number(process.env.PAPER_FINDER_TIMEOUT_MS || 420000)
   const timeoutController = new AbortController()
   const timer = setTimeout(() => timeoutController.abort(), timeoutMs)
 
