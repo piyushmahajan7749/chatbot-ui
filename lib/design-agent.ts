@@ -141,11 +141,11 @@ export interface DesignEffortConfig {
 }
 
 export const DESIGN_EFFORT_CONFIG: Record<DesignEffort, DesignEffortConfig> = {
-  low: { litRounds: 2, minPapers: 8, finalHypotheses: 3 },
-  medium: { litRounds: 3, minPapers: 15, finalHypotheses: 4 },
-  high: { litRounds: 5, minPapers: 25, finalHypotheses: 5 },
-  extra: { litRounds: 8, minPapers: 35, finalHypotheses: 6 },
-  max: { litRounds: 0, minPapers: 50, finalHypotheses: 8 }
+  low: { litRounds: 2, minPapers: 15, finalHypotheses: 3 },
+  medium: { litRounds: 3, minPapers: 30, finalHypotheses: 4 },
+  high: { litRounds: 5, minPapers: 50, finalHypotheses: 5 },
+  extra: { litRounds: 8, minPapers: 75, finalHypotheses: 6 },
+  max: { litRounds: 0, minPapers: 100, finalHypotheses: 8 }
 }
 
 export const DEFAULT_DESIGN_EFFORT: DesignEffort = "medium"
@@ -154,7 +154,9 @@ export const DEFAULT_DESIGN_EFFORT: DesignEffort = "medium"
 export function resolveEffortConfig(
   effort: DesignEffort | string | undefined
 ): DesignEffortConfig {
-  return DESIGN_EFFORT_CONFIG[effort as DesignEffort] ?? DESIGN_EFFORT_CONFIG.medium
+  return (
+    DESIGN_EFFORT_CONFIG[effort as DesignEffort] ?? DESIGN_EFFORT_CONFIG.medium
+  )
 }
 
 export interface ProblemContext {

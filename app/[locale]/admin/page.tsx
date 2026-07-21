@@ -148,10 +148,10 @@ const StatCard: FC<{ label: string; value: string; sub?: string }> = ({
   </div>
 )
 
-const Pill: FC<{ tone: "teal" | "neutral" | "rust"; children: React.ReactNode }> = ({
-  tone,
-  children
-}) => (
+const Pill: FC<{
+  tone: "teal" | "neutral" | "rust"
+  children: React.ReactNode
+}> = ({ tone, children }) => (
   <span
     className={
       "inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-semibold " +
@@ -166,11 +166,11 @@ const Pill: FC<{ tone: "teal" | "neutral" | "rust"; children: React.ReactNode }>
   </span>
 )
 
-const Dashboard: FC<{ data: DashboardData; onRefresh: () => void; refreshing: boolean }> = ({
-  data,
-  onRefresh,
-  refreshing
-}) => {
+const Dashboard: FC<{
+  data: DashboardData
+  onRefresh: () => void
+  refreshing: boolean
+}> = ({ data, onRefresh, refreshing }) => {
   const maxDay = Math.max(1, ...data.signupsByDay.map(d => d.n))
   return (
     <div className="bg-paper min-h-screen">
@@ -285,7 +285,10 @@ const Dashboard: FC<{ data: DashboardData; onRefresh: () => void; refreshing: bo
               </thead>
               <tbody>
                 {data.users.map(u => (
-                  <tr key={u.id} className="border-ink-200 border-b last:border-0">
+                  <tr
+                    key={u.id}
+                    className="border-ink-200 border-b last:border-0"
+                  >
                     <td className="text-ink-900 px-3.5 py-2.5 font-medium">
                       {u.email ?? "-"}
                     </td>
@@ -359,7 +362,10 @@ const Dashboard: FC<{ data: DashboardData; onRefresh: () => void; refreshing: bo
                 </thead>
                 <tbody>
                   {data.referrals.map(r => (
-                    <tr key={r.id} className="border-ink-200 border-b last:border-0">
+                    <tr
+                      key={r.id}
+                      className="border-ink-200 border-b last:border-0"
+                    >
                       <td className="text-ink-900 px-3.5 py-2.5 font-mono font-medium">
                         {r.affiliate_code ?? "-"}
                       </td>
@@ -386,7 +392,9 @@ const Dashboard: FC<{ data: DashboardData; onRefresh: () => void; refreshing: bo
                         })}
                       </td>
                       <td className="px-3.5 py-2.5">
-                        <Pill tone={r.payout_status === "paid" ? "teal" : "neutral"}>
+                        <Pill
+                          tone={r.payout_status === "paid" ? "teal" : "neutral"}
+                        >
                           {r.payout_status}
                         </Pill>
                       </td>

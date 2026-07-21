@@ -632,7 +632,10 @@ export const CreateDesign: FC<CreateDesignProps> = ({
               <div className="border-line space-y-3 rounded-md border p-3">
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
-                    <Label htmlFor="auto-mode" className="flex items-center gap-1.5">
+                    <Label
+                      htmlFor="auto-mode"
+                      className="flex items-center gap-1.5"
+                    >
                       <IconSparkles size={14} className="text-rust" /> Auto mode
                     </Label>
                     <p className="text-ink-3 mt-0.5 text-[11.5px] leading-snug">
@@ -657,7 +660,8 @@ export const CreateDesign: FC<CreateDesignProps> = ({
                   </div>
                   <p className="text-ink-3 mt-0.5 text-[11.5px] leading-snug">
                     Higher effort searches more papers, runs more literature
-                    rounds, and explores more hypotheses — more thorough, slower.
+                    rounds, and explores more hypotheses — more thorough,
+                    slower.
                   </p>
                   <div className="border-line mt-2 flex overflow-hidden rounded-md border">
                     {DESIGN_EFFORT_LEVELS.map((lvl, i) => (

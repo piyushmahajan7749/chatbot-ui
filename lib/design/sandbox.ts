@@ -94,7 +94,11 @@ export function runSimSandbox(
     })
     const out = sandbox.RESULT
     if (out === undefined || out === null) {
-      return { ok: false, error: "program set no RESULT", ms: Date.now() - started }
+      return {
+        ok: false,
+        error: "program set no RESULT",
+        ms: Date.now() - started
+      }
     }
     let cloned: any
     try {

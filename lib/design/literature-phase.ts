@@ -89,7 +89,9 @@ export function buildLiteratureInputs(args: LiteraturePhaseArgs): {
           shuffleQueries: true,
           minPapers: Math.max(8, Math.round(eff.minPapers * 0.6)),
           maxRounds: eff.litRounds,
-          excludeUrls: existingPapers.map(p => p.sourceUrl || "").filter(Boolean),
+          excludeUrls: existingPapers
+            .map(p => p.sourceUrl || "")
+            .filter(Boolean),
           excludeTitles: existingPapers.map(p => p.title)
         }
       : { minPapers: eff.minPapers, maxRounds: eff.litRounds }

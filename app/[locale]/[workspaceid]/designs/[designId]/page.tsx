@@ -1197,7 +1197,11 @@ export default function DesignDetailPage() {
       setApprovedPhases(litApproved)
       const litContent = await runPhaseBackground(
         designId,
-        { phase: "literature", problem: currentProblem(), approvedPhases: litApproved },
+        {
+          phase: "literature",
+          problem: currentProblem(),
+          approvedPhases: litApproved
+        },
         ev => setLiteratureProgress(prev => [...prev, ev])
       )
       const autoPapers = (litContent.papers ?? []).map(p => ({
@@ -2399,11 +2403,7 @@ export default function DesignDetailPage() {
     if (!autoAction) return
     // "literature" and "full" start from the Problem (no design yet); the
     // review actions need an existing design.
-    if (
-      autoAction !== "literature" &&
-      autoAction !== "full" &&
-      !activeDesign
-    )
+    if (autoAction !== "literature" && autoAction !== "full" && !activeDesign)
       return
     autoFiredRef.current = true
     // Make sure the user sees the design tab where the action lands.
@@ -4298,8 +4298,8 @@ function ValidateTab(props: {
                       </span>
                       <span className="text-ink-500">
                         {" "}
-                        (± {fmtNum(validation.simulation.distribution.sd)} run to
-                        run)
+                        (± {fmtNum(validation.simulation.distribution.sd)} run
+                        to run)
                       </span>
                     </div>
                   )}
@@ -6421,9 +6421,7 @@ function DesignTab(props: {
                 <button
                   type="button"
                   disabled={t.isCurrent || !onRestoreVersion}
-                  onClick={() =>
-                    t.versionId && onRestoreVersion?.(t.versionId)
-                  }
+                  onClick={() => t.versionId && onRestoreVersion?.(t.versionId)}
                   title={
                     t.isCurrent
                       ? "You're viewing this version"
@@ -6473,222 +6471,221 @@ function DesignTab(props: {
       )}
 
       <div className="min-w-0 flex-1 space-y-4">
-      <PhaseBanner
-        isApproved={isApproved}
-        phaseName="Experiment Design"
-        onRevise={onRevise}
-      />
+        <PhaseBanner
+          isApproved={isApproved}
+          phaseName="Experiment Design"
+          onRevise={onRevise}
+        />
 
-      {designs.length === 0 ? (
-        isGenerating ? (
-          <>
-            {/* Issue #25 - while the design is being generated, the user
+        {designs.length === 0 ? (
+          isGenerating ? (
+            <>
+              {/* Issue #25 - while the design is being generated, the user
                 should still see the hypotheses that drove it. We pull the
                 selected hypotheses from the parent and render them as a
                 pinned slab above the progress view so the scientist has
                 continuous context during the (often slow) generation. */}
-            {hypotheses.filter(h => h.selected).length > 0 && (
-              <div className="border-purple-persona/30 bg-purple-persona-tint space-y-2 rounded-xl border p-4">
-                <div className="text-purple-persona text-[10.5px] font-bold uppercase tracking-widest">
-                  Generating from {hypotheses.filter(h => h.selected).length}{" "}
-                  hypothes
-                  {hypotheses.filter(h => h.selected).length === 1
-                    ? "is"
-                    : "es"}
-                </div>
-                {hypotheses
-                  .filter(h => h.selected)
-                  .map((h, i) => (
-                    <div
-                      key={h.id}
-                      className="border-purple-persona/20 rounded-lg border bg-white p-3"
-                    >
-                      <div className="text-purple-persona mb-1 text-[11.5px] font-bold uppercase tracking-wide">
-                        Hypothesis #{i + 1}: {autoTitleFromHypothesis(h.text)}
-                      </div>
-                      <p className="text-ink-900 text-[13px] leading-relaxed">
-                        {h.text}
-                      </p>
-                    </div>
-                  ))}
-              </div>
-            )}
-            <PhaseProgressView
-              accentClass="border-sage-brand/30 bg-sage-brand-tint"
-              title="Generating experiment designs"
-              subtitle="Four phases per hypothesis: setup, materials, protocol, analysis."
-              events={progress ?? []}
-            />
-          </>
-        ) : (
-          <div className="border-sage-brand/30 bg-sage-brand-tint text-ink-500 rounded-xl border border-dashed p-8 text-center text-xs">
-            {isBusy
-              ? "Generating experiment designs..."
-              : "No designs yet. Approve Hypotheses to generate designs."}
-          </div>
-        )
-      ) : (
-        <>
-          <div className="flex flex-wrap gap-2">
-            {designs.map(d => {
-              const isActive = d.id === (activeId ?? designs[0].id)
-              const hyp = hypotheses.find(h => h.id === d.hypothesisId)
-              const hypIdx = hyp
-                ? hypotheses.findIndex(h => h.id === hyp.id) + 1
-                : null
-              const shortHyp = autoTitleFromHypothesis(hyp?.text)
-              const tabLabel = hyp
-                ? `Hypothesis #${hypIdx}: ${shortHyp}`
-                : d.title
-              return (
-                <button
-                  key={d.id}
-                  onClick={() => onSelect(d.id)}
-                  title={hyp?.text ?? d.title}
-                  className={
-                    "flex max-w-full items-center gap-2 whitespace-normal break-words rounded-lg border px-3 py-1.5 text-left text-xs font-semibold transition-colors md:max-w-[360px] " +
-                    (isActive
-                      ? "border-sage-brand bg-sage-brand-active text-sage-brand"
-                      : "border-ink-200 text-ink-500 hover:bg-ink-100")
-                  }
-                >
-                  <span className="min-w-0 flex-1">{tabLabel}</span>
-                  {d.saved && (
-                    <span
-                      aria-label="Saved"
-                      className="bg-sage-brand mt-0.5 inline-block size-1.5 shrink-0 rounded-full"
-                    />
-                  )}
-                </button>
-              )
-            })}
-          </div>
-
-          {activeDesign && (
-            <div className="grid grid-cols-[200px_minmax(0,1fr)] gap-6">
-              <aside className="hidden md:block">
-                <DesignSectionIndex
-                  sections={activeDesign.sections}
-                  containerId={scrollContainerId}
-                />
-              </aside>
-
-              <Card className="rounded-2xl">
-                <CardHeader className="flex flex-row items-start justify-between gap-3 pb-3">
-                  <div className="min-w-0 flex-1">
-                    <div className="text-ink-400 text-[10px] font-bold uppercase tracking-[0.13em]">
-                      Experiment Design
-                    </div>
-                    <CardTitle
-                      className="text-sage-brand mt-1 whitespace-normal break-words text-lg leading-tight"
-                      title={activeDesign.title}
-                    >
-                      {activeDesign.title}
-                    </CardTitle>
-                    {activeHypothesis?.text && (
-                      <div
-                        className="text-ink-2 mt-2 border-l-2 border-[color:var(--rust)] pl-3 text-[13.5px] italic leading-relaxed"
-                        title={activeHypothesis.text}
-                      >
-                        <span className="text-ink-3 mr-2 font-mono text-[11px] uppercase not-italic tracking-widest">
-                          Hypothesis
-                        </span>
-                        {activeHypothesis.text}
-                      </div>
-                    )}
+              {hypotheses.filter(h => h.selected).length > 0 && (
+                <div className="border-purple-persona/30 bg-purple-persona-tint space-y-2 rounded-xl border p-4">
+                  <div className="text-purple-persona text-[10.5px] font-bold uppercase tracking-widest">
+                    Generating from {hypotheses.filter(h => h.selected).length}{" "}
+                    hypothes
+                    {hypotheses.filter(h => h.selected).length === 1
+                      ? "is"
+                      : "es"}
                   </div>
-                  {/* Per-design "Check statistics" + "Make a plan" actions
+                  {hypotheses
+                    .filter(h => h.selected)
+                    .map((h, i) => (
+                      <div
+                        key={h.id}
+                        className="border-purple-persona/20 rounded-lg border bg-white p-3"
+                      >
+                        <div className="text-purple-persona mb-1 text-[11.5px] font-bold uppercase tracking-wide">
+                          Hypothesis #{i + 1}: {autoTitleFromHypothesis(h.text)}
+                        </div>
+                        <p className="text-ink-900 text-[13px] leading-relaxed">
+                          {h.text}
+                        </p>
+                      </div>
+                    ))}
+                </div>
+              )}
+              <PhaseProgressView
+                accentClass="border-sage-brand/30 bg-sage-brand-tint"
+                title="Generating experiment designs"
+                subtitle="Four phases per hypothesis: setup, materials, protocol, analysis."
+                events={progress ?? []}
+              />
+            </>
+          ) : (
+            <div className="border-sage-brand/30 bg-sage-brand-tint text-ink-500 rounded-xl border border-dashed p-8 text-center text-xs">
+              {isBusy
+                ? "Generating experiment designs..."
+                : "No designs yet. Approve Hypotheses to generate designs."}
+            </div>
+          )
+        ) : (
+          <>
+            <div className="flex flex-wrap gap-2">
+              {designs.map(d => {
+                const isActive = d.id === (activeId ?? designs[0].id)
+                const hyp = hypotheses.find(h => h.id === d.hypothesisId)
+                const hypIdx = hyp
+                  ? hypotheses.findIndex(h => h.id === hyp.id) + 1
+                  : null
+                const shortHyp = autoTitleFromHypothesis(hyp?.text)
+                const tabLabel = hyp
+                  ? `Hypothesis #${hypIdx}: ${shortHyp}`
+                  : d.title
+                return (
+                  <button
+                    key={d.id}
+                    onClick={() => onSelect(d.id)}
+                    title={hyp?.text ?? d.title}
+                    className={
+                      "flex max-w-full items-center gap-2 whitespace-normal break-words rounded-lg border px-3 py-1.5 text-left text-xs font-semibold transition-colors md:max-w-[360px] " +
+                      (isActive
+                        ? "border-sage-brand bg-sage-brand-active text-sage-brand"
+                        : "border-ink-200 text-ink-500 hover:bg-ink-100")
+                    }
+                  >
+                    <span className="min-w-0 flex-1">{tabLabel}</span>
+                    {d.saved && (
+                      <span
+                        aria-label="Saved"
+                        className="bg-sage-brand mt-0.5 inline-block size-1.5 shrink-0 rounded-full"
+                      />
+                    )}
+                  </button>
+                )
+              })}
+            </div>
+
+            {activeDesign && (
+              <div className="grid grid-cols-[200px_minmax(0,1fr)] gap-6">
+                <aside className="hidden md:block">
+                  <DesignSectionIndex
+                    sections={activeDesign.sections}
+                    containerId={scrollContainerId}
+                  />
+                </aside>
+
+                <Card className="rounded-2xl">
+                  <CardHeader className="flex flex-row items-start justify-between gap-3 pb-3">
+                    <div className="min-w-0 flex-1">
+                      <div className="text-ink-400 text-[10px] font-bold uppercase tracking-[0.13em]">
+                        Experiment Design
+                      </div>
+                      <CardTitle
+                        className="text-sage-brand mt-1 whitespace-normal break-words text-lg leading-tight"
+                        title={activeDesign.title}
+                      >
+                        {activeDesign.title}
+                      </CardTitle>
+                      {activeHypothesis?.text && (
+                        <div
+                          className="text-ink-2 mt-2 border-l-2 border-[color:var(--rust)] pl-3 text-[13.5px] italic leading-relaxed"
+                          title={activeHypothesis.text}
+                        >
+                          <span className="text-ink-3 mr-2 font-mono text-[11px] uppercase not-italic tracking-widest">
+                            Hypothesis
+                          </span>
+                          {activeHypothesis.text}
+                        </div>
+                      )}
+                    </div>
+                    {/* Per-design "Check statistics" + "Make a plan" actions
                       were removed from this view. Both flows are now reached
                       via the dashboard "New design" dropdown using the
                       `check-stats` / `make-plan` modes against an existing
                       design. */}
-                  {designVersions.length > 0 && onRestoreVersion && (
-                    <Popover>
-                      <PopoverTrigger asChild>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="h-7 shrink-0 gap-1 text-xs"
-                        >
-                          <IconRefresh size={12} />v
-                          {(designVersions[0]?.versionNumber ?? 0) + 1} ·
-                          history
-                        </Button>
-                      </PopoverTrigger>
-                      <PopoverContent align="end" className="w-72 p-2">
-                        <div className="text-ink-400 mb-2 px-1 text-[10px] font-bold uppercase tracking-widest">
-                          Prior versions
-                        </div>
-                        <ul className="space-y-1">
-                          {designVersions.map(v => (
-                            <li key={v.id}>
-                              <button
-                                onClick={() => onRestoreVersion(v.id)}
-                                className="hover:bg-ink-100 flex w-full items-center justify-between rounded-md px-2 py-1.5 text-left text-xs"
-                              >
-                                <span className="font-semibold">
-                                  v{v.versionNumber}
-                                </span>
-                                <span className="text-ink-400">
-                                  {new Date(v.createdAt).toLocaleDateString()}
-                                </span>
-                              </button>
-                            </li>
-                          ))}
-                        </ul>
-                        <p className="text-ink-400 mt-2 px-1 text-[10px]">
-                          Selecting a version restores it and archives the
-                          current design.
-                        </p>
-                      </PopoverContent>
-                    </Popover>
-                  )}
-                </CardHeader>
-                <CardContent>
-                  <div
-                    id={scrollContainerId}
-                    className="max-h-[60vh] space-y-5 overflow-auto pr-2"
-                  >
-                    {activeDesign.sections.map((sec, i) => (
-                      <DesignSectionContent
-                        key={sec.heading}
-                        section={sec}
-                        index={i}
-                        editable={
-                          !isApproved && canEdit && Boolean(onEditSection)
-                        }
-                        onSave={
-                          onEditSection
-                            ? async next =>
-                                onEditSection(
-                                  activeDesign.id,
-                                  sec.heading,
-                                  next
-                                )
-                            : undefined
-                        }
-                      />
-                    ))}
-                  </div>
+                    {designVersions.length > 0 && onRestoreVersion && (
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-7 shrink-0 gap-1 text-xs"
+                          >
+                            <IconRefresh size={12} />v
+                            {(designVersions[0]?.versionNumber ?? 0) + 1} ·
+                            history
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent align="end" className="w-72 p-2">
+                          <div className="text-ink-400 mb-2 px-1 text-[10px] font-bold uppercase tracking-widest">
+                            Prior versions
+                          </div>
+                          <ul className="space-y-1">
+                            {designVersions.map(v => (
+                              <li key={v.id}>
+                                <button
+                                  onClick={() => onRestoreVersion(v.id)}
+                                  className="hover:bg-ink-100 flex w-full items-center justify-between rounded-md px-2 py-1.5 text-left text-xs"
+                                >
+                                  <span className="font-semibold">
+                                    v{v.versionNumber}
+                                  </span>
+                                  <span className="text-ink-400">
+                                    {new Date(v.createdAt).toLocaleDateString()}
+                                  </span>
+                                </button>
+                              </li>
+                            ))}
+                          </ul>
+                          <p className="text-ink-400 mt-2 px-1 text-[10px]">
+                            Selecting a version restores it and archives the
+                            current design.
+                          </p>
+                        </PopoverContent>
+                      </Popover>
+                    )}
+                  </CardHeader>
+                  <CardContent>
+                    <div
+                      id={scrollContainerId}
+                      className="max-h-[60vh] space-y-5 overflow-auto pr-2"
+                    >
+                      {activeDesign.sections.map((sec, i) => (
+                        <DesignSectionContent
+                          key={sec.heading}
+                          section={sec}
+                          index={i}
+                          editable={
+                            !isApproved && canEdit && Boolean(onEditSection)
+                          }
+                          onSave={
+                            onEditSection
+                              ? async next =>
+                                  onEditSection(
+                                    activeDesign.id,
+                                    sec.heading,
+                                    next
+                                  )
+                              : undefined
+                          }
+                        />
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+            )}
+          </>
+        )}
 
-                </CardContent>
-              </Card>
-            </div>
-          )}
-        </>
-      )}
-
-      {/* Save + "Approve & Finalize" were replaced by a single Next, which
+        {/* Save + "Approve & Finalize" were replaced by a single Next, which
           opens the decision page (finalise now vs simulate first). */}
-      <PhaseActionBar
-        onApprove={onApproveAndContinue}
-        approveLabel="Next"
-        approveDisabled={designs.length === 0 || !canEdit}
-        onRegenerate={designs.length > 0 ? onRegenerate : undefined}
-        regenerateLabel="Regenerate Designs"
-        isBusy={isBusy}
-        isApproved={isApproved}
-      />
+        <PhaseActionBar
+          onApprove={onApproveAndContinue}
+          approveLabel="Next"
+          approveDisabled={designs.length === 0 || !canEdit}
+          onRegenerate={designs.length > 0 ? onRegenerate : undefined}
+          regenerateLabel="Regenerate Designs"
+          isBusy={isBusy}
+          isApproved={isApproved}
+        />
       </div>
     </div>
   )

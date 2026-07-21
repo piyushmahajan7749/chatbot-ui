@@ -598,8 +598,10 @@ export const processDesignPhase = inngest.createFunction(
 
       const plan = (await step.run("lit-plan", () =>
         meterRun({ userId, feature: "lit_search" }, () =>
-          planLiteratureSearch(agentState, searchOptions, ev =>
-            void pushProgress(ev as Record<string, unknown>)
+          planLiteratureSearch(
+            agentState,
+            searchOptions,
+            ev => void pushProgress(ev as Record<string, unknown>)
           )
         )
       )) as LiteraturePlan

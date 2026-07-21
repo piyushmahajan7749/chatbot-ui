@@ -371,8 +371,11 @@ export async function simulateDesign(args: SimulateDesignArgs): Promise<{
   }
 
   // 1) Plan + generate the program.
-  const { plan, completion: planCompletion, reason: planReason } =
-    await planSimulation(args)
+  const {
+    plan,
+    completion: planCompletion,
+    reason: planReason
+  } = await planSimulation(args)
   if (planCompletion) completions.push(planCompletion)
   if (!plan) {
     const r = await simulateReasoned(args)

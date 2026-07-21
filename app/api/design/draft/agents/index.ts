@@ -426,8 +426,7 @@ export async function planLiteratureSearch(
   const constraintsParts = [
     state.constraints?.material && `Material: ${state.constraints.material}`,
     state.constraints?.time && `Time: ${state.constraints.time}`,
-    state.constraints?.equipment &&
-      `Equipment: ${state.constraints.equipment}`
+    state.constraints?.equipment && `Equipment: ${state.constraints.equipment}`
   ].filter(Boolean)
 
   const paperFinderQuery = [
@@ -449,7 +448,9 @@ export async function planLiteratureSearch(
     state.specialConsiderations.length
       ? `Additional considerations: ${state.specialConsiderations.join("; ")}`
       : null,
-    queryData.primaryQuery ? `Optimized query: ${queryData.primaryQuery}` : null,
+    queryData.primaryQuery
+      ? `Optimized query: ${queryData.primaryQuery}`
+      : null,
     queryData.alternativeQueries.length
       ? `Alternative queries: ${queryData.alternativeQueries.join(" | ")}`
       : null
@@ -481,8 +482,7 @@ export async function planLiteratureSearch(
   // Per-run round cap from effort (searchOptions.maxRounds) takes precedence;
   // LIT_SCOUT_MAX_ROUNDS env is the fallback. 0/unset = no cap (every query).
   const maxRounds =
-    searchOptions.maxRounds ??
-    (Number(process.env.LIT_SCOUT_MAX_ROUNDS) || 0)
+    searchOptions.maxRounds ?? (Number(process.env.LIT_SCOUT_MAX_ROUNDS) || 0)
   const roundQueries = (() => {
     const qs = [queryData.primaryQuery, ...alternatives].filter(Boolean)
     return maxRounds > 0 ? qs.slice(0, maxRounds) : qs
@@ -783,7 +783,10 @@ export async function callLiteratureScoutAgent(
           )
         : reviews.length
     const keptReviews = [...reviews]
-      .sort((a, b) => ((b as any).citationCount ?? 0) - ((a as any).citationCount ?? 0))
+      .sort(
+        (a, b) =>
+          ((b as any).citationCount ?? 0) - ((a as any).citationCount ?? 0)
+      )
       .slice(0, reviewQuota)
     const droppedReviews = reviews.length - keptReviews.length
     console.log(
