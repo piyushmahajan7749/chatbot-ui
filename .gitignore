@@ -47,3 +47,4 @@ workbox-*.js.map
 
 # Supabase Studio scratch (local-only SQL snippets the IDE saves)
 supabase/snippets/
+.env*

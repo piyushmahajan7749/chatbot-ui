@@ -77,15 +77,14 @@ export async function runPaperFinder(
   // abort, falling back to just the pre-warm pool of ~3-10 papers (the
   // 2026-05-19 "only 3 papers shown in UI" regression). Override via
   // PAPER_FINDER_TIMEOUT_MS in env if you need a tighter or looser cap.
-  // 420s per call. A single broad round runs ~170s server-side, but the scout
-  // fires several rounds at once and they queue behind PaperFinder's
-  // rate-limited S2 backend (concurrency 1), so a LATE round's wall-clock (queue
-  // wait + its own run) can exceed 300s even though the service is fine. With
-  // the Inngest function ceiling now 600s and the fan-out holding an overall
-  // deadline (see callLiteratureScoutAgent), the aggregate is bounded there —
-  // this per-call value just needs to be generous enough not to cut a legit
-  // late round short. Override with PAPER_FINDER_TIMEOUT_MS.
-  const timeoutMs = Number(process.env.PAPER_FINDER_TIMEOUT_MS || 420000)
+  // 280s per call. A single broad round runs ~170s server-side. In the
+  // fan-out architecture each round is its OWN Inngest step = its own function
+  // invocation, and the plan caps a function at 300s, so a round MUST finish
+  // under that. 280s leaves ~20s of step overhead headroom while still being
+  // generous for a legit heavy round. If Fluid Compute is later enabled (cap
+  // 800s), raise this via PAPER_FINDER_TIMEOUT_MS + bump the inngest route's
+  // maxDuration back up. Override with PAPER_FINDER_TIMEOUT_MS.
+  const timeoutMs = Number(process.env.PAPER_FINDER_TIMEOUT_MS || 280000)
   const timeoutController = new AbortController()
   const timer = setTimeout(() => timeoutController.abort(), timeoutMs)
 
