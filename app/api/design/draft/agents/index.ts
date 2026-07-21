@@ -485,9 +485,20 @@ export async function callLiteratureScoutAgent(
         ;[alternatives[i], alternatives[j]] = [alternatives[j], alternatives[i]]
       }
     }
-    const roundQueries = [queryData.primaryQuery, ...alternatives].filter(
-      Boolean
+    // Cap the number of PaperFinder rounds. They fan out in "parallel" but all
+    // queue behind PaperFinder's rate-limited S2 backend (concurrency 1), so
+    // round latency climbs with each extra query (observed 59s → 104s → 159s →
+    // 228s for 5 rounds) while adding little unique coverage — the queries
+    // overlap heavily. Primary + 2 alternatives lands well inside the time
+    // budget below and still gives the multi-angle coverage. Override via
+    // LIT_SCOUT_MAX_ROUNDS.
+    const maxRounds = Math.max(
+      1,
+      Number(process.env.LIT_SCOUT_MAX_ROUNDS) || 3
     )
+    const roundQueries = [queryData.primaryQuery, ...alternatives]
+      .filter(Boolean)
+      .slice(0, maxRounds)
 
     let curated = buildCuratedAggregatedResults([])
     const responseTexts: string[] = []
@@ -607,8 +618,25 @@ export async function callLiteratureScoutAgent(
     if (roundQueries.length > 0) {
       const preWarmCount = dedupeNormalize(allResults).length
       const fanOutStart = Date.now()
+
+      // ── Overall time budget ──────────────────────────────────────────────
+      // The ENTIRE scout (query-gen + prewarm + this fan-out + summaries +
+      // synthesis) runs inside ONE Inngest step on a 300s Vercel function.
+      // With PaperFinder healthy again, a slow round can take 200s+, so the
+      // fan-out was eating the whole budget and the final synthesis LLM call
+      // then blew the 300s cap → 504 → Inngest retried ("a second search") →
+      // 504 again → the user got zero papers. We now hold the fan-out to a
+      // deadline that RESERVES time for everything after it, so synthesis
+      // always runs and the step always returns. Rounds still in flight at the
+      // deadline are abandoned; whatever landed (plus the prewarm pool) is
+      // used. Tunable via LIT_SCOUT_BUDGET_MS / LIT_SCOUT_TAIL_RESERVE_MS.
+      const totalBudgetMs = Number(process.env.LIT_SCOUT_BUDGET_MS) || 280000
+      const tailReserveMs =
+        Number(process.env.LIT_SCOUT_TAIL_RESERVE_MS) || 70000
+      const fanOutDeadline = startTime + totalBudgetMs - tailReserveMs
+
       console.log(
-        `🚀 [LITERATURE_SCOUT_SEARCH] Firing ${roundQueries.length} PaperFinder rounds in parallel (pre-warm seeded ${preWarmCount} candidates; PaperFinder adds the multi-query, multi-arm coverage).`
+        `🚀 [LITERATURE_SCOUT_SEARCH] Firing ${roundQueries.length} PaperFinder rounds in parallel (pre-warm seeded ${preWarmCount} candidates; fan-out deadline in ${Math.max(0, fanOutDeadline - Date.now())}ms, ~${tailReserveMs}ms reserved for synthesis).`
       )
 
       // Per-round result slots, keyed by round index so we can stitch
@@ -642,10 +670,24 @@ export async function callLiteratureScoutAgent(
           intent
         })
         const pfStart = Date.now()
+        // Abort this round when the shared fan-out deadline passes, so a slow
+        // round can't starve the synthesis step. This is tighter than (and
+        // combines with) runPaperFinder's own per-call PAPER_FINDER_TIMEOUT_MS.
+        const remainingMs = fanOutDeadline - Date.now()
+        if (remainingMs <= 1000) {
+          roundResults[idx] = {
+            papers: [],
+            elapsedMs: 0,
+            error: { message: "Skipped — fan-out budget exhausted", isUpstreamFailure: false }
+          }
+          return
+        }
+        const roundSignal = AbortSignal.timeout(remainingMs)
         try {
           const response = await runPaperFinder(buildRoundQuery(q), {
             operationMode: "infer",
-            readResultsFromCache: !searchOptions.bypassCache
+            readResultsFromCache: !searchOptions.bypassCache,
+            signal: roundSignal
           })
           const roundElapsedMs = Date.now() - pfStart
           console.log(
