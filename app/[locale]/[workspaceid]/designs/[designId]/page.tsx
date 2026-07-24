@@ -84,6 +84,7 @@ import {
   type Paper,
   type ParsedLabData,
   type PhaseKey,
+  type PreLabSimulation,
   type ProblemContext,
   type ValidationState,
   type ValidationVerdict
@@ -500,6 +501,9 @@ export default function DesignDetailPage() {
   const [refineCheckpoint, setRefineCheckpoint] = useState<
     "hypothesis" | "design" | null
   >(null)
+  // Hypothesis stage sub-tab: "suggested" (paper-derived hypotheses to pick +
+  // edit) vs "own" (answer setup questions to generate one, or type your own).
+  const [hypTab, setHypTab] = useState<"suggested" | "own">("suggested")
   const [clarifications, setClarifications] = useState<{
     problem?: ClarifyAnswer[]
     hypothesis?: ClarifyAnswer[]
@@ -1040,9 +1044,13 @@ export default function DesignDetailPage() {
       setActiveTab("hypotheses")
       return
     }
-    // Open the Refine clarifying-question step; it runs hypotheses on complete.
+    // Generate SUGGESTED hypotheses straight from the selected papers - no
+    // questions. They land in the hypothesis stage's "Suggested" tab (pick +
+    // edit); the "Create your own" tab is where the setup questions get asked.
     track("hypothesis_generation_started", { papers: selectedPapers.length })
-    setRefineCheckpoint("hypothesis")
+    setActiveTab("hypotheses")
+    setHypTab("suggested")
+    void runHypothesisGeneration()
   }
 
   const runHypothesisGeneration = async (clarifyText?: string) => {
@@ -1087,6 +1095,38 @@ export default function DesignDetailPage() {
     } finally {
       setBusy(null)
     }
+  }
+
+  // "Create your own" tab: adopt a hypothesis the researcher typed themselves.
+  // It becomes the single selected hypothesis; they then generate the design.
+  const handleUseOwnHypothesis = (text: string) => {
+    if (!ensureCanEdit()) return
+    const trimmed = text.trim()
+    if (trimmed.length < 8) {
+      toast({
+        title: "Add a bit more",
+        description: "Write your hypothesis (at least a sentence) to continue.",
+        variant: "destructive"
+      })
+      return
+    }
+    const own: Hypothesis = {
+      id: `h-own-${Date.now()}`,
+      text: trimmed,
+      reasoning: "Researcher-supplied hypothesis.",
+      basedOnPaperIds: selectedPapers.map(p => p.id),
+      selected: true,
+      userSupplied: true
+    }
+    const next = [own]
+    setHypotheses(next)
+    latestContentRef.current = { ...latestContentRef.current, hypotheses: next }
+    void persistContent({ hypotheses: next })
+    setHypTab("suggested")
+    toast({
+      title: "Hypothesis added",
+      description: "It's selected - generate the design when you're ready."
+    })
   }
 
   // Step 1: validate + open the design-spec popup. The popup collects extra
@@ -1262,20 +1302,155 @@ export default function DesignDetailPage() {
         },
         ev => setDesignProgress(prev => [...prev, ev])
       )
-      const designs = designContent.designs ?? []
-      setGeneratedDesigns(designs)
-      setActiveDesignId(designs[0]?.id ?? null)
+      let curDesigns = designContent.designs ?? []
+      setGeneratedDesigns(curDesigns)
+      setActiveDesignId(curDesigns[0]?.id ?? null)
       latestContentRef.current = designContent
-      void persistContent({
+      let curProblem: ProblemContext = {
+        ...currentProblem(),
+        ...(mergedDetails ? { additionalDetails: mergedDetails } : {})
+      }
+      // Persist (awaited) before simulating - the simulate route reads the
+      // design back from Firestore, so it must be written first.
+      await persistContent({
         papers: autoPapers,
         hypotheses: autoHyps,
-        designs,
-        approvedPhases: designApproved
+        designs: curDesigns,
+        approvedPhases: designApproved,
+        problem: curProblem
       })
+
+      // 4 — Simulate + iterate until the success criteria is met (or a cap).
+      // The pre-lab Monte-Carlo sim predicts the design vs the target; if it
+      // falls short we apply its suggested changes as a NEW design version and
+      // re-simulate. Each round snapshots the prior design so the version rail
+      // shows the trajectory. Skipped entirely when no target was given.
+      const target = (
+        curProblem.successCriteria ||
+        curProblem.objective ||
+        ""
+      ).trim()
+      let simMet = false
+      let ranSim = false
+      if (target) {
+        const MAX_AUTO_SIM_ROUNDS = 3
+        let versions = designVersions
+        let curDetails = curProblem.additionalDetails ?? ""
+        let curOrigin: "original" | "simulation" | "lab-data" | "manual" =
+          designOrigin
+        setApprovedPhases(prev =>
+          prev.includes("validate") ? prev : [...prev, "validate"]
+        )
+        for (let round = 1; round <= MAX_AUTO_SIM_ROUNDS; round++) {
+          // Simulate the current design against the target.
+          setActiveTab("validate")
+          setSimulating(true)
+          let sim: PreLabSimulation | null = null
+          try {
+            const res = await fetch(`/api/design/${designId}/validate`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ mode: "simulate", desiredOutcome: target })
+            })
+            if (await handleBudgetError(res)) break
+            const json = await res.json().catch(() => null)
+            if (!res.ok || !json) break
+            const nextValidation = json.validation as ValidationState
+            setValidation(nextValidation)
+            latestContentRef.current = {
+              ...latestContentRef.current,
+              validation: nextValidation
+            }
+            sim = (json.simulation ?? null) as PreLabSimulation | null
+            ranSim = true
+          } finally {
+            setSimulating(false)
+          }
+          if (!sim) break
+          if (sim.meetsTarget) {
+            simMet = true
+            break
+          }
+          const changes: string[] = Array.isArray(sim.optimizedChanges)
+            ? sim.optimizedChanges
+            : []
+          // No actionable changes, or out of rounds → keep the best design.
+          if (changes.length === 0 || round === MAX_AUTO_SIM_ROUNDS) break
+
+          // Apply the simulation's changes as a new design iteration.
+          const directive = [
+            `[Auto design iteration ${round} — apply these simulation-suggested changes so the design meets the success criteria]`,
+            `Success criteria / target: ${target}`,
+            sim.gapAnalysis ? `Predicted gap: ${sim.gapAnalysis}` : "",
+            `Apply these changes:\n- ${changes.join("\n- ")}`
+          ]
+            .filter(Boolean)
+            .join("\n")
+          const MARK = "\n\n<<ITERATION MEMORY>>\n"
+          const baseDetails = curDetails.split(MARK)[0].trimEnd()
+          curDetails = `${baseDetails}${MARK}${directive}`
+
+          // Snapshot the current design before overwriting it.
+          const nextVersionNumber = (versions[0]?.versionNumber ?? 0) + 1 || 1
+          const snapshot: DesignVersionSnapshot = {
+            id:
+              typeof crypto !== "undefined" && "randomUUID" in crypto
+                ? crypto.randomUUID()
+                : `v-${Date.now()}`,
+            versionNumber: nextVersionNumber,
+            designs: curDesigns,
+            createdAt: new Date().toISOString(),
+            origin: curOrigin
+          }
+          versions = [snapshot, ...versions]
+          setDesignVersions(versions)
+          setDesignOrigin("simulation")
+          curOrigin = "simulation"
+
+          // Regenerate the design with the changes folded in.
+          setActiveTab("design")
+          setBusy("design")
+          setDesignProgress([])
+          curProblem = { ...curProblem, additionalDetails: curDetails }
+          const iterContent = await runPhaseBackground(
+            designId,
+            {
+              phase: "design",
+              problem: curProblem,
+              hypotheses: autoHyps,
+              approvedPhases: designApproved
+            },
+            ev => setDesignProgress(prev => [...prev, ev])
+          )
+          curDesigns = iterContent.designs ?? curDesigns
+          setGeneratedDesigns(curDesigns)
+          setActiveDesignId(curDesigns[0]?.id ?? null)
+          latestContentRef.current = {
+            ...iterContent,
+            designVersions: versions,
+            problem: curProblem
+          }
+          await persistContent({
+            designs: curDesigns,
+            designVersions: versions,
+            problem: curProblem
+          })
+        }
+      }
+
+      // Land on the finished design (version rail + validation populated).
+      setActiveTab("design")
       toast({
-        title: "Design generated",
-        description:
-          "Built the full design automatically. Refine it by chatting on the right."
+        title: simMet
+          ? "Design meets your success criteria"
+          : ranSim
+            ? "Design built + simulated"
+            : "Design generated",
+        description: simMet
+          ? "Ran the whole workflow and iterated the design until the simulation hit your target. Refine it by chatting on the right."
+          : ranSim
+            ? "Built and simulated the design — see the predicted gap and version history. Refine it by chatting on the right."
+            : "Built the full design automatically. Refine it by chatting on the right."
       })
     } catch (error: any) {
       if ((error as any)?.message === "__paywall__") return
@@ -1301,6 +1476,9 @@ export default function DesignDetailPage() {
     setClarifications(nextClarifications)
     void persistContent({ clarifications: nextClarifications })
     if (cp === "hypothesis") {
+      // Own-path questions answered → generate a steered hypothesis and land on
+      // the Suggested tab so the researcher can pick + edit it, then continue.
+      setHypTab("suggested")
       await runHypothesisGeneration(text)
     } else {
       await runDesignGeneration(text)
@@ -3085,6 +3263,10 @@ Rules:
                   progress={hypothesesProgress}
                   onRevise={() => handleRevisePhase("hypotheses")}
                   genError={hypothesesError}
+                  subTab={hypTab}
+                  onSubTab={setHypTab}
+                  onBuildOwn={() => setRefineCheckpoint("hypothesis")}
+                  onUseOwnText={handleUseOwnHypothesis}
                 />
               </>
             )}
@@ -3614,10 +3796,11 @@ function ProblemTab(props: {
             <p className="text-ink-500 text-[12.5px]">
               In a hurry?{" "}
               <span className="text-ink-700 font-medium">
-                Auto-generate the whole design
+                Auto-generate the whole workflow
               </span>{" "}
-              — literature, hypothesis, and design in one pass. Refine it by
-              chatting after.
+              — literature, hypothesis, design, then simulate and iterate the
+              design until it meets your success criteria. Refine it by chatting
+              after.
             </p>
             <Button
               variant="outline"
@@ -5675,6 +5858,13 @@ function HypothesesTab(props: {
    *  an accurate "generation failed - retry" message instead of the
    *  misleading "approve literature" prompt. */
   genError?: string | null
+  /** Hypothesis stage sub-tab (Suggested vs Create your own) + controls. */
+  subTab: "suggested" | "own"
+  onSubTab: (t: "suggested" | "own") => void
+  /** Open the setup-questions flow to draft the researcher's own hypothesis. */
+  onBuildOwn: () => void
+  /** Adopt a hypothesis the researcher typed in the "own" tab. */
+  onUseOwnText: (text: string) => void
 }) {
   const {
     hypotheses,
@@ -5690,8 +5880,14 @@ function HypothesesTab(props: {
     isGenerating,
     progress,
     onRevise,
-    genError
+    genError,
+    subTab,
+    onSubTab,
+    onBuildOwn,
+    onUseOwnText
   } = props
+
+  const [ownText, setOwnText] = useState("")
 
   const paperById = useMemo(() => {
     const m = new Map<string, Paper>()
@@ -5709,216 +5905,311 @@ function HypothesesTab(props: {
         onRevise={onRevise}
       />
 
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h3 className="text-purple-persona text-sm font-bold uppercase tracking-widest">
-            Review &amp; select hypotheses
-          </h3>
-          <p className="text-ink-500 mt-0.5 text-xs">
-            {isApproved
-              ? "Hypotheses approved. The selected hypotheses were used to generate experiment designs."
-              : "Review the hypotheses below and select one or more to carry into experimental design."}
-          </p>
-          {!isApproved && (
-            <p className="text-ink-400 mt-1 text-[11px] italic">
-              Tip: choose <b>at least 1 hypothesis</b> (or several) - your picks
-              drive the design that gets generated next.
-            </p>
-          )}
-        </div>
-        {hypotheses.length > 0 && (
-          <span
-            className={cn(
-              "rounded-full border px-2.5 py-1 text-[11px] font-semibold",
-              selectedCount > 0
-                ? "border-purple-persona bg-purple-persona-tint text-purple-persona"
-                : "border-ink-200 text-ink-500"
-            )}
-          >
-            {selectedCount} of {hypotheses.length} selected
-          </span>
-        )}
-      </div>
-
-      {hypotheses.length === 0 ? (
-        isGenerating ? (
-          <PhaseProgressView
-            accentClass="border-purple-persona/30 bg-purple-persona-tint"
-            title="Generating hypotheses"
-            subtitle="Five generation agents, then rank, reflect, evolve, and meta-review."
-            events={progress ?? []}
-          />
-        ) : genError ? (
-          <div className="space-y-3 rounded-xl border border-dashed border-red-300 bg-red-50 p-8 text-center">
-            <p className="text-[13px] font-semibold text-red-700">
-              Hypothesis generation didn&apos;t complete
-            </p>
-            <p className="text-[12px] text-red-600">{genError}</p>
-            <p className="text-ink-500 text-[11.5px]">
-              This is usually a transient hiccup - your literature is still
-              approved. Try generating again.
-            </p>
-            <Button
-              onClick={onRegenerate}
-              disabled={isBusy}
-              className="bg-purple-persona hover:bg-purple-persona/90 text-white"
+      {!isApproved && (
+        <div className="border-line inline-flex rounded-lg border p-0.5 text-[12px] font-semibold">
+          {(["suggested", "own"] as const).map(t => (
+            <button
+              key={t}
+              type="button"
+              onClick={() => onSubTab(t)}
+              className={cn(
+                "rounded-md px-3 py-1.5 transition-colors",
+                subTab === t
+                  ? "bg-purple-persona text-white"
+                  : "text-ink-500 hover:text-ink-800"
+              )}
             >
-              <IconRefresh size={14} className="mr-1.5" />
-              Try again
-            </Button>
-          </div>
-        ) : (
-          <div className="border-purple-persona/30 bg-purple-persona-tint text-ink-500 rounded-xl border border-dashed p-8 text-center text-xs">
-            {isBusy
-              ? "Generating hypotheses..."
-              : "No hypotheses yet. Approve Literature to generate hypotheses."}
-          </div>
-        )
-      ) : (
-        <div className="space-y-3">
-          {hypotheses.map((h, hi) => (
-            <div
-              key={h.id}
-              className="border-ink-200 flex items-start gap-3 rounded-xl border bg-white p-4"
-            >
-              <Checkbox
-                checked={h.selected}
-                onCheckedChange={() => onToggle(h.id)}
-                className="mt-1"
-                disabled={isApproved || !canEdit}
-              />
-              <div className="min-w-0 flex-1">
-                {/* Issue #27 - render an auto-generated short title above
-                    the full hypothesis text. `autoTitleFromHypothesis`
-                    picks the first ~6 words so the scientist can scan a
-                    list of hypotheses at a glance, then the full text
-                    follows in EditableHypothesis. */}
-                <div className="text-purple-persona mb-1 text-[12px] font-bold uppercase tracking-wide">
-                  Hypothesis #{hi + 1}: {autoTitleFromHypothesis(h.text)}
-                </div>
-                <EditableHypothesis
-                  text={h.text}
-                  disabled={isApproved || !canEdit}
-                  onSave={next => onEdit(h.id, next)}
-                />
-                {/* Cited-from chips: surface paper titles inline so the user
-                    sees the evidence chain without opening the popover. */}
-                {h.basedOnPaperIds.length > 0 && (
-                  <div className="mt-2 flex flex-wrap items-center gap-1.5">
-                    <span className="text-ink-400 text-[10px] font-bold uppercase tracking-wide">
-                      Cited from
-                    </span>
-                    {h.basedOnPaperIds.slice(0, 3).map(pid => {
-                      const paper = paperById.get(pid)
-                      const label = paper?.title
-                        ? paper.title.length > 60
-                          ? `${paper.title.slice(0, 60)}…`
-                          : paper.title
-                        : `Reference ${pid}`
-                      return (
-                        <span
-                          key={pid}
-                          title={paper?.title ?? pid}
-                          className="text-ink-700 border-ink-200 bg-ink-50 inline-flex max-w-[220px] truncate rounded-full border px-2 py-0.5 text-[10.5px]"
-                        >
-                          {label}
-                        </span>
-                      )
-                    })}
-                    {h.basedOnPaperIds.length > 3 && (
-                      <span className="text-ink-400 text-[10.5px]">
-                        +{h.basedOnPaperIds.length - 3} more
-                      </span>
-                    )}
-                  </div>
-                )}
-                {/* Reasoning rendered inline so the user sees the "why"
-                    without clicking. We split on blank lines so multi-
-                    paragraph reasoning (premise → mechanism → prediction)
-                    stays legible. Long reasoning is collapsed with a
-                    "Show more" toggle to keep the list scannable. */}
-                <ReasoningInline reasoning={h.reasoning ?? ""} />
-
-                {/* "Based on" papers - full citation block - stays behind
-                    a popover since the inline chips already surface the
-                    paper names. The popover gives authors / year / journal /
-                    source link without dominating the card. */}
-                {h.basedOnPaperIds.length > 0 && (
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <button className="text-purple-persona hover:bg-purple-persona-tint mt-2 inline-flex items-center gap-1 rounded px-2 py-1 text-[11px] font-semibold">
-                        <IconInfoCircle size={13} />
-                        Reference details
-                      </button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-96 text-xs">
-                      <div className="text-ink-400 text-[10px] font-bold uppercase tracking-wide">
-                        Based on
-                      </div>
-                      <ul className="mt-1 space-y-2">
-                        {h.basedOnPaperIds.map(pid => {
-                          const paper = paperById.get(pid)
-                          if (!paper) {
-                            return (
-                              <li key={pid} className="text-ink-400 italic">
-                                Reference {pid} (not available)
-                              </li>
-                            )
-                          }
-                          const authorLabel =
-                            paper.authors && paper.authors.length
-                              ? paper.authors.length <= 3
-                                ? paper.authors.join(", ")
-                                : `${paper.authors.slice(0, 3).join(", ")} et al.`
-                              : ""
-                          const meta = [authorLabel, paper.year, paper.journal]
-                            .filter(Boolean)
-                            .join(" · ")
-                          return (
-                            <li
-                              key={pid}
-                              className="border-ink-100 bg-ink-50 rounded-md border p-2"
-                            >
-                              <div className="text-ink-900 font-semibold leading-snug">
-                                {paper.title}
-                              </div>
-                              {meta && (
-                                <div className="text-ink-500 mt-0.5 text-[10px]">
-                                  {meta}
-                                </div>
-                              )}
-                              {paper.sourceUrl && (
-                                <a
-                                  href={paper.sourceUrl}
-                                  target="_blank"
-                                  rel="noreferrer"
-                                  className="text-orange-product mt-1 inline-block text-[10px] underline"
-                                >
-                                  Open source
-                                </a>
-                              )}
-                            </li>
-                          )
-                        })}
-                      </ul>
-                    </PopoverContent>
-                  </Popover>
-                )}
-              </div>
-            </div>
+              {t === "suggested" ? "Suggested hypotheses" : "Create your own"}
+            </button>
           ))}
         </div>
       )}
 
-      <PhaseActionBar
-        onApprove={onApproveAndGenerate}
-        approveLabel="Approve & Generate Design"
-        approveDisabled={!canGenerate || !canEdit}
-        onRegenerate={hypotheses.length > 0 ? onRegenerate : undefined}
-        regenerateLabel="Regenerate Hypotheses"
-        isBusy={isBusy}
-        isApproved={isApproved}
-      />
+      {subTab === "own" && !isApproved ? (
+        <OwnHypothesisPanel
+          canEdit={canEdit}
+          isBusy={isBusy}
+          ownText={ownText}
+          onOwnText={setOwnText}
+          onBuildOwn={onBuildOwn}
+          onUseOwnText={onUseOwnText}
+        />
+      ) : (
+        <>
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <h3 className="text-purple-persona text-sm font-bold uppercase tracking-widest">
+                Review &amp; select hypotheses
+              </h3>
+              <p className="text-ink-500 mt-0.5 text-xs">
+                {isApproved
+                  ? "Hypotheses approved. The selected hypotheses were used to generate experiment designs."
+                  : "Review the hypotheses below and select one or more to carry into experimental design."}
+              </p>
+              {!isApproved && (
+                <p className="text-ink-400 mt-1 text-[11px] italic">
+                  Tip: choose <b>at least 1 hypothesis</b> (or several) - your
+                  picks drive the design that gets generated next.
+                </p>
+              )}
+            </div>
+            {hypotheses.length > 0 && (
+              <span
+                className={cn(
+                  "rounded-full border px-2.5 py-1 text-[11px] font-semibold",
+                  selectedCount > 0
+                    ? "border-purple-persona bg-purple-persona-tint text-purple-persona"
+                    : "border-ink-200 text-ink-500"
+                )}
+              >
+                {selectedCount} of {hypotheses.length} selected
+              </span>
+            )}
+          </div>
+
+          {hypotheses.length === 0 ? (
+            isGenerating ? (
+              <PhaseProgressView
+                accentClass="border-purple-persona/30 bg-purple-persona-tint"
+                title="Generating hypotheses"
+                subtitle="Five generation agents, then rank, reflect, evolve, and meta-review."
+                events={progress ?? []}
+              />
+            ) : genError ? (
+              <div className="space-y-3 rounded-xl border border-dashed border-red-300 bg-red-50 p-8 text-center">
+                <p className="text-[13px] font-semibold text-red-700">
+                  Hypothesis generation didn&apos;t complete
+                </p>
+                <p className="text-[12px] text-red-600">{genError}</p>
+                <p className="text-ink-500 text-[11.5px]">
+                  This is usually a transient hiccup - your literature is still
+                  approved. Try generating again.
+                </p>
+                <Button
+                  onClick={onRegenerate}
+                  disabled={isBusy}
+                  className="bg-purple-persona hover:bg-purple-persona/90 text-white"
+                >
+                  <IconRefresh size={14} className="mr-1.5" />
+                  Try again
+                </Button>
+              </div>
+            ) : (
+              <div className="border-purple-persona/30 bg-purple-persona-tint text-ink-500 rounded-xl border border-dashed p-8 text-center text-xs">
+                {isBusy
+                  ? "Generating hypotheses..."
+                  : "No hypotheses yet. Approve Literature to generate hypotheses."}
+              </div>
+            )
+          ) : (
+            <div className="space-y-3">
+              {hypotheses.map((h, hi) => (
+                <div
+                  key={h.id}
+                  className="border-ink-200 flex items-start gap-3 rounded-xl border bg-white p-4"
+                >
+                  <Checkbox
+                    checked={h.selected}
+                    onCheckedChange={() => onToggle(h.id)}
+                    className="mt-1"
+                    disabled={isApproved || !canEdit}
+                  />
+                  <div className="min-w-0 flex-1">
+                    {/* Issue #27 - render an auto-generated short title above
+                    the full hypothesis text. `autoTitleFromHypothesis`
+                    picks the first ~6 words so the scientist can scan a
+                    list of hypotheses at a glance, then the full text
+                    follows in EditableHypothesis. */}
+                    <div className="text-purple-persona mb-1 text-[12px] font-bold uppercase tracking-wide">
+                      Hypothesis #{hi + 1}: {autoTitleFromHypothesis(h.text)}
+                    </div>
+                    <EditableHypothesis
+                      text={h.text}
+                      disabled={isApproved || !canEdit}
+                      onSave={next => onEdit(h.id, next)}
+                    />
+                    {/* Cited-from chips: surface paper titles inline so the user
+                    sees the evidence chain without opening the popover. */}
+                    {h.basedOnPaperIds.length > 0 && (
+                      <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                        <span className="text-ink-400 text-[10px] font-bold uppercase tracking-wide">
+                          Cited from
+                        </span>
+                        {h.basedOnPaperIds.map(pid => {
+                          const paper = paperById.get(pid)
+                          const label = paper?.title ?? `Reference ${pid}`
+                          return (
+                            <span
+                              key={pid}
+                              title={paper?.title ?? pid}
+                              className="text-ink-700 border-ink-200 bg-ink-50 inline-flex rounded-full border px-2 py-0.5 text-[10.5px]"
+                            >
+                              {label}
+                            </span>
+                          )
+                        })}
+                      </div>
+                    )}
+                    {/* Reasoning rendered inline so the user sees the "why"
+                    without clicking. We split on blank lines so multi-
+                    paragraph reasoning (premise → mechanism → prediction)
+                    stays legible. Long reasoning is collapsed with a
+                    "Show more" toggle to keep the list scannable. */}
+                    <ReasoningInline reasoning={h.reasoning ?? ""} />
+
+                    {/* "Based on" papers - full citation block - stays behind
+                    a popover since the inline chips already surface the
+                    paper names. The popover gives authors / year / journal /
+                    source link without dominating the card. */}
+                    {h.basedOnPaperIds.length > 0 && (
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <button className="text-purple-persona hover:bg-purple-persona-tint mt-2 inline-flex items-center gap-1 rounded px-2 py-1 text-[11px] font-semibold">
+                            <IconInfoCircle size={13} />
+                            Reference details
+                          </button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-96 text-xs">
+                          <div className="text-ink-400 text-[10px] font-bold uppercase tracking-wide">
+                            Based on
+                          </div>
+                          <ul className="mt-1 space-y-2">
+                            {h.basedOnPaperIds.map(pid => {
+                              const paper = paperById.get(pid)
+                              if (!paper) {
+                                return (
+                                  <li key={pid} className="text-ink-400 italic">
+                                    Reference {pid} (not available)
+                                  </li>
+                                )
+                              }
+                              const authorLabel =
+                                paper.authors && paper.authors.length
+                                  ? paper.authors.length <= 3
+                                    ? paper.authors.join(", ")
+                                    : `${paper.authors.slice(0, 3).join(", ")} et al.`
+                                  : ""
+                              const meta = [
+                                authorLabel,
+                                paper.year,
+                                paper.journal
+                              ]
+                                .filter(Boolean)
+                                .join(" · ")
+                              return (
+                                <li
+                                  key={pid}
+                                  className="border-ink-100 bg-ink-50 rounded-md border p-2"
+                                >
+                                  <div className="text-ink-900 font-semibold leading-snug">
+                                    {paper.title}
+                                  </div>
+                                  {meta && (
+                                    <div className="text-ink-500 mt-0.5 text-[10px]">
+                                      {meta}
+                                    </div>
+                                  )}
+                                  {paper.sourceUrl && (
+                                    <a
+                                      href={paper.sourceUrl}
+                                      target="_blank"
+                                      rel="noreferrer"
+                                      className="text-orange-product mt-1 inline-block text-[10px] underline"
+                                    >
+                                      Open source
+                                    </a>
+                                  )}
+                                </li>
+                              )
+                            })}
+                          </ul>
+                        </PopoverContent>
+                      </Popover>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          <PhaseActionBar
+            onApprove={onApproveAndGenerate}
+            approveLabel="Approve & Generate Design"
+            approveDisabled={!canGenerate || !canEdit}
+            onRegenerate={hypotheses.length > 0 ? onRegenerate : undefined}
+            regenerateLabel="Regenerate Hypotheses"
+            isBusy={isBusy}
+            isApproved={isApproved}
+          />
+        </>
+      )}
+    </div>
+  )
+}
+
+/**
+ * "Create your own" tab body: answer setup questions to have the tool draft a
+ * hypothesis steered by the answers, OR type your own directly. Either path
+ * ends with a selected hypothesis carried into the design stage.
+ */
+function OwnHypothesisPanel(props: {
+  canEdit: boolean
+  isBusy: boolean
+  ownText: string
+  onOwnText: (v: string) => void
+  onBuildOwn: () => void
+  onUseOwnText: (text: string) => void
+}) {
+  const { canEdit, isBusy, ownText, onOwnText, onBuildOwn, onUseOwnText } =
+    props
+  return (
+    <div className="space-y-4">
+      <div className="border-purple-persona/30 bg-purple-persona-tint/40 rounded-xl border p-4">
+        <h4 className="text-ink-800 text-[13px] font-semibold">
+          Answer a few setup questions and we draft a hypothesis for you
+        </h4>
+        <p className="text-ink-500 mt-1 text-[12px] leading-relaxed">
+          A short, senior-bench-scientist set of questions about your system,
+          working concentrations, readout and comparison - then we generate a
+          sharp, testable hypothesis steered by your answers and the papers you
+          selected.
+        </p>
+        <Button
+          onClick={onBuildOwn}
+          disabled={!canEdit || isBusy}
+          className="bg-purple-persona hover:bg-purple-persona/90 mt-3 text-white"
+        >
+          <IconSparkles size={14} className="mr-1.5" />
+          Answer questions &amp; generate
+        </Button>
+      </div>
+
+      <div className="flex items-center gap-3">
+        <div className="bg-ink-100 h-px flex-1" />
+        <span className="text-ink-400 text-[11px] font-semibold uppercase tracking-wide">
+          or write your own
+        </span>
+        <div className="bg-ink-100 h-px flex-1" />
+      </div>
+
+      <div className="border-ink-200 space-y-2 rounded-xl border p-4">
+        <Textarea
+          value={ownText}
+          onChange={e => onOwnText(e.target.value)}
+          disabled={!canEdit || isBusy}
+          rows={3}
+          placeholder="Type your hypothesis. e.g. Raising arginine to 150 mM lowers the viscosity of the 150 mg/mL mAb formulation below 20 cP at 25 C without loss of monomer."
+        />
+        <div className="flex justify-end">
+          <Button
+            onClick={() => onUseOwnText(ownText)}
+            disabled={!canEdit || isBusy || ownText.trim().length < 8}
+            variant="outline"
+          >
+            Use my hypothesis →
+          </Button>
+        </div>
+      </div>
     </div>
   )
 }

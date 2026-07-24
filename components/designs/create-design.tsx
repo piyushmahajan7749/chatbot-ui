@@ -255,9 +255,14 @@ export const CreateDesign: FC<CreateDesignProps> = ({
 
   const canSubmit = (() => {
     if (creating) return false
-    // from-scratch needs problem + domain + phase (objective optional). (#8)
+    // from-scratch needs problem + objective + domain + phase.
     if (mode === "from-scratch")
-      return problem.trim().length > 0 && !!fsDomain && !!fsPhase
+      return (
+        problem.trim().length > 0 &&
+        objective.trim().length > 0 &&
+        !!fsDomain &&
+        !!fsPhase
+      )
     if (!name.trim()) return false
     if (mode === "from-hypothesis" && hypothesis.trim().length < 10)
       return false
@@ -558,7 +563,7 @@ export const CreateDesign: FC<CreateDesignProps> = ({
           </div>
         </DialogHeader>
 
-        <div className="space-y-4 py-2">
+        <div className="max-h-[65vh] space-y-4 overflow-y-auto py-2 pr-1">
           {mode === "from-scratch" ? (
             <>
               <div className="space-y-1.5">
@@ -574,8 +579,7 @@ export const CreateDesign: FC<CreateDesignProps> = ({
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="design-objective">
-                  Objective{" "}
-                  <span className="text-ink-3 font-normal">(optional)</span>
+                  Objective <span className="text-rust">*</span>
                 </Label>
                 <Textarea
                   id="design-objective"
