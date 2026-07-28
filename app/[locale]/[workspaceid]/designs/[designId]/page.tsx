@@ -504,6 +504,9 @@ export default function DesignDetailPage() {
   // Hypothesis stage sub-tab: "suggested" (paper-derived hypotheses to pick +
   // edit) vs "own" (answer setup questions to generate one, or type your own).
   const [hypTab, setHypTab] = useState<"suggested" | "own">("suggested")
+  // Which design version the user is READING. null = the live design. This is a
+  // view pointer only - browsing history never mutates or renumbers it.
+  const [viewingVersionId, setViewingVersionId] = useState<string | null>(null)
   const [clarifications, setClarifications] = useState<{
     problem?: ClarifyAnswer[]
     hypothesis?: ClarifyAnswer[]
@@ -1214,6 +1217,7 @@ export default function DesignDetailPage() {
       latestContentRef.current = content
       const designs = content.designs ?? []
       setGeneratedDesigns(designs)
+      setViewingVersionId(null)
       setActiveDesignId(designs[0]?.id ?? null)
     } catch (error: any) {
       if ((error as any)?.message === "__paywall__") return
@@ -1320,6 +1324,7 @@ export default function DesignDetailPage() {
       )
       let curDesigns = designContent.designs ?? []
       setGeneratedDesigns(curDesigns)
+      setViewingVersionId(null)
       setActiveDesignId(curDesigns[0]?.id ?? null)
       latestContentRef.current = designContent
       let curProblem: ProblemContext = {
@@ -1440,6 +1445,7 @@ export default function DesignDetailPage() {
           )
           curDesigns = iterContent.designs ?? curDesigns
           setGeneratedDesigns(curDesigns)
+          setViewingVersionId(null)
           setActiveDesignId(curDesigns[0]?.id ?? null)
           latestContentRef.current = {
             ...iterContent,
@@ -1775,6 +1781,7 @@ export default function DesignDetailPage() {
       }
       if (content.designs) {
         setGeneratedDesigns(content.designs)
+        setViewingVersionId(null)
         setActiveDesignId(content.designs[0]?.id ?? null)
       }
       void persistContent({
@@ -1935,6 +1942,7 @@ export default function DesignDetailPage() {
       }
       const designs = content.designs ?? []
       setGeneratedDesigns(designs)
+      setViewingVersionId(null)
       setActiveDesignId(designs[0]?.id ?? null)
       // Persist designVersions alongside the regenerated designs so they
       // survive a reload.
@@ -1951,14 +1959,30 @@ export default function DesignDetailPage() {
     }
   }
 
+  /**
+   * BROWSE a version (item 11). Clicking a version used to snapshot the current
+   * design as a NEW version and delete the clicked one from history, so every
+   * click inflated the numbering (v1/v2 → v3/v4 → …) and you could never get
+   * back to where you started. Versions are now an immutable timeline and this
+   * only moves a read pointer: no writes, no renumbering. `null` = the live
+   * design.
+   */
+  const handleViewDesignVersion = (versionId: string | null) => {
+    if (versionId && !designVersions.some(v => v.id === versionId)) return
+    setViewingVersionId(versionId)
+  }
+
+  /**
+   * Explicitly promote the version being viewed to be the live design. This is
+   * the only path that mutates history, and it APPENDS (next number above the
+   * current max) without removing anything, so numbering stays monotonic and
+   * every earlier version remains reachable.
+   */
   const handleRestoreDesignVersion = async (versionId: string) => {
     if (!ensureCanEdit()) return
     const version = designVersions.find(v => v.id === versionId)
     if (!version) return
 
-    // Snapshot current designs as a new version, then restore the selected one
-    // as the current designs. Drop the restored version from history to avoid
-    // duplicates, keeping it as "current".
     let nextVersions = designVersions
     if (generatedDesigns.length > 0) {
       const nextNumber = (designVersions[0]?.versionNumber ?? 0) + 1 || 1
@@ -1969,23 +1993,23 @@ export default function DesignDetailPage() {
             : `v-${Date.now()}`,
         versionNumber: nextNumber,
         designs: generatedDesigns,
-        createdAt: new Date().toISOString()
+        createdAt: new Date().toISOString(),
+        origin: designOrigin
       }
       nextVersions = [snapshot, ...designVersions]
     }
-    nextVersions = nextVersions.filter(v => v.id !== versionId)
 
     setGeneratedDesigns(version.designs)
     setActiveDesignId(version.designs[0]?.id ?? null)
     setDesignVersions(nextVersions)
+    setViewingVersionId(null)
     await persistContent({
       designs: version.designs,
       designVersions: nextVersions
     })
     toast({
-      title: `Restored v${version.versionNumber}`,
-      description:
-        "Previous design restored. Prior current set saved to history."
+      title: `v${version.versionNumber} is now the current design`,
+      description: "The set you were on was saved to history first."
     })
   }
 
@@ -2586,6 +2610,13 @@ export default function DesignDetailPage() {
 
   const activeDesign =
     generatedDesigns.find(d => d.id === activeDesignId) ?? generatedDesigns[0]
+
+  // The historical version being read, if any. Resolved (not just the id) so a
+  // version deleted/restored out from under the pointer falls back to the live
+  // design instead of rendering an empty tab.
+  const viewedVersion = viewingVersionId
+    ? (designVersions.find(v => v.id === viewingVersionId) ?? null)
+    : null
 
   // Auto-fire picker-routed actions once the design is loaded. Strips the
   // `auto` query param so a back/forward doesn't re-trigger the action.
@@ -3298,11 +3329,19 @@ Rules:
                   onEdit={() => setRefineCheckpoint("design")}
                 />
                 <DesignTab
-                  designs={generatedDesigns}
+                  designs={
+                    viewedVersion ? viewedVersion.designs : generatedDesigns
+                  }
                   hypotheses={hypotheses}
-                  activeId={activeDesignId}
+                  activeId={
+                    viewedVersion
+                      ? (viewedVersion.designs[0]?.id ?? null)
+                      : activeDesignId
+                  }
                   onSelect={setActiveDesignId}
-                  activeDesign={activeDesign}
+                  activeDesign={
+                    viewedVersion ? viewedVersion.designs[0] : activeDesign
+                  }
                   onApproveAndContinue={handleApproveDesignAndContinue}
                   onRegenerate={handleRegenerateDesign}
                   isApproved={isPhaseApproved("design")}
@@ -3314,6 +3353,8 @@ Rules:
                   designVersions={designVersions}
                   currentOrigin={designOrigin}
                   onRestoreVersion={handleRestoreDesignVersion}
+                  viewingVersionId={viewingVersionId}
+                  onViewVersion={handleViewDesignVersion}
                   onEditSection={handleEditSection}
                 />
               </>
@@ -6673,6 +6714,10 @@ function DesignTab(props: {
   /** Provenance of the live design — labels the newest rail entry. */
   currentOrigin?: "original" | "simulation" | "lab-data" | "manual"
   onRestoreVersion?: (versionId: string) => void
+  /** Version currently being READ (null = the live design). */
+  viewingVersionId?: string | null
+  /** Move the read pointer. Browsing never mutates or renumbers history. */
+  onViewVersion?: (versionId: string | null) => void
   onEditSection?: (
     designId: string,
     heading: string,
@@ -6696,6 +6741,8 @@ function DesignTab(props: {
     designVersions = [],
     currentOrigin = "original",
     onRestoreVersion,
+    viewingVersionId = null,
+    onViewVersion,
     onEditSection
   } = props
 
@@ -6734,6 +6781,15 @@ function DesignTab(props: {
     }
   ]
 
+  // Which rail entry is being READ. The live design is the default view, so
+  // "current" is highlighted whenever no version pointer is set.
+  const isViewed = (t: { isCurrent: boolean; versionId?: string }): boolean =>
+    viewingVersionId ? t.versionId === viewingVersionId : t.isCurrent
+  const viewedEntry = timeline.find(t => isViewed(t))
+  const viewedVersion = viewingVersionId
+    ? (designVersions.find(v => v.id === viewingVersionId) ?? null)
+    : null
+
   return (
     <div className="flex gap-5">
       {/* LEFT: sequential iteration rail. Only once there's more than one
@@ -6751,16 +6807,18 @@ function DesignTab(props: {
                 )}
                 <button
                   type="button"
-                  disabled={t.isCurrent || !onRestoreVersion}
-                  onClick={() => t.versionId && onRestoreVersion?.(t.versionId)}
+                  disabled={!onViewVersion}
+                  onClick={() => onViewVersion?.(t.versionId ?? null)}
                   title={
-                    t.isCurrent
-                      ? "You're viewing this version"
-                      : "Restore this version (the current one is saved first)"
+                    isViewed(t)
+                      ? "You're reading this version"
+                      : t.isCurrent
+                        ? "Back to the current design"
+                        : `Open v${t.version} (read-only)`
                   }
                   className={cn(
                     "flex w-full items-start gap-2 rounded-lg px-2 py-1.5 text-left transition-colors",
-                    t.isCurrent
+                    isViewed(t)
                       ? "bg-ink-50 cursor-default"
                       : "hover:bg-ink-50 cursor-pointer"
                   )}
@@ -6768,14 +6826,14 @@ function DesignTab(props: {
                   <span
                     className={cn(
                       "mt-0.5 size-[15px] shrink-0 rounded-full border-2 bg-white",
-                      t.isCurrent ? "border-brick" : "border-ink-300"
+                      isViewed(t) ? "border-brick" : "border-ink-300"
                     )}
                   />
                   <span className="min-w-0">
                     <span
                       className={cn(
                         "block text-[12px] font-semibold",
-                        t.isCurrent ? "text-ink-900" : "text-ink-700"
+                        isViewed(t) ? "text-ink-900" : "text-ink-700"
                       )}
                     >
                       v{t.version}
@@ -6802,6 +6860,35 @@ function DesignTab(props: {
       )}
 
       <div className="min-w-0 flex-1 space-y-4">
+        {/* Reading history: make it obvious this isn't the live design, and give
+            both ways out - back to current, or promote this one. */}
+        {viewedVersion && (
+          <div className="border-line bg-paper-2 flex flex-wrap items-center justify-between gap-3 rounded-lg border px-3 py-2">
+            <p className="text-ink-2 text-[12px]">
+              Reading <b className="text-ink">v{viewedVersion.versionNumber}</b>
+              {viewedEntry ? ` · ${viewedEntry.label}` : ""} — read-only.
+            </p>
+            <div className="flex items-center gap-2">
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => onViewVersion?.(null)}
+              >
+                Back to current
+              </Button>
+              {onRestoreVersion && canEdit && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={isBusy}
+                  onClick={() => onRestoreVersion(viewedVersion.id)}
+                >
+                  Make this the current design
+                </Button>
+              )}
+            </div>
+          </div>
+        )}
         <PhaseBanner
           isApproved={isApproved}
           phaseName="Experiment Design"
@@ -6953,7 +7040,7 @@ function DesignTab(props: {
                             {designVersions.map(v => (
                               <li key={v.id}>
                                 <button
-                                  onClick={() => onRestoreVersion(v.id)}
+                                  onClick={() => onViewVersion?.(v.id)}
                                   className="hover:bg-ink-100 flex w-full items-center justify-between rounded-md px-2 py-1.5 text-left text-xs"
                                 >
                                   <span className="font-semibold">
@@ -6967,8 +7054,9 @@ function DesignTab(props: {
                             ))}
                           </ul>
                           <p className="text-ink-400 mt-2 px-1 text-[10px]">
-                            Selecting a version restores it and archives the
-                            current design.
+                            Opens the version read-only. Numbering never
+                            changes; use &ldquo;Make this the current
+                            design&rdquo; to promote it.
                           </p>
                         </PopoverContent>
                       </Popover>
