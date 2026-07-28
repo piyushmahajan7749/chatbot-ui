@@ -358,6 +358,40 @@ export type PhaseKey =
   | "validate"
   | "simulation"
 
+/**
+ * A short, clear working title for a design, derived from the objective (or the
+ * problem statement as a fallback). Used as the design name from creation and
+ * shown above every stage, so the researcher always knows which experiment
+ * they're in. Previously the name was just the problem statement's first line
+ * truncated to 70 chars, which read like a sentence fragment rather than a
+ * title.
+ */
+export function shortDesignTitle(
+  objective?: string,
+  problemStatement?: string,
+  maxLen = 64
+): string {
+  const source = (objective || "").trim() || (problemStatement || "").trim()
+  if (!source) return "Untitled design"
+  let t = source
+    .split("\n")[0]
+    .replace(/\s+/g, " ")
+    .trim()
+    // Drop lead-ins that add no information to a title.
+    .replace(
+      /^(i\s+want\s+to|we\s+want\s+to|i\s+need\s+to|we\s+need\s+to|the\s+(goal|aim|objective)\s+(is|was)\s+to|the\s+(goal|aim|objective)\s+is|goal:|aim:|objective:|to)\s+/i,
+      ""
+    )
+    .replace(/[.;,]+$/, "")
+    .trim()
+  if (t.length > maxLen) {
+    const cut = t.slice(0, maxLen)
+    const lastSpace = cut.lastIndexOf(" ")
+    t = (lastSpace > maxLen * 0.5 ? cut.slice(0, lastSpace) : cut).trim()
+  }
+  return t ? t.charAt(0).toUpperCase() + t.slice(1) : "Untitled design"
+}
+
 export const PHASE_ORDER: PhaseKey[] = [
   "problem",
   "literature",

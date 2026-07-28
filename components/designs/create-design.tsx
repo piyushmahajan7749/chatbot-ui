@@ -14,6 +14,7 @@ import {
   DESIGN_EFFORT_LABELS,
   DESIGN_EFFORT_LEVELS,
   DESIGN_PHASE_OPTIONS,
+  shortDesignTitle,
   type DesignDomain,
   type DesignEffort,
   type DesignPhase
@@ -280,14 +281,11 @@ export const CreateDesign: FC<CreateDesignProps> = ({
     const fromScratch = mode === "from-scratch"
     const trimmedProblem = problem.trim()
     const trimmedObjective = objective.trim()
-    // from-scratch derives the design name from the problem statement (first
-    // line, ~70 chars) so the user only fills problem + objective.
+    // from-scratch derives a SHORT, clear title from the objective (falling
+    // back to the problem statement) so it reads like a title rather than a
+    // truncated sentence. This name is shown above every stage of the flow.
     const trimmedName = fromScratch
-      ? trimmedProblem
-          .split("\n")[0]
-          .replace(/\s+/g, " ")
-          .trim()
-          .slice(0, 70) || "Untitled design"
+      ? shortDesignTitle(trimmedObjective, trimmedProblem)
       : name.trim()
     if (fromScratch ? !trimmedProblem : !trimmedName) return
 

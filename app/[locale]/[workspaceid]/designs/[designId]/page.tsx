@@ -2968,7 +2968,19 @@ Rules:
   // (or backs out).
   if (refineCheckpoint) {
     return (
-      <div className="bg-ink-50 h-full">
+      <div className="bg-ink-50 flex h-full flex-col">
+        {/* The design's working title rides along here too (item 10) - this
+            step replaces the whole page, so without it the researcher loses
+            track of which experiment they're answering questions for. */}
+        <div className="border-ink-200 flex shrink-0 items-baseline gap-2 border-b bg-white px-6 py-3">
+          <span className="text-ink-400 text-[10px] font-bold uppercase tracking-[0.13em]">
+            {refineCheckpoint === "hypothesis" ? "Hypothesis" : "Design"} ·
+            Refine
+          </span>
+          <h2 className="text-ink-900 min-w-0 truncate text-sm font-semibold">
+            {title || design?.name || "Design"}
+          </h2>
+        </div>
         <ClarifyStep
           designId={designId}
           checkpoint={refineCheckpoint}
