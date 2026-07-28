@@ -1097,6 +1097,22 @@ export default function DesignDetailPage() {
     }
   }
 
+  // Switching to "Create your own" CLEARS any suggested hypothesis the
+  // researcher had ticked. Otherwise a stale selection survives into the design
+  // stage and they'd generate a design for a hypothesis they'd moved on from.
+  const handleHypTab = (t: "suggested" | "own") => {
+    if (t === "own" && hypotheses.some(h => h.selected)) {
+      const cleared = hypotheses.map(h => ({ ...h, selected: false }))
+      setHypotheses(cleared)
+      latestContentRef.current = {
+        ...latestContentRef.current,
+        hypotheses: cleared
+      }
+      void persistContent({ hypotheses: cleared })
+    }
+    setHypTab(t)
+  }
+
   // "Create your own" tab: adopt a hypothesis the researcher typed themselves.
   // It becomes the single selected hypothesis; they then generate the design.
   const handleUseOwnHypothesis = (text: string) => {
@@ -3264,7 +3280,7 @@ Rules:
                   onRevise={() => handleRevisePhase("hypotheses")}
                   genError={hypothesesError}
                   subTab={hypTab}
-                  onSubTab={setHypTab}
+                  onSubTab={handleHypTab}
                   onBuildOwn={() => setRefineCheckpoint("hypothesis")}
                   onUseOwnText={handleUseOwnHypothesis}
                 />
@@ -5979,15 +5995,25 @@ function HypothesesTab(props: {
             )}
           </div>
 
-          {hypotheses.length === 0 ? (
-            isGenerating ? (
-              <PhaseProgressView
-                accentClass="border-purple-persona/30 bg-purple-persona-tint"
-                title="Generating hypotheses"
-                subtitle="Five generation agents, then rank, reflect, evolve, and meta-review."
-                events={progress ?? []}
-              />
-            ) : genError ? (
+          {/* While a generation is in flight, show ONLY the progress view -
+              never the previous list. Rendering the old (possibly selected)
+              hypotheses next to a "generating" spinner read as if those cards
+              were the new output, which was genuinely confusing when the
+              researcher asked for their own hypothesis after picking a
+              suggested one. */}
+          {isGenerating ? (
+            <PhaseProgressView
+              accentClass="border-purple-persona/30 bg-purple-persona-tint"
+              title={
+                hypotheses.length > 0
+                  ? "Generating your hypothesis"
+                  : "Generating hypotheses"
+              }
+              subtitle="Five generation agents, then rank, reflect, evolve, and meta-review."
+              events={progress ?? []}
+            />
+          ) : hypotheses.length === 0 ? (
+            genError ? (
               <div className="space-y-3 rounded-xl border border-dashed border-red-300 bg-red-50 p-8 text-center">
                 <p className="text-[13px] font-semibold text-red-700">
                   Hypothesis generation didn&apos;t complete
@@ -6180,6 +6206,7 @@ function OwnHypothesisPanel(props: {
       <div className="border-purple-persona/30 bg-purple-persona-tint/40 rounded-xl border p-4">
         <h4 className="text-ink-800 text-[13px] font-semibold">
           Answer a few setup questions and we draft a hypothesis for you
+          together
         </h4>
         <p className="text-ink-500 mt-1 text-[12px] leading-relaxed">
           A short, senior-bench-scientist set of questions about your system,
