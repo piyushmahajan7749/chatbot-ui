@@ -29,11 +29,113 @@ const GENERATION_CONCURRENCY = 4
 
 interface RankedHypothesis {
   id: string
+  title: string
   text: string
   explanation: string
   rank: number
   feasibility: number
   novelty: number
+}
+
+/**
+ * Content words of a hypothesis, for cross-agent near-duplicate detection.
+ * The parallel agents can still land on the same idea; ranking alone would then
+ * surface it repeatedly ("the same hypothesis in different language").
+ */
+const STOP = new Set([
+  "the",
+  "a",
+  "an",
+  "of",
+  "in",
+  "on",
+  "at",
+  "to",
+  "for",
+  "and",
+  "or",
+  "by",
+  "with",
+  "from",
+  "is",
+  "are",
+  "be",
+  "will",
+  "would",
+  "that",
+  "this",
+  "these",
+  "those",
+  "as",
+  "than",
+  "increase",
+  "increases",
+  "increasing",
+  "increased",
+  "decrease",
+  "decreases",
+  "decreasing",
+  "decreased",
+  "higher",
+  "lower",
+  "reduce",
+  "reduces",
+  "reducing",
+  "reduced",
+  "improve",
+  "improves",
+  "improving",
+  "improved",
+  "effect",
+  "effects"
+])
+
+function contentWords(text: string): Set<string> {
+  return new Set(
+    (text || "")
+      .toLowerCase()
+      .replace(/[^a-z0-9\s.-]/g, " ")
+      .split(/\s+/)
+      .filter(w => w.length > 3 && !STOP.has(w))
+  )
+}
+
+/** Jaccard overlap of content words; >= 0.5 reads as the same claim reworded. */
+function similarity(a: Set<string>, b: Set<string>): number {
+  if (!a.size || !b.size) return 0
+  let shared = 0
+  for (const w of a) if (b.has(w)) shared++
+  return shared / (a.size + b.size - shared)
+}
+
+/**
+ * Greedy diversity-aware pick: walk the ranked pool and keep a hypothesis only
+ * if it isn't a near-duplicate of one already kept. Falls back to filling the
+ * remaining slots from the skipped set so we always return `n` when possible.
+ */
+function pickDiverse(
+  pool: RankedHypothesis[],
+  n: number,
+  threshold = 0.5
+): RankedHypothesis[] {
+  const kept: RankedHypothesis[] = []
+  const keptWords: Set<string>[] = []
+  const skipped: RankedHypothesis[] = []
+  for (const h of pool) {
+    if (kept.length >= n) break
+    const words = contentWords(h.text)
+    if (keptWords.some(k => similarity(words, k) >= threshold)) {
+      skipped.push(h)
+      continue
+    }
+    kept.push(h)
+    keptWords.push(words)
+  }
+  for (const h of skipped) {
+    if (kept.length >= n) break
+    kept.push(h)
+  }
+  return kept
 }
 
 type Progress = (ev: Record<string, unknown>) => void
@@ -86,6 +188,9 @@ export async function runHypothesesPhase(
       priority: 1,
       metadata: {
         plan: planMeta,
+        // Each parallel agent gets a distinct diversity lens + paper anchor
+        // (see GENERATION_LENSES) so the pool isn't N takes on one idea.
+        agentIndex: i,
         ...(litCtx ? { literatureContext: litCtx } : {}),
         selectedPapers: selectedPapers.map((p, idx) => ({
           index: idx + 1,
@@ -116,6 +221,7 @@ export async function runHypothesesPhase(
         for (const item of r.output as any[]) {
           pool.push({
             id: `h-${uuidv4()}`,
+            title: (item.title || "").trim(),
             text: item.hypothesis || "",
             explanation: item.explanation || "",
             rank: 0,
@@ -195,10 +301,13 @@ Reward hypotheses that read as crisp, falsifiable, quantitative predictions tied
   }
 
   pool.sort((a, b) => b.rank - a.rank)
-  const topHypotheses = pool.slice(0, FINAL_TOP_N)
+  // Diversity-aware pick, NOT a plain slice: the parallel agents can still
+  // converge, and slicing the top N then returned the same claim reworded N
+  // times. Near-duplicates are pushed down in favour of the next distinct idea.
+  const topHypotheses = pickDiverse(pool, FINAL_TOP_N)
   onProgress({
     step: "ranked",
-    message: `Top ${FINAL_TOP_N} selected`,
+    message: `Top ${topHypotheses.length} selected`,
     scores: topHypotheses.map(h => h.rank)
   })
 
@@ -292,6 +401,7 @@ Reward hypotheses that read as crisp, falsifiable, quantitative predictions tied
   // ── Assemble Hypothesis[] for the frontend ──────────────────────────────────
   const hypotheses: Hypothesis[] = topHypotheses.map(h => ({
     id: h.id,
+    ...(h.title ? { title: h.title } : {}),
     text: h.text,
     reasoning: h.explanation,
     basedOnPaperIds: [],

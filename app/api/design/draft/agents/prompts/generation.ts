@@ -15,6 +15,23 @@ export interface SelectedPaper {
   sourceUrl?: string
 }
 
+/**
+ * The N parallel generation agents used to receive an IDENTICAL prompt, so each
+ * one independently produced its own "diverse" set - and the sets overlapped
+ * heavily across agents. Ranking then surfaced the same dominant idea N times,
+ * which is what the scientist saw as "the same hypothesis in different
+ * language". Each agent now owns a DIFFERENT lens and is anchored on a
+ * DIFFERENT rotation of the selected papers, so the pool is diverse by
+ * construction rather than by instruction alone.
+ */
+const GENERATION_LENSES = [
+  "the PRIMARY mechanism the selected papers converge on - the most direct, best-supported lever",
+  "a DIFFERENT physical/chemical mechanism than the most obvious one (e.g. if the obvious lever is thermodynamic, take a kinetic, colloidal, or interfacial angle)",
+  "a PROCESS or operating-condition lever (order of addition, rate, hold time, temperature/shear history) rather than a composition change",
+  "an INTERACTION between two factors varied together, where the effect is expected to be non-additive",
+  "a CONTRARIAN or under-explored angle: a gap, an unreplicated finding, or a trade-off the selected papers flag but do not resolve"
+]
+
 export function getGenerationPrompt(
   plan: {
     title: string
@@ -22,10 +39,24 @@ export function getGenerationPrompt(
     constraints?: Record<string, any>
   },
   literatureContext?: LiteratureScoutOutput,
-  selectedPapers?: SelectedPaper[]
+  selectedPapers?: SelectedPaper[],
+  /** Which parallel generation agent this is; picks the lens + paper anchor. */
+  agentIndex = 0
 ): GenerationPromptConfig {
   const hasPapers = selectedPapers && selectedPapers.length > 0
   const hasLitContext = !!literatureContext
+  const lens = GENERATION_LENSES[agentIndex % GENERATION_LENSES.length]
+  // Rotate which papers this agent must lead from so different agents build on
+  // different evidence instead of all anchoring on paper [1].
+  const anchorPapers = hasPapers
+    ? selectedPapers!
+        .filter(
+          (_, i) =>
+            i % GENERATION_LENSES.length ===
+            agentIndex % GENERATION_LENSES.length
+        )
+        .map(p => `[${p.index}]`)
+    : []
 
   const system = `You are a **Hypothesis Generation Agent** specialized in creating testable scientific hypotheses for biopharma research.
 
@@ -40,10 +71,15 @@ DIVERSITY (important — the scientist flagged hypotheses coming back repetitive
 - The 4 hypotheses must be genuinely DISTINCT, not four rewordings of one idea. Each should attack the objective via a DIFFERENT mechanism, lever, or approach family (e.g. a different excipient class, a different stress pathway, a different process parameter) — while all staying inside the user's domain/phase and clarified direction.
 - Span the plausible solution space: pick complementary bets a PI would want to compare on the bench, not near-duplicates. If two candidate hypotheses share the same mechanism and only differ in a number, merge them and use the freed slot for a different mechanism.
 
+YOUR ASSIGNED LENS FOR THIS RUN (you are one of several parallel agents; other agents cover the other lenses, so do NOT drift into theirs):
+→ ${lens}
+Every hypothesis you return must be reachable from that lens. This is what keeps the combined pool genuinely varied.
+
 Output format: Return a JSON object with a "hypotheses" array containing exactly 4 distinct hypotheses:
 {
   "hypotheses": [
     {
+      "title": "string - a SHORT, specific label for this hypothesis: 3-7 words naming the lever and the effect, in plain bench language (e.g. 'Arginine lowers viscosity', 'Slower freeze protects monomer'). NOT a restatement of the full sentence, NOT generic ('Hypothesis 1', 'Stability study'). Two hypotheses must never share a title.",
       "hypothesis": "string - the testable hypothesis statement",
       "explanation": "string - brief explanation of why this hypothesis is scientifically sound",
       "provenance": ["For EACH source, reference the paper by its [N] index and title. Format: '[N] Paper Title - how this paper informed the hypothesis'. Each hypothesis MUST cite at least TWO distinct papers when papers are provided - synthesise across the literature, do not restate a single source. If no papers were provided, describe your scientific reasoning instead."],
@@ -112,10 +148,14 @@ Good Methods & Tools: ${literatureContext!.goodMethodsAndTools}
 Potential Pitfalls: ${literatureContext!.potentialPitfalls}`
   }
 
-  user += `\n\nGenerate 4 distinct testable hypotheses for this research plan. Each should explore a different angle.`
+  user += `\n\nGenerate 4 distinct testable hypotheses for this research plan, ALL reached through your assigned lens: ${lens}.`
 
   if (hasPapers) {
     user += ` Ground each hypothesis in the selected papers - reference them by [N] index in the provenance array.`
+    if (anchorPapers.length) {
+      user += ` LEAD from these papers in particular: ${anchorPapers.join(", ")} (you may still cite the others as support, but these must carry the core of your reasoning).`
+    }
+    user += ` Across your 4 hypotheses, cite as many DIFFERENT papers as you can rather than leaning on the same one repeatedly.`
   }
 
   return {

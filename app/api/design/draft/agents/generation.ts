@@ -9,6 +9,8 @@ import { zodResponseFormat } from "openai/helpers/zod"
 import { z } from "zod"
 
 const SingleHypothesisSchema = z.object({
+  /** Short bench-language label (3-7 words) shown as the card heading. */
+  title: z.string().optional(),
   hypothesis: z.string(),
   explanation: z.string(),
   provenance: z.array(z.string()).optional(),
@@ -58,10 +60,13 @@ export async function generationAdapter(task: AgentTask): Promise<AgentResult> {
       | SelectedPaper[]
       | undefined
 
+    // agentIndex assigns this agent its diversity lens + paper anchor, so the
+    // parallel agents don't all converge on the same dominant idea.
     const promptConfig = getGenerationPrompt(
       plan,
       literatureContext,
-      selectedPapers
+      selectedPapers,
+      Number(task.metadata?.agentIndex ?? 0)
     )
 
     // Call model using structured parsing (same approach as report pipeline).

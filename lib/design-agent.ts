@@ -38,6 +38,13 @@ export interface Paper {
 
 export interface Hypothesis {
   id: string
+  /**
+   * Short bench-language label (3-7 words) naming the lever and the effect,
+   * generated alongside the hypothesis. Falls back to
+   * `autoTitleFromHypothesis(text)` in the UI for rows generated before this
+   * field existed (and for user-supplied hypotheses).
+   */
+  title?: string
   text: string
   reasoning: string
   basedOnPaperIds: string[]

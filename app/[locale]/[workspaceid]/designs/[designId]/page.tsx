@@ -6033,7 +6033,8 @@ function HypothesesTab(props: {
                     list of hypotheses at a glance, then the full text
                     follows in EditableHypothesis. */}
                     <div className="text-purple-persona mb-1 text-[12px] font-bold uppercase tracking-wide">
-                      Hypothesis #{hi + 1}: {autoTitleFromHypothesis(h.text)}
+                      Hypothesis #{hi + 1}:{" "}
+                      {h.title || autoTitleFromHypothesis(h.text)}
                     </div>
                     <EditableHypothesis
                       text={h.text}
@@ -6805,7 +6806,8 @@ function DesignTab(props: {
                         className="border-purple-persona/20 rounded-lg border bg-white p-3"
                       >
                         <div className="text-purple-persona mb-1 text-[11.5px] font-bold uppercase tracking-wide">
-                          Hypothesis #{i + 1}: {autoTitleFromHypothesis(h.text)}
+                          Hypothesis #{i + 1}:{" "}
+                          {h.title || autoTitleFromHypothesis(h.text)}
                         </div>
                         <p className="text-ink-900 text-[13px] leading-relaxed">
                           {h.text}
