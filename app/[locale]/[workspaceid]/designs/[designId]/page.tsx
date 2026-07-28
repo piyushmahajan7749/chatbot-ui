@@ -616,7 +616,16 @@ export default function DesignDetailPage() {
 
   const getPhaseState = (phase: PhaseKey): TabStatus => {
     if (isPhaseApproved(phase)) return "approved"
+    // "iterate" is a UI stage, not a persisted phase, so it isn't in
+    // PHASE_ORDER. indexOf returned -1 and slice(0, -1) then demanded EVERY
+    // earlier phase (including validate) be approved - so skipping the
+    // simulation locked Iterate permanently. The real prerequisite is just a
+    // design to iterate on.
+    if ((phase as string) === "iterate") {
+      return generatedDesigns.length > 0 ? "active" : "locked"
+    }
     const idx = PHASE_ORDER.indexOf(phase)
+    if (idx < 0) return "active"
     if (idx === 0) return problemValid ? "review" : "active"
     const allPrevApproved = PHASE_ORDER.slice(0, idx).every(p =>
       approvedPhases.includes(p)
@@ -3391,10 +3400,13 @@ Rules:
       {showLibrary && (
         <>
           <div
-            className="absolute inset-0 z-30 bg-black/20"
+            className="animate-in fade-in absolute inset-0 z-30 bg-black/20 duration-200"
             onClick={() => setShowLibrary(false)}
           />
-          <div className="absolute right-0 top-0 z-40 h-full shadow-2xl">
+          {/* Slides in rather than popping: approving the design opens this
+              panel on its own, and an instant full-height column appearing next
+              to the design read as a glitch. */}
+          <div className="animate-in slide-in-from-right absolute right-0 top-0 z-40 h-full shadow-2xl duration-300 ease-out">
             <DesignLibrarySidebar
               ctx={{
                 designId,
@@ -5166,6 +5178,9 @@ type LibraryArtifact = {
   needsDesign?: boolean
 }
 
+// Order follows how a scientist actually uses the outputs: understand it
+// (Overview), run it (SOP → Material List → Bench Execution), then cite and
+// write it up (Citations → Design Report).
 const LIBRARY_ARTIFACTS: LibraryArtifact[] = [
   {
     key: "overview",
@@ -5175,11 +5190,20 @@ const LIBRARY_ARTIFACTS: LibraryArtifact[] = [
     action: "overview"
   },
   {
-    key: "design-report",
-    label: "Design Report",
-    desc: "Data-driven write-up",
-    icon: <IconFileText size={16} />,
-    action: "report"
+    key: "sop",
+    label: "SOP",
+    desc: "Full protocol PDF",
+    icon: <IconClipboardText size={16} />,
+    action: "sop",
+    needsDesign: true
+  },
+  {
+    key: "material-list",
+    label: "Material List",
+    desc: "Reagents & equipment",
+    icon: <IconListDetails size={16} />,
+    action: "materials",
+    needsDesign: true
   },
   {
     key: "bench-execution",
@@ -5197,20 +5221,11 @@ const LIBRARY_ARTIFACTS: LibraryArtifact[] = [
     action: "citations"
   },
   {
-    key: "sop",
-    label: "SOP",
-    desc: "Full protocol PDF",
-    icon: <IconClipboardText size={16} />,
-    action: "sop",
-    needsDesign: true
-  },
-  {
-    key: "material-list",
-    label: "Material List",
-    desc: "Reagents & equipment",
-    icon: <IconListDetails size={16} />,
-    action: "materials",
-    needsDesign: true
+    key: "design-report",
+    label: "Design Report",
+    desc: "Data-driven write-up",
+    icon: <IconFileText size={16} />,
+    action: "report"
   }
 ]
 
