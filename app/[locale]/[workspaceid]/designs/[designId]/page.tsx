@@ -5610,7 +5610,13 @@ function LiteratureTab(props: {
             paper: p,
             score: p.relevanceScore ?? 1 - i / Math.max(papers.length, 1),
             year: Number(p.year) || 0,
-            cites: p.citationCount ?? 0
+            cites: p.citationCount ?? 0,
+            // Web-arm (Tavily) hits are publisher landing pages: they score
+            // high on relevance (the scraped page repeats the query terms) but
+            // carry no citation count, so they used to crowd the top of the
+            // list even though indexed literature made up ~80% of the pool.
+            // Rank indexed records above web scrapes when relevance is close.
+            indexed: p.source && p.source !== "tavily" ? 1 : 0
           }))
           // relevance → score, then citations, then year.
           // recency   → year, then citations, then score.
@@ -5623,7 +5629,12 @@ function LiteratureTab(props: {
                 if (b.cites !== a.cites) return b.cites - a.cites
                 if (b.score !== a.score) return b.score - a.score
               } else {
-                if (b.score !== a.score) return b.score - a.score
+                // Bucket relevance to 0.05 so near-ties let the indexed-source
+                // and citation signals decide, instead of a 0.01 scrape edge.
+                const ba = Math.round(b.score / 0.05)
+                const aa = Math.round(a.score / 0.05)
+                if (ba !== aa) return ba - aa
+                if (b.indexed !== a.indexed) return b.indexed - a.indexed
                 if (b.cites !== a.cites) return b.cites - a.cites
                 if (b.year !== a.year) return b.year - a.year
               }
@@ -5636,6 +5647,7 @@ function LiteratureTab(props: {
             pubmed: "PubMed",
             arxiv: "arXiv",
             semantic_scholar: "Semantic Scholar",
+            openalex: "OpenAlex",
             scholar: "Google Scholar",
             tavily: "Web",
             user: "Uploaded"

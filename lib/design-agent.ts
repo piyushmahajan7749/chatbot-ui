@@ -10,6 +10,7 @@ export type PaperSource =
   | "pubmed"
   | "arxiv"
   | "semantic_scholar"
+  | "openalex"
   | "scholar"
   | "tavily"
   | "user"
