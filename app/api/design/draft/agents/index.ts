@@ -252,6 +252,12 @@ export type LiteratureScoutProgressEvent =
        * cream.
        */
       totalCandidates?: number
+      /**
+       * Hits seen across every source BEFORE dedup. `totalCandidates` is
+       * post-dedup and equals the surfaced count whenever nothing is
+       * truncated, which made "N examined" read as a copy of "N surfaced".
+       */
+      rawCandidates?: number
     }
   /**
    * Dedup funnel: raw count across all sources (PubMed/arXiv/OpenAlex/
@@ -910,7 +916,12 @@ export async function callLiteratureScoutAgent(
             : `Found ${mergedResults.length} paper${mergedResults.length === 1 ? "" : "s"}`,
         totalPapers: mergedResults.length,
         sourceCounts,
-        totalCandidates
+        totalCandidates,
+        // How many hits we actually looked at across every source BEFORE
+        // dedup. `totalCandidates` (post-dedup) equals the surfaced count
+        // whenever nothing gets truncated, which made the "N examined" figure
+        // read as a duplicate of "N surfaced".
+        rawCandidates: rawCandidateCount
       })
     }
 

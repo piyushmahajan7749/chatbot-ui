@@ -627,6 +627,8 @@ export interface DesignContentV2 {
    */
   literatureStats?: {
     totalCandidates?: number
+    /** Pre-dedup hits across all sources; what "N examined" reports. */
+    rawCandidates?: number
   }
   /**
    * Answers to the "Refine" clarifying questions at each checkpoint. Persisted

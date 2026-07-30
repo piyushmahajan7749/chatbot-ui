@@ -24,6 +24,9 @@ import { cn } from "@/lib/utils"
 interface ClarifyStepProps {
   designId: string
   checkpoint: ClarifyCheckpoint
+  /** The design's short working title, shown so the researcher keeps context
+   *  while this step replaces the whole page. */
+  designTitle?: string
   onComplete: (answers: ClarifyAnswer[]) => void
   onCancel: () => void
 }
@@ -31,6 +34,7 @@ interface ClarifyStepProps {
 export const ClarifyStep: FC<ClarifyStepProps> = ({
   designId,
   checkpoint,
+  designTitle,
   onComplete,
   onCancel
 }) => {
@@ -196,6 +200,11 @@ export const ClarifyStep: FC<ClarifyStepProps> = ({
       <div className="border-ink-200 shrink-0 border-b bg-white px-6 py-5">
         <div className="text-teal-journey flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.13em]">
           <IconSparkles size={13} /> Refine
+          {designTitle ? (
+            <span className="text-ink-400 min-w-0 truncate font-medium normal-case tracking-normal">
+              · {designTitle}
+            </span>
+          ) : null}
         </div>
         <h1 className="text-ink-900 mt-1 text-2xl font-extrabold tracking-tight">
           {title}

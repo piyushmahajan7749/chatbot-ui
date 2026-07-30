@@ -90,6 +90,7 @@ import {
   type ValidationVerdict
 } from "@/lib/design-agent"
 import { buildDesignChatContext } from "@/lib/design/chat-context"
+import { cleanPaperTitle } from "@/lib/design/paper-title"
 import {
   downloadBenchExecutionGuide,
   downloadMaterialList,
@@ -190,6 +191,8 @@ export type LiteratureProgress = PhaseProgress & {
   rawCount?: number
   uniqueCount?: number
   totalCandidates?: number
+  /** Total hits seen across all sources BEFORE dedup - the true "examined". */
+  rawCandidates?: number
 }
 
 async function runPhaseStreaming(
@@ -536,6 +539,18 @@ export default function DesignDetailPage() {
   // stream resets on remount, but the persisted value stays put.
   const [persistedLitTotalCandidates, setPersistedLitTotalCandidates] =
     useState<number | undefined>(undefined)
+  const [persistedLitRawCandidates, setPersistedLitRawCandidates] = useState<
+    number | undefined
+  >(undefined)
+  const literatureRawCandidates = useMemo(() => {
+    for (let i = literatureProgress.length - 1; i >= 0; i--) {
+      const ev = literatureProgress[i]
+      if (ev.step === "papers_found" && typeof ev.rawCandidates === "number") {
+        return ev.rawCandidates
+      }
+    }
+    return persistedLitRawCandidates
+  }, [literatureProgress, persistedLitRawCandidates])
   const literatureTotalCandidates = useMemo(() => {
     for (let i = literatureProgress.length - 1; i >= 0; i--) {
       const ev = literatureProgress[i]
@@ -741,6 +756,7 @@ export default function DesignDetailPage() {
       // Literature header still reads correctly after coming back to the
       // page (the progress-event stream resets on remount).
       setPersistedLitTotalCandidates(content?.literatureStats?.totalCandidates)
+      setPersistedLitRawCandidates(content?.literatureStats?.rawCandidates)
       if (content?.hypotheses) setHypotheses(content.hypotheses)
       if (content?.designs) {
         setGeneratedDesigns(content.designs)
@@ -1009,6 +1025,7 @@ export default function DesignDetailPage() {
       // Persist the "N examined" total alongside the papers so the Literature
       // header still shows it when the user navigates away and comes back.
       let totalFromRun: number | undefined
+      let rawFromRun: number | undefined
       for (let i = runEvents.length - 1; i >= 0; i--) {
         const ev = runEvents[i]
         if (
@@ -1016,13 +1033,18 @@ export default function DesignDetailPage() {
           typeof ev.totalCandidates === "number"
         ) {
           totalFromRun = ev.totalCandidates
+          if (typeof ev.rawCandidates === "number")
+            rawFromRun = ev.rawCandidates
           break
         }
       }
       if (typeof totalFromRun === "number") {
         setPersistedLitTotalCandidates(totalFromRun)
         void persistContent({
-          literatureStats: { totalCandidates: totalFromRun }
+          literatureStats: {
+            totalCandidates: totalFromRun,
+            rawCandidates: rawFromRun
+          }
         })
       }
     } catch (error: any) {
@@ -1843,6 +1865,7 @@ export default function DesignDetailPage() {
       // Persist the "N examined" total alongside the papers so the header
       // still shows it after navigating away and back.
       let totalFromRun: number | undefined
+      let rawFromRun: number | undefined
       for (let i = runEvents.length - 1; i >= 0; i--) {
         const ev = runEvents[i]
         if (
@@ -1850,13 +1873,18 @@ export default function DesignDetailPage() {
           typeof ev.totalCandidates === "number"
         ) {
           totalFromRun = ev.totalCandidates
+          if (typeof ev.rawCandidates === "number")
+            rawFromRun = ev.rawCandidates
           break
         }
       }
       if (typeof totalFromRun === "number") {
         setPersistedLitTotalCandidates(totalFromRun)
         void persistContent({
-          literatureStats: { totalCandidates: totalFromRun }
+          literatureStats: {
+            totalCandidates: totalFromRun,
+            rawCandidates: rawFromRun
+          }
         })
       }
     } catch (error: any) {
@@ -2968,22 +2996,16 @@ Rules:
   // (or backs out).
   if (refineCheckpoint) {
     return (
-      <div className="bg-ink-50 flex h-full flex-col">
-        {/* The design's working title rides along here too (item 10) - this
-            step replaces the whole page, so without it the researcher loses
-            track of which experiment they're answering questions for. */}
-        <div className="border-ink-200 flex shrink-0 items-baseline gap-2 border-b bg-white px-6 py-3">
-          <span className="text-ink-400 text-[10px] font-bold uppercase tracking-[0.13em]">
-            {refineCheckpoint === "hypothesis" ? "Hypothesis" : "Design"} ·
-            Refine
-          </span>
-          <h2 className="text-ink-900 min-w-0 truncate text-sm font-semibold">
-            {title || design?.name || "Design"}
-          </h2>
-        </div>
+      <div className="bg-ink-50 h-full">
+        {/* ClarifyStep owns the FULL height itself (own header + scrolling
+            question list + footer). Wrapping it in an extra header row made it
+            overflow by that row's height, pushing its footer - and the Continue
+            button - below the viewport with no way to scroll to it. The working
+            title (item 10) is passed in and rendered inside its own header. */}
         <ClarifyStep
           designId={designId}
           checkpoint={refineCheckpoint}
+          designTitle={title || design?.name || undefined}
           onComplete={handleClarifyComplete}
           onCancel={handleClarifyCancel}
         />
@@ -3303,6 +3325,7 @@ Rules:
                   isSearching={busy === "literature"}
                   progress={literatureProgress}
                   totalCandidates={literatureTotalCandidates}
+                  rawCandidates={literatureRawCandidates}
                   onRevise={() => handleRevisePhase("literature")}
                   onSavePaper={handleSavePaper}
                   savedPaperIds={savedPaperIds}
@@ -5492,6 +5515,8 @@ function LiteratureTab(props: {
    * we sifted through 95.
    */
   totalCandidates?: number
+  /** Pre-dedup hits across all sources - what "N examined" reports. */
+  rawCandidates?: number
   onRevise: () => void
   /** Save the paper into this design's library (workspace paper library). */
   onSavePaper: (paper: Paper) => void
@@ -5511,6 +5536,7 @@ function LiteratureTab(props: {
     isSearching,
     progress,
     totalCandidates,
+    rawCandidates,
     onRevise,
     onSavePaper,
     savedPaperIds
@@ -5749,11 +5775,11 @@ function LiteratureTab(props: {
           // typically much larger than ranked.length); fall back to
           // ranked.length when the run hasn't reported it (older
           // payloads, user-uploaded-only runs).
-          const searchedTotal =
-            typeof totalCandidates === "number" &&
-            totalCandidates > ranked.length
-              ? totalCandidates
-              : ranked.length
+          const searchedTotal = Math.max(
+            typeof rawCandidates === "number" ? rawCandidates : 0,
+            typeof totalCandidates === "number" ? totalCandidates : 0,
+            ranked.length
+          )
           return (
             <div className="space-y-3">
               <div className="text-ink-3 flex items-center justify-between text-[12px]">
@@ -5796,8 +5822,13 @@ function LiteratureTab(props: {
                       <span className="text-rust font-mono text-[11px] font-semibold">
                         #{idx + 1}
                       </span>
-                      <h4 className="text-ink flex-1 text-[14px] font-semibold leading-snug">
-                        {paper.title}
+                      {/* Cleaned at RENDER time as well as at fetch time:
+                          papers stored before the cleanup shipped still carry
+                          the publisher furniture ("… | Journal | Springer
+                          Nature Link") in Firestore, and would otherwise keep
+                          showing it forever. */}
+                      <h4 className="text-ink flex-1 whitespace-normal break-words text-[14px] font-semibold leading-snug">
+                        {cleanPaperTitle(paper.title)}
                       </h4>
                     </div>
                     {(() => {
