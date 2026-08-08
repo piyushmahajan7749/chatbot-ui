@@ -7583,6 +7583,30 @@ function DesignTab(props: {
           onRevise={onRevise}
         />
 
+        {/* Validate & iterate lives at the TOP so it's visible without
+            scrolling a long design (it used to sit under the protocol, below
+            the fold). One button; inside the modal the researcher picks
+            simulate-the-results or bring-your-own lab data. */}
+        {designs.length > 0 && onValidateIterate && !viewedVersion && (
+          <div className="border-teal-journey/30 bg-teal-journey/5 flex flex-wrap items-center justify-between gap-3 rounded-xl border px-4 py-3">
+            <p className="text-ink-600 min-w-0 text-[12.5px]">
+              <span className="text-ink-800 font-semibold">
+                Stress-test this design
+              </span>{" "}
+              — simulate the outcome, or check it against your own lab data.
+            </p>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={onValidateIterate}
+              disabled={isBusy}
+              className="border-teal-journey/40 text-teal-journey hover:bg-teal-journey/10 shrink-0 gap-1.5"
+            >
+              <IconChartHistogram size={15} /> Validate &amp; iterate
+            </Button>
+          </div>
+        )}
+
         {designs.length === 0 ? (
           isGenerating ? (
             <>
@@ -7794,30 +7818,6 @@ function DesignTab(props: {
           isBusy={isBusy}
           isApproved={isApproved}
         />
-        {/* Validate & iterate happens HERE now (the old Validate/Iterate tabs
-            are gone): one button, and inside the modal the researcher picks
-            simulate-the-results or bring-your-own lab data. */}
-        {designs.length > 0 && onValidateIterate && (
-          <div className="border-ink-100 mt-3 flex flex-col gap-2 border-t pt-3 sm:flex-row sm:items-center sm:justify-between">
-            <p className="text-ink-500 text-[12.5px]">
-              Want to stress-test it?{" "}
-              <span className="text-ink-700 font-medium">
-                Validate &amp; iterate
-              </span>{" "}
-              — simulate the outcome, or check it against your own lab data.
-              Applied changes become a new design version.
-            </p>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={onValidateIterate}
-              disabled={isBusy}
-              className="gap-1.5"
-            >
-              <IconChartHistogram size={15} /> Validate &amp; iterate
-            </Button>
-          </div>
-        )}
       </div>
     </div>
   )
