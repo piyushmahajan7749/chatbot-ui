@@ -215,6 +215,7 @@ export async function runLiteraturePhase(
     "no abstract",
     "unknown",
     "untitled",
+    "untitled research result",
     "citation from literature search",
     ""
   ])

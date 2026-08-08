@@ -301,7 +301,12 @@ function toSearchResult(doc: PaperFinderDocument): SearchResult | null {
     getFirstString(candidates, "markdown", "content", "text")
   )
 
-  if (!title && !markdownTitle && !url && !abstract) {
+  // A URL alone is not enough to render a paper. Some S2 records come back as
+  // empty shells - a corpus_id plus an api.semanticscholar.org link, with no
+  // title, abstract, tldr, snippets or venue (27 of 75 in a measured run).
+  // Keeping them produced "Untitled Research Result" rows that padded the list
+  // and the examined count with nothing the scientist can read or open.
+  if (!title && !markdownTitle && !abstract) {
     return null
   }
 
@@ -350,6 +355,8 @@ function extractMarkdownTitle(markdown?: string): string | undefined {
     // Skip section headings that aren't the title.
     if (/^(abstract|introduction|summary|contents?|references?)$/i.test(t))
       continue
+    // Empty S2 shells serialize as a literal "# Title: None".
+    if (/^(none|null|n\/a|undefined)$/i.test(t)) continue
     if (t.length >= 12) return t
   }
   return undefined
