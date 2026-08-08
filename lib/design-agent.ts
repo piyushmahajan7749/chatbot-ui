@@ -68,6 +68,29 @@ export interface SimulationResult {
   metrics: { name: string; value: string }[]
 }
 
+/**
+ * One entry in a design's ASSUMPTION LEDGER: a value the generator needed but
+ * the researcher hadn't supplied, so it committed to a working value and logged
+ * it. Surfaced back as a question so the scientist's judgement - not the
+ * model's default - decides the numbers the protocol depends on.
+ */
+export interface DesignAssumption {
+  id: string
+  parameter: string
+  assumedValue: string
+  whyItMatters: string
+  options: string[]
+  impact: "high" | "medium" | "low"
+  /** Which generated section logged it (setup / materials / protocol / analysis). */
+  section?: string
+  /** Set once the researcher answers: their value, or the assumption accepted. */
+  resolution?: {
+    value: string
+    acceptedAssumption: boolean
+    answeredAt: string
+  }
+}
+
 export interface GeneratedDesign {
   id: string
   hypothesisId: string
@@ -75,6 +98,8 @@ export interface GeneratedDesign {
   sections: DesignSection[]
   simulation?: SimulationResult
   saved: boolean
+  /** Values the generator had to assume; asked back to the researcher. */
+  assumptions?: DesignAssumption[]
 }
 
 export const DESIGN_DOMAIN_OPTIONS = [

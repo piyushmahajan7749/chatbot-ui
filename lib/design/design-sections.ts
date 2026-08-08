@@ -18,6 +18,7 @@ import {
   getDesignDeployment
 } from "@/lib/azure-openai"
 import type {
+  DesignAssumption,
   DesignContentV2,
   GeneratedDesign,
   Hypothesis,
@@ -25,6 +26,31 @@ import type {
 } from "@/lib/design-agent"
 
 // ── Schemas (one per section) ──────────────────────────────────────────────
+
+/**
+ * An ASSUMPTION LEDGER entry. Wherever a section needs a number or a choice the
+ * researcher hasn't supplied, the model must record what it assumed instead of
+ * quietly baking a guess into the protocol. These are surfaced back to the
+ * scientist as questions, so the final design rests on their judgement rather
+ * than the model's defaults.
+ */
+const assumptionSchema = z.object({
+  /** The parameter assumed, in bench language (e.g. "mAb stock concentration"). */
+  parameter: z.string(),
+  /** The value actually used in this draft (with units). */
+  assumedValue: z.string(),
+  /** What in the protocol changes if this is wrong (volumes, counts, feasibility). */
+  whyItMatters: z.string(),
+  /** 2-6 concrete alternatives for the researcher to pick from, with units. */
+  options: z.array(z.string()).min(2).max(6),
+  /** high = the design is unusable if wrong; low = a sensible default. */
+  impact: z.enum(["high", "medium", "low"])
+})
+
+const assumptionsField = {
+  assumptions: z.array(assumptionSchema).max(6)
+}
+
 const experimentSetupSchema = z.object({
   // Short, complete headline for the design. Previously the title was
   // `hypothesis.slice(0, 80)`, which cut mid-sentence and rendered as a
@@ -36,25 +62,29 @@ const experimentSetupSchema = z.object({
   experimentalGroups: z.string(),
   sampleTypes: z.string(),
   replicatesAndConditions: z.string(),
-  specificRequirements: z.string()
+  specificRequirements: z.string(),
+  ...assumptionsField
 })
 const materialsSchema = z.object({
   toolsNeeded: z.string(),
   materialsList: z.string(),
   materialPreparation: z.string(),
   setupInstructions: z.string(),
-  storageDisposal: z.string()
+  storageDisposal: z.string(),
+  ...assumptionsField
 })
 const protocolSchema = z.object({
   stepByStepProcedure: z.string(),
   timeline: z.string(),
-  conditionsTable: z.string()
+  conditionsTable: z.string(),
+  ...assumptionsField
 })
 const analysisSchema = z.object({
   dataCollectionPlan: z.string(),
   statisticalAnalysis: z.string(),
   safetyNotes: z.string(),
-  rationale: z.string()
+  rationale: z.string(),
+  ...assumptionsField
 })
 
 export type SetupSection = z.infer<typeof experimentSetupSchema>
@@ -138,12 +168,20 @@ export function buildDesignBlocks(
 
   const formatDirective = `\n\nOUTPUT FORMATTING (strict - optimise for at-a-glance readability, not walls of text):\n- Write every procedure / list as DISTINCT point-wise lines. NEVER pack multiple actions into one run-on sentence. If a step has branches, split them into their own numbered sub-lines (4a, 4b, 4c …), one action per line.\n- Use Markdown TABLES wherever data is tabular - the conditions matrix, material quantities, and especially CALCULATIONS. A reader should follow the logic by scanning columns, not parsing prose.\n- Conditions table: well-formed Markdown table, header row, one row per arm, all numbers with units, explicit baseline + control rows.\n- Calculations: present each as a compact table (e.g. \`| Quantity | Value | How it's derived |\`) OR as short labelled lines - one arithmetic step per row, numbers + units, and a brief note on where each number comes from (e.g. moles = 0.020 M × 0.250 L = 5.0e-3 mol - "20 mM target × 250 mL batch"). Never bury a calculation inside a paragraph, and never give a bare result without its derivation. Keep surrounding prose to one short lead-in sentence per block.`
 
+  // The ASSUMPTION LEDGER directive. The scientist's judgement - not the
+  // model's defaults - must decide the numbers the protocol depends on. So
+  // wherever a value is missing, the model still drafts with a stated working
+  // value (the design must stay runnable) but is required to LOG it, and we ask
+  // the researcher afterwards.
+  const assumptionDirective = `\n\nASSUMPTION LEDGER (mandatory - this is how the design earns the scientist's trust):\nYou will inevitably need values the researcher has not given you: stock concentration, working concentration, how much material is on hand, incubation time, plate format, instrument settings, and so on. NEVER silently invent one and bury it in the protocol.\n- For EVERY value or choice you had to assume rather than read from the researcher's inputs, add an entry to the "assumptions" array: the parameter, the value you used, why it matters (what changes downstream if it's different), 2-6 concrete alternatives with units, and an impact rating.\n- Rate impact "high" when the protocol is unusable or the calculations are wrong if the assumption is off (e.g. stock concentration, total material available, primary readout); "medium" when it shifts numbers but not feasibility; "low" when it's a routine default any lab would accept.\n- Do NOT log things the researcher DID specify - only genuine gaps.\n- Do NOT stall or write "TBD" into the protocol: still commit to the best working value so the design reads as runnable, and log it. The researcher will confirm or correct it.\n- Keep it to the assumptions that actually matter - at most 6 per section, highest impact first.`
+
   const problemBlock =
     `Research problem: ${[ctx.title, ctx.problemStatement].filter(Boolean).join(" - ")}\nGoal: ${ctx.goal || "Not specified"}\nVariables: ${((ctx as { variables?: string[] }).variables ?? []).join(", ") || "Not specified"}\nConstraints: ${((ctx as { constraints?: string[] }).constraints ?? []).join(", ") || "Not specified"}` +
     directivesBlock +
     conditionsCeilingNote +
     userPlanBlock +
     replicateDirective +
+    assumptionDirective +
     formatDirective
 
   return { problemBlock, hypBlock, litBlock, papersBlock }
@@ -344,10 +382,32 @@ export function assembleDesign(
         ? fallback
         : `${fallback.slice(0, 80).replace(/\s+\S*$/, "")}…`
 
+  // Collect the assumption ledger from all four sections, highest impact
+  // first, so the UI asks about the design-breaking gaps before the cosmetic
+  // ones. De-duplicated by parameter: sections often need the same number
+  // (e.g. stock concentration) and would each log it.
+  const rank = { high: 0, medium: 1, low: 2 } as const
+  const seenParams = new Set<string>()
+  const assumptions: DesignAssumption[] = [
+    ...(setup.assumptions ?? []).map(a => ({ ...a, section: "Setup" })),
+    ...(materials.assumptions ?? []).map(a => ({ ...a, section: "Materials" })),
+    ...(protocol.assumptions ?? []).map(a => ({ ...a, section: "Protocol" })),
+    ...(analysis.assumptions ?? []).map(a => ({ ...a, section: "Analysis" }))
+  ]
+    .sort((a, b) => rank[a.impact] - rank[b.impact])
+    .filter(a => {
+      const key = a.parameter.trim().toLowerCase()
+      if (!key || seenParams.has(key)) return false
+      seenParams.add(key)
+      return true
+    })
+    .map(a => ({ ...a, id: `as-${uuidv4()}` }))
+
   return {
     id: `d-${uuidv4()}`,
     hypothesisId: hyp.id,
     title,
+    ...(assumptions.length ? { assumptions } : {}),
     // Streamlined section set (no repetition): the Conditions Table is the
     // single enumerated source of every arm + n, so the old separate "Control
     // Groups", "Experimental Groups" and "Replicates & Conditions" sections are

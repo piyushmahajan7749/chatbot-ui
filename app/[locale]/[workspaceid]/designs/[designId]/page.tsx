@@ -72,6 +72,7 @@ import {
   DESIGN_DOMAIN_OPTIONS,
   DESIGN_PHASE_OPTIONS,
   PHASE_ORDER,
+  type DesignAssumption,
   type DesignContentV2,
   type DesignDomain,
   type DesignEffort,
@@ -2012,6 +2013,157 @@ export default function DesignDetailPage() {
   }
 
   /**
+   * Resolve the ASSUMPTION LEDGER. Each answer is either the researcher's own
+   * value or an explicit "keep what you assumed". The confirmed values become
+   * an authoritative directive and the design is regenerated, snapshotting the
+   * assumption-based draft as a version so the change is auditable.
+   */
+  const handleResolveAssumptions = async (
+    answers: { id: string; value: string; acceptedAssumption: boolean }[]
+  ) => {
+    if (!ensureCanEdit()) return
+    if (busy) return
+    const design = generatedDesigns[0]
+    const ledger = design?.assumptions ?? []
+    if (!design || ledger.length === 0) return
+
+    const answeredAt = new Date().toISOString()
+    const byId = new Map(answers.map(a => [a.id, a]))
+    const resolved = ledger.map(a => {
+      const ans = byId.get(a.id)
+      return ans
+        ? {
+            ...a,
+            resolution: {
+              value: ans.value,
+              acceptedAssumption: ans.acceptedAssumption,
+              answeredAt
+            }
+          }
+        : a
+    })
+
+    // Only the values the researcher actually CHANGED need to override the
+    // draft; accepted assumptions are already baked in.
+    const corrections = resolved.filter(
+      a => a.resolution && !a.resolution.acceptedAssumption
+    )
+    if (corrections.length === 0) {
+      // Everything accepted - just record the confirmation, no regeneration.
+      const confirmedDesigns = generatedDesigns.map(d =>
+        d.id === design.id ? { ...d, assumptions: resolved } : d
+      )
+      setGeneratedDesigns(confirmedDesigns)
+      latestContentRef.current = {
+        ...latestContentRef.current,
+        designs: confirmedDesigns
+      }
+      void persistContent({ designs: confirmedDesigns })
+      toast({
+        title: "Assumptions confirmed",
+        description: "The design stands as generated."
+      })
+      return
+    }
+
+    const directive = [
+      "[CONFIRMED PARAMETERS from the researcher - these REPLACE the values you assumed. Recompute every dependent volume, count, dilution and total. Do not keep the superseded numbers anywhere in the protocol.]",
+      ...corrections.map(
+        a =>
+          `- ${a.parameter}: ${a.resolution!.value} (you had assumed ${a.assumedValue})`
+      )
+    ].join("\n")
+
+    const MARK = "\n\n<<CONFIRMED PARAMETERS>>\n"
+    const base = additionalDetails.split(MARK)[0].trimEnd()
+    const nextDetails = `${base}${MARK}${directive}`
+    setAdditionalDetails(nextDetails)
+    const nextProblem = { ...currentProblem(), additionalDetails: nextDetails }
+
+    // Snapshot the assumption-based draft before replacing it.
+    let snapshotVersions = designVersions
+    const nextVersionNumber = (designVersions[0]?.versionNumber ?? 0) + 1 || 1
+    const snapshot: DesignVersionSnapshot = {
+      id:
+        typeof crypto !== "undefined" && "randomUUID" in crypto
+          ? crypto.randomUUID()
+          : `v-${Date.now()}`,
+      versionNumber: nextVersionNumber,
+      designs: generatedDesigns.map(d =>
+        d.id === design.id ? { ...d, assumptions: resolved } : d
+      ),
+      createdAt: answeredAt,
+      origin: designOrigin
+    }
+    snapshotVersions = [snapshot, ...designVersions]
+    setDesignVersions(snapshotVersions)
+
+    setActiveTab("design")
+    setBusy("design")
+    setDesignProgress([])
+    try {
+      const content = await runPhaseBackground(
+        designId,
+        {
+          phase: "design",
+          problem: nextProblem,
+          hypotheses,
+          approvedPhases
+        },
+        ev => setDesignProgress(prev => [...prev, ev])
+      )
+      // Carry the resolutions forward so the panel shows them as settled
+      // rather than re-asking about parameters the researcher just answered.
+      const carried = (content.designs ?? []).map((d, i) =>
+        i === 0
+          ? {
+              ...d,
+              assumptions: [
+                ...resolved,
+                ...(d.assumptions ?? []).filter(
+                  na =>
+                    !resolved.some(
+                      r =>
+                        r.parameter.trim().toLowerCase() ===
+                        na.parameter.trim().toLowerCase()
+                    )
+                )
+              ]
+            }
+          : d
+      )
+      setGeneratedDesigns(carried)
+      setViewingVersionId(null)
+      setActiveDesignId(carried[0]?.id ?? null)
+      latestContentRef.current = {
+        ...content,
+        designs: carried,
+        designVersions: snapshotVersions,
+        problem: nextProblem
+      }
+      await persistContent({
+        designs: carried,
+        designVersions: snapshotVersions,
+        problem: nextProblem
+      })
+      toast({
+        title: `Design rebuilt on your values`,
+        description: `${corrections.length} assumption${corrections.length === 1 ? "" : "s"} replaced. Prior draft saved to history.`
+      })
+    } catch (e: any) {
+      if (e?.message !== "__paywall__") {
+        toast({
+          title: "Couldn't rebuild the design",
+          description: e?.message ?? "Try again.",
+          variant: "destructive"
+        })
+      }
+    } finally {
+      setBusy(null)
+    }
+  }
+
+  /**
    * BROWSE a version (item 11). Clicking a version used to snapshot the current
    * design as a NEW version and delete the clicked one from history, so every
    * click inflated the numbering (v1/v2 → v3/v4 → …) and you could never get
@@ -3415,6 +3567,7 @@ Rules:
                   onRestoreVersion={handleRestoreDesignVersion}
                   viewingVersionId={viewingVersionId}
                   onViewVersion={handleViewDesignVersion}
+                  onResolveAssumptions={handleResolveAssumptions}
                   onEditSection={handleEditSection}
                 />
               </>
@@ -6386,6 +6539,172 @@ function OwnHypothesisPanel(props: {
 }
 
 /**
+ * ASSUMPTION LEDGER panel. The design generator logs every value it had to
+ * assume; this asks the scientist to confirm or correct each one so the final
+ * protocol rests on their judgement, not the model's defaults. Highest-impact
+ * assumptions first - those are the ones that break the calculations.
+ */
+function AssumptionsPanel(props: {
+  assumptions: DesignAssumption[]
+  canEdit: boolean
+  isBusy: boolean
+  onResolve: (
+    answers: { id: string; value: string; acceptedAssumption: boolean }[]
+  ) => void
+}) {
+  const { assumptions, canEdit, isBusy, onResolve } = props
+  const open = assumptions.filter(a => !a.resolution)
+  const [picked, setPicked] = useState<Record<string, string>>({})
+  const [typed, setTyped] = useState<Record<string, string>>({})
+  const [collapsed, setCollapsed] = useState(false)
+
+  if (open.length === 0) return null
+
+  const valueFor = (a: DesignAssumption) =>
+    (typed[a.id] ?? "").trim() || picked[a.id] || ""
+  const answeredCount = open.filter(a => valueFor(a)).length
+
+  const submit = (acceptAll: boolean) => {
+    onResolve(
+      open.map(a => {
+        const v = valueFor(a)
+        return acceptAll || !v
+          ? { id: a.id, value: a.assumedValue, acceptedAssumption: true }
+          : {
+              id: a.id,
+              value: v,
+              acceptedAssumption: v === a.assumedValue
+            }
+      })
+    )
+  }
+
+  const tone = (impact: string) =>
+    impact === "high"
+      ? "border-rust/40 bg-rust/5"
+      : impact === "medium"
+        ? "border-line bg-paper-2"
+        : "border-line bg-surface"
+
+  return (
+    <div className="border-rust/40 bg-rust/5 space-y-3 rounded-xl border p-4">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0">
+          <h4 className="text-ink flex items-center gap-1.5 text-[13px] font-bold">
+            <IconAlertTriangle size={15} className="text-rust" />
+            {open.length} value{open.length === 1 ? "" : "s"} we had to assume
+          </h4>
+          <p className="text-ink-2 mt-1 max-w-2xl text-[12px] leading-relaxed">
+            The design is runnable as drafted, but these numbers came from us,
+            not from you. Confirm or correct them and we&apos;ll rebuild the
+            protocol on your values - recomputing every dependent volume, count
+            and total.
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={() => setCollapsed(c => !c)}
+          className="text-ink-3 hover:text-ink shrink-0 text-[11px] font-semibold uppercase tracking-wide"
+        >
+          {collapsed ? "Show" : "Hide"}
+        </button>
+      </div>
+
+      {!collapsed && (
+        <>
+          <div className="space-y-2.5">
+            {open.map(a => (
+              <div
+                key={a.id}
+                className={cn(
+                  "space-y-2 rounded-lg border p-3",
+                  tone(a.impact)
+                )}
+              >
+                <div className="flex flex-wrap items-baseline gap-2">
+                  <span className="text-ink text-[12.5px] font-semibold">
+                    {a.parameter}
+                  </span>
+                  {a.impact === "high" && (
+                    <span className="text-rust border-rust/40 rounded-full border px-1.5 py-0.5 text-[10px] font-bold uppercase">
+                      changes the calcs
+                    </span>
+                  )}
+                  {a.section && (
+                    <span className="text-ink-3 text-[10.5px]">
+                      {a.section}
+                    </span>
+                  )}
+                </div>
+                <p className="text-ink-2 text-[12px] leading-relaxed">
+                  We assumed <b className="text-ink">{a.assumedValue}</b>.{" "}
+                  {a.whyItMatters}
+                </p>
+                <div className="flex flex-wrap gap-1.5">
+                  {a.options.map(opt => (
+                    <button
+                      key={opt}
+                      type="button"
+                      disabled={!canEdit || isBusy}
+                      onClick={() => {
+                        setPicked(p => ({ ...p, [a.id]: opt }))
+                        setTyped(t => ({ ...t, [a.id]: "" }))
+                      }}
+                      className={cn(
+                        "rounded-full border px-2.5 py-1 text-[11.5px] transition-colors",
+                        picked[a.id] === opt && !(typed[a.id] ?? "").trim()
+                          ? "border-ink bg-ink text-white"
+                          : "border-line text-ink-2 hover:border-line-strong bg-surface"
+                      )}
+                    >
+                      {opt}
+                    </button>
+                  ))}
+                </div>
+                <Input
+                  value={typed[a.id] ?? ""}
+                  onChange={e =>
+                    setTyped(t => ({ ...t, [a.id]: e.target.value }))
+                  }
+                  disabled={!canEdit || isBusy}
+                  placeholder={`Or type the exact value (e.g. ${a.assumedValue})`}
+                  className="h-8 text-[12px]"
+                />
+              </div>
+            ))}
+          </div>
+
+          <div className="border-line/60 flex flex-wrap items-center justify-between gap-2 border-t pt-3">
+            <span className="text-ink-3 text-[11.5px]">
+              {answeredCount} of {open.length} answered
+            </span>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="ghost"
+                size="sm"
+                disabled={!canEdit || isBusy}
+                onClick={() => submit(true)}
+                className="text-ink-2"
+              >
+                Keep all assumptions
+              </Button>
+              <Button
+                size="sm"
+                disabled={!canEdit || isBusy || answeredCount === 0}
+                onClick={() => submit(false)}
+                className="bg-rust hover:bg-rust/90 text-white"
+              >
+                Apply my values &amp; rebuild
+              </Button>
+            </div>
+          </div>
+        </>
+      )}
+    </div>
+  )
+}
+
+/**
  * Inline editor for a single hypothesis text (#2). Click-to-edit; Save
  * persists via the parent `onSave`. Disabled when the phase is already
  * approved (text becomes plain read-only).
@@ -6804,6 +7123,10 @@ function DesignTab(props: {
   /** Provenance of the live design — labels the newest rail entry. */
   currentOrigin?: "original" | "simulation" | "lab-data" | "manual"
   onRestoreVersion?: (versionId: string) => void
+  /** Resolve the assumption ledger (confirm or correct assumed values). */
+  onResolveAssumptions?: (
+    answers: { id: string; value: string; acceptedAssumption: boolean }[]
+  ) => void
   /** Version currently being READ (null = the live design). */
   viewingVersionId?: string | null
   /** Move the read pointer. Browsing never mutates or renumbers history. */
@@ -6831,6 +7154,7 @@ function DesignTab(props: {
     designVersions = [],
     currentOrigin = "original",
     onRestoreVersion,
+    onResolveAssumptions,
     viewingVersionId = null,
     onViewVersion,
     onEditSection
@@ -6979,6 +7303,18 @@ function DesignTab(props: {
             </div>
           </div>
         )}
+        {/* Assumption ledger - only for the LIVE design (a historical version
+            is read-only, and its assumptions were already settled). */}
+        {!viewedVersion &&
+          onResolveAssumptions &&
+          (activeDesign?.assumptions?.length ?? 0) > 0 && (
+            <AssumptionsPanel
+              assumptions={activeDesign!.assumptions!}
+              canEdit={canEdit}
+              isBusy={isBusy}
+              onResolve={onResolveAssumptions}
+            />
+          )}
         <PhaseBanner
           isApproved={isApproved}
           phaseName="Experiment Design"
