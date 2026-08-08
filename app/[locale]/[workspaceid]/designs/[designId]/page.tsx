@@ -4706,9 +4706,18 @@ function ValidateTab(props: {
                     ? "Predicted to hit target"
                     : "Predicted to fall short"}
                 </span>
-                <span className="text-ink-400 font-mono text-[11px] tabular-nums">
-                  {Math.round(validation.simulation.confidence * 100)}%
-                  confidence
+                {/* This is confidence in the VERDICT, not the hit rate - "100%
+                    confident it falls short" is a coherent thing to say, but
+                    the bare "100% confidence" next to "Predicted to fall
+                    short" read as a contradiction. */}
+                <span
+                  className="text-ink-400 text-[11px]"
+                  title="How sure the simulation is about this verdict - not how often the design hit your target."
+                >
+                  <span className="font-mono tabular-nums">
+                    {Math.round(validation.simulation.confidence * 100)}%
+                  </span>{" "}
+                  sure of this verdict
                 </span>
               </div>
 

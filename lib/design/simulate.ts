@@ -260,6 +260,9 @@ WRITE FOR A BENCH SCIENTIST IN LIFE SCIENCES, NOT A STATISTICIAN. Keep it scient
 
 Judge whether the CURRENT design reliably hits the target (it's reliable when it hits the target in ≥ ${Math.round(MEET_THRESHOLD * 100)}% of simulated runs). Then:
 - predictedResults: 1-3 plain sentences — what the design would likely give, how often it reaches the target, and the typical value with its spread. No jargon, no model names.
+
+USE ONLY THE NUMBERS GIVEN BELOW, AND DO NOT CONTRADICT THEM. Every figure you quote (how often the target was hit, the typical result, the spread) must match the values supplied for THIS run exactly. Never quote a hit-rate or a typical value from a different, better-performing set of parameters, and never describe the design as succeeding when the supplied hit-rate is below ${Math.round(MEET_THRESHOLD * 100)}%. If the supplied hit-rate is low, say so plainly — the researcher is relying on you to tell them it falls short.
+- confidence: how sure you are of THIS VERDICT (0-1), not how often the design hit the target. Being highly confident that a design falls short is normal and correct — do not inflate or deflate it to agree with the hit-rate.
 - GOTCHAS: practical problems to fix before the bench, each with a severity and a concrete fix, in bench language — e.g. too few replicates for how noisy the readout is; readout too close to the detection limit; working concentration outside the range where the effect shows; missing control/blank; two factors that can't be told apart; the effect is smaller than the run-to-run scatter.
 - CHANGES: prioritized, concrete design changes (plain text) that would make the design hit the target more often. Spend effort on the factors that move the result most, but describe them as actions ("raise the excipient to 40 mM"), not as a sensitivity ranking.
 - paramEdits: the NUMERIC edits to the named parameters (name + newValue, within/only slightly beyond the stated range) that should improve the next simulated round. [] if the design already meets the target.
@@ -487,6 +490,13 @@ export async function simulateDesign(args: SimulateDesignArgs): Promise<{
   })
   if (firstInterp.completion) completions.push(firstInterp.completion)
 
+  // `interp` is REASSIGNED by the improve loop below, so after the loop it
+  // describes the OPTIMIZED parameters - not the design as written. The
+  // headline (predictedResults / confidence / gapAnalysis / gotchas) must come
+  // from the SAME round as the reported numbers, which are firstNums. Mixing
+  // them produced "Predicted to fall short · 100% confidence · hit 26%" with
+  // prose claiming a 47.8% typical result. Keep the round-1 read pinned.
+  const baseInterp: Interpretation | null = firstInterp.interp
   let interp: Interpretation | null = firstInterp.interp
   const baseMeetsTarget = firstNums.meetRate >= MEET_THRESHOLD
 
@@ -549,7 +559,7 @@ export async function simulateDesign(args: SimulateDesignArgs): Promise<{
     else break
   }
 
-  const gotchas: SimGotcha[] = (interp?.gotchas ?? []).map(g => ({
+  const gotchas: SimGotcha[] = (baseInterp?.gotchas ?? []).map(g => ({
     issue: g.issue,
     severity: g.severity,
     fix: g.fix
@@ -558,19 +568,32 @@ export async function simulateDesign(args: SimulateDesignArgs): Promise<{
   const improved =
     rounds.length > 1 && bestRound.meetRate > rounds[0].meetRate + 0.001
 
+  // Always describes the design AS WRITTEN (round 1), matching the reported
+  // meetRate + distribution.
   const predicted =
-    interp?.predictedResults ||
+    baseInterp?.predictedResults ||
     `Across ${plan.nTrials.toLocaleString()} simulated experiments, ${Math.round(firstNums.meetRate * 100)}% reached your target (${plan.targetMetric} ${plan.targetDirection} ${plan.targetThreshold} ${plan.unit}).`
+
+  // The concrete recipe that moved the needle in the loop, plus any further
+  // suggestions from the latest interpretation. This is where the optimized
+  // round belongs - NOT in the headline.
+  const appliedEdits = rounds.slice(1).flatMap(r => r.changesApplied)
+  const optimized = improved
+    ? [
+        ...appliedEdits.map(e => `Change ${e}`),
+        ...(interp?.optimizedChanges ?? [])
+      ]
+    : (baseInterp?.optimizedChanges ?? [])
 
   const result: PreLabSimulation = {
     predictedResults: predicted,
     meetsTarget: baseMeetsTarget,
     confidence:
-      typeof interp?.confidence === "number"
-        ? interp.confidence
+      typeof baseInterp?.confidence === "number"
+        ? Math.min(1, Math.max(0, baseInterp.confidence))
         : firstNums.meetRate,
-    gapAnalysis: baseMeetsTarget ? "" : interp?.gapAnalysis || "",
-    optimizedChanges: interp?.optimizedChanges ?? [],
+    gapAnalysis: baseMeetsTarget ? "" : baseInterp?.gapAnalysis || "",
+    optimizedChanges: optimized,
     iterationsReasoned: rounds.length,
     createdAt: new Date().toISOString(),
     executed: true,
