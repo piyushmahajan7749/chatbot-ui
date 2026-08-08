@@ -683,7 +683,36 @@ export async function searchTavilyEnhanced(
         api_key: process.env.TAVILY_API_KEY,
         query: `${query} research paper academic study`,
         max_results: maxResults,
-        search_depth: "basic"
+        // "advanced" pulls the fuller page body, which is what our title +
+        // abstract extraction reads - "basic" often returns a stub.
+        search_depth: "advanced",
+        // Aim the web arm at the repositories and publishers that actually
+        // host primary literature (ResearchGate, preprint servers, PMC and
+        // the major publishers) instead of the open web, where it was
+        // returning news pages and vendor blurb.
+        include_domains: [
+          "researchgate.net",
+          "ncbi.nlm.nih.gov",
+          "pmc.ncbi.nlm.nih.gov",
+          "europepmc.org",
+          "sciencedirect.com",
+          "springer.com",
+          "link.springer.com",
+          "nature.com",
+          "wiley.com",
+          "onlinelibrary.wiley.com",
+          "tandfonline.com",
+          "pubs.acs.org",
+          "frontiersin.org",
+          "mdpi.com",
+          "biorxiv.org",
+          "medrxiv.org",
+          "arxiv.org",
+          "academic.oup.com",
+          "cell.com",
+          "journals.plos.org",
+          "semanticscholar.org"
+        ]
       })
     })
 

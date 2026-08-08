@@ -290,11 +290,22 @@ function toSearchResult(doc: PaperFinderDocument): SearchResult | null {
       "chunk_content"
     ) || undefined
 
-  if (!title && !url && !abstract) {
+  // PaperFinder returns `title: null` for most non-OpenAlex docs (S2, arXiv,
+  // PubMed and the Tavily web arm) - in one measured run, 56 of 75 documents.
+  // The real title is carried in the `markdown` body as a leading
+  // "# Title: <actual title>" heading. Without this we fell back to the first
+  // 160 chars of the abstract (the "incomplete title" the scientist saw), and
+  // DROPPED the doc entirely when abstract+url were also missing - which is why
+  // the most relevant hits went missing and the examined count came out low.
+  const markdownTitle = extractMarkdownTitle(
+    getFirstString(candidates, "markdown", "content", "text")
+  )
+
+  if (!title && !markdownTitle && !url && !abstract) {
     return null
   }
 
-  let resolvedTitle = title
+  let resolvedTitle = title || markdownTitle
   if (!resolvedTitle && abstract) {
     // Fallback: first sentence of the abstract (up to 160 chars).
     const firstSentence =
@@ -323,6 +334,25 @@ function toSearchResult(doc: PaperFinderDocument): SearchResult | null {
     publicationTypes: publicationTypes?.length ? publicationTypes : undefined,
     isReview
   }
+}
+
+/**
+ * Pull the article title out of a PaperFinder `markdown` body. The bodies start
+ * with either "# Title: <title>" or a plain "# <title>" heading. Returns
+ * undefined when nothing title-shaped is present.
+ */
+function extractMarkdownTitle(markdown?: string): string | undefined {
+  if (!markdown) return undefined
+  for (const line of markdown.split("\n").slice(0, 8)) {
+    const m = line.match(/^#{1,3}\s*(?:title\s*:\s*)?(.+?)\s*$/i)
+    if (!m) continue
+    const t = m[1].trim()
+    // Skip section headings that aren't the title.
+    if (/^(abstract|introduction|summary|contents?|references?)$/i.test(t))
+      continue
+    if (t.length >= 12) return t
+  }
+  return undefined
 }
 
 /**

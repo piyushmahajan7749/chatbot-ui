@@ -1078,11 +1078,19 @@ export default function DesignDetailPage() {
       setActiveTab("hypotheses")
       return
     }
-    // Generate SUGGESTED hypotheses straight from the selected papers - no
-    // questions. They land in the hypothesis stage's "Suggested" tab (pick +
-    // edit); the "Create your own" tab is where the setup questions get asked.
-    track("hypothesis_generation_started", { papers: selectedPapers.length })
+    // Land on the hypothesis stage WITHOUT generating anything. The researcher
+    // picks the route first - have us suggest hypotheses from the papers, or
+    // build their own - otherwise generation starts on its own and the
+    // "Create your own" tab is dead until it finishes.
     setActiveTab("hypotheses")
+    setHypTab("suggested")
+  }
+
+  /** Explicit "suggest hypotheses from my papers" action (item 1). */
+  const handleGenerateSuggestedHypotheses = () => {
+    if (!ensureCanEdit()) return
+    if (busy) return
+    track("hypothesis_generation_started", { papers: selectedPapers.length })
     setHypTab("suggested")
     void runHypothesisGeneration()
   }
@@ -1198,10 +1206,17 @@ export default function DesignDetailPage() {
       setActiveTab("design")
       return
     }
-    // Open the Refine clarifying-question step; it runs design on complete.
     track("design_generation_started", {
       hypotheses: selectedHypotheses.length
     })
+    // A hypothesis WE suggested already encodes the direction, so go straight
+    // to generation. Only a researcher-authored hypothesis opens the design
+    // questions, because that's the path where we don't yet know their setup.
+    const anyUserSupplied = selectedHypotheses.some(h => h.userSupplied)
+    if (!anyUserSupplied) {
+      void runDesignGeneration()
+      return
+    }
     setRefineCheckpoint("design")
   }
 
@@ -3356,6 +3371,7 @@ Rules:
                   genError={hypothesesError}
                   subTab={hypTab}
                   onSubTab={handleHypTab}
+                  onGenerateSuggested={handleGenerateSuggestedHypotheses}
                   onBuildOwn={() => setRefineCheckpoint("hypothesis")}
                   onUseOwnText={handleUseOwnHypothesis}
                 />
@@ -5988,6 +6004,8 @@ function HypothesesTab(props: {
   /** Hypothesis stage sub-tab (Suggested vs Create your own) + controls. */
   subTab: "suggested" | "own"
   onSubTab: (t: "suggested" | "own") => void
+  /** Explicitly ask us to suggest hypotheses from the selected papers. */
+  onGenerateSuggested: () => void
   /** Open the setup-questions flow to draft the researcher's own hypothesis. */
   onBuildOwn: () => void
   /** Adopt a hypothesis the researcher typed in the "own" tab. */
@@ -6010,6 +6028,7 @@ function HypothesesTab(props: {
     genError,
     subTab,
     onSubTab,
+    onGenerateSuggested,
     onBuildOwn,
     onUseOwnText
   } = props
@@ -6132,10 +6151,23 @@ function HypothesesTab(props: {
                 </Button>
               </div>
             ) : (
-              <div className="border-purple-persona/30 bg-purple-persona-tint text-ink-500 rounded-xl border border-dashed p-8 text-center text-xs">
-                {isBusy
-                  ? "Generating hypotheses..."
-                  : "No hypotheses yet. Approve Literature to generate hypotheses."}
+              <div className="border-purple-persona/30 bg-purple-persona-tint space-y-3 rounded-xl border border-dashed p-8 text-center">
+                <p className="text-ink-800 text-[13px] font-semibold">
+                  Build hypotheses from the papers you selected
+                </p>
+                <p className="text-ink-500 mx-auto max-w-md text-[12px] leading-relaxed">
+                  We&apos;ll propose a set of distinct, testable hypotheses
+                  drawn across your selected papers. Prefer to start from your
+                  own idea? Switch to <b>Create your own</b> above.
+                </p>
+                <Button
+                  onClick={onGenerateSuggested}
+                  disabled={isBusy || !canEdit}
+                  className="bg-purple-persona hover:bg-purple-persona/90 text-white"
+                >
+                  <IconSparkles size={14} className="mr-1.5" />
+                  Suggest hypotheses
+                </Button>
               </div>
             )
           ) : (
