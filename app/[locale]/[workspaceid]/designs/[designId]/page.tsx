@@ -3567,6 +3567,7 @@ Rules:
                     viewedVersion ? viewedVersion.designs[0] : activeDesign
                   }
                   onApproveAndContinue={handleApproveDesignAndContinue}
+                  onSaveNow={() => void handleFinalizeDesign()}
                   onValidateIterate={() => {
                     setValidateMode(
                       validation.iterations.length > 0 ? "iterate" : "simulate"
@@ -5590,7 +5591,10 @@ function DesignLibrarySidebar({
       const all = await getReportsByWorkspaceId(ctx.workspaceId)
       setReportAssets(
         (all ?? [])
-          .filter((r: any) => r.source_design_id === design.id)
+          // Only reports the researcher actually SAVED count as assets. The
+          // generate flow creates a row per attempt (draft state), which made
+          // one report show up 4 times.
+          .filter((r: any) => r.source_design_id === design.id && r.is_saved)
           .sort((a: any, b: any) =>
             String(b.created_at ?? "").localeCompare(String(a.created_at ?? ""))
           )
@@ -5603,45 +5607,6 @@ function DesignLibrarySidebar({
   useEffect(() => {
     void refreshAssets()
   }, [refreshAssets])
-
-  const handleDeleteAsset = async (id: string, name: string) => {
-    if (
-      !window.confirm(
-        `Delete "${name}"? This removes the report permanently and can't be undone.`
-      )
-    )
-      return
-    setDeletingAssetId(id)
-    try {
-      await deleteReport(id)
-      setReportAssets(prev => prev.filter(r => r.id !== id))
-      toast.success("Report deleted")
-    } catch (e: any) {
-      toast.error(`Couldn't delete: ${e?.message ?? "unknown error"}`)
-    } finally {
-      setDeletingAssetId(null)
-    }
-  }
-
-  const handleDownloadAsset = async (report: any) => {
-    try {
-      if (!report?.report_draft) {
-        toast.error(
-          "This report has no draft yet - open it and generate first."
-        )
-        return
-      }
-      const template = getTemplate(report?.template_id ?? DEFAULT_TEMPLATE_ID)
-      await exportReportToPDF({
-        title: report?.name || "Report",
-        draft: report.report_draft,
-        sections: template.sections,
-        chartImage: report?.chart_image ?? null
-      })
-    } catch (e: any) {
-      toast.error(`Couldn't download: ${e?.message ?? "unknown error"}`)
-    }
-  }
 
   // Which iteration to generate assets from. Defaults to the latest design.
   const [selectedIterId, setSelectedIterId] = useState("current")
@@ -5798,33 +5763,11 @@ function DesignLibrarySidebar({
                     {r.name || "Untitled report"}
                   </span>
                   <span className="text-ink-400 block text-[10.5px]">
-                    {r.is_saved ? "Saved" : "Draft"}
                     {r.created_at
-                      ? ` · ${new Date(r.created_at).toLocaleDateString()}`
-                      : ""}
+                      ? new Date(r.created_at).toLocaleDateString()
+                      : "Saved"}
                   </span>
                 </button>
-                <div className="flex shrink-0 items-center gap-0.5">
-                  <button
-                    type="button"
-                    onClick={() => void handleDownloadAsset(r)}
-                    title="Download as PDF"
-                    className="text-ink-400 hover:text-ink-800 hover:bg-ink-100 rounded p-1"
-                  >
-                    <IconDownload size={14} />
-                  </button>
-                  <button
-                    type="button"
-                    disabled={deletingAssetId === r.id}
-                    onClick={() =>
-                      void handleDeleteAsset(r.id, r.name || "Untitled report")
-                    }
-                    title="Delete this report"
-                    className="text-ink-400 rounded p-1 hover:bg-red-50 hover:text-red-600 disabled:opacity-50"
-                  >
-                    <IconTrash size={14} />
-                  </button>
-                </div>
               </li>
             ))}
           </ul>
@@ -7373,6 +7316,8 @@ function DesignTab(props: {
   onApproveAndContinue: () => void
   /** Open the Validate & iterate modal (simulate or bring lab data). */
   onValidateIterate?: () => void
+  /** Finalise/save the design directly (was the bottom "Next" -> gate). */
+  onSaveNow?: () => void
   onRegenerate: () => void
   isApproved: boolean
   canEdit: boolean
@@ -7406,6 +7351,7 @@ function DesignTab(props: {
     activeDesign,
     onApproveAndContinue,
     onValidateIterate,
+    onSaveNow,
     onRegenerate,
     isApproved,
     canEdit,
@@ -7593,17 +7539,30 @@ function DesignTab(props: {
               <span className="text-ink-800 font-semibold">
                 Stress-test this design
               </span>{" "}
-              — simulate the outcome, or check it against your own lab data.
+              — simulate the outcome, or check it against your own lab data — or
+              save it and head to downloads.
             </p>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={onValidateIterate}
-              disabled={isBusy}
-              className="border-teal-journey/40 text-teal-journey hover:bg-teal-journey/10 shrink-0 gap-1.5"
-            >
-              <IconChartHistogram size={15} /> Validate &amp; iterate
-            </Button>
+            <div className="flex shrink-0 items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={onValidateIterate}
+                disabled={isBusy}
+                className="border-teal-journey/40 text-teal-journey hover:bg-teal-journey/10 gap-1.5"
+              >
+                <IconChartHistogram size={15} /> Validate &amp; iterate
+              </Button>
+              {!isApproved && onSaveNow && (
+                <Button
+                  size="sm"
+                  onClick={onSaveNow}
+                  disabled={isBusy}
+                  className="bg-brick hover:bg-brick-hover gap-1.5"
+                >
+                  <IconCheck size={15} /> Save now
+                </Button>
+              )}
+            </div>
           </div>
         )}
 
@@ -7807,17 +7766,22 @@ function DesignTab(props: {
           </>
         )}
 
-        {/* Save + "Approve & Finalize" were replaced by a single Next, which
-          opens the decision page (finalise now vs simulate first). */}
-        <PhaseActionBar
-          onApprove={onApproveAndContinue}
-          approveLabel="Next"
-          approveDisabled={designs.length === 0 || !canEdit}
-          onRegenerate={designs.length > 0 ? onRegenerate : undefined}
-          regenerateLabel="Regenerate Designs"
-          isBusy={isBusy}
-          isApproved={isApproved}
-        />
+        {/* The bottom "Next" moved to the top row as "Save now" - a long
+            protocol buried it below the fold. Only Regenerate stays down here,
+            next to the content it regenerates. */}
+        {!isApproved && designs.length > 0 && (
+          <div className="border-ink-100 mt-6 border-t pt-4">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={onRegenerate}
+              disabled={isBusy}
+              className="gap-1.5"
+            >
+              <IconRefresh size={14} /> Regenerate Designs
+            </Button>
+          </div>
+        )}
       </div>
     </div>
   )

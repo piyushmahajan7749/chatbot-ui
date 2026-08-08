@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useMemo, useRef, useState } from "react"
+import { useContext, useEffect, useMemo, useRef, useState } from "react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { AccentTabs, type TabStatus } from "@/components/canvas/accent-tabs"
@@ -21,7 +21,7 @@ import {
   IconLayoutGrid,
   IconUpload
 } from "@tabler/icons-react"
-import { FileText, Presentation, Save as SaveIcon } from "lucide-react"
+import { FlaskConical, FileText, Save as SaveIcon } from "lucide-react"
 import {
   OverviewTab,
   type ReportTab
@@ -30,7 +30,12 @@ import { InputsTab } from "@/components/reports/tabs/inputs-tab"
 import { ReportTab as ReportTabView } from "@/components/reports/tabs/report-tab"
 import { ReportPreviewModal } from "@/components/reports/report-preview-modal"
 import { ReportGeneratingView } from "@/components/reports/report-generating-view"
-import { exportReportToPDF, exportReportToPPTX } from "@/lib/report/export"
+import { ELNExportModal } from "@/components/eln/eln-export-modal"
+import { ELNConnectModal } from "@/components/eln/eln-connect-modal"
+import { ELNConnection } from "@/types/eln"
+import { getELNConnections } from "@/db/eln-connections"
+import { ChatbotUIContext } from "@/context/context"
+import { exportReportToPDF } from "@/lib/report/export"
 import { getTemplate, DEFAULT_TEMPLATE_ID } from "@/lib/report/templates"
 import { createReportTemplate } from "@/db/report-templates-firestore"
 import {
@@ -121,6 +126,32 @@ export function ReportEditor({
   >([])
 
   const [isGenerating, setIsGenerating] = useState(false)
+  // ELN export restored: Upload to ELN replaces the old PPT download.
+  const { profile } = useContext(ChatbotUIContext)
+  const [elnConnections, setElnConnections] = useState<ELNConnection[]>([])
+  const [showELNExportModal, setShowELNExportModal] = useState(false)
+  const [showELNConnectModal, setShowELNConnectModal] = useState(false)
+  const [loadingConnections, setLoadingConnections] = useState(false)
+
+  useEffect(() => {
+    const load = async () => {
+      if (!profile?.user_id) return
+      setLoadingConnections(true)
+      try {
+        setElnConnections(await getELNConnections(profile.user_id))
+      } catch (error) {
+        console.error("Failed to load ELN connections:", error)
+      } finally {
+        setLoadingConnections(false)
+      }
+    }
+    void load()
+  }, [profile?.user_id])
+
+  const handleELNExport = () => {
+    if (elnConnections.length === 0) setShowELNConnectModal(true)
+    else setShowELNExportModal(true)
+  }
   const [clarifyOpen, setClarifyOpen] = useState(false)
   const [regeneratingKey, setRegeneratingKey] = useState<string | null>(null)
   const [regeneratingChart, setRegeneratingChart] = useState(false)
@@ -664,25 +695,6 @@ export function ReportEditor({
     }
   }
 
-  const handleDownloadPPT = async () => {
-    if (!report || !draft) return
-    try {
-      await exportReportToPPTX({
-        title: report.name || "Report",
-        draft,
-        sections: template.sections,
-        chartImage: report?.chart_image ?? null
-      })
-    } catch (err: any) {
-      console.error("PPT export failed:", err)
-      toast({
-        title: "Export failed",
-        description: err?.message || "Could not generate PPT.",
-        variant: "destructive"
-      })
-    }
-  }
-
   const getTimeAgo = (date: string): string => {
     if (!date) return ""
     const diff = Date.now() - new Date(date).getTime()
@@ -885,12 +897,12 @@ export function ReportEditor({
                   variant="outline"
                   size="sm"
                   className="gap-2"
-                  onClick={handleDownloadPPT}
+                  onClick={handleELNExport}
+                  disabled={loadingConnections}
                 >
-                  <Presentation className="size-4" />
-                  Download as PPT
+                  <FlaskConical className="size-4" />
+                  Upload to ELN
                 </Button>
-                {/* "Export to ELN" hidden for the B2C launch (#21). */}
               </>
             )}
           </div>
@@ -999,6 +1011,32 @@ export function ReportEditor({
             lives in the main content (Overview links to the design; Inputs lists
             the files), so the right column was redundant. */}
       </div>
+
+      <ELNExportModal
+        isOpen={showELNExportModal}
+        onOpenChange={setShowELNExportModal}
+        connections={elnConnections}
+        reportContent={draftText}
+        reportTitle={report?.name || "Shadow AI Report"}
+        onExportSuccess={(result: any) => {
+          if (result?.success) {
+            toast({
+              title: "Uploaded",
+              description: "Report uploaded to your ELN."
+            })
+          }
+        }}
+      />
+      <ELNConnectModal
+        isOpen={showELNConnectModal}
+        onOpenChange={setShowELNConnectModal}
+        userId={profile?.user_id || ""}
+        onConnectionCreated={(c: ELNConnection) => {
+          setElnConnections(prev => [...prev, c])
+          setShowELNConnectModal(false)
+          setShowELNExportModal(true)
+        }}
+      />
 
       <ReportPreviewModal
         isOpen={showPreview}
