@@ -6272,7 +6272,7 @@ function HypothesesTab(props: {
                   : "text-ink-500 hover:text-ink-800"
               )}
             >
-              {t === "suggested" ? "Suggested hypotheses" : "Create your own"}
+              {t === "suggested" ? "Generated hypotheses" : "Create your own"}
             </button>
           ))}
         </div>
@@ -6373,7 +6373,7 @@ function HypothesesTab(props: {
                   className="bg-purple-persona hover:bg-purple-persona/90 text-white"
                 >
                   <IconSparkles size={14} className="mr-1.5" />
-                  Suggest hypotheses
+                  Generate hypotheses
                 </Button>
               </div>
             )
