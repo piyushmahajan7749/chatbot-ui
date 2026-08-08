@@ -4793,6 +4793,60 @@ function ValidateTab(props: {
                     )}
                     .
                   </div>
+                  {/* Secondary GUARDRAILS, reported separately from the primary
+                      objective. A guardrail that misses does NOT reduce the
+                      headline confidence - only the researcher's main problem
+                      is mandatory. */}
+                  {(validation.simulation.secondaryCriteria?.length ?? 0) >
+                    0 && (
+                    <div className="border-ink-200 mt-3 border-t pt-2.5">
+                      <div className="text-ink-400 mb-1.5 text-[11px] font-semibold uppercase tracking-wider">
+                        Also checked (guardrails)
+                      </div>
+                      <ul className="space-y-1">
+                        {validation.simulation.secondaryCriteria!.map(c => {
+                          const pct =
+                            typeof c.passRate === "number"
+                              ? Math.round(c.passRate * 100)
+                              : null
+                          const ok = pct === null ? null : pct >= 80
+                          return (
+                            <li
+                              key={c.metric}
+                              className="flex items-baseline justify-between gap-3 text-[12px]"
+                            >
+                              <span className="text-ink-600 min-w-0">
+                                {c.metric}{" "}
+                                <span className="text-ink-400">
+                                  ({c.direction} {fmtNum(c.threshold)}
+                                  {c.unit ? ` ${c.unit}` : ""})
+                                </span>
+                              </span>
+                              <span
+                                className={cn(
+                                  "shrink-0 font-semibold tabular-nums",
+                                  ok === null
+                                    ? "text-ink-400"
+                                    : ok
+                                      ? "text-sage-brand"
+                                      : "text-amber-700"
+                                )}
+                              >
+                                {pct === null
+                                  ? "not scored"
+                                  : `${pct}% of runs`}
+                              </span>
+                            </li>
+                          )
+                        })}
+                      </ul>
+                      <p className="text-ink-400 mt-1.5 text-[11px] leading-snug">
+                        These are tracked separately. A guardrail falling short
+                        doesn&apos;t reduce confidence in the main objective
+                        above - it just flags something to watch.
+                      </p>
+                    </div>
+                  )}
                 </div>
               )}
 

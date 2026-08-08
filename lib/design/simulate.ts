@@ -84,13 +84,30 @@ const planParamSchema = z.object({
   high: z.number(),
   unit: z.string().nullable().optional()
 })
+/**
+ * A SECONDARY guardrail: something that must not be broken (monomer purity,
+ * particle counts, pH drift) but is NOT the thing the study exists to achieve.
+ * Tracked and reported separately so a guardrail miss never drags down the
+ * headline confidence in the primary objective.
+ */
+const secondaryCriterionSchema = z.object({
+  metric: z.string(),
+  threshold: z.number(),
+  direction: z.enum([">=", "<=", "==", "approx"]),
+  unit: z.string().nullable().optional()
+})
+
 const planSchema = z.object({
   model: z.string(),
   modelRationale: z.string(),
+  // The PRIMARY objective only - ONE metric, from the researcher's problem
+  // statement / success criteria. Never a compound of several requirements.
   targetMetric: z.string(),
   targetThreshold: z.number(),
   targetDirection: z.enum([">=", "<=", "==", "approx"]),
   unit: z.string(),
+  /** Guardrails the hypothesis or design adds; reported, never gating. */
+  secondaryCriteria: z.array(secondaryCriterionSchema).max(6).optional(),
   nTrials: z.number().int().min(50).max(3000),
   params: z.array(planParamSchema).min(1).max(12),
   simCode: z.string()
@@ -131,10 +148,13 @@ const CODE_CONTRACT = `Write the simulation as pure synchronous JavaScript that 
 - Read two injected globals: SEED (an integer) and PARAMS (an object mapping each parameter NAME (exactly as in "params") to its current numeric value). ALWAYS read tunable values from PARAMS[name] — never hard-code them — so the harness can re-run your code with edited parameters.
 - Define your own seeded PRNG from SEED (e.g. mulberry32). Do NOT call Math.random (forbidden / non-deterministic).
 - Run nTrials Monte-Carlo replicates of the primary readout under the model + PARAMS, injecting realistic biological/measurement noise (e.g. lognormal/normal CV). Count a trial as meeting the target using targetDirection vs targetThreshold.
+- meetRate MUST be scored on the PRIMARY objective ALONE. Do NOT require the secondary criteria to pass for a trial to count as a hit - that is what made the headline number collapse whenever a guardrail was tight.
+- If "secondaryCriteria" is non-empty, ALSO simulate each one and report its own independent pass fraction in "secondaryRates" (an array of { metric, passRate }). These are reported to the scientist as guardrail checks; they never reduce meetRate.
 - Compute a one-factor-at-a-time sensitivity: for each parameter, hold others at PARAMS and evaluate the mean readout at its low and high bound; report a 0..1 normalized "effect" (that factor's swing ÷ the largest factor's swing) and whether raising it "increases" | "decreases" | "nonmonotonic" the readout.
 - Assign the result to the global RESULT as EXACTLY:
   RESULT = {
-    meetRate: <0..1 fraction of trials meeting target>,
+    meetRate: <0..1 fraction of trials meeting the PRIMARY target only>,
+    secondaryRates: [ { metric: <secondary metric name>, passRate: <0..1> } ],
     distribution: { mean, sd, median, p10, p90 },
     sensitivity: [ { factor: <param name>, effect: <0..1>, direction: "increases"|"decreases"|"nonmonotonic", recommendedChange: <short text, e.g. "raise to 40"> } ],
     sampleReadouts: [ up to 15 example readout values ],
@@ -171,7 +191,13 @@ PROPOSED DESIGN TO MODEL:
 ${designText.slice(0, 14_000) || "(design text unavailable)"}
 ${args.cumulativeInsights ? `\nWHAT PRIOR REAL ROUNDS TAUGHT US (use to set realistic params/noise):\n${args.cumulativeInsights}` : ""}
 
-Choose the model, name the parameters with bounds, set the target, and write the Monte-Carlo program.`
+PRIMARY vs SECONDARY - read this carefully, it decides how the result is scored:
+- The PRIMARY objective is the ONE thing the researcher set out to achieve, taken from their PROBLEM STATEMENT / OBJECTIVE / SUCCESS CRITERIA above (e.g. "% viscosity reduction"). targetMetric/targetThreshold/targetDirection describe THAT AND NOTHING ELSE. It is the only mandatory criterion and the only thing meetRate is scored on.
+- NEVER build a compound target. Do not concatenate requirements into targetMetric (e.g. "% viscosity reduction, with SEC monomer >= 95% and particles <= 6000/mL" is WRONG). targetMetric must name a single measurable quantity, and targetThreshold must be the number for that one quantity.
+- Everything ELSE the hypothesis or the design brings along - purity/monomer retention, subvisible particle limits, pH or osmolality drift, stability holds - goes in "secondaryCriteria". These are GUARDRAILS: worth simulating and reporting, but a guardrail that misses must NOT reduce confidence in the primary objective. They carry less weight by construction.
+- If the researcher's stated outcome genuinely contains several requirements, pick the one that IS the research goal as primary and demote the rest to secondaryCriteria.
+
+Choose the model, name the parameters with bounds, set the PRIMARY target, list any secondary guardrails, and write the Monte-Carlo program.`
 
   const openai = getAzureOpenAIForDesign()
   const model = getDesignDeployment()
@@ -240,7 +266,18 @@ Judge whether the CURRENT design reliably hits the target (it's reliable when it
 
 Be honest and quantitative where it helps the scientist, but never statistical jargon. Never claim real lab data — this is simulation.`
 
-  const user = `TARGET: ${plan.targetMetric} ${plan.targetDirection} ${plan.targetThreshold} ${plan.unit}
+  const secondaryBlock = (plan.secondaryCriteria ?? []).length
+    ? `\nSECONDARY GUARDRAILS (report on them, but they are NOT mandatory and must NOT lower your confidence in the primary objective): ${(
+        plan.secondaryCriteria ?? []
+      )
+        .map(
+          c =>
+            `${c.metric} ${c.direction} ${c.threshold}${c.unit ? ` ${c.unit}` : ""}`
+        )
+        .join("; ")}`
+    : ""
+
+  const user = `PRIMARY TARGET (the only mandatory criterion - judge meetsTarget and confidence on THIS alone): ${plan.targetMetric} ${plan.targetDirection} ${plan.targetThreshold} ${plan.unit}${secondaryBlock}
 DESIRED OUTCOME (researcher's words): ${args.desiredOutcome || "(infer from objective)"}
 
 CURRENT PARAMETERS (round ${roundIndex}):
@@ -281,6 +318,8 @@ Interpret these results and return the structured judgment.`
 // Normalized numbers coming back from the sandbox program.
 interface SandboxNumbers {
   meetRate: number
+  /** Independent pass fractions for the guardrails; never gate meetRate. */
+  secondaryRates: { metric: string; passRate: number }[]
   distribution: SimDistribution
   sensitivity: SimSensitivity[]
   sampleReadouts: number[]
@@ -305,6 +344,18 @@ function coerceSandbox(out: any): SandboxNumbers | null {
       ? Math.min(1, Math.max(0, out.meetRate))
       : null
   if (meetRate === null) return null
+  const secondaryRates = Array.isArray(out.secondaryRates)
+    ? out.secondaryRates
+        .filter((r: any) => r && typeof r.metric === "string")
+        .slice(0, 6)
+        .map((r: any) => ({
+          metric: String(r.metric),
+          passRate:
+            typeof r.passRate === "number" && Number.isFinite(r.passRate)
+              ? Math.min(1, Math.max(0, r.passRate))
+              : 0
+        }))
+    : []
   const sensitivity: SimSensitivity[] = Array.isArray(out.sensitivity)
     ? out.sensitivity
         .filter((s: any) => s && typeof s.factor === "string")
@@ -331,6 +382,7 @@ function coerceSandbox(out: any): SandboxNumbers | null {
     : []
   return {
     meetRate,
+    secondaryRates,
     distribution: coerceDist(out.distribution),
     sensitivity,
     sampleReadouts,
@@ -532,7 +584,21 @@ export async function simulateDesign(args: SimulateDesignArgs): Promise<{
     rounds,
     targetMetric: plan.targetMetric,
     targetThreshold: plan.targetThreshold,
-    targetDirection: plan.targetDirection
+    targetDirection: plan.targetDirection,
+    // Guardrails, reported next to the primary result. meetsTarget /
+    // confidence are deliberately NOT a function of these.
+    secondaryCriteria: (plan.secondaryCriteria ?? []).map(c => {
+      const hit = firstNums.secondaryRates.find(
+        r => r.metric.trim().toLowerCase() === c.metric.trim().toLowerCase()
+      )
+      return {
+        metric: c.metric,
+        threshold: c.threshold,
+        direction: c.direction,
+        unit: c.unit ?? undefined,
+        passRate: hit?.passRate
+      }
+    })
   }
 
   return {

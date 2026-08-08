@@ -609,6 +609,20 @@ export interface PreLabSimulation {
   /** The improve-loop trajectory: round 1 (as written) + optimized re-runs. */
   rounds?: SimRound[]
   /** What the readout is + the target it's judged against. */
+  /**
+   * Secondary GUARDRAILS (monomer retention, particle counts, pH drift). Each
+   * is simulated and reported independently. They deliberately do NOT feed
+   * meetsTarget / meetRate / confidence: only the researcher's primary
+   * objective is mandatory, and a tight guardrail must not make the headline
+   * prediction look worse than the study actually is.
+   */
+  secondaryCriteria?: {
+    metric: string
+    threshold: number
+    direction: string
+    unit?: string
+    passRate?: number
+  }[]
   targetMetric?: string
   targetThreshold?: number
   targetDirection?: ">=" | "<=" | "==" | "approx"
