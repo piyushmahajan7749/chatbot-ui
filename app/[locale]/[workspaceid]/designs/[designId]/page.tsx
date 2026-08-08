@@ -38,6 +38,7 @@ import {
 // can ask for edits while looking at it.
 import { ScopedChatRail } from "@/components/canvas/scoped-chat-rail"
 import ShareDialog from "@/components/design-flow/share-dialog"
+import { Dialog, DialogContent } from "@/components/ui/dialog"
 import type { DesignSubViewContext } from "@/components/design-flow/design-sub-views"
 import { GenerateReportModal } from "@/components/designs/generate-report-modal"
 import { deleteReport, getReportsByWorkspaceId } from "@/db/reports-firestore"
@@ -116,6 +117,7 @@ import {
   IconBulb,
   IconBooks,
   IconChartBar,
+  IconChartHistogram,
   IconCheck,
   IconChevronDown,
   IconArrowBackUp,
@@ -435,6 +437,13 @@ export default function DesignDetailPage() {
   // Full-page decision step after Design → Next: finalise now, or simulate
   // before the bench. Replaces the page while open.
   const [showDesignGate, setShowDesignGate] = useState(false)
+  // "Validate & iterate" modal (replaces the old Validate/Iterate tabs). One
+  // button, two paths inside - simulate the results, or bring your own lab
+  // data - mirroring the hypothesis stage's Generated/Create-your-own pattern.
+  const [validateModalOpen, setValidateModalOpen] = useState(false)
+  const [validateMode, setValidateMode] = useState<"simulate" | "iterate">(
+    "simulate"
+  )
   // Provenance of the CURRENT design, used to label it in the iteration rail.
   const [designOrigin, setDesignOrigin] = useState<
     "original" | "simulation" | "lab-data" | "manual"
@@ -1414,8 +1423,9 @@ export default function DesignDetailPage() {
           prev.includes("validate") ? prev : [...prev, "validate"]
         )
         for (let round = 1; round <= MAX_AUTO_SIM_ROUNDS; round++) {
-          // Simulate the current design against the target.
-          setActiveTab("validate")
+          // Simulate the current design against the target. The Validate tab
+          // is gone - stay on Design and show progress via the busy state.
+          setActiveTab("design")
           setSimulating(true)
           let sim: PreLabSimulation | null = null
           try {
@@ -1622,15 +1632,18 @@ export default function DesignDetailPage() {
   /** Leave Validate/Iterate and go back to the design with Export open, so
    *  the download formats are right there (items 10 / 15). */
   const handleContinueToDesign = () => {
+    setValidateModalOpen(false)
     setActiveTab("design")
     setShowLibrary(true)
   }
 
-  /** Gate option B — simulate first. Lands on Validate and kicks the
-   *  simulation off immediately (item 11). */
+  /** Gate option B — simulate first. Opens the Validate & iterate modal on
+   *  the simulate path and kicks the simulation off immediately. */
   const handleGoSimulate = () => {
     setShowDesignGate(false)
-    setActiveTab("validate")
+    setActiveTab("design")
+    setValidateMode("simulate")
+    setValidateModalOpen(true)
     if (!validation.simulation && !simulating) {
       void handleSimulate((successCriteria || objective || "").trim())
     }
@@ -1811,6 +1824,9 @@ export default function DesignDetailPage() {
       setDesignOrigin(origin)
     }
 
+    // Close the modal and land on the design so the regeneration - and then
+    // the updated design with its new version-rail entry - is what they see.
+    setValidateModalOpen(false)
     setActiveTab("design")
     setBusy("design")
     setDesignProgress([])
@@ -2626,17 +2642,9 @@ export default function DesignDetailPage() {
             : "No designs",
         accent: "sage-brand",
         icon: <IconClipboardText size={18} />
-      },
-      {
-        key: "validate",
-        label: "Validate",
-        sublabel:
-          validation.iterations.length > 0
-            ? `${validation.iterations.length} iteration${validation.iterations.length === 1 ? "" : "s"}`
-            : "Test with data",
-        accent: "teal-journey",
-        icon: <IconRefresh size={18} />
       }
+      // Validate + Iterate are not stages anymore - they run in a modal opened
+      // from the Design step, so the phase rail ends at Design.
     ]
 
     return phaseTabConfig.map(t => ({
@@ -3559,6 +3567,12 @@ Rules:
                     viewedVersion ? viewedVersion.designs[0] : activeDesign
                   }
                   onApproveAndContinue={handleApproveDesignAndContinue}
+                  onValidateIterate={() => {
+                    setValidateMode(
+                      validation.iterations.length > 0 ? "iterate" : "simulate"
+                    )
+                    setValidateModalOpen(true)
+                  }}
                   onRegenerate={handleRegenerateDesign}
                   isApproved={isPhaseApproved("design")}
                   canEdit={canEdit}
@@ -3576,32 +3590,78 @@ Rules:
                 />
               </>
             )}
-
-            {(activeTab === "validate" || activeTab === "iterate") && (
-              <ValidateTab
-                mode={activeTab === "validate" ? "simulate" : "iterate"}
-                validation={validation}
-                hasDesign={generatedDesigns.length > 0}
-                canEdit={canEdit}
-                isValidating={validating}
-                onValidate={handleRunValidation}
-                onApplyChanges={handleApplyIterationChanges}
-                onSimulate={handleSimulate}
-                onContinueToDesign={handleContinueToDesign}
-                nextVersionNumber={
-                  (designVersions[0]?.versionNumber ?? 0) + 2 || 2
-                }
-                isSimulating={simulating}
-                outcomePrefill={successCriteria || objective || ""}
-                isGenerating={busy === "design"}
-                designId={designId}
-                userId={profile?.user_id ?? null}
-                selectedWorkspace={selectedWorkspace}
-              />
-            )}
           </div>
         </div>
       </div>
+
+      {/* Validate & iterate modal - one entry point, two paths inside
+          (simulate the results, or bring your own lab data), replacing the old
+          Validate and Iterate tabs. Applying changes regenerates the design and
+          closes the modal, so the researcher lands on the updated design with
+          the iteration recorded in the version rail. */}
+      <Dialog
+        open={validateModalOpen}
+        onOpenChange={o => {
+          // Don't allow closing mid-regeneration - the apply path is writing.
+          if (!o && busy === "design") return
+          setValidateModalOpen(o)
+        }}
+      >
+        <DialogContent className="flex h-[90vh] max-w-[min(1100px,96vw)] flex-col gap-0 overflow-hidden p-0 sm:max-w-[min(1100px,96vw)]">
+          <div className="border-ink-200 flex shrink-0 flex-wrap items-center justify-between gap-3 border-b bg-white px-5 py-3.5">
+            <div className="min-w-0">
+              <h2 className="text-ink-900 text-[15px] font-bold">
+                Validate &amp; iterate
+              </h2>
+              <p className="text-ink-500 text-[12px]">
+                Stress-test this design before or after the bench - the applied
+                changes become a new design version.
+              </p>
+            </div>
+            <div className="border-line inline-flex shrink-0 rounded-lg border p-0.5 text-[12px] font-semibold">
+              {(["simulate", "iterate"] as const).map(m => (
+                <button
+                  key={m}
+                  type="button"
+                  onClick={() => setValidateMode(m)}
+                  className={cn(
+                    "rounded-md px-3 py-1.5 transition-colors",
+                    validateMode === m
+                      ? "bg-teal-journey text-white"
+                      : "text-ink-500 hover:text-ink-800"
+                  )}
+                >
+                  {m === "simulate"
+                    ? "Simulate the results"
+                    : "Use your own lab data"}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="min-h-0 flex-1 overflow-auto p-5">
+            <ValidateTab
+              mode={validateMode}
+              validation={validation}
+              hasDesign={generatedDesigns.length > 0}
+              canEdit={canEdit}
+              isValidating={validating}
+              onValidate={handleRunValidation}
+              onApplyChanges={handleApplyIterationChanges}
+              onSimulate={handleSimulate}
+              onContinueToDesign={handleContinueToDesign}
+              nextVersionNumber={
+                (designVersions[0]?.versionNumber ?? 0) + 2 || 2
+              }
+              isSimulating={simulating}
+              outcomePrefill={successCriteria || objective || ""}
+              isGenerating={busy === "design"}
+              designId={designId}
+              userId={profile?.user_id ?? null}
+              selectedWorkspace={selectedWorkspace}
+            />
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* RIGHT: Library — overlays the page (does NOT shrink it). A click-
           catching backdrop dims the content; the panel slides in on the right. */}
@@ -7311,6 +7371,8 @@ function DesignTab(props: {
   onSelect: (id: string) => void
   activeDesign?: GeneratedDesign
   onApproveAndContinue: () => void
+  /** Open the Validate & iterate modal (simulate or bring lab data). */
+  onValidateIterate?: () => void
   onRegenerate: () => void
   isApproved: boolean
   canEdit: boolean
@@ -7343,6 +7405,7 @@ function DesignTab(props: {
     onSelect,
     activeDesign,
     onApproveAndContinue,
+    onValidateIterate,
     onRegenerate,
     isApproved,
     canEdit,
@@ -7731,6 +7794,30 @@ function DesignTab(props: {
           isBusy={isBusy}
           isApproved={isApproved}
         />
+        {/* Validate & iterate happens HERE now (the old Validate/Iterate tabs
+            are gone): one button, and inside the modal the researcher picks
+            simulate-the-results or bring-your-own lab data. */}
+        {designs.length > 0 && onValidateIterate && (
+          <div className="border-ink-100 mt-3 flex flex-col gap-2 border-t pt-3 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-ink-500 text-[12.5px]">
+              Want to stress-test it?{" "}
+              <span className="text-ink-700 font-medium">
+                Validate &amp; iterate
+              </span>{" "}
+              — simulate the outcome, or check it against your own lab data.
+              Applied changes become a new design version.
+            </p>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={onValidateIterate}
+              disabled={isBusy}
+              className="gap-1.5"
+            >
+              <IconChartHistogram size={15} /> Validate &amp; iterate
+            </Button>
+          </div>
+        )}
       </div>
     </div>
   )

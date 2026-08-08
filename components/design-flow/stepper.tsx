@@ -28,13 +28,15 @@ interface StageDef {
   short: string
 }
 
+// Validate + Iterate are no longer standalone stages: they live in a modal
+// launched from the Design step ("Validate & iterate"), so the journey ends at
+// Design. The StageId members stay in the type so persisted references and the
+// tab-mapping records still typecheck.
 export const STAGES: StageDef[] = [
   { id: "problem", label: "Problem", icon: IconTargetArrow, short: "01" },
   { id: "lit", label: "Literature", icon: IconBook, short: "02" },
   { id: "hyp", label: "Hypotheses", icon: IconBulb, short: "03" },
-  { id: "design", label: "Design", icon: IconFlask, short: "04" },
-  { id: "validate", label: "Validate", icon: IconChartHistogram, short: "05" },
-  { id: "iterate", label: "Iterate", icon: IconRefresh, short: "06" }
+  { id: "design", label: "Design", icon: IconFlask, short: "04" }
 ]
 
 type Status = "active" | "done" | "idle"
