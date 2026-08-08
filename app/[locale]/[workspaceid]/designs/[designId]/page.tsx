@@ -40,6 +40,9 @@ import { ScopedChatRail } from "@/components/canvas/scoped-chat-rail"
 import ShareDialog from "@/components/design-flow/share-dialog"
 import type { DesignSubViewContext } from "@/components/design-flow/design-sub-views"
 import { GenerateReportModal } from "@/components/designs/generate-report-modal"
+import { deleteReport, getReportsByWorkspaceId } from "@/db/reports-firestore"
+import { exportReportToPDF } from "@/lib/report/export"
+import { DEFAULT_TEMPLATE_ID, getTemplate } from "@/lib/report/templates"
 import { ClarifyStep } from "@/components/design-flow/clarify-step"
 import { handleBudgetError } from "@/lib/billing/handle-budget-error"
 import { DesignCoach } from "@/components/onboarding/design-coach"
@@ -118,6 +121,7 @@ import {
   IconArrowBackUp,
   IconClipboardText,
   IconDownload,
+  IconTrash,
   IconFileText,
   IconFlask,
   IconInfoCircle,
@@ -5514,6 +5518,71 @@ function DesignLibrarySidebar({
   onClose: () => void
 }) {
   const [reportModalOpen, setReportModalOpen] = useState(false)
+  // Reports generated FROM this design, listed as assets under the buttons.
+  // Reports already carry source_design_id, so no new linkage is needed.
+  const [reportAssets, setReportAssets] = useState<any[]>([])
+  const [openAssetId, setOpenAssetId] = useState<string | null>(null)
+  const [deletingAssetId, setDeletingAssetId] = useState<string | null>(null)
+
+  const refreshAssets = useCallback(async () => {
+    if (!design?.id || !ctx.workspaceId) return
+    try {
+      const all = await getReportsByWorkspaceId(ctx.workspaceId)
+      setReportAssets(
+        (all ?? [])
+          .filter((r: any) => r.source_design_id === design.id)
+          .sort((a: any, b: any) =>
+            String(b.created_at ?? "").localeCompare(String(a.created_at ?? ""))
+          )
+      )
+    } catch (err) {
+      console.warn("Couldn't load report assets:", err)
+    }
+  }, [design?.id, ctx.workspaceId])
+
+  useEffect(() => {
+    void refreshAssets()
+  }, [refreshAssets])
+
+  const handleDeleteAsset = async (id: string, name: string) => {
+    if (
+      !window.confirm(
+        `Delete "${name}"? This removes the report permanently and can't be undone.`
+      )
+    )
+      return
+    setDeletingAssetId(id)
+    try {
+      await deleteReport(id)
+      setReportAssets(prev => prev.filter(r => r.id !== id))
+      toast.success("Report deleted")
+    } catch (e: any) {
+      toast.error(`Couldn't delete: ${e?.message ?? "unknown error"}`)
+    } finally {
+      setDeletingAssetId(null)
+    }
+  }
+
+  const handleDownloadAsset = async (report: any) => {
+    try {
+      if (!report?.report_draft) {
+        toast.error(
+          "This report has no draft yet - open it and generate first."
+        )
+        return
+      }
+      const template = getTemplate(report?.template_id ?? DEFAULT_TEMPLATE_ID)
+      await exportReportToPDF({
+        title: report?.name || "Report",
+        draft: report.report_draft,
+        sections: template.sections,
+        chartImage: report?.chart_image ?? null
+      })
+    } catch (e: any) {
+      toast.error(`Couldn't download: ${e?.message ?? "unknown error"}`)
+    }
+  }
+
   // Which iteration to generate assets from. Defaults to the latest design.
   const [selectedIterId, setSelectedIterId] = useState("current")
   const selectedIter =
@@ -5643,6 +5712,65 @@ function DesignLibrarySidebar({
         </div>
       </div>
 
+      {/* Saved report assets for this design. Click to reopen in the same
+          modal; download as PDF or delete outright. */}
+      {reportAssets.length > 0 && (
+        <div className="border-ink-100 shrink-0 border-t p-3">
+          <div className="text-ink-400 mb-2 text-[10px] font-bold uppercase tracking-[0.13em]">
+            Reports ({reportAssets.length})
+          </div>
+          <ul className="space-y-1.5">
+            {reportAssets.map(r => (
+              <li
+                key={r.id}
+                className="border-ink-200 hover:border-ink-300 group flex items-start gap-2 rounded-lg border bg-white p-2 transition-colors"
+              >
+                <button
+                  type="button"
+                  onClick={() => {
+                    setOpenAssetId(r.id)
+                    setReportModalOpen(true)
+                  }}
+                  className="min-w-0 flex-1 text-left"
+                  title="Open this report"
+                >
+                  <span className="text-ink-800 block truncate text-[12.5px] font-medium">
+                    {r.name || "Untitled report"}
+                  </span>
+                  <span className="text-ink-400 block text-[10.5px]">
+                    {r.is_saved ? "Saved" : "Draft"}
+                    {r.created_at
+                      ? ` · ${new Date(r.created_at).toLocaleDateString()}`
+                      : ""}
+                  </span>
+                </button>
+                <div className="flex shrink-0 items-center gap-0.5">
+                  <button
+                    type="button"
+                    onClick={() => void handleDownloadAsset(r)}
+                    title="Download as PDF"
+                    className="text-ink-400 hover:text-ink-800 hover:bg-ink-100 rounded p-1"
+                  >
+                    <IconDownload size={14} />
+                  </button>
+                  <button
+                    type="button"
+                    disabled={deletingAssetId === r.id}
+                    onClick={() =>
+                      void handleDeleteAsset(r.id, r.name || "Untitled report")
+                    }
+                    title="Delete this report"
+                    className="text-ink-400 rounded p-1 hover:bg-red-50 hover:text-red-600 disabled:opacity-50"
+                  >
+                    <IconTrash size={14} />
+                  </button>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
       {/* Footer: Add note */}
       <div className="border-ink-100 shrink-0 border-t p-3">
         <button
@@ -5656,10 +5784,18 @@ function DesignLibrarySidebar({
 
       <GenerateReportModal
         open={reportModalOpen}
-        onOpenChange={setReportModalOpen}
+        onOpenChange={o => {
+          setReportModalOpen(o)
+          if (!o) setOpenAssetId(null)
+        }}
         design={design}
         workspaceId={ctx.workspaceId}
         locale={ctx.locale}
+        initialReportId={openAssetId}
+        onSaved={() => {
+          setOpenAssetId(null)
+          void refreshAssets()
+        }}
       />
     </div>
   )

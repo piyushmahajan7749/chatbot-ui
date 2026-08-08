@@ -51,6 +51,7 @@ import {
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { ReportRetrievalSelect } from "@/components/reports/report-retrieval-select"
+import { ReportEditor } from "@/components/reports/report-editor"
 
 interface GenerateReportModalProps {
   open: boolean
@@ -60,6 +61,11 @@ interface GenerateReportModalProps {
   locale: string
   /** Called after an in-progress report is saved so the caller can refresh. */
   onSaved?: (report: any) => void
+  /**
+   * Open directly into an EXISTING report's editor, skipping the setup form.
+   * Used when the researcher clicks a saved report asset in the Export rail.
+   */
+  initialReportId?: string | null
 }
 
 const ACCEPTED_FILE_EXTS = ".pdf,.docx,.csv,.jpeg,.jpg"
@@ -70,11 +76,21 @@ export const GenerateReportModal: FC<GenerateReportModalProps> = ({
   design,
   workspaceId,
   locale,
-  onSaved
+  onSaved,
+  initialReportId = null
 }) => {
   const router = useRouter()
   const { profile, selectedWorkspace, setReports } =
     useContext(ChatbotUIContext)
+  // When set, the modal stops being a setup form and becomes the report editor
+  // itself. Generation no longer navigates to /reports/[id] - the draft is
+  // written, shown and edited right here.
+  const [openReportId, setOpenReportId] = useState<string | null>(
+    initialReportId
+  )
+  useEffect(() => {
+    if (open) setOpenReportId(initialReportId)
+  }, [open, initialReportId])
 
   const ctx: DesignReportContext = useMemo(
     () => buildDesignReportContext(design ?? {}),
@@ -303,8 +319,11 @@ export const GenerateReportModal: FC<GenerateReportModalProps> = ({
         []
       )
       setReports(prev => [report, ...prev])
-      onOpenChange(false)
-      router.push(`/${locale}/${workspaceId}/reports/${report.id}`)
+      // Hand straight over to the in-modal editor. It sees
+      // generation_status === "generating" and runs the outline pass itself,
+      // showing per-stage progress while it works.
+      setOpenReportId(report.id)
+      setBusy(null)
     } catch (e: any) {
       toast.error(`Couldn't generate report: ${e?.message ?? "unknown error"}`)
       setBusy(null)
@@ -313,144 +332,167 @@ export const GenerateReportModal: FC<GenerateReportModalProps> = ({
 
   return (
     <Dialog open={open} onOpenChange={o => (busy ? null : onOpenChange(o))}>
-      <DialogContent className="max-h-[88vh] overflow-y-auto sm:max-w-lg">
-        <DialogHeader>
-          <DialogTitle>Generate report</DialogTitle>
-          <DialogDescription className="flex items-center gap-1.5">
-            <IconFlask size={13} className="text-teal-journey" />
-            From design:{" "}
-            <span className="text-ink font-medium">
-              {design?.name ?? "Untitled design"}
-            </span>
-          </DialogDescription>
-        </DialogHeader>
+      {/* Two shapes, one dialog: the compact SETUP form, and - once generation
+          starts - an EXPANDED frame hosting the full report editor. The modal
+          never hands off to another page. */}
+      {openReportId ? (
+        <DialogContent className="flex h-[92vh] max-w-[min(1200px,96vw)] flex-col gap-0 overflow-hidden p-0 sm:max-w-[min(1200px,96vw)]">
+          <ReportEditor
+            reportId={openReportId}
+            workspaceId={workspaceId}
+            locale={locale}
+            mode="modal"
+            onSaved={report => {
+              onSaved?.(report)
+              setOpenReportId(null)
+              onOpenChange(false)
+            }}
+            onRequestClose={() => {
+              setOpenReportId(null)
+              onOpenChange(false)
+            }}
+          />
+        </DialogContent>
+      ) : (
+        <DialogContent className="max-h-[88vh] overflow-y-auto sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Generate report</DialogTitle>
+            <DialogDescription className="flex items-center gap-1.5">
+              <IconFlask size={13} className="text-teal-journey" />
+              From design:{" "}
+              <span className="text-ink font-medium">
+                {design?.name ?? "Untitled design"}
+              </span>
+            </DialogDescription>
+          </DialogHeader>
 
-        <div className="space-y-5 py-1">
-          {/* 1 - Template (mandatory, first) */}
-          <div className="space-y-2">
-            <Label className="text-[12.5px]">
-              Template <span className="text-red-500">*</span>
-            </Label>
-            <div className="grid gap-2 sm:grid-cols-3">
-              {REPORT_TEMPLATES.map(t => {
-                const selected = templateId === t.id
-                return (
-                  <button
-                    key={t.id}
-                    type="button"
-                    disabled={busy !== null}
-                    onClick={() => setTemplateId(t.id)}
-                    className={
-                      "rounded-xl border p-2.5 text-left transition-colors " +
-                      (selected
-                        ? "border-teal-journey bg-teal-journey-tint/30"
-                        : "border-ink-200 bg-white hover:bg-ink-50")
-                    }
-                  >
-                    <div
+          <div className="space-y-5 py-1">
+            {/* 1 - Template (mandatory, first) */}
+            <div className="space-y-2">
+              <Label className="text-[12.5px]">
+                Template <span className="text-red-500">*</span>
+              </Label>
+              <div className="grid gap-2 sm:grid-cols-3">
+                {REPORT_TEMPLATES.map(t => {
+                  const selected = templateId === t.id
+                  return (
+                    <button
+                      key={t.id}
+                      type="button"
+                      disabled={busy !== null}
+                      onClick={() => setTemplateId(t.id)}
                       className={
-                        "text-[12.5px] font-semibold " +
-                        (selected ? "text-teal-journey" : "text-ink-900")
+                        "rounded-xl border p-2.5 text-left transition-colors " +
+                        (selected
+                          ? "border-teal-journey bg-teal-journey-tint/30"
+                          : "border-ink-200 bg-white hover:bg-ink-50")
                       }
                     >
-                      {t.name}
-                    </div>
-                    <div className="text-ink-500 mt-0.5 text-[11px] leading-snug">
-                      {t.description}
-                    </div>
-                  </button>
-                )
-              })}
-            </div>
-          </div>
-
-          {/* 2 - Objective (pre-filled from design) */}
-          <div className="space-y-1.5">
-            <Label className="text-[12.5px]">
-              Objective <span className="text-red-500">*</span>
-            </Label>
-            <Textarea
-              value={objective}
-              onChange={e => setObjective(e.target.value)}
-              placeholder="What this report should investigate and report on."
-              rows={3}
-              disabled={busy !== null}
-            />
-            <p className="text-ink-400 text-[11px]">
-              Pre-filled from the design&apos;s objective - edit if needed.
-            </p>
-          </div>
-
-          {/* 3 - Uploads. The design supplies method + literature context, so
-              only data files are mandatory. */}
-          <div className="border-line bg-paper-2/60 text-ink-2 rounded-lg border p-3 text-[11.5px]">
-            The design supplies the method and literature context for this
-            report. You only need to upload the experiment&apos;s data files.
-          </div>
-          {renderSlot({
-            label: "Data files",
-            required: true,
-            type: "dataFiles",
-            selected: dataFiles,
-            uploadRef: dataRef,
-            caption: "Experimental data the analysis agent works from."
-          })}
-          {renderSlot({
-            label: "Reference documents (optional)",
-            type: "papers",
-            selected: papers,
-            uploadRef: papersRef,
-            caption: "Supporting papers, SOPs, or notes to cite."
-          })}
-
-          {warning && (
-            <div className="space-y-1.5 rounded-xl border border-amber-300 bg-amber-50 p-3 text-[12.5px] text-amber-800">
-              <div className="flex items-center gap-1.5 font-semibold">
-                <IconAlertTriangle size={15} />I do not have the complete data
-                set to generate a report
+                      <div
+                        className={
+                          "text-[12.5px] font-semibold " +
+                          (selected ? "text-teal-journey" : "text-ink-900")
+                        }
+                      >
+                        {t.name}
+                      </div>
+                      <div className="text-ink-500 mt-0.5 text-[11px] leading-snug">
+                        {t.description}
+                      </div>
+                    </button>
+                  )
+                })}
               </div>
-              {warning.reason && <p>{warning.reason}</p>}
-              {warning.missing.length > 0 && (
-                <ul className="ml-4 list-disc">
-                  {warning.missing.map((m, i) => (
-                    <li key={i}>{m}</li>
-                  ))}
-                </ul>
-              )}
-              <p className="text-amber-700">
-                Add the missing data and try again, or Save and finish later.
+            </div>
+
+            {/* 2 - Objective (pre-filled from design) */}
+            <div className="space-y-1.5">
+              <Label className="text-[12.5px]">
+                Objective <span className="text-red-500">*</span>
+              </Label>
+              <Textarea
+                value={objective}
+                onChange={e => setObjective(e.target.value)}
+                placeholder="What this report should investigate and report on."
+                rows={3}
+                disabled={busy !== null}
+              />
+              <p className="text-ink-400 text-[11px]">
+                Pre-filled from the design&apos;s objective - edit if needed.
               </p>
             </div>
-          )}
-        </div>
 
-        <DialogFooter className="gap-2">
-          <Button
-            variant="outline"
-            onClick={handleSave}
-            disabled={busy !== null || !objective.trim()}
-          >
-            {busy === "save" ? "Saving…" : "Save"}
-          </Button>
-          <Button
-            onClick={handleGenerate}
-            disabled={
-              busy !== null || !objective.trim() || dataFiles.length === 0
-            }
-            className="bg-brick hover:bg-brick-hover gap-1.5"
-          >
-            {busy === "generate" ? (
-              <>
-                <IconLoader2 size={15} className="animate-spin" /> Checking…
-              </>
-            ) : (
-              <>
-                <IconSparkles size={15} /> Generate report
-              </>
+            {/* 3 - Uploads. The design supplies method + literature context, so
+              only data files are mandatory. */}
+            <div className="border-line bg-paper-2/60 text-ink-2 rounded-lg border p-3 text-[11.5px]">
+              The design supplies the method and literature context for this
+              report. You only need to upload the experiment&apos;s data files.
+            </div>
+            {renderSlot({
+              label: "Data files",
+              required: true,
+              type: "dataFiles",
+              selected: dataFiles,
+              uploadRef: dataRef,
+              caption: "Experimental data the analysis agent works from."
+            })}
+            {renderSlot({
+              label: "Reference documents (optional)",
+              type: "papers",
+              selected: papers,
+              uploadRef: papersRef,
+              caption: "Supporting papers, SOPs, or notes to cite."
+            })}
+
+            {warning && (
+              <div className="space-y-1.5 rounded-xl border border-amber-300 bg-amber-50 p-3 text-[12.5px] text-amber-800">
+                <div className="flex items-center gap-1.5 font-semibold">
+                  <IconAlertTriangle size={15} />I do not have the complete data
+                  set to generate a report
+                </div>
+                {warning.reason && <p>{warning.reason}</p>}
+                {warning.missing.length > 0 && (
+                  <ul className="ml-4 list-disc">
+                    {warning.missing.map((m, i) => (
+                      <li key={i}>{m}</li>
+                    ))}
+                  </ul>
+                )}
+                <p className="text-amber-700">
+                  Add the missing data and try again, or Save and finish later.
+                </p>
+              </div>
             )}
-          </Button>
-        </DialogFooter>
-      </DialogContent>
+          </div>
+
+          <DialogFooter className="gap-2">
+            <Button
+              variant="outline"
+              onClick={handleSave}
+              disabled={busy !== null || !objective.trim()}
+            >
+              {busy === "save" ? "Saving…" : "Save"}
+            </Button>
+            <Button
+              onClick={handleGenerate}
+              disabled={
+                busy !== null || !objective.trim() || dataFiles.length === 0
+              }
+              className="bg-brick hover:bg-brick-hover gap-1.5"
+            >
+              {busy === "generate" ? (
+                <>
+                  <IconLoader2 size={15} className="animate-spin" /> Checking…
+                </>
+              ) : (
+                <>
+                  <IconSparkles size={15} /> Generate report
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      )}
     </Dialog>
   )
 }

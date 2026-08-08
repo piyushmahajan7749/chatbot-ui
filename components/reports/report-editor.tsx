@@ -29,6 +29,7 @@ import {
 import { InputsTab } from "@/components/reports/tabs/inputs-tab"
 import { ReportTab as ReportTabView } from "@/components/reports/tabs/report-tab"
 import { ReportPreviewModal } from "@/components/reports/report-preview-modal"
+import { ReportGeneratingView } from "@/components/reports/report-generating-view"
 import { exportReportToPDF, exportReportToPPTX } from "@/lib/report/export"
 import { getTemplate, DEFAULT_TEMPLATE_ID } from "@/lib/report/templates"
 import { createReportTemplate } from "@/db/report-templates-firestore"
@@ -213,6 +214,9 @@ export function ReportEditor({
       ? (report.report_draft as Draft)
       : null
   const hasDraft = !!draft
+  /** Draft is being written and there's nothing to show yet. */
+  const busyGenerating =
+    !hasDraft && (isGenerating || generationStatus === "generating")
   // A report becomes "saved" once the user explicitly saves it as a
   // template (the Save-as-Template dialog flips this). Drives the
   // ReportTab + ReportSection lockdown so locked reports can't be
@@ -470,11 +474,17 @@ export function ReportEditor({
       objectiveSaveTimer.current = null
     }
     try {
-      await updateReport(reportId, {
+      const saved = await updateReport(reportId, {
         report_draft: report?.report_draft ?? null,
-        description: objective
+        description: objective,
+        // Mark it complete so it shows as a finished asset in the design's
+        // Export rail rather than an in-progress draft.
+        is_saved: true
       })
+      setReport((prev: any) => ({ ...prev, is_saved: true }))
       sonnerToast.success("Saved")
+      // In modal mode the host closes and lists this report as an asset.
+      onSaved?.(saved ?? { ...report, id: reportId, is_saved: true })
     } catch (error: any) {
       console.error("Save failed:", error)
       sonnerToast.error(`Save failed: ${error?.message ?? "Unknown error"}`)
@@ -910,68 +920,77 @@ export function ReportEditor({
                 activeTab === "report" ? "max-w-6xl" : "max-w-4xl"
               )}
             >
-              {activeTab === "overview" && (
-                <OverviewTab
-                  report={report}
-                  fileCount={fileCount}
-                  generationStatus={generationStatus}
-                  generationError={report?.generation_error ?? null}
-                  onGoToTab={setActiveTab}
-                  sourceDesignName={report?.source_design_name ?? null}
-                  onOpenDesign={
-                    report?.source_design_id
-                      ? () =>
-                          router.push(
-                            `/${locale}/${workspaceId}/designs/${report.source_design_id}`
-                          )
-                      : undefined
-                  }
-                />
-              )}
-              {activeTab === "inputs" && (
-                <InputsTab
-                  objective={objective}
-                  onObjectiveChange={handleObjectiveChange}
-                  protocol={protocolFiles}
-                  papers={paperFiles}
-                  dataFiles={dataFiles}
-                  onToggleFile={handleToggleFile}
-                  isGenerating={
-                    isGenerating || generationStatus === "generating"
-                  }
-                  hasDraft={hasDraft}
-                  onGenerate={handleGenerate}
-                  customSections={customSections}
-                  onCustomSectionsChange={handleCustomSectionsChange}
-                  generationError={
-                    generationStatus === "error"
-                      ? (report?.generation_error ?? null)
-                      : null
-                  }
-                  templateId={templateId}
-                  onTemplateChange={handleTemplateChange}
-                  protocolOptional={!!report?.source_design_id}
-                />
-              )}
-              {activeTab === "report" && (
-                <ReportTabView
-                  draft={draft}
-                  chartImage={report?.chart_image ?? null}
-                  chartData={report?.chart_data ?? null}
-                  regenerating={regeneratingKey}
-                  onRegenerate={handleRegenerateSection}
-                  onEditContent={handleSectionContentChange}
-                  onRegenerateChart={handleChartRegenerate}
-                  onChartTypeChange={handleChartTypeChange}
-                  regeneratingChart={regeneratingChart}
-                  onOpenPreview={() => setShowPreview(true)}
-                  templateId={templateId}
-                  reportTitle={report?.name || "Untitled Report"}
-                  isSaved={isReportSaved}
-                  onSaveAsTemplate={handleOpenSaveAsTemplate}
-                  customSections={customSections}
-                  onAddCustomSection={handleOpenAddSection}
-                />
+              {/* While the draft is being written, the whole content area
+                  becomes the progress view - a bare spinner on an empty
+                  Overview tab read as "nothing is happening". */}
+              {busyGenerating ? (
+                <ReportGeneratingView objective={objective} />
+              ) : (
+                <>
+                  {activeTab === "overview" && (
+                    <OverviewTab
+                      report={report}
+                      fileCount={fileCount}
+                      generationStatus={generationStatus}
+                      generationError={report?.generation_error ?? null}
+                      onGoToTab={setActiveTab}
+                      sourceDesignName={report?.source_design_name ?? null}
+                      onOpenDesign={
+                        report?.source_design_id
+                          ? () =>
+                              router.push(
+                                `/${locale}/${workspaceId}/designs/${report.source_design_id}`
+                              )
+                          : undefined
+                      }
+                    />
+                  )}
+                  {activeTab === "inputs" && (
+                    <InputsTab
+                      objective={objective}
+                      onObjectiveChange={handleObjectiveChange}
+                      protocol={protocolFiles}
+                      papers={paperFiles}
+                      dataFiles={dataFiles}
+                      onToggleFile={handleToggleFile}
+                      isGenerating={
+                        isGenerating || generationStatus === "generating"
+                      }
+                      hasDraft={hasDraft}
+                      onGenerate={handleGenerate}
+                      customSections={customSections}
+                      onCustomSectionsChange={handleCustomSectionsChange}
+                      generationError={
+                        generationStatus === "error"
+                          ? (report?.generation_error ?? null)
+                          : null
+                      }
+                      templateId={templateId}
+                      onTemplateChange={handleTemplateChange}
+                      protocolOptional={!!report?.source_design_id}
+                    />
+                  )}
+                  {activeTab === "report" && (
+                    <ReportTabView
+                      draft={draft}
+                      chartImage={report?.chart_image ?? null}
+                      chartData={report?.chart_data ?? null}
+                      regenerating={regeneratingKey}
+                      onRegenerate={handleRegenerateSection}
+                      onEditContent={handleSectionContentChange}
+                      onRegenerateChart={handleChartRegenerate}
+                      onChartTypeChange={handleChartTypeChange}
+                      regeneratingChart={regeneratingChart}
+                      onOpenPreview={() => setShowPreview(true)}
+                      templateId={templateId}
+                      reportTitle={report?.name || "Untitled Report"}
+                      isSaved={isReportSaved}
+                      onSaveAsTemplate={handleOpenSaveAsTemplate}
+                      customSections={customSections}
+                      onAddCustomSection={handleOpenAddSection}
+                    />
+                  )}
+                </>
               )}
             </div>
           </div>
