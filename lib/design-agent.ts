@@ -146,22 +146,18 @@ export interface ProblemContextVariables {
  * Scales how much work each phase does (literature rounds + target papers,
  * how many hypotheses survive the tournament). Higher = more thorough + slower.
  */
+// "extra" / "max" stay in the TYPE so designs saved with them still parse;
+// they're just not offered any more and resolve to high.
 export type DesignEffort = "low" | "medium" | "high" | "extra" | "max"
 
-export const DESIGN_EFFORT_LEVELS: DesignEffort[] = [
-  "low",
-  "medium",
-  "high",
-  "extra",
-  "max"
-]
+export const DESIGN_EFFORT_LEVELS: DesignEffort[] = ["low", "medium", "high"]
 
 export const DESIGN_EFFORT_LABELS: Record<DesignEffort, string> = {
   low: "Low",
   medium: "Medium",
   high: "High",
-  extra: "Extra",
-  max: "Max"
+  extra: "High",
+  max: "High"
 }
 
 export interface DesignEffortConfig {
@@ -175,10 +171,12 @@ export interface DesignEffortConfig {
 
 export const DESIGN_EFFORT_CONFIG: Record<DesignEffort, DesignEffortConfig> = {
   low: { litRounds: 2, minPapers: 15, finalHypotheses: 3 },
-  medium: { litRounds: 3, minPapers: 30, finalHypotheses: 4 },
-  high: { litRounds: 5, minPapers: 50, finalHypotheses: 5 },
-  extra: { litRounds: 8, minPapers: 75, finalHypotheses: 6 },
-  max: { litRounds: 0, minPapers: 100, finalHypotheses: 8 }
+  medium: { litRounds: 4, minPapers: 35, finalHypotheses: 4 },
+  high: { litRounds: 6, minPapers: 60, finalHypotheses: 5 },
+  // Retired levels - kept so older saved designs resolve instead of silently
+  // dropping to medium.
+  extra: { litRounds: 6, minPapers: 60, finalHypotheses: 5 },
+  max: { litRounds: 6, minPapers: 60, finalHypotheses: 5 }
 }
 
 export const DEFAULT_DESIGN_EFFORT: DesignEffort = "medium"

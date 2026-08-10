@@ -6794,13 +6794,13 @@ function AssumptionsPanel(props: {
         <div className="min-w-0">
           <h4 className="text-ink flex items-center gap-1.5 text-[13px] font-bold">
             <IconAlertTriangle size={15} className="text-rust" />
-            {open.length} value{open.length === 1 ? "" : "s"} we had to assume
+            {open.length} choice{open.length === 1 ? "" : "s"} made for you
           </h4>
           <p className="text-ink-2 mt-1 max-w-2xl text-[12px] leading-relaxed">
-            The design is runnable as drafted, but these numbers came from us,
-            not from you. Confirm or correct them and we&apos;ll rebuild the
-            protocol on your values - recomputing every dependent volume, count
-            and total.
+            Each was picked from the literature and your inputs, with the
+            reasoning shown. Confirm them or set your own values, and the
+            protocol is rebuilt on your numbers - recomputing every dependent
+            volume, count and total.
           </p>
         </div>
         <button
@@ -6839,29 +6839,60 @@ function AssumptionsPanel(props: {
                   )}
                 </div>
                 <p className="text-ink-2 text-[12px] leading-relaxed">
-                  We assumed <b className="text-ink">{a.assumedValue}</b>.{" "}
+                  Selected: <b className="text-ink">{a.assumedValue}</b>.{" "}
                   {a.whyItMatters}
                 </p>
                 <div className="flex flex-wrap gap-1.5">
-                  {a.options.map(opt => (
-                    <button
-                      key={opt}
-                      type="button"
-                      disabled={!canEdit || isBusy}
-                      onClick={() => {
-                        setPicked(p => ({ ...p, [a.id]: opt }))
-                        setTyped(t => ({ ...t, [a.id]: "" }))
-                      }}
-                      className={cn(
-                        "rounded-full border px-2.5 py-1 text-[11.5px] transition-colors",
-                        picked[a.id] === opt && !(typed[a.id] ?? "").trim()
-                          ? "border-ink bg-ink text-white"
-                          : "border-line text-ink-2 hover:border-line-strong bg-surface"
-                      )}
-                    >
-                      {opt}
-                    </button>
-                  ))}
+                  {/* The chosen value is ALWAYS offered as an option and
+                      flagged as the recommendation - the model often omitted
+                      its own pick from the list, leaving no way to select the
+                      thing it had already (usually correctly) decided on. */}
+                  {(a.options.some(
+                    o =>
+                      o.trim().toLowerCase() ===
+                      a.assumedValue.trim().toLowerCase()
+                  )
+                    ? a.options
+                    : [a.assumedValue, ...a.options]
+                  ).map(opt => {
+                    const isRecommended =
+                      opt.trim().toLowerCase() ===
+                      a.assumedValue.trim().toLowerCase()
+                    const isPicked =
+                      (picked[a.id] ?? a.assumedValue) === opt &&
+                      !(typed[a.id] ?? "").trim()
+                    return (
+                      <button
+                        key={opt}
+                        type="button"
+                        disabled={!canEdit || isBusy}
+                        onClick={() => {
+                          setPicked(p => ({ ...p, [a.id]: opt }))
+                          setTyped(t => ({ ...t, [a.id]: "" }))
+                        }}
+                        className={cn(
+                          "rounded-full border px-2.5 py-1 text-[11.5px] transition-colors",
+                          isPicked
+                            ? "border-ink bg-ink text-white"
+                            : isRecommended
+                              ? "border-ink text-ink bg-surface font-medium"
+                              : "border-line text-ink-2 hover:border-line-strong bg-surface"
+                        )}
+                      >
+                        {opt}
+                        {isRecommended && (
+                          <span
+                            className={cn(
+                              "ml-1.5 text-[9.5px] font-bold uppercase tracking-wide",
+                              isPicked ? "text-white/70" : "text-ink-3"
+                            )}
+                          >
+                            chosen
+                          </span>
+                        )}
+                      </button>
+                    )
+                  })}
                 </div>
                 <Input
                   value={typed[a.id] ?? ""}
@@ -6878,7 +6909,7 @@ function AssumptionsPanel(props: {
 
           <div className="border-line/60 flex flex-wrap items-center justify-between gap-2 border-t pt-3">
             <span className="text-ink-3 text-[11.5px]">
-              {answeredCount} of {open.length} answered
+              {answeredCount} of {open.length} changed
             </span>
             <div className="flex items-center gap-2">
               <Button
@@ -6888,7 +6919,7 @@ function AssumptionsPanel(props: {
                 onClick={() => submit(true)}
                 className="text-ink-2"
               >
-                Keep all assumptions
+                Confirm all
               </Button>
               <Button
                 size="sm"
@@ -6896,7 +6927,7 @@ function AssumptionsPanel(props: {
                 onClick={() => submit(false)}
                 className="bg-rust hover:bg-rust/90 text-white"
               >
-                Apply my values &amp; rebuild
+                Apply my changes
               </Button>
             </div>
           </div>
