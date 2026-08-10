@@ -450,6 +450,25 @@ export interface DesignVersionSnapshot {
    * data") so a scholar can read the series at a glance.
    */
   origin?: "original" | "simulation" | "lab-data" | "manual"
+  /**
+   * Why this version was superseded, captured at snapshot time so a scholar
+   * reading an OLD version can still see the evidence that moved the design on.
+   * Without this the verdict and recommendations only ever existed for the
+   * latest version, and stepping back through the series showed the protocol
+   * with no reasoning attached.
+   */
+  outcome?: {
+    /** Plain-language verdict at the time (simulation or lab data). */
+    verdict?: string
+    /** How often the design hit the target, 0..1, when simulated. */
+    meetRate?: number
+    /** Whether the simulation judged it as hitting the target. */
+    metTarget?: boolean
+    /** The changes actually applied to produce the NEXT version. */
+    appliedChanges?: string[]
+    /** Key insights from a lab-data round. */
+    insights?: string[]
+  }
 }
 
 /** How a round of lab data landed against the hypothesis under test. */

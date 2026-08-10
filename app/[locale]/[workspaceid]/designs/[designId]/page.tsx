@@ -1881,6 +1881,8 @@ export default function DesignDetailPage() {
       return
     }
     const nextRound = validation.iterations.length + 1
+    const latestIteration =
+      validation.iterations[validation.iterations.length - 1]
     const directive = [
       `[Design iteration ${nextRound} — apply these changes the researcher selected after reviewing the data]`,
       validation.cumulativeInsights
@@ -1915,7 +1917,26 @@ export default function DesignDetailPage() {
         versionNumber: nextVersionNumber,
         designs: generatedDesigns,
         createdAt: new Date().toISOString(),
-        origin: designOrigin
+        origin: designOrigin,
+        // Record WHY this version was superseded, so reading it later still
+        // shows the verdict and the changes that moved the design on - not
+        // just the protocol with no reasoning attached.
+        outcome: {
+          ...(origin === "simulation" && validation.simulation
+            ? {
+                verdict: validation.simulation.predictedResults,
+                meetRate: validation.simulation.meetRate,
+                metTarget: validation.simulation.meetsTarget
+              }
+            : {}),
+          ...(origin === "lab-data" && latestIteration
+            ? {
+                verdict: latestIteration.reasoning || latestIteration.verdict,
+                insights: latestIteration.insights
+              }
+            : {}),
+          appliedChanges: changes
+        }
       }
       snapshotVersions = [snapshot, ...designVersions]
       setDesignVersions(snapshotVersions)
@@ -7683,6 +7704,59 @@ function DesignTab(props: {
       <div className="min-w-0 flex-1 space-y-4">
         {/* Reading history: make it obvious this isn't the live design, and give
             both ways out - back to current, or promote this one. */}
+        {/* Reading an OLD version: show the evidence that superseded it -
+            the verdict at the time and the changes that produced the next
+            version. Previously only the latest version had any of this, so
+            stepping back showed a protocol with no reasoning attached. */}
+        {viewedVersion?.outcome &&
+          (viewedVersion.outcome.verdict ||
+            (viewedVersion.outcome.appliedChanges?.length ?? 0) > 0) && (
+            <div className="border-teal-journey/30 bg-teal-journey/5 space-y-2 rounded-xl border p-4">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="text-ink-800 text-[12.5px] font-semibold">
+                  What this version showed
+                </span>
+                {typeof viewedVersion.outcome.meetRate === "number" && (
+                  <span
+                    className={cn(
+                      "rounded-full px-2 py-0.5 text-[11px] font-semibold",
+                      viewedVersion.outcome.metTarget
+                        ? "bg-emerald-50 text-emerald-700"
+                        : "bg-amber-50 text-amber-700"
+                    )}
+                  >
+                    hit the target in{" "}
+                    {Math.round(viewedVersion.outcome.meetRate * 100)}% of runs
+                  </span>
+                )}
+              </div>
+              {viewedVersion.outcome.verdict && (
+                <p className="text-ink-600 text-[12.5px] leading-relaxed">
+                  {viewedVersion.outcome.verdict}
+                </p>
+              )}
+              {(viewedVersion.outcome.insights?.length ?? 0) > 0 && (
+                <ul className="text-ink-600 list-disc space-y-0.5 pl-4 text-[12px]">
+                  {viewedVersion.outcome.insights!.map(i => (
+                    <li key={i}>{i}</li>
+                  ))}
+                </ul>
+              )}
+              {(viewedVersion.outcome.appliedChanges?.length ?? 0) > 0 && (
+                <div>
+                  <div className="text-ink-400 mb-1 text-[10.5px] font-bold uppercase tracking-wide">
+                    Changed for v{viewedVersion.versionNumber + 1}
+                  </div>
+                  <ul className="text-ink-600 list-disc space-y-0.5 pl-4 text-[12px]">
+                    {viewedVersion.outcome.appliedChanges!.map(c => (
+                      <li key={c}>{c}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
+          )}
+
         {viewedVersion && (
           <div className="border-line bg-paper-2 flex flex-wrap items-center justify-between gap-3 rounded-lg border px-3 py-2">
             <p className="text-ink-2 text-[12px]">
