@@ -3,6 +3,7 @@
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import {
+  IconChartHistogram,
   IconArrowRight,
   IconExternalLink,
   IconFileText,
@@ -15,6 +16,8 @@ import { FC, ReactNode } from "react"
 export type ReportTab = "overview" | "inputs" | "report"
 
 interface OverviewTabProps {
+  /** Opens the full-size, labelled chart modal. */
+  onOpenVisualization?: () => void
   report: any
   fileCount: number
   generationStatus: "idle" | "generating" | "ready" | "error"
@@ -107,6 +110,7 @@ export const OverviewTab: FC<OverviewTabProps> = ({
   generationStatus,
   generationError,
   onGoToTab,
+  onOpenVisualization,
   sourceDesignName,
   onOpenDesign
 }) => {
@@ -122,6 +126,21 @@ export const OverviewTab: FC<OverviewTabProps> = ({
   const objective =
     toPlain(report?.description) ||
     firstNonEmpty(draft, ["aim", "introduction"])
+  // The problem the work set out to answer, and WHY the design was built this
+  // way - both were missing, so the one-pager never said what was being asked
+  // or on what basis, only what was done.
+  const problem = firstNonEmpty(draft, [
+    "problem",
+    "background",
+    "introduction",
+    "principle"
+  ])
+  const rationale = firstNonEmpty(draft, [
+    "rationale",
+    "principle",
+    "hypothesis",
+    "theory"
+  ])
   const design = firstNonEmpty(draft, [
     "procedure",
     "preparation",
@@ -176,29 +195,30 @@ export const OverviewTab: FC<OverviewTabProps> = ({
             </h2>
           </div>
 
+          {/* Reads top-to-bottom as the whole experiment: what was asked, what
+              success looked like, why it was designed this way, what was done,
+              what came out, what it means. */}
           <div className="space-y-3 p-4">
-            <PosterBox
-              label="Objective"
-              accent="text-teal-journey"
-              body={objective}
-            />
+            <div className="grid gap-3 md:grid-cols-2">
+              <PosterBox label="Problem" accent="text-ink-700" body={problem} />
+              <PosterBox
+                label="Objective"
+                accent="text-teal-journey"
+                body={objective}
+              />
+            </div>
 
             <div className="grid gap-3 md:grid-cols-2">
               <PosterBox
-                label="Design & method"
+                label="Design rationale"
+                accent="text-purple-persona"
+                body={rationale}
+              />
+              <PosterBox
+                label="Method"
                 accent="text-orange-product"
                 body={design}
               />
-              <PosterBox label="Data" accent="text-purple-persona" body={data}>
-                {chart && (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={chart}
-                    alt="Result visualization"
-                    className="border-ink-200 mt-3 w-full rounded-lg border bg-white"
-                  />
-                )}
-              </PosterBox>
             </div>
 
             <div className="grid gap-3 md:grid-cols-2">
@@ -213,6 +233,30 @@ export const OverviewTab: FC<OverviewTabProps> = ({
                 body={conclusion}
               />
             </div>
+
+            {/* The chart used to be embedded here at poster scale, where the
+                axis labels were unreadable and it explained nothing. It now
+                opens full-size, titled and labelled, on demand. */}
+            {(chart || data) && (
+              <div className="border-ink-200 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-dashed px-4 py-3">
+                <p className="text-ink-500 min-w-0 text-[12.5px]">
+                  {data
+                    ? data.slice(0, 160) + (data.length > 160 ? "…" : "")
+                    : "Result data is attached to this report."}
+                </p>
+                {chart && onOpenVisualization && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="shrink-0 gap-1.5"
+                    onClick={onOpenVisualization}
+                  >
+                    <IconChartHistogram size={14} />
+                    Show data visualization
+                  </Button>
+                )}
+              </div>
+            )}
           </div>
 
           <div className="border-ink-200 flex items-center justify-between border-t px-5 py-3">

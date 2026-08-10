@@ -156,6 +156,7 @@ export function ReportEditor({
   const [regeneratingKey, setRegeneratingKey] = useState<string | null>(null)
   const [regeneratingChart, setRegeneratingChart] = useState(false)
   const [showPreview, setShowPreview] = useState(false)
+  const [showViz, setShowViz] = useState(false)
   const [isSavingNow, setIsSavingNow] = useState(false)
   const sectionSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -949,6 +950,7 @@ export function ReportEditor({
                       generationStatus={generationStatus}
                       generationError={report?.generation_error ?? null}
                       onGoToTab={setActiveTab}
+                      onOpenVisualization={() => setShowViz(true)}
                       sourceDesignName={report?.source_design_name ?? null}
                       onOpenDesign={
                         report?.source_design_id
@@ -1014,6 +1016,31 @@ export function ReportEditor({
             lives in the main content (Overview links to the design; Inputs lists
             the files), so the right column was redundant. */}
       </div>
+
+      {/* Full-size, titled visualization. At poster scale inside Overview the
+          axis labels were unreadable, so it explained nothing; here it gets the
+          room to be legible. */}
+      <Dialog open={showViz} onOpenChange={setShowViz}>
+        <DialogContent className="max-w-[min(1000px,95vw)] sm:max-w-[min(1000px,95vw)]">
+          <DialogHeader>
+            <DialogTitle>
+              {report?.name ? `${report.name} — results` : "Result data"}
+            </DialogTitle>
+          </DialogHeader>
+          {report?.chart_image ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={report.chart_image as string}
+              alt="Result visualization"
+              className="border-ink-200 max-h-[70vh] w-full rounded-lg border bg-white object-contain"
+            />
+          ) : (
+            <p className="text-ink-500 py-8 text-center text-sm">
+              No chart has been generated for this report yet.
+            </p>
+          )}
+        </DialogContent>
+      </Dialog>
 
       <ELNExportModal
         isOpen={showELNExportModal}
