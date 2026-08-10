@@ -87,11 +87,31 @@ export async function generateClarifyingQuestions(
   const { checkpoint, ctx, hypothesis, literature, priorAnswers } = args
   const round = args.round ?? 1
 
+  // Everything the researcher has ALREADY told us. The study-details step now
+  // collects success criteria, replicates, constraints, variables and
+  // operating parameters up front - but none of it reached this prompt, so the
+  // questions cheerfully asked for it all over again and felt canned.
+  const cs = ctx.constraintsStructured
+  const vs = ctx.variablesStructured
   const problemBlock = [
     `Research problem: ${[ctx.title, ctx.problemStatement].filter(Boolean).join(" - ") || "Not specified"}`,
     ctx.objective ? `Goal: ${ctx.objective}` : "",
     ctx.domain ? `Domain: ${ctx.domain}` : "",
-    ctx.phase ? `Phase: ${ctx.phase}` : ""
+    ctx.phase ? `Phase: ${ctx.phase}` : "",
+    ctx.successCriteria ? `Success criteria: ${ctx.successCriteria}` : "",
+    ctx.includeReplicates === "yes"
+      ? `Replicates: yes${ctx.replicateCount ? ` (n = ${ctx.replicateCount} per condition)` : ""}`
+      : ctx.includeReplicates === "no"
+        ? "Replicates: no - single run per condition (n = 1)"
+        : "",
+    cs?.material ? `Material available: ${cs.material}` : "",
+    cs?.time ? `Time constraint: ${cs.time}` : "",
+    cs?.equipment ? `Equipment available: ${cs.equipment}` : "",
+    vs?.known ? `Known variables: ${vs.known}` : "",
+    vs?.unknown ? `Unknown variables: ${vs.unknown}` : "",
+    ctx.additionalDetails
+      ? `Operating parameters the researcher supplied: ${ctx.additionalDetails}`
+      : ""
   ]
     .filter(Boolean)
     .join("\n")
@@ -137,7 +157,16 @@ Rules:
 - Be specific to THIS problem${checkpoint === "design" ? " and the chosen hypothesis" : checkpoint === "hypothesis" ? " and the selected literature" : ""} - reference the actual system, not generic placeholders.
 - ${round > 1 ? "This is a follow-up round: ask ONLY questions still genuinely needed to remove ambiguity after the prior answers. If nothing material remains, return done=true with an empty questions array." : "Return 5–8 questions, each a SINGLE ask. Prefer fewer. Because every question is now one ask, spend the budget on the details that most change a number or a step in the final protocol, and let the free-text box collect the rest - do not try to cover everything."}
 - This is a BENCH / wet-lab program ONLY. NEVER ask whether the work is computational vs bench, in-silico vs experimental, or dry-lab vs wet-lab — always assume bench.
-- Never ask for information already provided.`
+- Never ask for information already provided. Everything listed above came
+  FROM the researcher - re-asking any of it (their success criteria, replicate
+  choice, material/time/equipment constraints, known/unknown variables, or the
+  operating parameters they typed) makes the tool look like it wasn't
+  listening. Read what's there, then ask only about what is genuinely still
+  missing. If a supplied value is ambiguous, ask to SHARPEN that specific value
+  rather than asking the question from scratch.
+- Because the gaps differ from study to study, your questions should differ
+  too. Do not work through a fixed checklist - derive them from what THIS
+  problem, hypothesis and set of supplied values actually leave undetermined.`
 
   const user = `${problemBlock}${
     hypothesis ? `\n\nChosen hypothesis: ${hypothesis}` : ""
