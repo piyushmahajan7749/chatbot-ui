@@ -11,7 +11,11 @@ import { useToast } from "@/app/hooks/use-toast"
 // ELN export removed for the B2C launch (#21). The lib/eln/* clients +
 // modals are kept in the repo so we can flip the surface back on for an
 // enterprise SKU without rewriting the integration.
-import { getReportById, updateReport } from "@/db/reports-firestore"
+import {
+  createReport,
+  getReportById,
+  updateReport
+} from "@/db/reports-firestore"
 import { Tables } from "@/supabase/types"
 import { toast as sonnerToast } from "sonner"
 import {
@@ -148,6 +152,53 @@ export function ReportEditor({
     void load()
   }, [profile?.user_id])
 
+  const [creatingRevision, setCreatingRevision] = useState(false)
+
+  /**
+   * Clone a locked (ELN-filed) report into a fresh, editable one. The filed
+   * copy is left exactly as it was so it keeps matching the ELN entry; the
+   * revision carries a link back to it and uploads as its own new entry.
+   */
+  const handleCreateRevision = async () => {
+    if (!report || creatingRevision) return
+    setCreatingRevision(true)
+    try {
+      const revision = await createReport(
+        {
+          user_id: report.user_id,
+          name: `${report.name || "Report"} (revised)`,
+          description: report.description ?? null,
+          folder_id: report.folder_id ?? null,
+          sharing: report.sharing ?? "private",
+          source_design_id: report.source_design_id ?? null,
+          source_design_name: report.source_design_name ?? null,
+          source_design_version: report.source_design_version ?? null,
+          design_context: report.design_context ?? null,
+          template_id: report.template_id ?? null,
+          report_draft: report.report_draft ?? null,
+          chart_image: report.chart_image ?? null,
+          chart_data: report.chart_data ?? null,
+          custom_sections: report.custom_sections ?? null,
+          generation_status: "idle",
+          is_saved: false,
+          revision_of: reportId
+        } as any,
+        workspaceId,
+        { protocol: [], papers: [], dataFiles: [] },
+        []
+      )
+      sonnerToast.success("Revised copy created")
+      if (onSaved) onSaved(revision)
+      else router.push(`/${locale}/${workspaceId}/reports/${revision.id}`)
+    } catch (e: any) {
+      sonnerToast.error(
+        `Couldn't create a revision: ${e?.message ?? "unknown error"}`
+      )
+    } finally {
+      setCreatingRevision(false)
+    }
+  }
+
   const handleELNExport = () => {
     if (elnConnections.length === 0) setShowELNConnectModal(true)
     else setShowELNExportModal(true)
@@ -254,6 +305,14 @@ export function ReportEditor({
   // ReportTab + ReportSection lockdown so locked reports can't be
   // re-edited.
   const isReportSaved = !!report?.is_saved
+  /**
+   * Uploaded to an ELN = LOCKED. An ELN entry is a quasi-regulatory record; if
+   * our copy could still be edited it would silently drift from what the lab
+   * actually filed. Changes go through "Create revised version" instead, which
+   * clones this report and uploads as a NEW entry, leaving an audit trail.
+   */
+  const elnUploadedAt: string | null = report?.eln_uploaded_at ?? null
+  const isELNLocked = !!elnUploadedAt
   const fileCount = protocolFiles.length + paperFiles.length + dataFiles.length
 
   const handleObjectiveChange = (value: string) => {
@@ -669,6 +728,9 @@ export function ReportEditor({
     }
   }
 
+  // Every editing affordance keys off this, not is_saved alone.
+  const editsLocked = isELNLocked
+
   const draftText = draftToText(draft)
   // `draftText` is still computed for parity with the old surface;
   // unused now that ELN export is gone, but cheap to keep so we don't
@@ -918,6 +980,41 @@ export function ReportEditor({
       <div className="flex min-h-0 flex-1 overflow-hidden">
         <div className="flex min-h-0 flex-1 flex-col">
           {/* Tabs */}
+          {isELNLocked && (
+            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-amber-300 bg-amber-50 px-6 py-2.5 text-[12.5px] text-amber-900">
+              <span>
+                <b>Locked.</b> Uploaded to your ELN on{" "}
+                {new Date(elnUploadedAt!).toLocaleDateString()} ·{" "}
+                {new Date(elnUploadedAt!).toLocaleTimeString(undefined, {
+                  hour: "2-digit",
+                  minute: "2-digit"
+                })}
+                . It stays exactly as filed — create a revised version to make
+                changes.
+              </span>
+              <div className="flex shrink-0 items-center gap-2">
+                {report?.eln_entry_url && (
+                  <a
+                    href={report.eln_entry_url as string}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="font-semibold underline"
+                  >
+                    Open in ELN
+                  </a>
+                )}
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={creatingRevision}
+                  onClick={() => void handleCreateRevision()}
+                >
+                  {creatingRevision ? "Creating…" : "Create revised version"}
+                </Button>
+              </div>
+            </div>
+          )}
+
           <AccentTabs
             activeKey={activeTab}
             onChange={key => setActiveTab(key as ReportTab)}
@@ -1001,7 +1098,7 @@ export function ReportEditor({
                       onOpenPreview={() => setShowPreview(true)}
                       templateId={templateId}
                       reportTitle={report?.name || "Untitled Report"}
-                      isSaved={isReportSaved}
+                      isSaved={isReportSaved || editsLocked}
                       onSaveAsTemplate={handleOpenSaveAsTemplate}
                       customSections={customSections}
                       onAddCustomSection={handleOpenAddSection}
@@ -1049,12 +1146,23 @@ export function ReportEditor({
         reportContent={draftText}
         reportTitle={report?.name || "Shadow AI Report"}
         onExportSuccess={(result: any) => {
-          if (result?.success) {
-            toast({
-              title: "Uploaded",
-              description: "Report uploaded to your ELN."
-            })
-          }
+          if (!result?.success) return
+          const at = new Date().toISOString()
+          const url = result?.entryUrl ?? result?.url ?? null
+          setReport((prev: any) => ({
+            ...prev,
+            eln_uploaded_at: at,
+            eln_entry_url: url
+          }))
+          void updateReport(reportId, {
+            eln_uploaded_at: at,
+            ...(url ? { eln_entry_url: url } : {})
+          }).catch(err => console.warn("Couldn't record ELN upload:", err))
+          toast({
+            title: "Uploaded to ELN",
+            description:
+              "This report is now locked so it matches the filed record."
+          })
         }}
       />
       <ELNConnectModal
@@ -1077,7 +1185,7 @@ export function ReportEditor({
         chartData={report?.chart_data ?? null}
         onEditContent={handleSectionContentChange}
         templateId={templateId}
-        isLocked={isReportSaved}
+        isLocked={isReportSaved || editsLocked}
       />
 
       {/* Add-section dialog. Asks for a name + brief description; the

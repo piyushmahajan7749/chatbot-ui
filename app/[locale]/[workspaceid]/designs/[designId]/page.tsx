@@ -5796,6 +5796,27 @@ function DesignLibrarySidebar({
     void refreshAssets()
   }, [refreshAssets])
 
+  /** Delete an asset. Blocked once it has been filed to an ELN (#6). */
+  const handleDeleteAsset = async (r: any) => {
+    if (r.eln_uploaded_at) return
+    if (
+      !window.confirm(
+        `Delete "${r.name || "Untitled report"}"? This is permanent.`
+      )
+    )
+      return
+    setDeletingAssetId(r.id)
+    try {
+      await deleteReport(r.id)
+      setReportAssets(prev => prev.filter(x => x.id !== r.id))
+      toast.success("Report deleted")
+    } catch (e: any) {
+      toast.error(`Couldn't delete: ${e?.message ?? "unknown error"}`)
+    } finally {
+      setDeletingAssetId(null)
+    }
+  }
+
   // Which iteration to generate assets from. Defaults to the latest design.
   const [selectedIterId, setSelectedIterId] = useState("current")
   const selectedIter =
@@ -5950,6 +5971,11 @@ function DesignLibrarySidebar({
                   <span className="text-ink-800 block truncate text-[12.5px] font-medium">
                     {r.name || "Untitled report"}
                   </span>
+                  {r.source_design_version && (
+                    <span className="text-ink-400 block truncate text-[10.5px]">
+                      from {r.source_design_version}
+                    </span>
+                  )}
                   {/* Date AND time of the last save (#5): with several
                       reports off one design, the date alone doesn't say which
                       is the newest. Falls back to created_at for older rows. */}
@@ -5965,6 +5991,39 @@ function DesignLibrarySidebar({
                     })()}
                   </span>
                 </button>
+                <div className="flex shrink-0 items-center gap-0.5">
+                  {r.eln_uploaded_at ? (
+                    <span
+                      title={`Filed to your ELN on ${new Date(r.eln_uploaded_at).toLocaleString()} - locked so it matches the filed record`}
+                      className="rounded border border-amber-300 bg-amber-50 px-1.5 py-0.5 text-[9.5px] font-bold uppercase text-amber-800"
+                    >
+                      ELN
+                    </span>
+                  ) : (
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setOpenAssetId(r.id)
+                          setReportModalOpen(true)
+                        }}
+                        title="Edit this report"
+                        className="text-ink-400 hover:text-ink-800 hover:bg-ink-100 rounded p-1"
+                      >
+                        <IconPencil size={14} />
+                      </button>
+                      <button
+                        type="button"
+                        disabled={deletingAssetId === r.id}
+                        onClick={() => void handleDeleteAsset(r)}
+                        title="Delete this report"
+                        className="text-ink-400 rounded p-1 hover:bg-red-50 hover:text-red-600 disabled:opacity-50"
+                      >
+                        <IconTrash size={14} />
+                      </button>
+                    </>
+                  )}
+                </div>
               </li>
             ))}
           </ul>
@@ -5991,6 +6050,7 @@ function DesignLibrarySidebar({
         design={design}
         workspaceId={ctx.workspaceId}
         locale={ctx.locale}
+        sourceVersionLabel={selectedIter?.label}
         initialReportId={openAssetId}
         onSaved={() => {
           setOpenAssetId(null)

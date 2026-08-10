@@ -61,6 +61,8 @@ interface GenerateReportModalProps {
   locale: string
   /** Called after an in-progress report is saved so the caller can refresh. */
   onSaved?: (report: any) => void
+  /** Which design iteration this report is being generated FROM. */
+  sourceVersionLabel?: string
   /**
    * Open directly into an EXISTING report's editor, skipping the setup form.
    * Used when the researcher clicks a saved report asset in the Export rail.
@@ -77,6 +79,7 @@ export const GenerateReportModal: FC<GenerateReportModalProps> = ({
   workspaceId,
   locale,
   onSaved,
+  sourceVersionLabel,
   initialReportId = null
 }) => {
   const router = useRouter()
@@ -246,6 +249,11 @@ export const GenerateReportModal: FC<GenerateReportModalProps> = ({
     sharing: "private",
     source_design_id: design?.id ?? null,
     source_design_name: design?.name ?? null,
+    // Which iteration of the design this report documents, and when it was
+    // taken - with several versions in play, "from this design" isn't enough
+    // to know what the report actually describes.
+    source_design_version: sourceVersionLabel ?? null,
+    source_captured_at: new Date().toISOString(),
     design_context: ctx.summary,
     template_id: templateId,
     generation_status: generationStatus
