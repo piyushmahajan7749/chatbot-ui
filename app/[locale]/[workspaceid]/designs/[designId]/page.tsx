@@ -2947,6 +2947,20 @@ Or replace the section body entirely:
 </design-patch>
 
 Rules:
+- NEVER claim an edit has been made. You cannot change the design yourself -
+  the ONLY thing that changes it is the researcher clicking Approve on the
+  patch card. So do not write "I've updated…", "the design now says…",
+  "applied", "done" or anything in the past tense about the document. Describe
+  the change you are PROPOSING, emit the block, and say it takes effect once
+  they approve it. Saying you applied something you didn't is the single worst
+  failure here: the researcher walks away believing their protocol changed when
+  it did not.
+- If you are answering a question, explaining, or declining, that is fine - but
+  then do not imply the document changed either.
+- A response that describes an edit MUST contain a \`<design-patch>\` block. If
+  you cannot express the change as one (e.g. it spans several sections), say so
+  plainly and ask which section to start with, rather than describing the edit
+  as though it happened.
 - \`sectionHeading\` MUST match exactly one of the section headings shown above.
 - Either \`find\`+\`replace\` OR \`newBody\` - not both.
 - Emit at most one \`<design-patch>\` per response. If multiple edits are
@@ -3206,9 +3220,12 @@ Rules:
             className="border-ink-200 absolute left-0 top-0 z-40 flex h-full flex-col border-r bg-white shadow-2xl"
             style={{ width: railWidth }}
           >
+            {/* Starts BELOW the header: at full height it sat on top of the
+                close button (z-20, translated half outside), so the two
+                controls overlapped and the X was hard to hit. */}
             <div
               onMouseDown={startRailResize}
-              className="hover:bg-brick/40 absolute right-0 top-0 z-20 h-full w-1.5 translate-x-1/2 cursor-col-resize"
+              className="hover:bg-brick/40 absolute right-0 top-[60px] z-20 h-[calc(100%-60px)] w-1.5 translate-x-1/2 cursor-col-resize"
               title="Drag to resize the chat"
             />
             <div className="min-h-0 min-w-0 flex-1">
@@ -3216,6 +3233,17 @@ Rules:
                 scope="design"
                 scopeId={designId}
                 scopeName={title || design?.name || "Design"}
+                scopeMeta={
+                  generatedDesigns.length > 0
+                    ? `Editing v${(designVersions[0]?.versionNumber ?? 0) + 1}${
+                        isPhaseApproved("design") ? " · saved" : ""
+                      }${
+                        designVersions.length > 0
+                          ? ` · ${designVersions.length} earlier version${designVersions.length === 1 ? "" : "s"}`
+                          : ""
+                      }`
+                    : undefined
+                }
                 autoStart
                 contextPrompt={chatContextPrompt}
                 headerSlot={

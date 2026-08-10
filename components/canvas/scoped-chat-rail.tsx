@@ -21,6 +21,8 @@ interface ScopedChatRailProps {
   scope: ChatScope
   scopeId?: string
   scopeName?: string
+  /** Small line under the name - e.g. which design version is in context. */
+  scopeMeta?: string
   className?: string
   headerSlot?: ReactNode
   /** If true, a pinned thread is auto-created as soon as none is found. */
@@ -75,6 +77,7 @@ export function ScopedChatRail({
   scope,
   scopeId,
   scopeName,
+  scopeMeta,
   className,
   headerSlot,
   autoStart = false,
@@ -239,6 +242,9 @@ export function ScopedChatRail({
               <div className="text-ink truncate text-[13px] font-semibold">
                 {scopeName}
               </div>
+            )}
+            {scopeMeta && (
+              <div className="text-ink-3 truncate text-[11px]">{scopeMeta}</div>
             )}
           </div>
           {headerSlot}

@@ -312,6 +312,20 @@ export function DesignPatchBlock({ patch }: DesignPatchBlockProps) {
  * single card (the model sometimes echoes the change twice). Malformed JSON
  * falls through to a text segment so the user still sees what was said.
  */
+/**
+ * True when an assistant message TALKS as if it already changed the design but
+ * carries no patch block. The design can only change when the researcher
+ * approves a patch card, so this is always a false claim - we surface a warning
+ * next to the message rather than let the researcher walk away believing their
+ * protocol was updated.
+ */
+export function claimsAppliedWithoutPatch(content: string): boolean {
+  if (/<design-patch>/.test(content)) return false
+  return /\b(i(?:'ve| have)?\s+(?:now\s+)?(?:updated|applied|changed|revised|edited|modified|replaced)|the design (?:now|has been)\s|changes? (?:have been|were) (?:applied|made)|i\s+made\s+(?:the|those|these)\s+changes?)\b/i.test(
+    content
+  )
+}
+
 export function extractDesignPatches(
   content: string
 ): Array<
