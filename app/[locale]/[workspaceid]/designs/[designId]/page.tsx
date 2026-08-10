@@ -5782,7 +5782,9 @@ function DesignLibrarySidebar({
           // one report show up 4 times.
           .filter((r: any) => r.source_design_id === design.id && r.is_saved)
           .sort((a: any, b: any) =>
-            String(b.created_at ?? "").localeCompare(String(a.created_at ?? ""))
+            String(b.updated_at ?? b.created_at ?? "").localeCompare(
+              String(a.updated_at ?? a.created_at ?? "")
+            )
           )
       )
     } catch (err) {
@@ -5948,10 +5950,19 @@ function DesignLibrarySidebar({
                   <span className="text-ink-800 block truncate text-[12.5px] font-medium">
                     {r.name || "Untitled report"}
                   </span>
+                  {/* Date AND time of the last save (#5): with several
+                      reports off one design, the date alone doesn't say which
+                      is the newest. Falls back to created_at for older rows. */}
                   <span className="text-ink-400 block text-[10.5px]">
-                    {r.created_at
-                      ? new Date(r.created_at).toLocaleDateString()
-                      : "Saved"}
+                    {(() => {
+                      const ts = r.updated_at || r.created_at
+                      if (!ts) return "Saved"
+                      const d = new Date(ts)
+                      return `Saved ${d.toLocaleDateString()} · ${d.toLocaleTimeString(
+                        undefined,
+                        { hour: "2-digit", minute: "2-digit" }
+                      )}`
+                    })()}
                   </span>
                 </button>
               </li>

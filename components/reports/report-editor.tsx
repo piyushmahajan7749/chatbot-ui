@@ -722,7 +722,9 @@ export function ReportEditor({
         sublabel: report?.name || "Untitled report",
         accent: "teal-journey" as const,
         icon: <IconLayoutGrid size={20} />,
-        disabled: false,
+        // Locked while the draft is being written: switching tabs mid-run just
+        // showed the same progress view under a different heading.
+        disabled: busyGenerating,
         status: undefined as TabStatus | undefined,
         primary: true
       },
@@ -734,7 +736,7 @@ export function ReportEditor({
           : "Add inputs",
         accent: "neutral" as const,
         icon: <IconUpload size={18} />,
-        disabled: false,
+        disabled: busyGenerating,
         status: (protocolFiles.length > 0 && objective.trim()
           ? "review"
           : "active") as TabStatus
@@ -758,7 +760,7 @@ export function ReportEditor({
         ]),
         accent: "teal-journey" as const,
         icon: <IconFileText size={18} />,
-        disabled: false,
+        disabled: busyGenerating,
         status: (draft &&
         (draft.aim ||
           draft.introduction ||
@@ -782,6 +784,7 @@ export function ReportEditor({
     draft,
     fileCount,
     generationStatus,
+    busyGenerating,
     protocolFiles.length,
     objective
   ])
