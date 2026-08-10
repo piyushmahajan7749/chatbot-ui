@@ -307,7 +307,10 @@ export default function ShareDialog({
 
         {/* Add people */}
         <div className="px-6 pb-2">
-          <div className="border-ink-200 focus-within:border-ink-400 flex items-center gap-2 rounded-2xl border px-3 py-2 transition-colors">
+          {/* Wraps instead of overflowing: on a narrow dialog the row used to
+              push the submit button out of the box, so it looked as though
+              there was no way to actually share. */}
+          <div className="border-ink-200 focus-within:border-ink-400 flex flex-wrap items-center gap-2 rounded-2xl border px-3 py-2 transition-colors">
             <Input
               type="email"
               placeholder="Add people by email"
@@ -316,7 +319,7 @@ export default function ShareDialog({
               onKeyDown={e => {
                 if (e.key === "Enter" && !isInviting) invite()
               }}
-              className="h-9 flex-1 border-0 bg-transparent px-0 shadow-none focus-visible:ring-0"
+              className="h-9 min-w-[160px] flex-1 border-0 bg-transparent px-0 shadow-none focus-visible:ring-0"
             />
             <Select
               value={inviteRole}
@@ -336,7 +339,11 @@ export default function ShareDialog({
               size="sm"
               className="shrink-0"
             >
-              {isInviting ? <Loader2 className="size-4 animate-spin" /> : "Add"}
+              {isInviting ? (
+                <Loader2 className="size-4 animate-spin" />
+              ) : (
+                "Share"
+              )}
             </Button>
           </div>
         </div>

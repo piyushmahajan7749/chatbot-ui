@@ -7447,8 +7447,11 @@ function DesignTab(props: {
     <div className="flex gap-5">
       {/* LEFT: sequential iteration rail. Only once there's more than one
           version — a single design doesn't need a timeline. */}
+      {/* Shown whenever there IS history - it used to be hidden below the lg
+          breakpoint, so saving (which opens the Export panel and squeezes the
+          reading width) made the whole version list appear to vanish. */}
       {designs.length > 0 && timeline.length > 1 && (
-        <aside className="hidden w-48 shrink-0 lg:block">
+        <aside className="w-40 shrink-0 lg:w-48">
           <div className="text-ink-400 mb-2 text-[11px] font-semibold uppercase tracking-wider">
             Design iterations
           </div>
@@ -7564,38 +7567,44 @@ function DesignTab(props: {
             scrolling a long design (it used to sit under the protocol, below
             the fold). One button; inside the modal the researcher picks
             simulate-the-results or bring-your-own lab data. */}
-        {designs.length > 0 && onValidateIterate && !viewedVersion && (
-          <div className="border-teal-journey/30 bg-teal-journey/5 flex flex-wrap items-center justify-between gap-3 rounded-xl border px-4 py-3">
-            <p className="text-ink-600 min-w-0 text-[12.5px]">
-              <span className="text-ink-800 font-semibold">
-                Stress-test this design
-              </span>{" "}
-              — simulate the outcome, or check it against your own lab data — or
-              save it and head to downloads.
-            </p>
-            <div className="flex shrink-0 items-center gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={onValidateIterate}
-                disabled={isBusy}
-                className="border-teal-journey/40 text-teal-journey hover:bg-teal-journey/10 gap-1.5"
-              >
-                <IconChartHistogram size={15} /> Validate &amp; iterate
-              </Button>
-              {!isApproved && onSaveNow && (
+        {/* Hidden once the design is SAVED: offering "apply these changes"
+            against a finalised design would silently fork what the researcher
+            just committed to. */}
+        {designs.length > 0 &&
+          onValidateIterate &&
+          !viewedVersion &&
+          !isApproved && (
+            <div className="border-teal-journey/30 bg-teal-journey/5 flex flex-wrap items-center justify-between gap-3 rounded-xl border px-4 py-3">
+              <p className="text-ink-600 min-w-0 text-[12.5px]">
+                <span className="text-ink-800 font-semibold">
+                  Stress-test this design
+                </span>{" "}
+                — simulate the outcome, or check it against your own lab data —
+                or save it and head to downloads.
+              </p>
+              <div className="flex shrink-0 items-center gap-2">
                 <Button
+                  variant="outline"
                   size="sm"
-                  onClick={onSaveNow}
+                  onClick={onValidateIterate}
                   disabled={isBusy}
-                  className="bg-brick hover:bg-brick-hover gap-1.5"
+                  className="border-teal-journey/40 text-teal-journey hover:bg-teal-journey/10 gap-1.5"
                 >
-                  <IconCheck size={15} /> Save now
+                  <IconChartHistogram size={15} /> Validate &amp; iterate
                 </Button>
-              )}
+                {!isApproved && onSaveNow && (
+                  <Button
+                    size="sm"
+                    onClick={onSaveNow}
+                    disabled={isBusy}
+                    className="bg-brick hover:bg-brick-hover gap-1.5"
+                  >
+                    <IconCheck size={15} /> Save now
+                  </Button>
+                )}
+              </div>
             </div>
-          </div>
-        )}
+          )}
 
         {designs.length === 0 ? (
           isGenerating ? (
