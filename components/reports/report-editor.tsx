@@ -34,6 +34,10 @@ import { InputsTab } from "@/components/reports/tabs/inputs-tab"
 import { ReportTab as ReportTabView } from "@/components/reports/tabs/report-tab"
 import { ReportPreviewModal } from "@/components/reports/report-preview-modal"
 import { ReportGeneratingView } from "@/components/reports/report-generating-view"
+import {
+  ReportChart,
+  type ChartType
+} from "@/app/[locale]/[workspaceid]/report/components/report-chart"
 import { ELNExportModal } from "@/components/eln/eln-export-modal"
 import { ELNConnectModal } from "@/components/eln/eln-connect-modal"
 import { ELNConnection } from "@/types/eln"
@@ -208,6 +212,7 @@ export function ReportEditor({
   const [regeneratingChart, setRegeneratingChart] = useState(false)
   const [showPreview, setShowPreview] = useState(false)
   const [showViz, setShowViz] = useState(false)
+  const [vizSeries, setVizSeries] = useState(0)
   const [isSavingNow, setIsSavingNow] = useState(false)
   const sectionSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -1124,18 +1129,80 @@ export function ReportEditor({
               {report?.name ? `${report.name} — results` : "Result data"}
             </DialogTitle>
           </DialogHeader>
-          {report?.chart_image ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={report.chart_image as string}
-              alt="Result visualization"
-              className="border-ink-200 max-h-[70vh] w-full rounded-lg border bg-white object-contain"
-            />
-          ) : (
-            <p className="text-ink-500 py-8 text-center text-sm">
-              No chart has been generated for this report yet.
-            </p>
-          )}
+          {(() => {
+            const cd = (report?.chart_data ?? null) as any
+            // Primary metric first, then every other metric the outline found.
+            // The generator used to be told to pick ONE metric and discard the
+            // rest, so uploads with several readouts only ever charted one.
+            const series: Array<{
+              metric: string
+              yAxisLabel?: string
+              chartType?: ChartType
+              data: { label: string; value: number }[]
+            }> = []
+            if (Array.isArray(cd?.data) && cd.data.length) {
+              series.push({
+                metric: cd.chartTitle || "Primary result",
+                yAxisLabel: cd.yAxisLabel,
+                chartType: cd.chartType,
+                data: cd.data
+              })
+            }
+            for (const extra of cd?.additionalSeries ?? []) {
+              if (Array.isArray(extra?.data) && extra.data.length) {
+                series.push({
+                  metric: extra.metric || "Metric",
+                  yAxisLabel: extra.yAxisLabel,
+                  chartType: extra.chartType,
+                  data: extra.data
+                })
+              }
+            }
+            const active = series[Math.min(vizSeries, series.length - 1)]
+            if (!active) {
+              return report?.chart_image ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={report.chart_image as string}
+                  alt="Result visualization"
+                  className="border-ink-200 max-h-[70vh] w-full rounded-lg border bg-white object-contain"
+                />
+              ) : (
+                <p className="text-ink-500 py-8 text-center text-sm">
+                  No chart has been generated for this report yet.
+                </p>
+              )
+            }
+            return (
+              <div className="space-y-3">
+                {series.length > 1 && (
+                  <div className="flex flex-wrap gap-1.5">
+                    {series.map((sr, i) => (
+                      <button
+                        key={sr.metric + i}
+                        type="button"
+                        onClick={() => setVizSeries(i)}
+                        className={cn(
+                          "rounded-full border px-3 py-1 text-[12px] transition-colors",
+                          i === vizSeries
+                            ? "border-ink bg-ink text-white"
+                            : "border-line text-ink-2 hover:border-line-strong"
+                        )}
+                      >
+                        {sr.metric}
+                      </button>
+                    ))}
+                  </div>
+                )}
+                <ReportChart
+                  data={active.data}
+                  chartTitle={active.metric}
+                  yAxisLabel={active.yAxisLabel}
+                  chartType={active.chartType ?? "bar"}
+                />
+              </div>
+            )
+          })()}
         </DialogContent>
       </Dialog>
 
