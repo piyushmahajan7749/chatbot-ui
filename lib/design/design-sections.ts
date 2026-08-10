@@ -130,8 +130,11 @@ export function buildDesignBlocks(
 
   const wantsReplicates =
     (ctx as { includeReplicates?: string }).includeReplicates === "yes"
+  const replicateN = (
+    (ctx as { replicateCount?: string }).replicateCount || ""
+  ).trim()
   const replicateDirective = wantsReplicates
-    ? `\n\nREPLICATES: The researcher WANTS replicates. Include a sensible biological/technical replicate scheme (state n per group) and factor it into every vial-count, the conditions-table "n" column, all material totals, and the statistical power calculation.`
+    ? `\n\nREPLICATES: The researcher WANTS replicates${replicateN ? ` and specified n = ${replicateN} per condition - USE EXACTLY THAT` : ""}. Include a sensible biological/technical replicate scheme (state n per group) and factor it into every vial-count, the conditions-table "n" column, all material totals, and the statistical power calculation.`
     : `\n\nREPLICATES: The researcher does NOT want replicates - design a SINGLE run per condition (n = 1). Do NOT multiply any count by a replicate factor. State plainly in the replicates/conditions field: "No replicates - single run per condition (n = 1)". Every conditions-table "n" column = 1, and all material totals = conditions × 1 × volume-per-sample (dead-volume buffer only, no replicate multiplier). The statistics section must reflect n = 1 (no replicate-based power calc; note the single-run limitation).`
 
   const userSuppliedNote = hyp.userSupplied

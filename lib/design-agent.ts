@@ -216,6 +216,8 @@ export interface ProblemContext {
    * condition (n=1). Drives the design-phase replicate directive.
    */
   includeReplicates?: "yes" | "no" | ""
+  /** n per condition when includeReplicates === "yes". */
+  replicateCount?: string
   /** Optional success criteria the researcher specified for the design. */
   successCriteria?: string
   /**
