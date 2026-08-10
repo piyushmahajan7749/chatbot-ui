@@ -5,8 +5,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
+import { getFileFromStorage } from "@/db/storage/files"
 import { Tables } from "@/supabase/types"
 import {
+  IconFileText,
   IconLoader2,
   IconPlus,
   IconRefresh,
@@ -151,6 +153,50 @@ export const InputsTab: FC<InputsTabProps> = ({
   // three near-identical fields without forcing a separate component
   // file. The label / caption are passed in so each field stays
   // self-explanatory.
+  /**
+   * The files already attached, as an openable list. The tab used to lead with
+   * Template + Objective - both already collected in the setup modal - so the
+   * thing the researcher came here to check (what data is actually attached)
+   * was buried under a duplicate of the setup form, and the files couldn't be
+   * opened at all.
+   */
+  const renderAttachedFiles = (label: string, items: Tables<"files">[]) => {
+    if (items.length === 0) return null
+    const open = async (f: Tables<"files">) => {
+      try {
+        const url = await getFileFromStorage(f.file_path)
+        if (url) window.open(url, "_blank", "noopener,noreferrer")
+      } catch {
+        /* opening is best-effort - the row stays listed either way */
+      }
+    }
+    return (
+      <div className="space-y-1.5">
+        <Label className="text-[12.5px]">{label}</Label>
+        <ul className="space-y-1">
+          {items.map(f => (
+            <li key={f.id}>
+              <button
+                type="button"
+                onClick={() => void open(f)}
+                title="Open this file"
+                className="border-line hover:border-line-strong hover:bg-paper-2 flex w-full items-center gap-2 rounded-lg border px-3 py-2 text-left transition-colors"
+              >
+                <IconFileText size={15} className="text-ink-3 shrink-0" />
+                <span className="text-ink-800 min-w-0 flex-1 truncate text-[12.5px]">
+                  {f.name}
+                </span>
+                <span className="text-ink-400 shrink-0 text-[10.5px] uppercase">
+                  {(f.type || "").replace("application/", "") || "file"}
+                </span>
+              </button>
+            </li>
+          ))}
+        </ul>
+      </div>
+    )
+  }
+
   const renderFileField = (params: {
     label: string
     required?: boolean
@@ -217,6 +263,23 @@ export const InputsTab: FC<InputsTabProps> = ({
 
   return (
     <div className="space-y-5">
+      {(dataFiles.length > 0 || papers.length > 0) && (
+        <Card className="rounded-2xl">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-ink-900 text-lg">
+              Files in this report
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {renderAttachedFiles("Data", dataFiles)}
+            {renderAttachedFiles("Reference documents", papers)}
+            <p className="text-ink-400 text-xs">
+              Click a file to open it. Add or remove files below.
+            </p>
+          </CardContent>
+        </Card>
+      )}
+
       <Card className="rounded-2xl">
         <CardHeader className="pb-3">
           <CardTitle className="text-ink-900 text-lg">Template</CardTitle>
