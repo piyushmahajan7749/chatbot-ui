@@ -123,6 +123,10 @@ export const GenerateReportModal: FC<GenerateReportModalProps> = ({
     Array<{ id: string; name: string; section_count?: number }>
   >([])
   const [savedTemplateId, setSavedTemplateId] = useState<string | null>(null)
+  // The list is fetched when the modal opens, so the picker used to appear a
+  // second or two after everything else - the form visibly re-laying out under
+  // the cursor. Hold the space while it loads.
+  const [templatesLoading, setTemplatesLoading] = useState(true)
   const [protocol, setProtocol] = useState<Tables<"files">[]>([])
   const [papers, setPapers] = useState<Tables<"files">[]>([])
   const [dataFiles, setDataFiles] = useState<Tables<"files">[]>([])
@@ -156,6 +160,7 @@ export const GenerateReportModal: FC<GenerateReportModalProps> = ({
   useEffect(() => {
     if (!open || !workspaceId) return
     let cancelled = false
+    setTemplatesLoading(true)
     void fetch(
       `/api/report-templates?workspaceId=${encodeURIComponent(workspaceId)}`
     )
@@ -167,6 +172,9 @@ export const GenerateReportModal: FC<GenerateReportModalProps> = ({
       .catch(err =>
         console.warn("[GenerateReportModal] couldn't load templates:", err)
       )
+      .finally(() => {
+        if (!cancelled) setTemplatesLoading(false)
+      })
     return () => {
       cancelled = true
     }
@@ -492,6 +500,13 @@ export const GenerateReportModal: FC<GenerateReportModalProps> = ({
                 section list; reusing one was previously impossible from here,
                 so the structure a researcher had deliberately built could only
                 be recreated by hand. Only rendered when they have some. */}
+            {templatesLoading && savedTemplates.length === 0 && (
+              <div className="space-y-1.5">
+                <Label className="text-[12.5px]">Template (optional)</Label>
+                <div className="border-ink-200 bg-ink-50 h-9 animate-pulse rounded-md border" />
+              </div>
+            )}
+
             {savedTemplates.length > 0 && (
               <div className="space-y-1.5">
                 <Label className="text-[12.5px]">Template (optional)</Label>

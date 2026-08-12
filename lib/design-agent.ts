@@ -468,6 +468,14 @@ export interface DesignVersionSnapshot {
     appliedChanges?: string[]
     /** Key insights from a lab-data round. */
     insights?: string[]
+    /**
+     * The FULL pre-lab simulation for this version, kept so the elaborate
+     * result - distribution, gotchas, gap analysis, guardrails, the changes it
+     * proposed - can be re-read later behind an expander. Previously only the
+     * one-line verdict survived a version being superseded, so stepping back
+     * showed a summary with no way to see what it was based on.
+     */
+    simulation?: PreLabSimulation
   }
 }
 

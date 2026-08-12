@@ -1334,14 +1334,28 @@ export default function DesignDetailPage() {
       selected: true,
       userSupplied: true
     }
-    const next = [own]
+    // ADD to the list rather than replacing it.
+    //
+    // This used to be `[own]`, wiping every generated hypothesis. The moment a
+    // researcher is best placed to write a sharp hypothesis is right after
+    // reading ours - and that was exactly the moment acting on it destroyed
+    // what they had just read, with no way back short of regenerating. Theirs
+    // is now added on top and selected; the generated set stays available, and
+    // they can pick a different one or several.
+    const next: Hypothesis[] = [
+      own,
+      ...hypotheses.map(h => ({ ...h, selected: false }))
+    ]
     setHypotheses(next)
     latestContentRef.current = { ...latestContentRef.current, hypotheses: next }
     void persistContent({ hypotheses: next })
     setHypTab("suggested")
     toast({
-      title: "Hypothesis added",
-      description: "It's selected - generate the design when you're ready."
+      title: "Your hypothesis was added",
+      description:
+        hypotheses.length > 0
+          ? "It's selected and sits at the top; the generated ones are still there."
+          : "It's selected - generate the design when you're ready."
     })
   }
 
@@ -1643,17 +1657,31 @@ export default function DesignDetailPage() {
             versionNumber: nextVersionNumber,
             designs: curDesigns,
             createdAt: new Date().toISOString(),
-            origin: curOrigin
+            origin: curOrigin,
+            // Auto mode iterates unattended, so without this the researcher
+            // came back to a stack of versions with no record of why any of
+            // them was superseded. Keep the verdict, the numbers, the changes
+            // that were applied, and the whole simulation for the expander.
+            outcome: {
+              verdict: sim.predictedResults,
+              meetRate: sim.meetRate,
+              metTarget: sim.meetsTarget,
+              appliedChanges: changes,
+              simulation: sim
+            }
           }
           versions = [snapshot, ...versions]
           setDesignVersions(versions)
           setDesignOrigin("simulation")
           curOrigin = "simulation"
 
-          // Regenerate the design with the changes folded in.
+          // Regenerate the design with the changes folded in. Same progress
+          // treatment as the manual path - otherwise the auto run sits on the
+          // superseded protocol while it builds the next one.
           setActiveTab("design")
           setBusy("design")
           setDesignProgress([])
+          setRegenPlan({ version: nextVersionNumber + 1, changes })
           curProblem = { ...curProblem, additionalDetails: curDetails }
           const iterContent = await runPhaseBackground(
             designId,
@@ -1665,6 +1693,7 @@ export default function DesignDetailPage() {
             },
             ev => setDesignProgress(prev => [...prev, ev])
           )
+          setRegenPlan(null)
           curDesigns = iterContent.designs ?? curDesigns
           setGeneratedDesigns(curDesigns)
           setViewingVersionId(null)
@@ -1705,6 +1734,8 @@ export default function DesignDetailPage() {
       })
     } finally {
       setBusy(null)
+      // Never leave the pane stuck on "generating v3" if the run died midway.
+      setRegenPlan(null)
     }
   }
 
@@ -1989,7 +2020,8 @@ export default function DesignDetailPage() {
             ? {
                 verdict: validation.simulation.predictedResults,
                 meetRate: validation.simulation.meetRate,
-                metTarget: validation.simulation.meetsTarget
+                metTarget: validation.simulation.meetsTarget,
+                simulation: validation.simulation
               }
             : {}),
           ...(origin === "lab-data" && latestIteration
@@ -2044,11 +2076,20 @@ export default function DesignDetailPage() {
         setViewingVersionId(null)
         setActiveDesignId(content.designs[0]?.id ?? null)
       }
+      // The stored simulation described the design we just REPLACED. Leaving
+      // it in place meant reopening Validate for the new version showed the
+      // previous version's verdict and its full working stacked around the
+      // simulate button - two versions' results on one screen with nothing
+      // saying which was which. The old result lives on its version snapshot,
+      // which is where "Earlier rounds" reads it from.
+      const clearedValidation = { ...validation, simulation: undefined }
+      setValidation(clearedValidation)
       void persistContent({
         designs: content.designs,
         designVersions: snapshotVersions,
         currentVersionNumber: null,
-        problem: nextProblem
+        problem: nextProblem,
+        validation: clearedValidation
       })
       toast({
         title: `Design iteration ${nextRound} generated`,
@@ -2437,7 +2478,8 @@ export default function DesignDetailPage() {
               outcome: {
                 verdict: validation.simulation.predictedResults,
                 meetRate: validation.simulation.meetRate,
-                metTarget: validation.simulation.meetsTarget
+                metTarget: validation.simulation.meetsTarget,
+                simulation: validation.simulation
               }
             }
           : {})
@@ -3577,6 +3619,25 @@ Rules:
                       Running {busy}...
                     </span>
                   )}
+                  {/* How this design was built. Auto mode picked its own
+                      papers, hypothesis and iterations, so which path produced
+                      a design is worth knowing before reading it - and the two
+                      were indistinguishable once open. */}
+                  <span
+                    className={cn(
+                      "rounded border px-2 py-0.5 normal-case tracking-normal",
+                      autoGenerated
+                        ? "border-brick/30 bg-brick/10 text-brick"
+                        : "border-ink-300 bg-ink-50 text-ink-600"
+                    )}
+                    title={
+                      autoGenerated
+                        ? "Built end-to-end by the automatic pipeline: it selected the papers, chose the hypothesis, and iterated on the design itself."
+                        : "You drove each stage: you chose the papers and the hypothesis."
+                    }
+                  >
+                    {autoGenerated ? "Auto mode" : "Built by you"}
+                  </span>
                 </div>
                 <h1 className="text-ink-900 text-xl font-bold">
                   {title || design.name || "Untitled Design"}
@@ -4704,6 +4765,235 @@ function progressToEvents(
 }
 
 // ── Validate-and-iterate stage ────────────────────────────────────────────
+/** Compact number formatter shared by the simulation readouts. */
+function fmtSimNum(x?: number): string {
+  if (typeof x !== "number" || !Number.isFinite(x)) return "—"
+  const a = Math.abs(x)
+  if (a !== 0 && (a < 0.01 || a >= 100000)) return x.toExponential(2)
+  return String(Math.round(x * 1000) / 1000)
+}
+
+/**
+ * A past version's simulation result: the one-line verdict always visible, the
+ * full working folded behind an expander.
+ *
+ * The elaborate view - distribution, run count, guardrails, gotchas, gap
+ * analysis, the changes it proposed - used to exist only for whichever
+ * simulation was most recent. Once a version was superseded all that survived
+ * was a sentence, so a researcher reading v1 could see the conclusion and never
+ * what produced it. Both are kept now, and both are shown here, so every
+ * version reads the same way whether it came from auto mode or a manual round.
+ */
+function SimulationOutcome(props: {
+  outcome: NonNullable<DesignVersionSnapshot["outcome"]>
+  /** Heading for the block, e.g. "v2 · Simulated version". */
+  title?: string
+  defaultOpen?: boolean
+}) {
+  const { outcome, title, defaultOpen = false } = props
+  const sim = outcome.simulation
+  const [open, setOpen] = useState(defaultOpen)
+
+  return (
+    <div className="border-teal-journey/30 bg-teal-journey/5 space-y-2 rounded-xl border p-4">
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="text-ink-800 text-[12.5px] font-semibold">
+          {title ?? "What this version showed"}
+        </span>
+        {typeof outcome.meetRate === "number" && (
+          <span
+            className={cn(
+              "rounded-full px-2 py-0.5 text-[11px] font-semibold",
+              outcome.metTarget
+                ? "bg-emerald-50 text-emerald-700"
+                : "bg-amber-50 text-amber-700"
+            )}
+          >
+            hit the target in {Math.round(outcome.meetRate * 100)}% of runs
+          </span>
+        )}
+        {sim && (
+          <button
+            type="button"
+            onClick={() => setOpen(o => !o)}
+            className="text-teal-journey ml-auto text-[11.5px] font-medium hover:underline"
+          >
+            {open ? "Hide full simulation" : "Show full simulation"}
+          </button>
+        )}
+      </div>
+
+      {outcome.verdict && (
+        <p className="text-ink-600 text-[12.5px] leading-relaxed">
+          {outcome.verdict}
+        </p>
+      )}
+      {(outcome.insights?.length ?? 0) > 0 && (
+        <ul className="text-ink-600 list-disc space-y-0.5 pl-4 text-[12px]">
+          {outcome.insights!.map(ins => (
+            <li key={ins}>{ins}</li>
+          ))}
+        </ul>
+      )}
+
+      {sim && open && (
+        <div className="border-teal-journey/20 mt-1 space-y-3 border-t pt-3">
+          {sim.executed && (
+            <div className="border-ink-200 rounded-lg border bg-white/70 p-3 text-[12px]">
+              {sim.distribution && (
+                <div className="text-ink-600">
+                  Typical result:{" "}
+                  <span className="text-ink-900 font-semibold">
+                    {fmtSimNum(sim.distribution.mean)}
+                    {sim.distribution.unit ? ` ${sim.distribution.unit}` : ""}
+                  </span>
+                  <span className="text-ink-500">
+                    {" "}
+                    (± {fmtSimNum(sim.distribution.sd)} run to run)
+                  </span>
+                </div>
+              )}
+              <div className="text-ink-500 mt-1.5 leading-relaxed">
+                Ran{" "}
+                <span className="text-ink-800 font-semibold tabular-nums">
+                  {(sim.nTrials ?? 0).toLocaleString()}
+                </span>{" "}
+                simulated experiments
+                {sim.distribution && (
+                  <>
+                    , spanning{" "}
+                    <span className="text-ink-800 font-semibold tabular-nums">
+                      {fmtSimNum(sim.distribution.p10)}
+                    </span>{" "}
+                    to{" "}
+                    <span className="text-ink-800 font-semibold tabular-nums">
+                      {fmtSimNum(sim.distribution.p90)}
+                    </span>{" "}
+                    {sim.distribution.unit ?? ""} in most runs
+                  </>
+                )}
+                .
+              </div>
+            </div>
+          )}
+
+          {(sim.secondaryCriteria?.length ?? 0) > 0 && (
+            <div>
+              <div className="text-ink-400 mb-1 text-[10.5px] font-bold uppercase tracking-wider">
+                Also checked (guardrails)
+              </div>
+              <ul className="space-y-1">
+                {sim.secondaryCriteria!.map(c => {
+                  const pct =
+                    typeof c.passRate === "number"
+                      ? Math.round(c.passRate * 100)
+                      : null
+                  return (
+                    <li
+                      key={c.metric}
+                      className="flex items-baseline justify-between gap-3 text-[12px]"
+                    >
+                      <span className="text-ink-600 min-w-0">
+                        {c.metric}{" "}
+                        <span className="text-ink-400">
+                          ({c.direction} {fmtSimNum(c.threshold)}
+                          {c.unit ? ` ${c.unit}` : ""})
+                        </span>
+                      </span>
+                      <span
+                        className={cn(
+                          "shrink-0 font-semibold tabular-nums",
+                          pct === null
+                            ? "text-ink-400"
+                            : pct >= 80
+                              ? "text-sage-brand"
+                              : "text-amber-700"
+                        )}
+                      >
+                        {pct === null ? "not scored" : `${pct}% of runs`}
+                      </span>
+                    </li>
+                  )
+                })}
+              </ul>
+            </div>
+          )}
+
+          {(sim.gotchas?.length ?? 0) > 0 && (
+            <div>
+              <div className="text-ink-400 mb-1 text-[10.5px] font-bold uppercase tracking-wider">
+                Gotchas flagged
+              </div>
+              <div className="space-y-1.5">
+                {sim.gotchas!.map((g, i) => (
+                  <div
+                    key={i}
+                    className="border-ink-100 flex items-start gap-2 rounded-lg border bg-white/70 p-2"
+                  >
+                    <span
+                      className={cn(
+                        "mt-0.5 inline-flex shrink-0 items-center rounded px-1.5 py-0.5 text-[9.5px] font-bold uppercase",
+                        g.severity === "high"
+                          ? "bg-brick/10 text-brick"
+                          : g.severity === "medium"
+                            ? "bg-amber-100 text-amber-700"
+                            : "bg-ink-100 text-ink-500"
+                      )}
+                    >
+                      {g.severity}
+                    </span>
+                    <div className="text-[12px] leading-snug">
+                      <span className="text-ink-800">{g.issue}</span>{" "}
+                      <span className="text-ink-500">— {g.fix}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {sim.gapAnalysis && (
+            <div>
+              <div className="text-ink-400 mb-0.5 text-[10.5px] font-bold uppercase tracking-wider">
+                Gap to target
+              </div>
+              <p className="text-ink-700 text-[12.5px] leading-relaxed">
+                {sim.gapAnalysis}
+              </p>
+            </div>
+          )}
+
+          {(sim.optimizedChanges?.length ?? 0) > 0 && (
+            <div>
+              <div className="text-ink-400 mb-1 text-[10.5px] font-bold uppercase tracking-wider">
+                Changes it proposed
+              </div>
+              <ul className="text-ink-600 list-disc space-y-0.5 pl-4 text-[12px]">
+                {sim.optimizedChanges.map(c => (
+                  <li key={c}>{c}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </div>
+      )}
+
+      {(outcome.appliedChanges?.length ?? 0) > 0 && (
+        <div className="border-teal-journey/20 border-t pt-2">
+          <div className="text-ink-400 mb-1 text-[10.5px] font-bold uppercase tracking-wider">
+            Carried forward
+          </div>
+          <ul className="text-ink-700 list-disc space-y-0.5 pl-4 text-[12px]">
+            {outcome.appliedChanges!.map(c => (
+              <li key={c}>{c}</li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </div>
+  )
+}
+
 function verdictLabel(v: ValidationVerdict | undefined): string {
   switch (v) {
     case "supported":
@@ -5076,63 +5366,19 @@ function ValidateTab(props: {
             </p>
             <ol className="mt-3 space-y-3">
               {rounds.map(v => (
-                <li
-                  key={v.id}
-                  className="border-ink-100 bg-ink-50/40 rounded-xl border p-3.5"
-                >
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className="text-ink-900 text-[12.5px] font-bold">
-                      v{v.versionNumber}
-                    </span>
-                    <span className="text-ink-400 text-[11.5px]">
-                      {originLabel(v.origin)}
-                    </span>
-                    {typeof v.outcome!.meetRate === "number" && (
-                      <span
-                        className={cn(
-                          "rounded-full px-2 py-0.5 text-[11px] font-semibold",
-                          v.outcome!.metTarget
-                            ? "bg-emerald-50 text-emerald-700"
-                            : "bg-amber-50 text-amber-700"
-                        )}
-                      >
-                        hit the target in{" "}
-                        {Math.round(v.outcome!.meetRate * 100)}% of runs
-                      </span>
-                    )}
-                    {onOpenVersion && (
-                      <button
-                        type="button"
-                        onClick={() => onOpenVersion(v.id)}
-                        className="text-teal-journey ml-auto text-[11.5px] font-medium hover:underline"
-                      >
-                        Open this version
-                      </button>
-                    )}
-                  </div>
-                  {v.outcome!.verdict && (
-                    <p className="text-ink-600 mt-1.5 text-[12.5px] leading-relaxed">
-                      {v.outcome!.verdict}
-                    </p>
-                  )}
-                  {(v.outcome!.insights?.length ?? 0) > 0 && (
-                    <ul className="text-ink-600 mt-1.5 list-disc space-y-0.5 pl-4 text-[12px]">
-                      {v.outcome!.insights!.map(ins => (
-                        <li key={ins}>{ins}</li>
-                      ))}
-                    </ul>
-                  )}
-                  {(v.outcome!.appliedChanges?.length ?? 0) > 0 && (
-                    <div className="border-ink-200 mt-2.5 border-t pt-2">
-                      <div className="text-ink-400 mb-1 text-[10.5px] font-semibold uppercase tracking-wider">
-                        Carried into v{v.versionNumber + 1}
-                      </div>
-                      <ul className="text-ink-700 list-disc space-y-0.5 pl-4 text-[12px]">
-                        {v.outcome!.appliedChanges!.map(c => (
-                          <li key={c}>{c}</li>
-                        ))}
-                      </ul>
-                    </div>
+                <li key={v.id} className="relative">
+                  <SimulationOutcome
+                    outcome={v.outcome!}
+                    title={`v${v.versionNumber} · ${originLabel(v.origin)}`}
+                  />
+                  {onOpenVersion && (
+                    <button
+                      type="button"
+                      onClick={() => onOpenVersion(v.id)}
+                      className="text-teal-journey mt-1 text-[11.5px] font-medium hover:underline"
+                    >
+                      Open v{v.versionNumber}
+                    </button>
                   )}
                 </li>
               ))}
@@ -6016,11 +6262,20 @@ function DesignLibrarySidebar({
     Array<{ id: string; name: string; section_count?: number }>
   >([])
   const [presetTemplateId, setPresetTemplateId] = useState<string | null>(null)
+  // Both lists are fetched when the rail opens, so for the first second or two
+  // the panel rendered as though the design had no reports and no templates -
+  // and then they appeared, which reads as a glitch. Track the first load so
+  // the sections can hold a placeholder instead of asserting emptiness.
+  const [assetsLoading, setAssetsLoading] = useState(true)
+  const [templatesLoading, setTemplatesLoading] = useState(true)
   const [openAssetId, setOpenAssetId] = useState<string | null>(null)
   const [deletingAssetId, setDeletingAssetId] = useState<string | null>(null)
 
   const refreshAssets = useCallback(async () => {
-    if (!design?.id || !ctx.workspaceId) return
+    if (!design?.id || !ctx.workspaceId) {
+      setAssetsLoading(false)
+      return
+    }
     try {
       const all = await getReportsByWorkspaceId(ctx.workspaceId)
       setReportAssets(
@@ -6037,11 +6292,16 @@ function DesignLibrarySidebar({
       )
     } catch (err) {
       console.warn("Couldn't load report assets:", err)
+    } finally {
+      setAssetsLoading(false)
     }
   }, [design?.id, ctx.workspaceId])
 
   const refreshTemplates = useCallback(async () => {
-    if (!ctx.workspaceId) return
+    if (!ctx.workspaceId) {
+      setTemplatesLoading(false)
+      return
+    }
     try {
       const res = await fetch(
         `/api/report-templates?workspaceId=${encodeURIComponent(ctx.workspaceId)}`
@@ -6051,6 +6311,8 @@ function DesignLibrarySidebar({
       setTemplateAssets(Array.isArray(json?.templates) ? json.templates : [])
     } catch (err) {
       console.warn("Couldn't load report templates:", err)
+    } finally {
+      setTemplatesLoading(false)
     }
   }, [ctx.workspaceId])
 
@@ -6236,6 +6498,24 @@ function DesignLibrarySidebar({
 
       {/* Saved report assets for this design. Click to reopen in the same
           modal; download as PDF or delete outright. */}
+      {/* Placeholder while the first fetch runs, so the panel doesn't briefly
+          assert there are no reports and then contradict itself. */}
+      {assetsLoading && reportAssets.length === 0 && (
+        <div className="border-ink-100 shrink-0 border-t p-3">
+          <div className="text-ink-400 mb-2 text-[10px] font-bold uppercase tracking-[0.13em]">
+            Reports
+          </div>
+          <div className="space-y-1.5">
+            {[0, 1].map(i => (
+              <div
+                key={i}
+                className="border-ink-100 bg-ink-50 h-[46px] animate-pulse rounded-lg border"
+              />
+            ))}
+          </div>
+        </div>
+      )}
+
       {reportAssets.length > 0 && (
         <div className="border-ink-100 shrink-0 border-t p-3">
           <div className="text-ink-400 mb-2 text-[10px] font-bold uppercase tracking-[0.13em]">
@@ -6322,6 +6602,15 @@ function DesignLibrarySidebar({
           no way to see it afterwards - it existed only inside the generate
           dialog's dropdown - so it sits here beside the reports, named, and
           starts a new report pre-set to it. */}
+      {templatesLoading && templateAssets.length === 0 && (
+        <div className="border-ink-100 shrink-0 border-t p-3">
+          <div className="text-ink-400 mb-2 text-[10px] font-bold uppercase tracking-[0.13em]">
+            Templates
+          </div>
+          <div className="border-ink-100 bg-ink-50 h-[46px] animate-pulse rounded-lg border" />
+        </div>
+      )}
+
       {templateAssets.length > 0 && (
         <div className="border-ink-100 shrink-0 border-t p-3">
           <div className="text-ink-400 mb-2 text-[10px] font-bold uppercase tracking-[0.13em]">
@@ -7262,6 +7551,58 @@ function HypothesesTab(props: {
             </div>
           )}
 
+          {/* Write your own, right here, WITHOUT losing the generated set.
+              The "Create your own" tab clears the suggestions on switch, so
+              the one moment a researcher is best placed to write a sharper
+              hypothesis - having just read four of ours - was also the moment
+              acting on it meant throwing them away. This adds theirs alongside
+              rather than instead. */}
+          {!isApproved && !isGenerating && hypotheses.length > 0 && canEdit && (
+            <details className="border-purple-persona/30 group rounded-xl border border-dashed bg-white p-4 open:pb-4">
+              <summary className="text-purple-persona cursor-pointer list-none text-[12.5px] font-semibold">
+                <span className="group-open:hidden">
+                  + Write your own hypothesis instead
+                </span>
+                <span className="hidden group-open:inline">
+                  Write your own hypothesis
+                </span>
+              </summary>
+              <p className="text-ink-500 mt-2 text-[12px] leading-relaxed">
+                Read something above you&apos;d sharpen, or have your own idea?
+                Write it here. It joins the list as an extra option - nothing
+                above is lost, and you can still pick whichever you prefer.
+              </p>
+              <textarea
+                value={ownText}
+                onChange={e => setOwnText(e.target.value)}
+                rows={3}
+                placeholder="e.g. Combining 50 mM lysine with 50 mM proline lowers viscosity at 150 mg/mL further than either alone, because they suppress different self-association contacts."
+                className="border-ink-200 focus:border-purple-persona mt-3 w-full rounded-lg border p-3 text-[13px] outline-none transition-colors"
+              />
+              <div className="mt-2 flex flex-wrap items-center gap-2">
+                <Button
+                  size="sm"
+                  disabled={isBusy || !ownText.trim()}
+                  onClick={() => {
+                    onUseOwnText(ownText.trim())
+                    setOwnText("")
+                  }}
+                  className="bg-purple-persona hover:bg-purple-persona/90 text-white"
+                >
+                  Add to the list
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={isBusy}
+                  onClick={onBuildOwn}
+                >
+                  Or answer a few questions and we&apos;ll draft it
+                </Button>
+              </div>
+            </details>
+          )}
+
           <PhaseActionBar
             onApprove={onApproveAndGenerate}
             approveLabel="Approve & Generate Design"
@@ -8189,51 +8530,12 @@ function DesignTab(props: {
             stepping back showed a protocol with no reasoning attached. */}
         {viewedVersion?.outcome &&
           (viewedVersion.outcome.verdict ||
+            viewedVersion.outcome.simulation ||
             (viewedVersion.outcome.appliedChanges?.length ?? 0) > 0) && (
-            <div className="border-teal-journey/30 bg-teal-journey/5 space-y-2 rounded-xl border p-4">
-              <div className="flex flex-wrap items-center gap-2">
-                <span className="text-ink-800 text-[12.5px] font-semibold">
-                  What this version showed
-                </span>
-                {typeof viewedVersion.outcome.meetRate === "number" && (
-                  <span
-                    className={cn(
-                      "rounded-full px-2 py-0.5 text-[11px] font-semibold",
-                      viewedVersion.outcome.metTarget
-                        ? "bg-emerald-50 text-emerald-700"
-                        : "bg-amber-50 text-amber-700"
-                    )}
-                  >
-                    hit the target in{" "}
-                    {Math.round(viewedVersion.outcome.meetRate * 100)}% of runs
-                  </span>
-                )}
-              </div>
-              {viewedVersion.outcome.verdict && (
-                <p className="text-ink-600 text-[12.5px] leading-relaxed">
-                  {viewedVersion.outcome.verdict}
-                </p>
-              )}
-              {(viewedVersion.outcome.insights?.length ?? 0) > 0 && (
-                <ul className="text-ink-600 list-disc space-y-0.5 pl-4 text-[12px]">
-                  {viewedVersion.outcome.insights!.map(i => (
-                    <li key={i}>{i}</li>
-                  ))}
-                </ul>
-              )}
-              {(viewedVersion.outcome.appliedChanges?.length ?? 0) > 0 && (
-                <div>
-                  <div className="text-ink-400 mb-1 text-[10.5px] font-bold uppercase tracking-wide">
-                    Changed for v{viewedVersion.versionNumber + 1}
-                  </div>
-                  <ul className="text-ink-600 list-disc space-y-0.5 pl-4 text-[12px]">
-                    {viewedVersion.outcome.appliedChanges!.map(c => (
-                      <li key={c}>{c}</li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-            </div>
+            <SimulationOutcome
+              outcome={viewedVersion.outcome}
+              title={`v${viewedVersion.versionNumber} · what this version showed`}
+            />
           )}
 
         {viewedVersion && (
