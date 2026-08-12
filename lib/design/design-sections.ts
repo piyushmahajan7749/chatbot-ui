@@ -108,6 +108,34 @@ export interface DesignBlocks {
 const openai = () => getAzureOpenAIForDesign()
 const MODEL = () => getDesignDeployment()
 
+/**
+ * How every quantity in the design must be shown.
+ *
+ * The calculations were correct but compressed - a finished volume with the
+ * arithmetic folded away. That reads fine to whoever wrote it and is hard to
+ * follow, check, or adapt for anyone else, and bench staff span a wide range of
+ * experience. The rule is: each component is prepared SEPARATELY as its own
+ * stock, and each condition is then MIXED from those stocks, with one explicit
+ * C1V1 = C2V2 line per component and water/buffer closing the volume.
+ */
+const WORKED_EXAMPLE_RULE = `Show it as a SEPARATE-STOCKS-THEN-MIX calculation, never as a single collapsed figure:
+
+1. State the TARGET composition and the FINAL VOLUME first, in one line (e.g. "Target: 150 mg/mL mAb in 20 mM His/HCl pH 6.0 with 100 mM Arg·HCl — final volume 150 µL").
+2. List the STOCKS being drawn from, each with its concentration (e.g. "mAb stock 200 mg/mL", "His/HCl buffer stock 200 mM pH 6.0", "Arg·HCl stock 1000 mM", "WFI / dI water").
+3. Then ONE LINE PER COMPONENT, each showing the dilution arithmetic in full using C1V1 = C2V2:
+   - mAb: V1 = (150 mg/mL × 150 µL) / 200 mg/mL = 112.5 µL of the 200 mg/mL stock
+   - His/HCl: V1 = (20 mM × 150 µL) / 200 mM = 15.0 µL of the 200 mM buffer stock
+   - Arg·HCl: V1 = (100 mM × 150 µL) / 1000 mM = 15.0 µL of the 1000 mM stock
+4. Then the MAKE-UP line, as the balance: "Water/diluent = 150 − (112.5 + 15.0 + 15.0) = 7.5 µL".
+5. Then a CHECK line confirming the parts sum to the final volume and restating the delivered concentrations.
+
+Rules for these calculations everywhere they appear - buffer prep, stock prep, excipient prep, dilution series and final sample prep alike:
+- NEVER give a bare number. Every volume, mass or concentration shows the expression it came from, with units carried through.
+- Prepare each component as its OWN stock at a stated concentration, then mix. Do not weigh powders directly into a condition, and do not present a condition as a single pre-mixed recipe.
+- Use the researcher's stated stock concentrations. Where a stock concentration was not given, assume a sensible one, SAY the value you assumed on the line, and log it in the assumptions array.
+- Keep the arithmetic to one step per line so it can be checked by eye. Round volumes to what a pipette can actually deliver (0.1 µL) and say so if rounding shifts a concentration.
+- Name what each volume is drawn from, so "15.0 µL" is always "15.0 µL of the 1000 mM Arg·HCl stock".`
+
 /** Build the shared prompt context blocks for one hypothesis. */
 export function buildDesignBlocks(
   ctx: ProblemContext,
@@ -195,7 +223,9 @@ export function buildDesignBlocks(
 4. THE CHOSEN HYPOTHESIS - the mechanism being tested, within the bounds above.
 5. KNOWN / UNKNOWN VARIABLES - SECONDARY, LOW WEIGHT. Use them as helpful context: known variables are values you may hold fixed or reuse rather than assume, and unknown variables are things worth capturing as a secondary readout or noting as a limitation. They must NOT drive the design: do NOT add arms, factors or extra measurement burden purely to chase an unknown variable, and do NOT let them displace anything above. If exploring one would push you over the condition ceiling or dilute the primary objective, leave it out and say so in the rationale.`
 
-  const formatDirective = `\n\nOUTPUT FORMATTING (strict - optimise for at-a-glance readability, not walls of text):\n- Write every procedure / list as DISTINCT point-wise lines. NEVER pack multiple actions into one run-on sentence. If a step has branches, split them into their own numbered sub-lines (4a, 4b, 4c …), one action per line.\n- Use Markdown TABLES wherever data is tabular - the conditions matrix, material quantities, and especially CALCULATIONS. A reader should follow the logic by scanning columns, not parsing prose.\n- Conditions table: well-formed Markdown table, header row, one row per arm, all numbers with units, explicit baseline + control rows.\n- Calculations: present each as a compact table (e.g. \`| Quantity | Value | How it's derived |\`) OR as short labelled lines - one arithmetic step per row, numbers + units, and a brief note on where each number comes from (e.g. moles = 0.020 M × 0.250 L = 5.0e-3 mol - "20 mM target × 250 mL batch"). Never bury a calculation inside a paragraph, and never give a bare result without its derivation. Keep surrounding prose to one short lead-in sentence per block.`
+  const formatDirective = `\n\nOUTPUT FORMATTING (strict - optimise for at-a-glance readability, not walls of text):\n- Write every procedure / list as DISTINCT point-wise lines. NEVER pack multiple actions into one run-on sentence. If a step has branches, split them into their own numbered sub-lines (4a, 4b, 4c …), one action per line.\n- Use Markdown TABLES wherever data is tabular - the conditions matrix, material quantities, and especially CALCULATIONS. A reader should follow the logic by scanning columns, not parsing prose.\n- Conditions table: well-formed Markdown table, header row, one row per arm, all numbers with units, explicit baseline + control rows.\n- Calculations: present each as a compact table (e.g. \`| Quantity | Value | How it's derived |\`) OR as short labelled lines - one arithmetic step per row, numbers + units, and a brief note on where each number comes from (e.g. moles = 0.020 M × 0.250 L = 5.0e-3 mol - "20 mM target × 250 mL batch"). Never bury a calculation inside a paragraph, and never give a bare result without its derivation. Keep surrounding prose to one short lead-in sentence per block.
+
+CALCULATION STYLE (applies to buffer prep, stock prep, excipient prep, dilution series and final sample prep alike). Bench staff reading this span a wide range of experience, so no step may be implicit. ${WORKED_EXAMPLE_RULE}`
 
   // The ASSUMPTION LEDGER directive. The scientist's judgement - not the
   // model's defaults - must decide the numbers the protocol depends on. So
@@ -321,6 +351,8 @@ export async function genMaterials(
      5. Filter through 0.22 µm PES. Label (date + initials + lot). Store 2–8 °C, use within 14 days.
    One subsection per buffer/reagent. Every derived number must show its derivation in the table - never a bare value, and never a wall of prose.
 
+   PREPARE EACH COMPONENT SEPARATELY AS ITS OWN STOCK. Every excipient, salt, sugar and surfactant gets its own concentrated stock subsection with its own calculation - do NOT weigh several components straight into one combined solution, because a shared weigh-out cannot be re-used across arms at different levels and cannot be checked. Give each stock a NAME and a CONCENTRATION that the Condition Preparation table can then draw volumes from (e.g. "Arg·HCl stock, 1000 mM"). Choose stock concentrations high enough that every arm's draw stays pipettable at the working volume, and say why if a stock is near its solubility limit.
+
 4. **setupInstructions** - Numbered Markdown list of WORKSTATION / INSTRUMENT setup ONLY (balance calibration, pH-meter cal, biosafety cabinet setup, vial labeling scheme, temperature blocks). Each step has a bolded lead-in verb. Do NOT include reagent/buffer preparation (that's materialPreparation) or the run-time experimental steps (that's the procedure) - equipment readiness only.
 
 5. **storageDisposal** - Markdown bullets. For each material class: storage condition, container type, disposal stream (e.g. *Aqueous biowaste - 10% bleach, 30-min soak, rinse down sink; log in biohazard register*). Use bold labels.
@@ -373,7 +405,9 @@ export async function genProtocol(
   - The final-concentration column must restate what that arm is actually delivering (e.g. \`mAb 150 mg/mL, Arg 50 mM\`), so it can be checked against the conditions table.
   - Volumes are per single sample/vial at the stated final volume. Below the table add one short line for the per-arm total to prepare including replicates and dead volume (e.g. "×3 replicates × 1.15 dead volume = prepare 3.45 mL per arm").
   - If a component is absent from an arm, write \`—\`, never leave the cell blank.
-  Do not return prose in place of a table, and do not repeat the buffer recipes here (they live in Material Preparation) - this section is quantities to combine, nothing else.`
+  Do not return prose in place of a table, and do not repeat the buffer recipes here (they live in Material Preparation) - this section is quantities to combine, nothing else.
+
+  THEN, BELOW the table, WORK ONE ARM ALL THE WAY THROUGH, component by component. ${WORKED_EXAMPLE_RULE}`
       },
       {
         role: "user",

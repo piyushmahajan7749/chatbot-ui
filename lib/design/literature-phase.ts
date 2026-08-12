@@ -25,7 +25,7 @@ import {
   type ProblemContext,
   type StoredLiteratureContext
 } from "@/lib/design-agent"
-import { cleanPaperTitle } from "./paper-title"
+import { cleanPaperTitle, dedupePapers } from "./paper-title"
 
 function toAgentState(ctx: ProblemContext): ExperimentDesignState {
   // Fold the researcher's operating parameters into the search context so the
@@ -237,24 +237,18 @@ export async function runLiteraturePhase(
   const sourceNewPapers = qualityPapers
   const appendMode = args.mode === "append"
   const existingPapers = existing.papers ?? []
-  if (appendMode) {
-    const seenUrls = new Set(
-      existingPapers.map(p => (p.sourceUrl || "").toLowerCase()).filter(Boolean)
-    )
-    const seenTitles = new Set(existingPapers.map(p => p.title.toLowerCase()))
-    const appended = sourceNewPapers.filter(p => {
-      const url = (p.sourceUrl || "").toLowerCase()
-      const title = p.title.toLowerCase()
-      if (url && seenUrls.has(url)) return false
-      if (seenTitles.has(title)) return false
-      seenUrls.add(url)
-      seenTitles.add(title)
-      return true
-    })
-    papers = [...existingPapers, ...appended]
-  } else {
-    papers = sourceNewPapers
-  }
+  // One shared de-duplication for both modes.
+  //
+  // The append path used to compare raw lowercase titles and URLs, which only
+  // caught byte-identical repeats. The same study retrieved from PubMed and
+  // scraped off the web has a different URL and a title differing by a trailing
+  // period or a "| Journal | Publisher" tail, so it survived twice and the
+  // researcher saw it listed twice. dedupePapers matches on the normalized
+  // title, keeps the copy from the more authoritative source, and carries over
+  // the `selected` tick so nothing chosen can be dropped.
+  papers = appendMode
+    ? dedupePapers([...existingPapers, ...sourceNewPapers])
+    : dedupePapers(sourceNewPapers)
 
   const literatureContext: StoredLiteratureContext = {
     whatOthersHaveDone: litOutput.whatOthersHaveDone,

@@ -32,9 +32,32 @@ interface RankedHypothesis {
   title: string
   text: string
   explanation: string
+  /**
+   * The generation agent's citations - "[2] Paper title - how it informed
+   * this". These were being thrown away the moment they arrived, so the
+   * literature the researcher selected had no visible influence on the
+   * hypotheses and no bearing on which one ranked top. In auto mode, where
+   * exactly one hypothesis is carried forward automatically, that meant the
+   * single hypothesis could be the least grounded of the batch.
+   */
+  provenance: string[]
+  /** Indices (1-based) of the selected papers this hypothesis cites. */
+  paperIndices: number[]
   rank: number
   feasibility: number
   novelty: number
+}
+
+/** Pull the `[N]` paper references out of an agent's provenance strings. */
+function paperIndicesFrom(provenance: string[], paperCount: number): number[] {
+  const found = new Set<number>()
+  for (const line of provenance) {
+    for (const m of String(line).matchAll(/\[(\d{1,2})\]/g)) {
+      const n = Number(m[1])
+      if (n >= 1 && n <= paperCount) found.add(n)
+    }
+  }
+  return [...found].sort((a, b) => a - b)
 }
 
 /**
@@ -238,11 +261,16 @@ export async function runHypothesesPhase(
     for (const r of genResults) {
       if (r.status === "success" && Array.isArray(r.output)) {
         for (const item of r.output as any[]) {
+          const provenance: string[] = Array.isArray(item.provenance)
+            ? item.provenance.map((x: unknown) => String(x))
+            : []
           pool.push({
             id: `h-${uuidv4()}`,
             title: (item.title || "").trim(),
             text: item.hypothesis || "",
             explanation: item.explanation || "",
+            provenance,
+            paperIndices: paperIndicesFrom(provenance, selectedPapers.length),
             rank: 0,
             feasibility: item.feasibility_score ?? 0,
             novelty: item.novelty_score ?? 0
@@ -276,7 +304,18 @@ export async function runHypothesesPhase(
       })
     )
   })
-  const numberedList = pool.map((h, i) => `[${i + 1}] ${h.text}`).join("\n")
+  // Ranking sees the CITATIONS too. Scoring on the hypothesis sentence alone
+  // rewarded whichever one sounded boldest, regardless of whether the selected
+  // literature supported it - which is how auto mode ended up carrying forward
+  // a hypothesis that read as unrelated to the papers.
+  const numberedList = pool
+    .map((h, i) => {
+      const cites = h.provenance.length
+        ? `\n    Grounded in: ${h.provenance.join(" | ").slice(0, 600)}`
+        : "\n    Grounded in: (no papers cited)"
+      return `[${i + 1}] ${h.text}${cites}`
+    })
+    .join("\n")
   onProgress({
     step: "ranking",
     message: `Ranking ${pool.length} hypotheses by rigor, feasibility, novelty...`
@@ -289,13 +328,14 @@ export async function runHypothesesPhase(
       messages: [
         {
           role: "system",
-          content: `You are a scientific hypothesis ranking agent. You will receive a numbered list of hypotheses and must score each one from 0-100 based on:
-- Quantitative specificity (35%) - a strong hypothesis names the SPECIFIC variable, direction, magnitude, and conditions (e.g. concentrations with units, temperatures, pH, timepoints). HEAVILY penalise vague, hand-wavy, or purely qualitative statements ("X may improve stability") that lack concrete, testable quantities.
-- Scientific rigor and testability (25%)
-- Feasibility and practicality (20%)
-- Novelty and potential impact (20%)
+          content: `You are a scientific hypothesis ranking agent. You will receive a numbered list of hypotheses, each with the papers it cites, and must score each one from 0-100 based on:
+- GROUNDING IN THE SELECTED LITERATURE (30%) - the researcher chose these papers, and a hypothesis exists to build on them. Score highly when the cited work genuinely supports the claim and the hypothesis reads as a next step from it, ideally synthesising ACROSS more than one paper. A hypothesis citing NO papers, or whose citations do not actually bear on what it claims, must be scored LOW however clever it sounds - it is speculation, and the researcher will read it as random.
+- Quantitative specificity (25%) - a strong hypothesis names the SPECIFIC variable, direction, magnitude, and conditions (e.g. concentrations with units, temperatures, pH, timepoints). HEAVILY penalise vague, hand-wavy, or purely qualitative statements ("X may improve stability") that lack concrete, testable quantities.
+- Scientific rigor and testability (20%)
+- Feasibility and practicality (15%)
+- Novelty and potential impact (10%)
 
-Reward hypotheses that read as crisp, falsifiable, quantitative predictions tied to the researcher's stated operating parameters. Return every hypothesis with its original index number, a score, and a one-sentence reasoning.`
+The top-ranked hypothesis may be carried forward on its own without the researcher choosing it, so it must be the one best supported by their literature - not merely the most striking. Return every hypothesis with its original index number, a score, and a one-sentence reasoning.`
         },
         {
           role: "user",
@@ -418,14 +458,27 @@ Reward hypotheses that read as crisp, falsifiable, quantitative predictions tied
   await runTasksWithConcurrency([metaTask], 1)
 
   // ── Assemble Hypothesis[] for the frontend ──────────────────────────────────
-  const hypotheses: Hypothesis[] = topHypotheses.map(h => ({
-    id: h.id,
-    ...(h.title ? { title: h.title } : {}),
-    text: h.text,
-    reasoning: h.explanation,
-    basedOnPaperIds: [],
-    selected: false
-  }))
+  // Attach the literature the hypothesis was built on: the ids so the UI can
+  // link the actual paper cards, and the agent's own one-line justifications
+  // appended to the reasoning so the researcher can see WHY each paper matters
+  // here. Both were previously dropped, leaving every hypothesis looking
+  // untethered from the papers that produced it.
+  const hypotheses: Hypothesis[] = topHypotheses.map(h => {
+    const citedIds = h.paperIndices
+      .map(n => selectedPapers[n - 1]?.id)
+      .filter((id): id is string => !!id)
+    const reasoning = h.provenance.length
+      ? `${h.explanation}\n\nBuilt on:\n${h.provenance.map(p => `- ${p}`).join("\n")}`
+      : h.explanation
+    return {
+      id: h.id,
+      ...(h.title ? { title: h.title } : {}),
+      text: h.text,
+      reasoning,
+      basedOnPaperIds: citedIds,
+      selected: false
+    }
+  })
 
   const papers = body.papers ?? existing.papers ?? []
   // Downstream clear (wipe stale designs) is applied by the worker's finalize

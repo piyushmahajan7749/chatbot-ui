@@ -628,6 +628,49 @@ export default function DesignDetailPage() {
   const [designVersions, setDesignVersions] = useState<DesignVersionSnapshot[]>(
     []
   )
+  /**
+   * Version number of the LIVE design, when it isn't simply "one above the
+   * highest in history".
+   *
+   * Promoting an old version used to append the promoted set as a brand-new
+   * version, so restoring v1 produced a v4 that was a copy of v1 - the timeline
+   * grew every time you looked back and the number no longer meant anything.
+   * A promotion now swaps: the live set goes into history under its own number
+   * and the promoted version comes out of history and keeps its number. This
+   * holds that number.
+   */
+  const [currentVersionNumber, setCurrentVersionNumber] = useState<
+    number | null
+  >(null)
+
+  /**
+   * What an in-flight design regeneration is producing, and why.
+   *
+   * While a new version was being built the page carried on rendering the
+   * PREVIOUS design with the buttons greyed out, which read as "nothing is
+   * happening to a design I can't use". This drives a progress view naming the
+   * version being generated and listing the changes going into it.
+   */
+  const [regenPlan, setRegenPlan] = useState<{
+    version: number
+    changes: string[]
+    hypothesis?: string
+  } | null>(null)
+
+  /**
+   * Highest number in history. Computed over the whole list rather than read
+   * off `designVersions[0]`: promotion swaps entries in and out, so the first
+   * element is no longer guaranteed to be the highest-numbered one.
+   */
+  const maxVersionNumber = designVersions.reduce(
+    (m, v) => Math.max(m, v.versionNumber),
+    0
+  )
+  /** What the LIVE design is called. */
+  const liveVersionNumber = currentVersionNumber ?? maxVersionNumber + 1
+  /** What the NEXT generated version will be called. */
+  const nextNewVersionNumber =
+    Math.max(maxVersionNumber + 1, liveVersionNumber) + 1
 
   // Rail toggle
   const [showRail, setShowRail] = useState(false)
@@ -792,6 +835,11 @@ export default function DesignDetailPage() {
         setActiveDesignId(content.designs[0]?.id ?? null)
       }
       if (content?.designVersions) setDesignVersions(content.designVersions)
+      setCurrentVersionNumber(
+        typeof content?.currentVersionNumber === "number"
+          ? content.currentVersionNumber
+          : null
+      )
       if (content?.approvedPhases) setApprovedPhases(content.approvedPhases)
 
       // Resume polling ONLY if a background job is genuinely still in flight.
@@ -1319,14 +1367,17 @@ export default function DesignDetailPage() {
     track("design_generation_started", {
       hypotheses: selectedHypotheses.length
     })
-    // A hypothesis WE suggested already encodes the direction, so go straight
-    // to generation. Only a researcher-authored hypothesis opens the design
-    // questions, because that's the path where we don't yet know their setup.
-    const anyUserSupplied = selectedHypotheses.some(h => h.userSupplied)
-    if (!anyUserSupplied) {
-      void runDesignGeneration()
-      return
-    }
+    // ALWAYS ask the design questions.
+    //
+    // This used to skip straight to generation whenever the chosen hypothesis
+    // was one we suggested, on the reasoning that our own hypothesis already
+    // encodes the direction. But the direction was never what these questions
+    // are for - they ask what is on the bench: stock concentrations, the
+    // diluent, how much material is on hand, the instrument and its settings.
+    // None of that is knowable from the hypothesis, whoever wrote it. Since
+    // picking a generated hypothesis is the common path, the effect was that
+    // most runs were never asked anything and the design filled the gaps with
+    // assumptions.
     setRefineCheckpoint("design")
   }
 
@@ -1448,7 +1499,19 @@ export default function DesignDetailPage() {
       const rawHyps = hypContent.hypotheses ?? []
       if (rawHyps.length === 0)
         throw new Error("No hypotheses were generated. Try again shortly.")
-      const autoHyps = rawHyps.map((h, i) => ({ ...h, selected: i === 0 }))
+      // Auto mode carries exactly ONE hypothesis forward without the
+      // researcher choosing it, so prefer the highest-ranked one that actually
+      // cites the selected papers. Ranking now weights grounding, but if the
+      // top pick still cites nothing, taking it would hand back a hypothesis
+      // that reads as unrelated to the literature it was supposedly built on.
+      const groundedIdx = rawHyps.findIndex(
+        h => (h.basedOnPaperIds?.length ?? 0) > 0
+      )
+      const pickIdx = groundedIdx >= 0 ? groundedIdx : 0
+      const autoHyps = rawHyps.map((h, i) => ({
+        ...h,
+        selected: i === pickIdx
+      }))
       setHypotheses(autoHyps)
       latestContentRef.current = hypContent
 
@@ -1908,7 +1971,7 @@ export default function DesignDetailPage() {
     // timeline reads "Original → Simulated → From lab data".
     let snapshotVersions = designVersions
     if (generatedDesigns.length > 0) {
-      const nextVersionNumber = (designVersions[0]?.versionNumber ?? 0) + 1 || 1
+      const nextVersionNumber = liveVersionNumber
       const snapshot: DesignVersionSnapshot = {
         id:
           typeof crypto !== "undefined" && "randomUUID" in crypto
@@ -1941,6 +2004,16 @@ export default function DesignDetailPage() {
       snapshotVersions = [snapshot, ...designVersions]
       setDesignVersions(snapshotVersions)
       setDesignOrigin(origin)
+      // The live design is the newest again, so drop any number pinned by an
+      // earlier promotion - otherwise the new version would keep the old label.
+      setCurrentVersionNumber(null)
+      // Tell the design tab WHAT is being built, so it can show progress in
+      // place of the version that is being superseded.
+      setRegenPlan({
+        version: nextVersionNumber + 1,
+        changes,
+        hypothesis: revisedHypothesis
+      })
     }
 
     // Close the modal and land on the design so the regeneration - and then
@@ -1963,6 +2036,7 @@ export default function DesignDetailPage() {
       latestContentRef.current = {
         ...content,
         designVersions: snapshotVersions,
+        currentVersionNumber: null,
         problem: nextProblem
       }
       if (content.designs) {
@@ -1973,6 +2047,7 @@ export default function DesignDetailPage() {
       void persistContent({
         designs: content.designs,
         designVersions: snapshotVersions,
+        currentVersionNumber: null,
         problem: nextProblem
       })
       toast({
@@ -1989,6 +2064,7 @@ export default function DesignDetailPage() {
       }
     } finally {
       setBusy(null)
+      setRegenPlan(null)
     }
   }
 
@@ -2099,7 +2175,7 @@ export default function DesignDetailPage() {
     // the user can restore it later via the version switcher.
     let snapshotVersions = designVersions
     if (generatedDesigns.length > 0) {
-      const nextVersionNumber = (designVersions[0]?.versionNumber ?? 0) + 1 || 1
+      const nextVersionNumber = liveVersionNumber
       const snapshot: DesignVersionSnapshot = {
         id:
           typeof crypto !== "undefined" && "randomUUID" in crypto
@@ -2111,7 +2187,11 @@ export default function DesignDetailPage() {
       }
       snapshotVersions = [snapshot, ...designVersions]
       setDesignVersions(snapshotVersions)
-      await persistContent({ designVersions: snapshotVersions })
+      setCurrentVersionNumber(null)
+      await persistContent({
+        designVersions: snapshotVersions,
+        currentVersionNumber: null
+      })
     }
 
     const keep = clearDownstreamState("design")
@@ -2138,7 +2218,10 @@ export default function DesignDetailPage() {
       setActiveDesignId(designs[0]?.id ?? null)
       // Persist designVersions alongside the regenerated designs so they
       // survive a reload.
-      await persistContent({ designVersions: snapshotVersions })
+      await persistContent({
+        designVersions: snapshotVersions,
+        currentVersionNumber: null
+      })
     } catch (error: any) {
       if ((error as any)?.message === "__paywall__") return
       toast({
@@ -2221,7 +2304,7 @@ export default function DesignDetailPage() {
 
     // Snapshot the assumption-based draft before replacing it.
     let snapshotVersions = designVersions
-    const nextVersionNumber = (designVersions[0]?.versionNumber ?? 0) + 1 || 1
+    const nextVersionNumber = liveVersionNumber
     const snapshot: DesignVersionSnapshot = {
       id:
         typeof crypto !== "undefined" && "randomUUID" in crypto
@@ -2236,6 +2319,7 @@ export default function DesignDetailPage() {
     }
     snapshotVersions = [snapshot, ...designVersions]
     setDesignVersions(snapshotVersions)
+    setCurrentVersionNumber(null)
 
     setActiveTab("design")
     setBusy("design")
@@ -2278,11 +2362,13 @@ export default function DesignDetailPage() {
         ...content,
         designs: carried,
         designVersions: snapshotVersions,
+        currentVersionNumber: null,
         problem: nextProblem
       }
       await persistContent({
         designs: carried,
         designVersions: snapshotVersions,
+        currentVersionNumber: null,
         problem: nextProblem
       })
       toast({
@@ -2316,43 +2402,64 @@ export default function DesignDetailPage() {
   }
 
   /**
-   * Explicitly promote the version being viewed to be the live design. This is
-   * the only path that mutates history, and it APPENDS (next number above the
-   * current max) without removing anything, so numbering stays monotonic and
-   * every earlier version remains reachable.
+   * Promote the version being viewed to be the live design.
+   *
+   * This is a SWAP, not an append. It used to snapshot the live set under a
+   * brand-new number and then copy the chosen version on top, so restoring v1
+   * produced a v4 that was really v1 - the timeline grew on every look back and
+   * the numbers stopped meaning anything. Now the live set goes into history
+   * under the number it already had, the promoted version comes out of history
+   * keeping ITS number, and the total count is unchanged. Nothing is lost and
+   * nothing is renumbered; the researcher can save and carry on from it.
    */
   const handleRestoreDesignVersion = async (versionId: string) => {
     if (!ensureCanEdit()) return
     const version = designVersions.find(v => v.id === versionId)
     if (!version) return
 
-    let nextVersions = designVersions
+    // Take the promoted version OUT of history...
+    let nextVersions = designVersions.filter(v => v.id !== versionId)
+    // ...and put the set we were on IN, under its own existing number.
     if (generatedDesigns.length > 0) {
-      const nextNumber = (designVersions[0]?.versionNumber ?? 0) + 1 || 1
       const snapshot: DesignVersionSnapshot = {
         id:
           typeof crypto !== "undefined" && "randomUUID" in crypto
             ? crypto.randomUUID()
             : `v-${Date.now()}`,
-        versionNumber: nextNumber,
+        versionNumber: liveVersionNumber,
         designs: generatedDesigns,
         createdAt: new Date().toISOString(),
-        origin: designOrigin
+        origin: designOrigin,
+        // Keep whatever verdict the set we're stepping away from earned, so
+        // stepping back to it later still shows its simulation result.
+        ...(validation.simulation
+          ? {
+              outcome: {
+                verdict: validation.simulation.predictedResults,
+                meetRate: validation.simulation.meetRate,
+                metTarget: validation.simulation.meetsTarget
+              }
+            }
+          : {})
       }
-      nextVersions = [snapshot, ...designVersions]
+      nextVersions = [snapshot, ...nextVersions]
     }
 
     setGeneratedDesigns(version.designs)
     setActiveDesignId(version.designs[0]?.id ?? null)
     setDesignVersions(nextVersions)
+    setCurrentVersionNumber(version.versionNumber)
+    setDesignOrigin(version.origin ?? "original")
     setViewingVersionId(null)
     await persistContent({
       designs: version.designs,
-      designVersions: nextVersions
+      designVersions: nextVersions,
+      currentVersionNumber: version.versionNumber
     })
     toast({
       title: `v${version.versionNumber} is now the current design`,
-      description: "The set you were on was saved to history first."
+      description:
+        "It keeps its version number, and the set you were on moved into history. Save when you're ready."
     })
   }
 
@@ -3387,7 +3494,7 @@ Rules:
                 scopeName={title || design?.name || "Design"}
                 scopeMeta={
                   generatedDesigns.length > 0
-                    ? `Editing v${(designVersions[0]?.versionNumber ?? 0) + 1}${
+                    ? `Editing v${liveVersionNumber}${
                         isPhaseApproved("design") ? " · saved" : ""
                       }${
                         designVersions.length > 0
@@ -3767,6 +3874,8 @@ Rules:
                   progress={designProgress}
                   onRevise={() => handleRevisePhase("design")}
                   designVersions={designVersions}
+                  liveVersionNumber={liveVersionNumber}
+                  regenPlan={regenPlan}
                   currentOrigin={designOrigin}
                   onRestoreVersion={handleRestoreDesignVersion}
                   viewingVersionId={viewingVersionId}
@@ -3868,9 +3977,7 @@ Rules:
               onApplyChanges={handleApplyIterationChanges}
               onSimulate={handleSimulate}
               onContinueToDesign={handleContinueToDesign}
-              nextVersionNumber={
-                (designVersions[0]?.versionNumber ?? 0) + 2 || 2
-              }
+              nextVersionNumber={nextNewVersionNumber}
               isSimulating={simulating}
               outcomePrefill={successCriteria || objective || ""}
               isGenerating={busy === "design"}
@@ -3914,7 +4021,7 @@ Rules:
               iterations={[
                 {
                   id: "current",
-                  label: `Latest (v${(designVersions[0]?.versionNumber ?? 0) + 1})`,
+                  label: `Latest (v${liveVersionNumber})`,
                   designs: generatedDesigns
                 },
                 ...designVersions.map(v => ({
@@ -7709,9 +7816,30 @@ function DesignSectionContent(props: {
   // Promote any paragraph-embedded bullet markers onto their own line so the
   // markdown renderer turns them into a real list (fixes runs that squash
   // bullets into a wall of text).
+  //
+  // TABLE ROWS ARE EXEMPT. Applied blindly, these rules fire inside table
+  // cells: a cell reading "20 mM - pH 6.0" or "1. Add buffer" contains the
+  // same " - " / " 1. " pattern, so the row was split across several lines and
+  // GFM stopped recognising the block as a table - which is why the conditions
+  // and condition-prep sections came back as walls of pipes after an
+  // iteration, where cells tend to carry more description. Rewriting per line,
+  // skipping anything that looks like a table row or separator, keeps both
+  // behaviours.
   const normalized = section.body
-    .replace(/\s+([-*•])\s+(?=\S)/g, "\n$1 ")
-    .replace(/\s+(\d+\.)\s+(?=\S)/g, "\n$1 ")
+    .split("\n")
+    .map(line => {
+      const t = line.trim()
+      const isTableRow = t.startsWith("|") || /^\|?[\s:|-]+\|[\s:|-]*$/.test(t)
+      if (isTableRow) return line
+      return line
+        .replace(/\s+([-*•])\s+(?=\S)/g, "\n$1 ")
+        .replace(/\s+(\d+\.)\s+(?=\S)/g, "\n$1 ")
+    })
+    .join("\n")
+    // A table butted directly against the paragraph above it is parsed as part
+    // of that paragraph, so it renders as literal pipes. Guarantee the blank
+    // line GFM needs.
+    .replace(/([^\n|])\n(\|)/g, "$1\n\n$2")
 
   return (
     <section
@@ -7855,6 +7983,12 @@ function DesignTab(props: {
   progress?: PhaseProgress[]
   onRevise: () => void
   designVersions?: DesignVersionSnapshot[]
+  /** What the LIVE design is called. Not always one above the highest in
+   *  history: promoting an older version brings its own number forward. */
+  liveVersionNumber?: number
+  /** Set while a NEW version is being generated: which version, and the
+   *  changes going into it. Replaces the superseded design with progress. */
+  regenPlan?: { version: number; changes: string[]; hypothesis?: string } | null
   /** Provenance of the live design — labels the newest rail entry. */
   currentOrigin?: "original" | "simulation" | "lab-data" | "manual"
   onRestoreVersion?: (versionId: string) => void
@@ -7889,6 +8023,8 @@ function DesignTab(props: {
     progress,
     onRevise,
     designVersions = [],
+    liveVersionNumber,
+    regenPlan = null,
     currentOrigin = "original",
     onRestoreVersion,
     onResolveAssumptions,
@@ -7928,8 +8064,11 @@ function DesignTab(props: {
     })),
     {
       key: "current",
-      version: (designVersions[0]?.versionNumber ?? 0) + 1,
-      label: originLabel(currentOrigin),
+      version:
+        regenPlan?.version ??
+        liveVersionNumber ??
+        designVersions.reduce((m, v) => Math.max(m, v.versionNumber), 0) + 1,
+      label: regenPlan ? "Generating…" : originLabel(currentOrigin),
       isCurrent: true
     }
   ]
@@ -8152,46 +8291,99 @@ function DesignTab(props: {
             order of work, and hiding the button just stranded the researcher.
             Iterating writes a NEW version and leaves the saved one intact, so
             nothing is silently overwritten; the copy says so. */}
-        {designs.length > 0 && onValidateIterate && !viewedVersion && (
-          <div className="border-teal-journey/30 bg-teal-journey/5 flex flex-wrap items-center justify-between gap-3 rounded-xl border px-4 py-3">
-            <p className="text-ink-600 min-w-0 text-[12.5px]">
-              <span className="text-ink-800 font-semibold">
-                Stress-test this design
-              </span>{" "}
-              {isApproved
-                ? "— simulate the outcome, or check it against your own lab data. Any changes land as a new version; the saved design stays as it is."
-                : "— simulate the outcome, or check it against your own lab data — or save it and head to downloads."}
-            </p>
-            <div className="flex shrink-0 items-center gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={onValidateIterate}
-                disabled={isBusy}
-                className="border-teal-journey/40 text-teal-journey hover:bg-teal-journey/10 gap-1.5"
-              >
-                <IconChartHistogram size={15} /> Validate &amp; iterate
-              </Button>
-              {/* Keyed off UNSAVED WORK, not phase approval. Editing a section
+        {designs.length > 0 &&
+          onValidateIterate &&
+          !viewedVersion &&
+          !regenPlan && (
+            <div className="border-teal-journey/30 bg-teal-journey/5 flex flex-wrap items-center justify-between gap-3 rounded-xl border px-4 py-3">
+              <p className="text-ink-600 min-w-0 text-[12.5px]">
+                <span className="text-ink-800 font-semibold">
+                  Stress-test this design
+                </span>{" "}
+                {isApproved
+                  ? "— simulate the outcome, or check it against your own lab data. Any changes land as a new version; the saved design stays as it is."
+                  : "— simulate the outcome, or check it against your own lab data — or save it and head to downloads."}
+              </p>
+              <div className="flex shrink-0 items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={onValidateIterate}
+                  disabled={isBusy}
+                  className="border-teal-journey/40 text-teal-journey hover:bg-teal-journey/10 gap-1.5"
+                >
+                  <IconChartHistogram size={15} /> Validate &amp; iterate
+                </Button>
+                {/* Keyed off UNSAVED WORK, not phase approval. Editing a section
                   after saving clears that design's `saved` flag, and gating
                   this on `!isApproved` meant the button never came back - the
                   edit was stranded with no way to commit it. */}
-              {onSaveNow && (!isApproved || designs.some(d => !d.saved)) && (
-                <Button
-                  size="sm"
-                  onClick={onSaveNow}
-                  disabled={isBusy}
-                  className="bg-brick hover:bg-brick-hover gap-1.5"
-                >
-                  <IconCheck size={15} />
-                  {isApproved ? "Save changes" : "Save now"}
-                </Button>
+                {onSaveNow && (!isApproved || designs.some(d => !d.saved)) && (
+                  <Button
+                    size="sm"
+                    onClick={onSaveNow}
+                    disabled={isBusy}
+                    className="bg-brick hover:bg-brick-hover gap-1.5"
+                  >
+                    <IconCheck size={15} />
+                    {isApproved ? "Save changes" : "Save now"}
+                  </Button>
+                )}
+              </div>
+            </div>
+          )}
+
+        {/* A regeneration in flight takes over the reading pane. The old
+            behaviour left the SUPERSEDED design on screen with every control
+            disabled, so it looked as though the page had frozen on a protocol
+            that was already on its way out. */}
+        {regenPlan ? (
+          <div className="space-y-4">
+            <div className="border-teal-journey/30 bg-teal-journey/5 rounded-xl border p-4">
+              <div className="flex items-center gap-2">
+                <IconLoader2
+                  size={16}
+                  className="text-teal-journey animate-spin"
+                />
+                <span className="text-ink-900 text-[13.5px] font-semibold">
+                  Generating v{regenPlan.version}
+                </span>
+              </div>
+              <p className="text-ink-600 mt-1 text-[12.5px]">
+                v{liveVersionNumber ?? regenPlan.version - 1} is saved in the
+                timeline on the left and stays readable while this builds.
+              </p>
+              {regenPlan.changes.length > 0 && (
+                <div className="mt-3">
+                  <div className="text-ink-400 mb-1 text-[10.5px] font-bold uppercase tracking-wider">
+                    Changes going in
+                  </div>
+                  <ul className="text-ink-700 list-disc space-y-0.5 pl-4 text-[12.5px]">
+                    {regenPlan.changes.map(c => (
+                      <li key={c}>{c}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+              {regenPlan.hypothesis && (
+                <div className="mt-3">
+                  <div className="text-ink-400 mb-1 text-[10.5px] font-bold uppercase tracking-wider">
+                    Revised hypothesis
+                  </div>
+                  <p className="text-ink-700 text-[12.5px] leading-relaxed">
+                    {regenPlan.hypothesis}
+                  </p>
+                </div>
               )}
             </div>
+            <PhaseProgressView
+              accentClass="border-sage-brand/30 bg-sage-brand-tint"
+              title={`Rebuilding the design as v${regenPlan.version}`}
+              subtitle="Four phases per hypothesis: setup, materials, protocol, analysis."
+              events={progress ?? []}
+            />
           </div>
-        )}
-
-        {designs.length === 0 ? (
+        ) : designs.length === 0 ? (
           isGenerating ? (
             <>
               {/* Issue #25 - while the design is being generated, the user
@@ -8324,8 +8516,12 @@ function DesignTab(props: {
                             className="h-7 shrink-0 gap-1 text-xs"
                           >
                             <IconRefresh size={12} />v
-                            {(designVersions[0]?.versionNumber ?? 0) + 1} ·
-                            history
+                            {liveVersionNumber ??
+                              designVersions.reduce(
+                                (m, v) => Math.max(m, v.versionNumber),
+                                0
+                              ) + 1}{" "}
+                            · history
                           </Button>
                         </PopoverTrigger>
                         <PopoverContent align="end" className="w-72 p-2">

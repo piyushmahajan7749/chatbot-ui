@@ -677,6 +677,13 @@ export interface DesignContentV2 {
    */
   designVersions?: DesignVersionSnapshot[]
   /**
+   * Version number of the LIVE design when it isn't simply one above the
+   * highest in `designVersions`. Set when the researcher promotes an older
+   * version: that version leaves history and keeps its own number rather than
+   * being re-appended as a new one.
+   */
+  currentVersionNumber?: number | null
+  /**
    * Aggregate stats captured during the most recent literature search. Lives
    * in the persisted content so the Literature tab can keep showing
    * "from N searched" after the user navigates away and back - previously
