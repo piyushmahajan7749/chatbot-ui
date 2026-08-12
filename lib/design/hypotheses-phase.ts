@@ -153,10 +153,23 @@ export async function runHypothesesPhase(
   // Effort scales how many hypotheses survive the tournament to the user.
   const FINAL_TOP_N = resolveEffortConfig(ctx.effort).finalHypotheses
   const litCtx = existing.literatureContext
+  // The objective, success criteria and condition budget were being collected
+  // from the researcher and then never handed to the generation agents, so
+  // hypotheses drifted off the stated goal and proposed arm counts the lab
+  // could not run. Known/unknown variables are passed too, but explicitly
+  // labelled low-weight so they inform without steering.
+  const cs = ctx.constraintsStructured
+  const vs = ctx.variablesStructured
   const planMeta = {
     title: ctx.title || "Untitled",
     description: [
       ctx.problemStatement || ctx.goal || "",
+      ctx.objective
+        ? `Objective (what success looks like): ${ctx.objective}`
+        : "",
+      ctx.successCriteria
+        ? `Success criteria - the hypothesis must be capable of being judged against these: ${ctx.successCriteria}`
+        : "",
       ctx.additionalDetails
         ? `Operating parameters (be specific to these - use concrete concentrations, buffers, temperatures, and ranges, not generic language): ${ctx.additionalDetails}`
         : ""
@@ -164,6 +177,12 @@ export async function runHypothesesPhase(
       .filter(Boolean)
       .join("\n\n"),
     constraints: {
+      conditionBudget: ctx.designSpec?.conditions || undefined,
+      materialAvailable: cs?.material || undefined,
+      timeAvailable: cs?.time || undefined,
+      equipmentAvailable: cs?.equipment || undefined,
+      knownVariablesLowWeight: vs?.known || undefined,
+      unknownVariablesLowWeight: vs?.unknown || undefined,
       variables: (ctx as { variables?: string[] }).variables,
       constraints: (ctx as { constraints?: string[] }).constraints
     }

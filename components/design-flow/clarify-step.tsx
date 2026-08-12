@@ -114,7 +114,17 @@ export const ClarifyStep: FC<ClarifyStepProps> = ({
           ? json.questions
           : []
         if (qs.length === 0) {
-          // Model genuinely has nothing (more) to ask → proceed.
+          // On a follow-up round an empty set is a real signal: nothing more to
+          // ask. On the FIRST round it never is - it means the generator failed
+          // or judged the inputs complete, and silently sailing through looked
+          // to the researcher like the step had been skipped entirely. Offer a
+          // retry instead, and let them skip deliberately if they want to.
+          if (roundNo === 1) {
+            setError(
+              "I couldn't come up with questions for this one. Retry, or skip ahead and I'll design with what you've already given me."
+            )
+            return
+          }
           onComplete(prior)
           return
         }

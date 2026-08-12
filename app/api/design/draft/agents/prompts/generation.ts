@@ -28,7 +28,7 @@ const GENERATION_LENSES = [
   "the PRIMARY mechanism the selected papers converge on - the most direct, best-supported lever",
   "a DIFFERENT physical/chemical mechanism than the most obvious one (e.g. if the obvious lever is thermodynamic, take a kinetic, colloidal, or interfacial angle)",
   "a PROCESS or operating-condition lever (order of addition, rate, hold time, temperature/shear history) rather than a composition change",
-  "an INTERACTION between two factors varied together, where the effect is expected to be non-additive",
+  "COMBINATIONS: agents/factors used TOGETHER rather than alone. Do not hand back one more single-agent hypothesis - every hypothesis you return must name a specific COMBINATION (e.g. 'lysine + proline at matched total molarity', 'arginine + a non-ionic surfactant'), predict whether the pairing is synergistic, additive or antagonistic, and say what the combination buys over each component alone",
   "a CONTRARIAN or under-explored angle: a gap, an unreplicated finding, or a trade-off the selected papers flag but do not resolve"
 ]
 
@@ -99,9 +99,17 @@ The research plan's domain and phase tell you what KIND of intervention the scie
 
 If the user's selected category and the most obvious hypothesis from the literature disagree (e.g. literature is full of engineering papers but the user picked Formulation development), STAY WITHIN THE USER'S CATEGORY. Find the formulation angle in those engineering papers, or note in the 'explanation' field that the paper is engineering-flavoured but the formulation analogue is X.
 
-# MULTI-VARIABLE COVERAGE (issue #23)
+# COMBINATIONS, NOT ONE-AGENT-PER-HYPOTHESIS (the scientist flagged this explicitly)
 
-Where the constraint budget allows, prefer hypotheses that vary 2+ factors simultaneously (e.g. pH x polymer concentration) over single-factor hypotheses. Call out the interaction explicitly in the hypothesis statement.
+The failure mode to avoid: hypothesis 1 screens lysine at several concentrations, hypothesis 2 screens a different amino acid at several concentrations, and so on - a set of parallel single-agent dose screens with no combination anywhere. Bench scientists rarely believe the answer is one agent; they want to know what a PAIRING buys over its parts.
+
+So, where the science and the constraint budget allow:
+- Prefer hypotheses that put TWO OR MORE agents/factors to work TOGETHER (e.g. lysine + proline, lysine + arginine, an amino acid + a surfactant, pH × ionic strength) over hypotheses that move one lever alone.
+- State the expected INTERACTION explicitly and directionally: synergistic (better than the sum), additive, or antagonistic - and why the mechanism predicts that.
+- Say what the combination is expected to achieve that neither component achieves alone. If a pairing has no such rationale, it is not worth a hypothesis slot.
+- A combinational hypothesis IMPLIES its comparison set. Make clear in the hypothesis statement that it is to be judged against each component ALONE at a matched level plus an untreated baseline (e.g. "lysine alone, proline alone, lysine + proline, and vehicle"), because a combination that is never compared to its parts cannot be attributed.
+- Keep combinations REALISTIC: pair things that are compatible and that a lab would actually co-formulate or co-apply. Do not stack four agents at once just to look thorough - two, occasionally three, is the useful range.
+- Single-factor hypotheses remain legitimate when the mechanism genuinely stands alone. But the returned set as a whole must not be all-singles when plausible pairings exist.
 
 # DIVERSITY REQUIREMENTS (CRITICAL)
 
@@ -113,17 +121,30 @@ Each of the 4 hypotheses MUST differ from the others on at least ONE of these ax
 
 Hypotheses MUST NOT share more than ONE noun-phrase core. If two hypotheses differ only in wording (e.g. "higher salt reduces aggregation" vs. "increased ionic strength decreases aggregate formation"), COLLAPSE them - they count as ONE hypothesis, and you must replace the duplicate with a genuinely different angle.
 
+CARVE-OUT: a COMBINATION is not a duplicate of its components. "Lysine alone lowers viscosity" and "lysine + proline lowers viscosity further than either alone" make different mechanistic claims (single-agent effect vs. interaction), predict different results, and are both worth testing. Judge duplication on the CLAIM, not on shared ingredient names.
+
 Examples:
 - ❌ REJECTED (paraphrases of the same idea):
   1. "Increasing sucrose concentration reduces protein aggregation during freeze-thaw."
   2. "Higher levels of sucrose result in less aggregation after freeze-thaw cycles."
-- ✅ ACCEPTED (genuinely distinct angles):
-  1. "Increasing sucrose concentration reduces protein aggregation during freeze-thaw." (excipient / thermodynamic stabilization)
-  2. "Lowering pH below the pI accelerates colloidal instability, measurable by DLS." (pH / colloidal / DLS)
+- ❌ REJECTED (parallel single-agent dose screens - the set has no combination in it):
+  1. "Lysine at 25–100 mM reduces viscosity."
+  2. "Proline at 25–100 mM reduces viscosity."
+  3. "Arginine at 25–100 mM reduces viscosity."
+- ✅ ACCEPTED (genuinely distinct angles, with combinations pulling their weight):
+  1. "Arginine at 50 mM reduces viscosity at 150 mg/mL via charge screening, vs. vehicle." (single agent / electrostatic)
+  2. "Lysine + proline at matched 50 mM total act synergistically, lowering viscosity below either alone, because they suppress different self-association contacts." (combination / interaction, judged against lysine alone, proline alone, and vehicle)
   3. "Adding polysorbate-80 mitigates interfacial aggregation at the air-liquid interface." (surfactant / interfacial / visual inspection)
   4. "Controlled freezing rate (<1°C/min) reduces ice-interface damage, measurable by SEC." (process / cryo-kinetics / SEC)
 
-IMPORTANT: Each hypothesis must explore a DIFFERENT angle, variable, or mechanism. Do not produce minor variations of the same idea.`
+IMPORTANT: Each hypothesis must explore a DIFFERENT angle, variable, or mechanism. Do not produce minor variations of the same idea.
+
+# WHAT THE HYPOTHESES MUST SERVE (strict priority - higher wins when inputs conflict)
+
+1. **The problem statement and objective.** A hypothesis that does not move toward the stated objective is not a candidate, however interesting.
+2. **The success criteria.** Each hypothesis must be judgeable against them - it must predict something the stated criteria can score as pass or fail. If criteria name a metric and a threshold, the hypothesis should speak to that metric.
+3. **The constraints** in the plan's constraints object - the condition budget, material on hand, time, and equipment. A hypothesis whose test cannot fit inside them is not runnable. If \`conditionBudget\` is present, do NOT propose a hypothesis whose comparison set (all arms, controls and baselines included) would exceed it - for a combinational hypothesis remember it needs its single-agent arms too, so it costs more arms than a single-factor one. Prefer the hypothesis that answers the question inside the budget.
+4. **\`knownVariablesLowWeight\` / \`unknownVariablesLowWeight\` are SECONDARY AND LOW WEIGHT.** Treat known variables as context you may hold fixed or build on, and unknown variables as things worth illuminating where it is free to do so. They must NOT become the point of a hypothesis, and must never displace the objective, the success criteria, or the constraints. Do not invent a hypothesis whose purpose is to chase an unknown variable.`
 
   let user = `Research Plan:
 Title: ${plan.title}

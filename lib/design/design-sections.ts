@@ -77,6 +77,12 @@ const protocolSchema = z.object({
   stepByStepProcedure: z.string(),
   timeline: z.string(),
   conditionsTable: z.string(),
+  /**
+   * The bench-prep sheet: for EVERY arm in the conditions table, the exact
+   * volumes of each stock plus the buffer make-up that produce it. The
+   * conditions table says WHAT each arm is; this says HOW to pipette it.
+   */
+  conditionPrepTable: z.string(),
   ...assumptionsField
 })
 const analysisSchema = z.object({
@@ -165,9 +171,29 @@ export function buildDesignBlocks(
       ? `\n\nRESEARCHER-SUPPLIED SPECIFICS (authoritative for the DESIGN - use these EXACT values; do not substitute generic placeholders, and do not leave ranges vague). These cover working concentrations, stock concentrations, how much material is available (use it to bound condition counts + material calcs), and any specific conditions to incorporate (e.g. stress temperatures, rotation/agitation speed):${additional ? `\nOperating parameters: ${additional}` : ""}${specLines ? `\n${specLines}` : ""}`
       : ""
 
-  // A stated number of conditions/runs is an UPPER BOUND (a budget), not a
-  // target - unless the researcher explicitly said "exactly N".
-  const conditionsCeilingNote = `\n\nCONDITION COUNT: If the researcher gives a maximum number of conditions / runs, treat it as an UPPER BOUND ("up to N") - a budget, NOT a quota. Use the SMALLEST well-chosen condition set that cleanly tests the hypothesis; only approach the maximum when the extra arms are scientifically justified. Do not pad the design with filler conditions to hit the number. Only design exactly N conditions when the researcher explicitly said "exactly N".`
+  // A stated number of conditions/runs is a HARD CEILING. This used to be
+  // phrased as guidance ("prefer the smallest set") and the model read it as a
+  // suggestion - designs came back with more arms than the researcher said they
+  // could run, which makes the whole protocol unrunnable in their lab.
+  const statedConditions = (spec?.conditions || "").trim()
+  const conditionsCeilingNote = `\n\nCONDITION COUNT - HARD CEILING (violating this makes the design useless):${
+    statedConditions
+      ? `\nThe researcher stated their condition budget as: "${statedConditions}". Extract the maximum number N from that statement and DO NOT EXCEED IT under any circumstance. Every row in the conditions table counts toward N - including baselines, controls, blanks and reference arms. Replicates of the SAME arm do not count as separate conditions; a different composition, level, timepoint or temperature DOES.`
+      : `\nIf the researcher gives a maximum number of conditions / runs anywhere in their inputs, treat it as an absolute ceiling. Every row in the conditions table counts toward it, including controls and baselines.`
+  }
+- Use the SMALLEST well-chosen condition set that cleanly tests the hypothesis. Only approach the ceiling when each extra arm is scientifically justified. Never pad with filler arms to hit the number.
+- If the hypothesis cannot be tested properly within the ceiling, DO NOT quietly add arms. Design the best experiment that FITS, and log the shortfall as a high-impact assumption explaining what was dropped and what it costs.
+- Before you finish, COUNT the rows in your conditions table and check the total against the ceiling. If it is over, cut arms until it fits.`
+
+  // What the design must actually serve, in priority order. Without this the
+  // model treated every input as equally weighted, so nice-to-have context
+  // (known/unknown variables) pulled the design away from the stated objective.
+  const priorityNote = `\n\nWHAT THIS DESIGN MUST SERVE (strict priority order - when inputs pull in different directions, the higher item wins):
+1. THE PROBLEM STATEMENT AND OBJECTIVE. Every arm must earn its place by moving toward the stated objective. If an arm does not help answer the problem, cut it.
+2. THE SUCCESS CRITERIA. The design must be capable of producing a clear pass/fail against them; the readouts and the analysis must measure exactly what the criteria name.
+3. THE CONSTRAINTS (material, time, equipment, condition count). These are hard limits on what may be designed, not preferences. A scientifically lovely design that exceeds them is a failed design.
+4. THE CHOSEN HYPOTHESIS - the mechanism being tested, within the bounds above.
+5. KNOWN / UNKNOWN VARIABLES - SECONDARY, LOW WEIGHT. Use them as helpful context: known variables are values you may hold fixed or reuse rather than assume, and unknown variables are things worth capturing as a secondary readout or noting as a limitation. They must NOT drive the design: do NOT add arms, factors or extra measurement burden purely to chase an unknown variable, and do NOT let them displace anything above. If exploring one would push you over the condition ceiling or dilute the primary objective, leave it out and say so in the rationale.`
 
   const formatDirective = `\n\nOUTPUT FORMATTING (strict - optimise for at-a-glance readability, not walls of text):\n- Write every procedure / list as DISTINCT point-wise lines. NEVER pack multiple actions into one run-on sentence. If a step has branches, split them into their own numbered sub-lines (4a, 4b, 4c …), one action per line.\n- Use Markdown TABLES wherever data is tabular - the conditions matrix, material quantities, and especially CALCULATIONS. A reader should follow the logic by scanning columns, not parsing prose.\n- Conditions table: well-formed Markdown table, header row, one row per arm, all numbers with units, explicit baseline + control rows.\n- Calculations: present each as a compact table (e.g. \`| Quantity | Value | How it's derived |\`) OR as short labelled lines - one arithmetic step per row, numbers + units, and a brief note on where each number comes from (e.g. moles = 0.020 M × 0.250 L = 5.0e-3 mol - "20 mM target × 250 mL batch"). Never bury a calculation inside a paragraph, and never give a bare result without its derivation. Keep surrounding prose to one short lead-in sentence per block.`
 
@@ -178,8 +204,33 @@ export function buildDesignBlocks(
   // the researcher afterwards.
   const assumptionDirective = `\n\nASSUMPTION LEDGER (mandatory - this is how the design earns the scientist's trust):\nYou will inevitably need values the researcher has not given you: stock concentration, working concentration, how much material is on hand, incubation time, plate format, instrument settings, and so on. NEVER silently invent one and bury it in the protocol.\n- For EVERY value or choice you had to assume rather than read from the researcher's inputs, add an entry to the "assumptions" array: the parameter, the value you used, why it matters (what changes downstream if it's different), 2-6 concrete alternatives with units, and an impact rating.\n- Rate impact "high" when the protocol is unusable or the calculations are wrong if the assumption is off (e.g. stock concentration, total material available, primary readout); "medium" when it shifts numbers but not feasibility; "low" when it's a routine default any lab would accept.\n- Do NOT log things the researcher DID specify - only genuine gaps.\n- Do NOT stall or write "TBD" into the protocol: still commit to the best working value so the design reads as runnable, and log it. The researcher will confirm or correct it.\n- Keep it to the assumptions that actually matter - at most 6 per section, highest impact first.`
 
+  // Everything the researcher told us, in one authoritative block. The
+  // objective, the success criteria and the structured constraints / variables
+  // captured by the study-details step were all being collected and then never
+  // shown to the design agents - which is why designs drifted off the objective
+  // and blew past stated limits.
+  const cs = ctx.constraintsStructured
+  const vs = ctx.variablesStructured
   const problemBlock =
-    `Research problem: ${[ctx.title, ctx.problemStatement].filter(Boolean).join(" - ")}\nGoal: ${ctx.goal || "Not specified"}\nVariables: ${((ctx as { variables?: string[] }).variables ?? []).join(", ") || "Not specified"}\nConstraints: ${((ctx as { constraints?: string[] }).constraints ?? []).join(", ") || "Not specified"}` +
+    [
+      `Research problem: ${[ctx.title, ctx.problemStatement].filter(Boolean).join(" - ")}`,
+      `Objective: ${ctx.objective || ctx.goal || "Not specified"}`,
+      ctx.domain ? `Domain: ${ctx.domain}` : "",
+      ctx.phase ? `Phase: ${ctx.phase}` : "",
+      `Success criteria: ${ctx.successCriteria || "Not specified - infer a defensible target from the objective and log it as an assumption"}`,
+      cs?.material ? `Material available: ${cs.material}` : "",
+      cs?.time ? `Time available: ${cs.time}` : "",
+      cs?.equipment ? `Equipment available: ${cs.equipment}` : "",
+      `Other constraints: ${((ctx as { constraints?: string[] }).constraints ?? []).join(", ") || "None stated"}`,
+      vs?.known ? `Known variables (secondary, low weight): ${vs.known}` : "",
+      vs?.unknown
+        ? `Unknown variables (secondary, low weight): ${vs.unknown}`
+        : "",
+      `Variables: ${((ctx as { variables?: string[] }).variables ?? []).join(", ") || "Not specified"}`
+    ]
+      .filter(Boolean)
+      .join("\n") +
+    priorityNote +
     directivesBlock +
     conditionsCeilingNote +
     userPlanBlock +
@@ -310,11 +361,23 @@ export async function genProtocol(
 
 - **conditionsTable** - the SINGLE authoritative enumeration of every experimental arm (this replaces any separate groups/replicates list, so it must be complete). Markdown table, at minimum:
   \`| Group | Condition / composition | Variable 1 | Variable 2 | T (°C) | Time | n | Read-outs |\`
-  Include baseline and stressed controls explicitly as their own rows. All numbers must have units. Above the table, ONE short line summarizing the factorial structure + replicate scheme (e.g. "5 arginine levels × 2 temperatures × 3 biological replicates = 30 vials; arms randomized across shelves"). Do not return prose in place of a table.`
+  Include baseline and stressed controls explicitly as their own rows. All numbers must have units. Above the table, ONE short line summarizing the factorial structure + replicate scheme (e.g. "5 arginine levels × 2 temperatures × 3 biological replicates = 30 vials; arms randomized across shelves"). Do not return prose in place of a table.
+  COUNT YOUR ROWS against any condition ceiling stated in the research problem before you finish. Every row counts, controls included. If you are over, cut arms.
+  If the hypothesis is COMBINATIONAL (it proposes two or more agents/factors acting together), the arms MUST let the combination be attributed: include each single agent alone at its matched level, the combination(s), and the untreated baseline. A combination arm without its own single-agent arms cannot be interpreted.
+
+- **conditionPrepTable** - the BENCH PREP SHEET. The conditions table says what each arm IS; this says exactly how to PIPETTE it. One row per arm from the conditions table, same Group names, in the same order - no arm may be missing. Markdown table:
+  \`| Group | Stock A (µL) | Stock B (µL) | ... | Buffer make-up (µL) | Final volume (µL) | Final conc. of each component |\`
+  Rules:
+  - One column per stock/component that gets pipetted, headed with the stock's NAME and its CONCENTRATION (e.g. \`Arg·HCl 500 mM (µL)\`), so the reader never has to look up which stock is meant. Reference the stocks BY THE NAME used in Material Preparation.
+  - Every arm's volumes must ARITHMETICALLY SUM to the stated final volume - the buffer make-up column is the balance that closes it. Check each row adds up before returning.
+  - The final-concentration column must restate what that arm is actually delivering (e.g. \`mAb 150 mg/mL, Arg 50 mM\`), so it can be checked against the conditions table.
+  - Volumes are per single sample/vial at the stated final volume. Below the table add one short line for the per-arm total to prepare including replicates and dead volume (e.g. "×3 replicates × 1.15 dead volume = prepare 3.45 mL per arm").
+  - If a component is absent from an arm, write \`—\`, never leave the cell blank.
+  Do not return prose in place of a table, and do not repeat the buffer recipes here (they live in Material Preparation) - this section is quantities to combine, nothing else.`
       },
       {
         role: "user",
-        content: `${blocks.problemBlock}\n\n${blocks.hypBlock}\n\n${setupSummaryOf(setup)}\n\n${materialsSummaryOf(materials)}\n\nWrite the step-by-step protocol (by day, with Checkpoints), timeline table, and conditions table per the SOP format.`
+        content: `${blocks.problemBlock}\n\n${blocks.hypBlock}\n\n${setupSummaryOf(setup)}\n\n${materialsSummaryOf(materials)}\n\nWrite the step-by-step protocol (by day, with Checkpoints), timeline table, conditions table, and the condition preparation table per the SOP format. The prep table must cover EVERY arm in the conditions table, with volumes that sum to the final volume.`
       }
     ],
     response_format: zodResponseFormat(protocolSchema, "protocol")
@@ -430,6 +493,17 @@ export function assembleDesign(
       { heading: "Tools & Equipment", body: materials.toolsNeeded },
       { heading: "Materials List", body: materials.materialsList },
       { heading: "Material Preparation", body: materials.materialPreparation },
+      // Sits between "what stocks exist" and "how the run goes": the per-arm
+      // pipetting sheet. Omitted rather than shown empty if the model skipped
+      // it, so an older or degraded response never renders a blank section.
+      ...((protocol.conditionPrepTable ?? "").trim()
+        ? [
+            {
+              heading: "Condition Preparation",
+              body: protocol.conditionPrepTable
+            }
+          ]
+        : []),
       { heading: "Storage & Disposal", body: materials.storageDisposal },
       {
         heading: "Step-by-Step Procedure",

@@ -155,7 +155,18 @@ Rules:
 - FREE TEXT IS AUTHORITATIVE: the user may pick option(s) AND type extra context in the box. Downstream agents are told to honor BOTH — so phrase options so they compose cleanly with added free text, never as mutually exclusive when they needn't be.
 - kind = "single" ONLY when exactly one answer can physically apply (e.g. one primary readout). Use kind = "multi" for anything a researcher might combine: study approaches, mechanisms, cross-paper approach combinations, instruments/equipment, stressors, assay formats, endpoint panels, controls. When in doubt, default to "multi".
 - Be specific to THIS problem${checkpoint === "design" ? " and the chosen hypothesis" : checkpoint === "hypothesis" ? " and the selected literature" : ""} - reference the actual system, not generic placeholders.
-- ${round > 1 ? "This is a follow-up round: ask ONLY questions still genuinely needed to remove ambiguity after the prior answers. If nothing material remains, return done=true with an empty questions array." : "Return 5–8 questions, each a SINGLE ask. Prefer fewer. Because every question is now one ask, spend the budget on the details that most change a number or a step in the final protocol, and let the free-text box collect the rest - do not try to cover everything."}
+- ${
+    round > 1
+      ? "This is a follow-up round: ask ONLY questions still genuinely needed to remove ambiguity after the prior answers. If nothing material remains, return done=true with an empty questions array."
+      : `MANDATORY: return BETWEEN 6 AND 8 questions, each a SINGLE ask, and done=false. Returning zero questions on this first round is NOT an acceptable answer and never will be - there is always something worth sharpening, and the researcher has explicitly asked to be questioned. If you believe the inputs already cover everything, you have not looked hard enough: go after the values the protocol will silently invent otherwise (exact stock concentrations, the diluent and its pH, per-sample volumes, incubation time AND temperature, instrument settings, the blank/reference each reading is zeroed against, acceptance thresholds). Every question must earn its place by changing a number, a reagent, or a step in the final protocol.
+
+DEPTH BAR (the researcher said the questions were "good but not complete" - shallow questions are the failure mode here). A question is too shallow if a competent scientist could answer it and STILL leave the protocol ambiguous. Push one level past the obvious:
+  - Not "what readout?" but "what instrument setting / wavelength / channel, and what is it blanked against?"
+  - Not "what buffer?" but "which diluent, at what pH and ionic strength, and is it the same one the stock is stored in?"
+  - Not "how long?" but "how long at what temperature, and with or without agitation?"
+  - Not "how much material?" but "how much, at what stock concentration, and how much must be left over for a follow-up run?"
+COVERAGE: across your set, do not leave a whole category untouched when it is undetermined. Sweep quantities/stocks, the diluent and prep, the condition/replicate structure, the readouts and their instrument settings, the controls and baselines, and the acceptance threshold - and ask about the ones this study actually leaves open.`
+  }
 - This is a BENCH / wet-lab program ONLY. NEVER ask whether the work is computational vs bench, in-silico vs experimental, or dry-lab vs wet-lab — always assume bench.
 - Never ask for information already provided. Everything listed above came
   FROM the researcher - re-asking any of it (their success criteria, replicate
@@ -163,7 +174,9 @@ Rules:
   operating parameters they typed) makes the tool look like it wasn't
   listening. Read what's there, then ask only about what is genuinely still
   missing. If a supplied value is ambiguous, ask to SHARPEN that specific value
-  rather than asking the question from scratch.
+  rather than asking the question from scratch. This rule exists to remove
+  DUPLICATION - it is not a licence to return an empty set. A study is never
+  fully specified; find the gaps that remain.
 - Because the gaps differ from study to study, your questions should differ
   too. Do not work through a fixed checklist - derive them from what THIS
   problem, hypothesis and set of supplied values actually leave undetermined.`
@@ -174,18 +187,18 @@ Rules:
     priorAnswers
   )}\n\nReturn the clarifying questions as structured JSON.`
 
-  try {
+  const ask = async (nudge?: string) => {
     const completion = await openai().beta.chat.completions.parse({
       model: MODEL(),
       temperature: 0.4,
       messages: [
         { role: "system", content: system },
-        { role: "user", content: user }
+        { role: "user", content: nudge ? `${user}\n\n${nudge}` : user }
       ],
       response_format: zodResponseFormat(questionSchema, "clarify")
     })
     const parsed = completion.choices[0]?.message?.parsed
-    if (!parsed) return { questions: [], done: true }
+    if (!parsed) return null
     return {
       done: parsed.done,
       questions: parsed.questions.map(q => ({
@@ -196,8 +209,30 @@ Rules:
         rationale: q.rationale
       }))
     }
+  }
+
+  // The researcher reported the flow asking NOTHING. Two distinct causes produced
+  // the identical empty result, and both were being swallowed: the model choosing
+  // done=true because the inputs looked complete, and the call throwing. On the
+  // first round an empty set is never the right answer, so retry with an explicit
+  // nudge - and surface a genuine failure as an error rather than as silence.
+  try {
+    let result = await ask()
+    if (round === 1 && (!result || result.questions.length === 0)) {
+      console.warn("[clarify] round 1 returned no questions - retrying")
+      result = await ask(
+        "Your previous attempt returned no questions. That is not acceptable for the first round. Return 6-8 concrete, single-ask questions targeting the values this study still leaves undetermined - stock concentrations, diluent and pH, per-sample volumes, incubation time and temperature, instrument settings, controls/blanks, and the acceptance threshold. done must be false."
+      )
+    }
+    if (!result) throw new Error("Model returned no parsed output")
+    // Never let the caller advance thinking there was nothing to ask when the
+    // set came back empty on round 1.
+    return {
+      done: round === 1 && result.questions.length > 0 ? false : result.done,
+      questions: result.questions
+    }
   } catch (e) {
     console.error("[clarify] generation failed", e)
-    return { questions: [], done: true }
+    throw e
   }
 }
