@@ -5902,6 +5902,13 @@ function DesignLibrarySidebar({
   // Reports generated FROM this design, listed as assets under the buttons.
   // Reports already carry source_design_id, so no new linkage is needed.
   const [reportAssets, setReportAssets] = useState<any[]>([])
+  // Templates saved from finished reports. Listed alongside the reports so a
+  // saved template is visible where the researcher expects to find it, rather
+  // than only existing inside the generate-report dropdown.
+  const [templateAssets, setTemplateAssets] = useState<
+    Array<{ id: string; name: string; section_count?: number }>
+  >([])
+  const [presetTemplateId, setPresetTemplateId] = useState<string | null>(null)
   const [openAssetId, setOpenAssetId] = useState<string | null>(null)
   const [deletingAssetId, setDeletingAssetId] = useState<string | null>(null)
 
@@ -5926,9 +5933,24 @@ function DesignLibrarySidebar({
     }
   }, [design?.id, ctx.workspaceId])
 
+  const refreshTemplates = useCallback(async () => {
+    if (!ctx.workspaceId) return
+    try {
+      const res = await fetch(
+        `/api/report-templates?workspaceId=${encodeURIComponent(ctx.workspaceId)}`
+      )
+      if (!res.ok) return
+      const json = await res.json()
+      setTemplateAssets(Array.isArray(json?.templates) ? json.templates : [])
+    } catch (err) {
+      console.warn("Couldn't load report templates:", err)
+    }
+  }, [ctx.workspaceId])
+
   useEffect(() => {
     void refreshAssets()
-  }, [refreshAssets])
+    void refreshTemplates()
+  }, [refreshAssets, refreshTemplates])
 
   /** Delete an asset. Blocked once it has been filed to an ELN (#6). */
   const handleDeleteAsset = async (r: any) => {
@@ -6189,6 +6211,43 @@ function DesignLibrarySidebar({
         </div>
       )}
 
+      {/* Templates saved from finished reports. A researcher who saved one had
+          no way to see it afterwards - it existed only inside the generate
+          dialog's dropdown - so it sits here beside the reports, named, and
+          starts a new report pre-set to it. */}
+      {templateAssets.length > 0 && (
+        <div className="border-ink-100 shrink-0 border-t p-3">
+          <div className="text-ink-400 mb-2 text-[10px] font-bold uppercase tracking-[0.13em]">
+            Templates ({templateAssets.length})
+          </div>
+          <ul className="space-y-1.5">
+            {templateAssets.map(t => (
+              <li key={t.id}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setOpenAssetId(null)
+                    setPresetTemplateId(t.id)
+                    setReportModalOpen(true)
+                  }}
+                  title="Start a new report from this template"
+                  className="border-ink-200 hover:border-ink-300 hover:bg-ink-50 w-full rounded-lg border bg-white p-2 text-left transition-colors"
+                >
+                  <span className="text-ink-800 block truncate text-[12.5px] font-medium">
+                    {t.name}
+                  </span>
+                  <span className="text-ink-400 block text-[10.5px]">
+                    {typeof t.section_count === "number"
+                      ? `${t.section_count} sections · new report from this`
+                      : "New report from this"}
+                  </span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
       {/* Footer: Add note */}
       <div className="border-ink-100 shrink-0 border-t p-3">
         <button
@@ -6204,16 +6263,25 @@ function DesignLibrarySidebar({
         open={reportModalOpen}
         onOpenChange={o => {
           setReportModalOpen(o)
-          if (!o) setOpenAssetId(null)
+          if (!o) {
+            setOpenAssetId(null)
+            setPresetTemplateId(null)
+            // A report may have been saved as a template while the modal was
+            // open, so re-read the list rather than waiting for a remount.
+            void refreshTemplates()
+          }
         }}
         design={design}
         workspaceId={ctx.workspaceId}
         locale={ctx.locale}
         sourceVersionLabel={selectedIter?.label}
         initialReportId={openAssetId}
+        initialSavedTemplateId={presetTemplateId}
         onSaved={() => {
           setOpenAssetId(null)
+          setPresetTemplateId(null)
           void refreshAssets()
+          void refreshTemplates()
         }}
       />
     </div>

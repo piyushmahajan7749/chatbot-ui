@@ -4,7 +4,8 @@
  * Generate-report modal, launched from a completed design's slab.
  *
  * Collects the inputs needed to spin a report off a design:
- *  1. Template (mandatory, shown first)
+ *  1. Report format (mandatory, shown first) + optionally one of the
+ *     researcher's saved templates
  *  2. Objective (pre-filled from the design's objective, editable)
  *  3. Three upload slots (protocol / reference docs / data) - the parent
  *     design already supplies the method + literature context, so only the
@@ -49,6 +50,13 @@ import {
   DialogTitle
 } from "@/components/ui/dialog"
 import { Label } from "@/components/ui/label"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue
+} from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
 import { ReportRetrievalSelect } from "@/components/reports/report-retrieval-select"
 import { ReportEditor } from "@/components/reports/report-editor"
@@ -68,6 +76,11 @@ interface GenerateReportModalProps {
    * Used when the researcher clicks a saved report asset in the Export rail.
    */
   initialReportId?: string | null
+  /**
+   * Pre-select one of the researcher's saved templates. Set when the flow is
+   * started by clicking a template in the Export rail's Templates list.
+   */
+  initialSavedTemplateId?: string | null
 }
 
 const ACCEPTED_FILE_EXTS = ".pdf,.docx,.csv,.jpeg,.jpg"
@@ -80,7 +93,8 @@ export const GenerateReportModal: FC<GenerateReportModalProps> = ({
   locale,
   onSaved,
   sourceVersionLabel,
-  initialReportId = null
+  initialReportId = null,
+  initialSavedTemplateId = null
 }) => {
   const router = useRouter()
   const { profile, selectedWorkspace, setReports } =
@@ -102,6 +116,13 @@ export const GenerateReportModal: FC<GenerateReportModalProps> = ({
 
   const [objective, setObjective] = useState("")
   const [templateId, setTemplateId] = useState(DEFAULT_TEMPLATE_ID)
+  // Templates the researcher saved from an earlier finished report. Separate
+  // from the three built-in FORMATS above: a saved template carries an exact
+  // section list, and picking one overrides the format's default sections.
+  const [savedTemplates, setSavedTemplates] = useState<
+    Array<{ id: string; name: string; section_count?: number }>
+  >([])
+  const [savedTemplateId, setSavedTemplateId] = useState<string | null>(null)
   const [protocol, setProtocol] = useState<Tables<"files">[]>([])
   const [papers, setPapers] = useState<Tables<"files">[]>([])
   const [dataFiles, setDataFiles] = useState<Tables<"files">[]>([])
@@ -122,12 +143,34 @@ export const GenerateReportModal: FC<GenerateReportModalProps> = ({
     if (!open) return
     setObjective(ctx.objective)
     setTemplateId(DEFAULT_TEMPLATE_ID)
+    setSavedTemplateId(initialSavedTemplateId)
     setProtocol([])
     setPapers([])
     setDataFiles([])
     setWarning(null)
     setBusy(null)
-  }, [open, ctx.objective])
+  }, [open, ctx.objective, initialSavedTemplateId])
+
+  // Load the researcher's saved templates when the modal opens. Best-effort:
+  // a failure just means the dropdown stays hidden and the formats still work.
+  useEffect(() => {
+    if (!open || !workspaceId) return
+    let cancelled = false
+    void fetch(
+      `/api/report-templates?workspaceId=${encodeURIComponent(workspaceId)}`
+    )
+      .then(r => (r.ok ? r.json() : { templates: [] }))
+      .then(json => {
+        if (cancelled) return
+        setSavedTemplates(Array.isArray(json?.templates) ? json.templates : [])
+      })
+      .catch(err =>
+        console.warn("[GenerateReportModal] couldn't load templates:", err)
+      )
+    return () => {
+      cancelled = true
+    }
+  }, [open, workspaceId])
 
   const toggleFile = (
     type: "protocol" | "papers" | "dataFiles",
@@ -242,6 +285,26 @@ export const GenerateReportModal: FC<GenerateReportModalProps> = ({
     )
   }
 
+  /**
+   * The custom sections carried by a picked saved template. A saved template
+   * stores its whole section list; the built-in ones already come from the
+   * chosen format, so only the entries flagged `custom` need seeding onto the
+   * new report - those are the additions the researcher deliberately made.
+   */
+  const savedTemplateCustomSections = () => {
+    if (!savedTemplateId) return null
+    const t = savedTemplates.find(x => x.id === savedTemplateId) as
+      | { sections?: Array<Record<string, unknown>> }
+      | undefined
+    const custom = (t?.sections ?? []).filter(s => s?.custom)
+    if (custom.length === 0) return null
+    return custom.map((s, i) => ({
+      id: typeof s.key === "string" && s.key ? s.key : `tpl-${i}`,
+      name: typeof s.title === "string" ? s.title : "Untitled section",
+      description: typeof s.description === "string" ? s.description : ""
+    }))
+  }
+
   const baseReportPayload = (generationStatus: "idle" | "generating") => ({
     user_id: profile!.user_id,
     name: design?.name ? `${design.name} - report` : "Untitled report",
@@ -256,6 +319,10 @@ export const GenerateReportModal: FC<GenerateReportModalProps> = ({
     source_captured_at: new Date().toISOString(),
     design_context: ctx.summary,
     template_id: templateId,
+    // The saved template, when one is picked, is what the report's sections
+    // actually come from; the format stays recorded as the fallback shape.
+    saved_template_id: savedTemplateId,
+    custom_sections: savedTemplateCustomSections(),
     generation_status: generationStatus
   })
 
@@ -375,20 +442,28 @@ export const GenerateReportModal: FC<GenerateReportModalProps> = ({
           </DialogHeader>
 
           <div className="space-y-5 py-1">
-            {/* 1 - Template (mandatory, first) */}
+            {/* 1 - Report format (mandatory, first).
+
+                These three are FORMATS - the built-in shapes a report can
+                take. Calling them "templates" collided with the templates a
+                researcher saves from a finished report, which are a different
+                thing and now have their own picker below. */}
             <div className="space-y-2">
               <Label className="text-[12.5px]">
-                Template <span className="text-red-500">*</span>
+                Report format <span className="text-red-500">*</span>
               </Label>
               <div className="grid gap-2 sm:grid-cols-3">
                 {REPORT_TEMPLATES.map(t => {
-                  const selected = templateId === t.id
+                  const selected = templateId === t.id && !savedTemplateId
                   return (
                     <button
                       key={t.id}
                       type="button"
                       disabled={busy !== null}
-                      onClick={() => setTemplateId(t.id)}
+                      onClick={() => {
+                        setTemplateId(t.id)
+                        setSavedTemplateId(null)
+                      }}
                       className={
                         "rounded-xl border p-2.5 text-left transition-colors " +
                         (selected
@@ -412,6 +487,45 @@ export const GenerateReportModal: FC<GenerateReportModalProps> = ({
                 })}
               </div>
             </div>
+
+            {/* 1b - Saved templates. A report saved as a template captures its
+                section list; reusing one was previously impossible from here,
+                so the structure a researcher had deliberately built could only
+                be recreated by hand. Only rendered when they have some. */}
+            {savedTemplates.length > 0 && (
+              <div className="space-y-1.5">
+                <Label className="text-[12.5px]">Template (optional)</Label>
+                <Select
+                  value={savedTemplateId ?? "none"}
+                  onValueChange={v =>
+                    setSavedTemplateId(v === "none" ? null : v)
+                  }
+                  disabled={busy !== null}
+                >
+                  <SelectTrigger className="h-9 text-[12.5px]">
+                    <SelectValue placeholder="Use one of your saved templates" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">
+                      No template — use the format above
+                    </SelectItem>
+                    {savedTemplates.map(t => (
+                      <SelectItem key={t.id} value={t.id}>
+                        {t.name}
+                        {typeof t.section_count === "number"
+                          ? ` · ${t.section_count} sections`
+                          : ""}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                <p className="text-ink-500 text-[11px] leading-snug">
+                  {savedTemplateId
+                    ? "The report will follow this saved template's sections instead of the format above."
+                    : "Saved from a finished report. Picking one reuses its exact section list."}
+                </p>
+              </div>
+            )}
 
             {/* 2 - Objective (pre-filled from design) */}
             <div className="space-y-1.5">

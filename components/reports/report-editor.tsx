@@ -310,6 +310,30 @@ export function ReportEditor({
   // ReportTab + ReportSection lockdown so locked reports can't be
   // re-edited.
   const isReportSaved = !!report?.is_saved
+
+  // Working copy of the report title so the field stays responsive while
+  // typing; committed on blur/Enter.
+  const [titleDraft, setTitleDraft] = useState("")
+  useEffect(() => {
+    setTitleDraft(report?.name ?? "")
+  }, [report?.name])
+
+  const commitTitle = async () => {
+    const next = titleDraft.trim()
+    const current = (report?.name ?? "").trim()
+    if (!next || next === current) {
+      setTitleDraft(current)
+      return
+    }
+    setReport((prev: any) => ({ ...prev, name: next }))
+    try {
+      await updateReport(reportId, { name: next })
+    } catch (err: any) {
+      setReport((prev: any) => ({ ...prev, name: current }))
+      setTitleDraft(current)
+      sonnerToast.error(`Couldn't rename: ${err?.message ?? "unknown error"}`)
+    }
+  }
   /**
    * Uploaded to an ELN = LOCKED. An ELN entry is a quasi-regulatory record; if
    * our copy could still be edited it would silently drift from what the lab
@@ -618,6 +642,22 @@ export function ReportEditor({
     })
   }
 
+  /**
+   * Which datasets from the uploaded file belong in the report. Same optimistic
+   * write as the type toggle: local first so the charts appear immediately,
+   * then persisted, so the choice survives a reload and travels with the report
+   * into export and the ELN.
+   */
+  const handleSelectedSeriesChange = (indices: number[]) => {
+    const current = report?.chart_data
+    if (!current) return
+    const nextChartData = { ...current, selectedSeries: indices }
+    setReport((prev: any) => ({ ...prev, chart_data: nextChartData }))
+    updateReport(reportId, { chart_data: nextChartData }).catch(err => {
+      console.warn("Failed to persist dataset selection:", err)
+    })
+  }
+
   const handleChartRegenerate = async (feedback: string) => {
     const trimmed = feedback.trim()
     if (!trimmed) return
@@ -734,6 +774,12 @@ export function ReportEditor({
   }
 
   // Every editing affordance keys off this, not is_saved alone.
+  //
+  // Saving a report is a checkpoint, not a freeze. Treating is_saved as a lock
+  // meant reopening a report with the edit icon produced a read-only preview -
+  // no title field, no per-section pencil, nothing to change. Only an ELN
+  // upload genuinely locks the record, because at that point it has left the
+  // building and must match what was filed.
   const editsLocked = isELNLocked
 
   const draftText = draftToText(draft)
@@ -921,9 +967,34 @@ export function ReportEditor({
                   </span>
                 )}
               </div>
-              <h1 className="text-ink-900 text-xl font-bold">
-                {report.name || "Untitled Report"}
-              </h1>
+              {/* Editable in place. The title was a plain heading, so there
+                  was no way to rename a report after generation - the name
+                  the generator picked was the name you kept. Blur or Enter
+                  commits; Escape reverts. Locked only once filed to an ELN. */}
+              {editsLocked ? (
+                <h1 className="text-ink-900 text-xl font-bold">
+                  {report.name || "Untitled Report"}
+                </h1>
+              ) : (
+                <input
+                  value={titleDraft}
+                  onChange={e => setTitleDraft(e.target.value)}
+                  onBlur={() => void commitTitle()}
+                  onKeyDown={e => {
+                    if (e.key === "Enter") {
+                      e.preventDefault()
+                      e.currentTarget.blur()
+                    }
+                    if (e.key === "Escape") {
+                      setTitleDraft(report.name || "")
+                      e.currentTarget.blur()
+                    }
+                  }}
+                  placeholder="Untitled Report"
+                  aria-label="Report title"
+                  className="text-ink-900 hover:border-ink-200 focus:border-ink-400 -mx-1.5 w-full min-w-0 rounded border border-transparent bg-transparent px-1.5 text-xl font-bold outline-none transition-colors"
+                />
+              )}
               <div className="text-ink-500 mt-1 flex items-center gap-3 text-sm">
                 <span className="flex items-center gap-1">
                   <IconClock size={14} />
@@ -939,10 +1010,11 @@ export function ReportEditor({
           <div className="flex items-center gap-2">
             {hasDraft && (
               <>
-                {/* Save button hides once the report is locked - at
-                    that point Save-as-Template (inside the Report
-                    tab) is the only mutation that makes sense. */}
-                {!isReportSaved && (
+                {/* Available for as long as the report can be edited. It used
+                    to disappear the moment the report was first saved, which
+                    left later edits with no way to be committed. Only an ELN
+                    upload takes it away, because that record is final. */}
+                {!editsLocked && (
                   <Button
                     variant="outline"
                     size="sm"
@@ -952,7 +1024,11 @@ export function ReportEditor({
                     title="Flush any pending edits to the server"
                   >
                     <SaveIcon className="size-4" />
-                    {isSavingNow ? "Saving…" : "Save"}
+                    {isSavingNow
+                      ? "Saving…"
+                      : isReportSaved
+                        ? "Save changes"
+                        : "Save"}
                   </Button>
                 )}
                 <Button
@@ -1099,11 +1175,12 @@ export function ReportEditor({
                       onEditContent={handleSectionContentChange}
                       onRegenerateChart={handleChartRegenerate}
                       onChartTypeChange={handleChartTypeChange}
+                      onSelectedSeriesChange={handleSelectedSeriesChange}
                       regeneratingChart={regeneratingChart}
                       onOpenPreview={() => setShowPreview(true)}
                       templateId={templateId}
                       reportTitle={report?.name || "Untitled Report"}
-                      isSaved={isReportSaved || editsLocked}
+                      isSaved={editsLocked}
                       onSaveAsTemplate={handleOpenSaveAsTemplate}
                       customSections={customSections}
                       onAddCustomSection={handleOpenAddSection}
@@ -1252,7 +1329,7 @@ export function ReportEditor({
         chartData={report?.chart_data ?? null}
         onEditContent={handleSectionContentChange}
         templateId={templateId}
-        isLocked={isReportSaved || editsLocked}
+        isLocked={editsLocked}
       />
 
       {/* Add-section dialog. Asks for a name + brief description; the

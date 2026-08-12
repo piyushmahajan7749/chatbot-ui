@@ -27,11 +27,53 @@ const CHART_TYPE_OPTIONS: { key: ChartType; label: string }[] = [
   { key: "pie", label: "Pie" }
 ]
 
+interface ChartSeriesShape {
+  metric: string
+  yAxisLabel?: string
+  chartType?: ChartType
+  data: Array<{ label: string; value: number }>
+}
+
 interface ChartDataShape {
   chartTitle?: string
   yAxisLabel?: string
   chartType?: ChartType
   data?: Array<{ label: string; value: number }>
+  /** Every OTHER metric found in the uploaded data. */
+  additionalSeries?: ChartSeriesShape[]
+  /**
+   * Indices into the combined series list (0 = the primary `data`) that the
+   * researcher wants IN the report - what gets read, exported and filed to the
+   * ELN. Absent means "just the primary", which is how every report generated
+   * before the picker existed behaves.
+   */
+  selectedSeries?: number[]
+}
+
+/** Primary metric first, then each additional metric, as one flat list. */
+export function chartSeriesList(
+  cd: ChartDataShape | null | undefined
+): ChartSeriesShape[] {
+  const out: ChartSeriesShape[] = []
+  if (Array.isArray(cd?.data) && cd!.data!.length) {
+    out.push({
+      metric: cd!.chartTitle || "Primary result",
+      yAxisLabel: cd!.yAxisLabel,
+      chartType: cd!.chartType,
+      data: cd!.data!
+    })
+  }
+  for (const extra of cd?.additionalSeries ?? []) {
+    if (Array.isArray(extra?.data) && extra.data.length) {
+      out.push({
+        metric: extra.metric || "Metric",
+        yAxisLabel: extra.yAxisLabel,
+        chartType: extra.chartType,
+        data: extra.data
+      })
+    }
+  }
+  return out
 }
 
 interface ReportTabProps {
@@ -49,6 +91,11 @@ interface ReportTabProps {
    * picked type.
    */
   onChartTypeChange?: (chartType: ChartType) => void
+  /**
+   * Called when the researcher ticks/unticks which datasets belong in the
+   * report. The host writes `chart_data.selectedSeries` + persists.
+   */
+  onSelectedSeriesChange?: (indices: number[]) => void
   regeneratingChart: boolean
   onOpenPreview: () => void
   templateId?: string | null
@@ -84,6 +131,8 @@ const ChartBlock: FC<{
   regeneratingChart: boolean
   onRegenerateChart: (feedback: string) => Promise<void>
   onChartTypeChange?: (chartType: ChartType) => void
+  /** Persist which datasets belong in the report. */
+  onSelectedSeriesChange?: (indices: number[]) => void
   /** Saved-report lockdown - hides type tabs + Edit-with-AI button. */
   isLocked?: boolean
 }> = ({
@@ -92,10 +141,29 @@ const ChartBlock: FC<{
   regeneratingChart,
   onRegenerateChart,
   onChartTypeChange,
+  onSelectedSeriesChange,
   isLocked = false
 }) => {
   const [showFeedback, setShowFeedback] = useState(false)
   const [feedback, setFeedback] = useState("")
+
+  // Which datasets the researcher wants in the report. Defaults to the primary
+  // one alone, matching every report generated before the picker existed.
+  const allSeries = chartSeriesList(chartData)
+  const selected =
+    chartData?.selectedSeries && chartData.selectedSeries.length > 0
+      ? chartData.selectedSeries.filter(i => i >= 0 && i < allSeries.length)
+      : [0]
+
+  const toggleSeries = (i: number) => {
+    if (!onSelectedSeriesChange) return
+    const next = selected.includes(i)
+      ? selected.filter(x => x !== i)
+      : [...selected, i].sort((a, b) => a - b)
+    // Never leave the report with no chart at all - a dataset must stay picked.
+    if (next.length === 0) return
+    onSelectedSeriesChange(next)
+  }
 
   const handleSubmit = async () => {
     const trimmed = feedback.trim()
@@ -158,13 +226,60 @@ const ChartBlock: FC<{
           fall back to the legacy static PNG for older reports that
           only persisted `chart_image` - those won't be interactive
           but at least keep rendering. */}
+      {/* Dataset picker. An upload with several readouts used to chart exactly
+          one of them with no hint the others existed; these are the datasets
+          found in the file, and the ticked ones are what the report carries
+          into export and the ELN. Only shown when there is a choice to make. */}
+      {allSeries.length > 1 && (
+        <div className="border-ink-100 space-y-1.5 border-b pb-3">
+          <div className="text-ink-500 text-[11px] font-medium">
+            {isLocked
+              ? "Datasets in this report"
+              : "Datasets from your file — tick the ones to include in the report"}
+          </div>
+          <div className="flex flex-wrap gap-1.5">
+            {allSeries.map((sr, i) => {
+              const on = selected.includes(i)
+              return (
+                <button
+                  key={sr.metric + i}
+                  type="button"
+                  disabled={isLocked || !onSelectedSeriesChange}
+                  onClick={() => toggleSeries(i)}
+                  className={cn(
+                    "rounded-full border px-3 py-1 text-[12px] transition-colors disabled:cursor-default",
+                    on
+                      ? "border-teal-journey bg-teal-journey text-white"
+                      : "border-ink-200 text-ink-600 hover:border-ink-300"
+                  )}
+                >
+                  {sr.metric}
+                </button>
+              )
+            })}
+          </div>
+        </div>
+      )}
+
       {hasData ? (
-        <ReportChart
-          data={chartData!.data!}
-          chartTitle={chartData?.chartTitle}
-          yAxisLabel={chartData?.yAxisLabel}
-          chartType={currentType}
-        />
+        <div className="space-y-5">
+          {selected.map(i => {
+            const sr = allSeries[i]
+            if (!sr) return null
+            return (
+              <ReportChart
+                key={sr.metric + i}
+                data={sr.data}
+                chartTitle={sr.metric}
+                yAxisLabel={sr.yAxisLabel}
+                /* The type tabs drive the PRIMARY chart, which is the one the
+                   exported PNG renders; the extra datasets keep whatever type
+                   the generator judged right for them. */
+                chartType={i === 0 ? currentType : (sr.chartType ?? "bar")}
+              />
+            )
+          })}
+        </div>
       ) : chartImage ? (
         // eslint-disable-next-line @next/next/no-img-element
         <img
@@ -211,6 +326,7 @@ export const ReportTab: FC<ReportTabProps> = ({
   onEditContent,
   onRegenerateChart,
   onChartTypeChange,
+  onSelectedSeriesChange,
   regeneratingChart,
   onOpenPreview,
   templateId,
@@ -419,6 +535,7 @@ export const ReportTab: FC<ReportTabProps> = ({
                         regeneratingChart={regeneratingChart}
                         onRegenerateChart={onRegenerateChart}
                         onChartTypeChange={onChartTypeChange}
+                        onSelectedSeriesChange={onSelectedSeriesChange}
                         isLocked={isSaved}
                       />
                     ) : null

@@ -50,18 +50,46 @@ const STATUS_COPY: Record<
   }
 }
 
-// Light markdown → plain text for the poster summary boxes.
-const toPlain = (s: unknown, limit = 420): string => {
+/**
+ * Markdown → a short, COMPLETE summary for a poster box.
+ *
+ * This used to hand back 420 characters cut wherever they happened to land,
+ * so every box ended mid-sentence on an ellipsis and the one-pager read as a
+ * wall of half-thoughts. It now flattens to prose and keeps whole sentences up
+ * to a budget the box can actually hold - the full text is one click away in
+ * the report tab, so the summary's job is to be readable, not complete.
+ */
+const SUMMARY_CHARS = 210
+
+const toPlain = (s: unknown, limit = SUMMARY_CHARS): string => {
   if (typeof s !== "string") return ""
-  const t = s
+  const flat = s
     .replace(/```[\s\S]*?```/g, " ")
     .replace(/\|.*\|/g, " ") // drop table rows - too dense for a poster box
+    .replace(/^#{1,6}\s*/gm, "")
     .replace(/[#>*_`]/g, "")
-    .replace(/^\s*[-•]\s+/gm, "• ")
-    .replace(/\n{2,}/g, "\n")
-    .replace(/[ \t]{2,}/g, " ")
+    // Bullets become sentences so the box holds prose, not a stub list.
+    .replace(/^\s*[-•]\s+/gm, "")
+    .replace(/\s*\n\s*/g, " ")
+    .replace(/\s{2,}/g, " ")
     .trim()
-  return t.length > limit ? t.slice(0, limit).trimEnd() + " …" : t
+  if (!flat) return ""
+  if (flat.length <= limit) return flat
+
+  // Keep whole sentences while they fit; never end mid-word.
+  const sentences = flat.match(/[^.!?]+[.!?]+(\s|$)|[^.!?]+$/g) ?? [flat]
+  let out = ""
+  for (const raw of sentences) {
+    const sentence = raw.trim()
+    if (!sentence) continue
+    const next = out ? `${out} ${sentence}` : sentence
+    if (next.length > limit) break
+    out = next
+  }
+  if (out) return out
+
+  // A single sentence longer than the whole budget - cut on a word boundary.
+  return flat.slice(0, limit).replace(/\s+\S*$/, "") + "…"
 }
 
 const firstNonEmpty = (draft: any, keys: string[]): string => {
@@ -240,9 +268,7 @@ export const OverviewTab: FC<OverviewTabProps> = ({
             {(chart || data) && (
               <div className="border-ink-200 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-dashed px-4 py-3">
                 <p className="text-ink-500 min-w-0 text-[12.5px]">
-                  {data
-                    ? data.slice(0, 160) + (data.length > 160 ? "…" : "")
-                    : "Result data is attached to this report."}
+                  {data || "Result data is attached to this report."}
                 </p>
                 {chart && onOpenVisualization && (
                   <Button
