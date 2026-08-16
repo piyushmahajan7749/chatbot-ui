@@ -147,3 +147,108 @@ describe("fuseAndScore", () => {
     expect(ranked[ranked.length - 1].score).toBe(0)
   })
 })
+
+/**
+ * Two-pass retrieval for design/report scopes.
+ *
+ * The RPC ANDs source_type with source_id, so one call can search the design's
+ * own document OR files, never both. Because the chunker indexes only
+ * FILENAMES for a design/report's attachments and embeds their contents
+ * separately under source_type='file', a single document-scoped call left the
+ * chat unable to see inside any uploaded file — which is what produced the
+ * "I don't have access to that file" answers.
+ */
+describe("retrieve — file pass for design/report scopes", () => {
+  const rpcCalls: any[] = []
+
+  const loadRetrieve = () => {
+    jest.resetModules()
+    rpcCalls.length = 0
+    jest.doMock("@/lib/rag/embed", () => ({
+      embedBatch: jest.fn(async () => [[0.1, 0.2, 0.3]])
+    }))
+    jest.doMock("@supabase/supabase-js", () => ({
+      createClient: () => ({
+        rpc: async (_name: string, args: any) => {
+          rpcCalls.push(args)
+          return { data: [], error: null }
+        }
+      })
+    }))
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    return require("@/lib/rag/retrieve").retrieve
+  }
+
+  beforeAll(() => {
+    process.env.NEXT_PUBLIC_SUPABASE_URL ??= "http://localhost"
+    process.env.SUPABASE_SERVICE_ROLE_KEY ??= "test-key"
+  })
+
+  afterEach(() => jest.dontMock("@/lib/rag/embed"))
+
+  test("design scope also searches file content", async () => {
+    const retrieve = loadRetrieve()
+    await retrieve({
+      query: "what is in my data file",
+      workspaceId: "w1",
+      scope: "design",
+      scopeId: "d1",
+      sourceCount: 5
+    })
+
+    expect(rpcCalls).toHaveLength(2)
+    expect(rpcCalls[0].p_source_types).toEqual(["design"])
+    expect(rpcCalls[0].p_only_source_ids).toEqual(["d1"])
+    // The second pass is what lets the chat read an uploaded file at all.
+    expect(rpcCalls[1].p_source_types).toEqual(["file", "project_file"])
+    expect(rpcCalls[1].p_only_source_ids).toBeNull()
+    expect(rpcCalls[1].p_workspace_id).toBe("w1")
+  })
+
+  test("report scope also searches file content", async () => {
+    const retrieve = loadRetrieve()
+    await retrieve({
+      query: "summarise the results",
+      workspaceId: "w1",
+      scope: "report",
+      scopeId: "r1",
+      sourceCount: 5
+    })
+
+    expect(rpcCalls).toHaveLength(2)
+    expect(rpcCalls[0].p_source_types).toEqual(["report"])
+    expect(rpcCalls[1].p_source_types).toEqual(["file", "project_file"])
+  })
+
+  test("explicitly attached files are the only pass", async () => {
+    const retrieve = loadRetrieve()
+    await retrieve({
+      query: "explain this",
+      workspaceId: "w1",
+      scope: "design",
+      scopeId: "d1",
+      sourceCount: 5,
+      fileIds: ["f1", "f2"]
+    })
+
+    // The caller named the files; a workspace-wide file sweep would only
+    // dilute them.
+    expect(rpcCalls).toHaveLength(1)
+    expect(rpcCalls[0].p_source_types).toEqual(["file"])
+    expect(rpcCalls[0].p_only_source_ids).toEqual(["f1", "f2"])
+  })
+
+  test("workspace scope is unchanged — a single pass", async () => {
+    const retrieve = loadRetrieve()
+    await retrieve({
+      query: "anything",
+      workspaceId: "w1",
+      scope: null,
+      scopeId: null,
+      sourceCount: 5
+    })
+
+    expect(rpcCalls).toHaveLength(1)
+    expect(rpcCalls[0].p_source_types).toBeNull()
+  })
+})
