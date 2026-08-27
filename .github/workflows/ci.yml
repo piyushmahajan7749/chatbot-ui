@@ -33,6 +33,24 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      # `next-env.d.ts` is gitignored (Next.js regenerates it on build), and it
+      # is what pulls in `next/image-types/global` - the declarations that make
+      # `import x from "@/public/foo.png"` type-check. Since this job runs
+      # type-check BEFORE build, the file does not exist yet and every image
+      # import fails with TS2307. It passes on a developer machine only because
+      # a previous build left the file behind, which is exactly the kind of
+      # "works locally" divergence that had main red for weeks. Write the file
+      # Next would generate, verbatim, before type-checking.
+      - name: Generate Next.js type references
+        run: |
+          cat > next-env.d.ts <<'TYPES'
+          /// <reference types="next" />
+          /// <reference types="next/image-types/global" />
+
+          // NOTE: This file should not be edited
+          // see https://nextjs.org/docs/app/building-your-application/configuring/typescript for more information.
+          TYPES
+
       # Deterministic, env-free gates - catch the regressions that have bitten
       # the design pipeline (types, wiring, dropped fields, bad merges).
       - name: Type check
