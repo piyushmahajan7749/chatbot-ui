@@ -25,9 +25,13 @@ describe("clarifyAnswersToText", () => {
         other: "plus a heat-stressed arm"
       })
     ])
+    // When a question has BOTH picked options and free text, the two are
+    // labelled rather than run together with a dash: downstream prompts were
+    // reading "Vehicle, Untreated - plus a heat-stressed arm" as one value and
+    // honouring only the chips.
     expect(out).toBe(
       "- Working concentration?: 1–10 mM\n" +
-        "- Controls?: Vehicle, Untreated - plus a heat-stressed arm"
+        "- Controls?: Vehicle, Untreated (additional context: plus a heat-stressed arm)"
     )
   })
 

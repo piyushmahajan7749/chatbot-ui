@@ -165,6 +165,7 @@ import {
   buildDesignChatContext,
   TIER3_MAX_CHARS
 } from "@/lib/design/chat-context"
+import { resolveEffortConfig } from "@/lib/design-agent"
 
 const CTX: any = {
   title: "Reduce mAb aggregation",
@@ -230,7 +231,13 @@ describe("hypotheses phase", () => {
       },
       () => {}
     )
-    expect(patch.hypotheses).toHaveLength(5) // FINAL_TOP_N
+    // Derived, not hardcoded: how many hypotheses survive the tournament is a
+    // function of the effort level, and pinning a literal here made the test
+    // fail the moment the effort tiers were retuned - a config change, not a
+    // regression. CTX sets no effort, so this resolves to the medium default.
+    expect(patch.hypotheses).toHaveLength(
+      resolveEffortConfig(CTX.effort).finalHypotheses
+    )
     for (const h of patch.hypotheses ?? []) {
       expect(h).toMatchObject({
         id: expect.any(String),
