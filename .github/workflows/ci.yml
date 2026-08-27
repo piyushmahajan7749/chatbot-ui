@@ -63,12 +63,35 @@ jobs:
         run: npm test
 
       # Production build - catches issues tsc can't (e.g. edge-runtime bundling).
-      # Uses placeholder public env so module-load initializers don't fail; the
-      # build reads real secrets only at request time, not at build. If a future
-      # build step needs real values, add them as repository secrets here.
+      #
+      # `next build` collects page data for every API route, which imports each
+      # route's module graph and runs its top-level initializers. Several of
+      # those throw outright when their key is absent (the SerpApi client is the
+      # loudest), so the original assumption here - that "the build reads real
+      # secrets only at request time" - does not hold, and the build died in a
+      # clean checkout. These placeholders exist purely to get those
+      # initializers past construction; nothing is called, so the values are
+      # never used for anything. Real credentials still belong in the runtime
+      # environment, not here.
       - name: Build
         run: npm run build
         env:
+          # Server-side keys whose clients construct at module load.
+          SERPAPI_API_KEY: "placeholder-serpapi-key"
+          SUPABASE_SERVICE_ROLE_KEY: "placeholder-service-role-key"
+          AZURE_OPENAI_ENDPOINT: "https://placeholder.openai.azure.com"
+          AZURE_OPENAI_KEY: "placeholder-azure-key"
+          AZURE_OPENAI_API_KEY: "placeholder-azure-key"
+          AZURE_OPENAI_DEPLOYMENT: "placeholder-deployment"
+          AZURE_OPENAI_DESIGN_DEPLOYMENT: "placeholder-deployment"
+          OPENAI_API_KEY: "placeholder-openai-key"
+          ANTHROPIC_API_KEY: "placeholder-anthropic-key"
+          RESEND_API_KEY: "placeholder-resend-key"
+          INNGEST_SIGNING_KEY: "signkey-prod-placeholder"
+          INNGEST_EVENT_KEY: "placeholder-event-key"
+          FIREBASE_PROJECT_ID: "placeholder-project"
+          FIREBASE_CLIENT_EMAIL: "placeholder@placeholder.iam.gserviceaccount.com"
+          FIREBASE_PRIVATE_KEY: "-----BEGIN PRIVATE KEY-----\nplaceholder\n-----END PRIVATE KEY-----\n"
           NEXT_PUBLIC_SUPABASE_URL: "https://placeholder.supabase.co"
           NEXT_PUBLIC_SUPABASE_ANON_KEY: "placeholder-anon-key"
           NEXT_PUBLIC_FIREBASE_API_KEY: "placeholder"
