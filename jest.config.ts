@@ -18,7 +18,12 @@ const config: Config = {
   // execute them (they fail under jest: no test/expect from @playwright/test).
   testPathIgnorePatterns: [
     "<rootDir>/node_modules/",
-    "<rootDir>/__tests__/playwright-test/"
+    "<rootDir>/__tests__/playwright-test/",
+    // The nightly QA suite is Playwright, driven by its own config and runner.
+    // Jest's default testMatch picks up any *.spec.ts, so without this it would
+    // try to execute browser specs under jsdom and fail on the missing
+    // @playwright/test globals.
+    "<rootDir>/e2e/"
   ]
   // Add more setup options before each test is run
   // setupFilesAfterEnv: ['<rootDir>/jest.setup.ts'],

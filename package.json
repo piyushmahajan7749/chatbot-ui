@@ -24,7 +24,12 @@
     "db-pull": "supabase db remote commit",
     "db-prod-push": "supabase db push",
     "db-push": "supabase db push",
-    "test": "jest"
+    "test": "jest",
+    "qa": "playwright test --config e2e/playwright.config.ts",
+    "qa:smoke": "playwright test --config e2e/playwright.config.ts --project=smoke",
+    "qa:pipeline": "playwright test --config e2e/playwright.config.ts --project=pipeline",
+    "qa:report": "playwright show-report playwright-report",
+    "qa:digest": "node e2e/reporter/send-digest.mjs e2e-results.json"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.18.0",

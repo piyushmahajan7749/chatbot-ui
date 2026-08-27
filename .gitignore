@@ -48,3 +48,9 @@ workbox-*.js.map
 # Supabase Studio scratch (local-only SQL snippets the IDE saves)
 supabase/snippets/
 .env*
+
+# Nightly QA (Playwright) artefacts
+e2e/.auth/
+playwright-report/
+e2e-results.json
+test-results/
