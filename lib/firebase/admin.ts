@@ -43,10 +43,20 @@ try {
   }
 } catch (error) {
   console.error("[Firebase Admin] Initialization error:", error)
-  // Fallback to get Firestore anyway
-  if (!adminDb) {
-    adminDb = getFirestore()
-  }
+  // Deliberately NOT retrying getFirestore() here.
+  //
+  // If initializeApp failed there is no default app, so getFirestore() throws
+  // "The default Firebase app does not exist" - and that second throw is
+  // inside the catch, so nothing handles it. In any environment without a
+  // service account that turned a warning into a hard crash: it is what fails
+  // `next build` in CI, during page-data collection for the API routes, long
+  // before any request is served.
+  //
+  // Leaving adminDb null keeps the failure where it belongs - at the call
+  // site, at request time, in an environment that was never configured -
+  // instead of taking down the build. Wherever credentials ARE present the
+  // try above succeeds and this path never runs.
+  adminDb = null
 }
 
 export { adminDb }
