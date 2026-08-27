@@ -3,15 +3,23 @@
 import {
   IconBook,
   IconBulb,
+  IconChartHistogram,
   IconCheck,
   IconFlask,
+  IconRefresh,
   IconTargetArrow,
   type Icon as TablerIconType
 } from "@tabler/icons-react"
 
 import { cn } from "@/lib/utils"
 
-export type StageId = "problem" | "lit" | "hyp" | "design"
+export type StageId =
+  | "problem"
+  | "lit"
+  | "hyp"
+  | "design"
+  | "validate"
+  | "iterate"
 
 interface StageDef {
   id: StageId
@@ -20,6 +28,10 @@ interface StageDef {
   short: string
 }
 
+// Validate + Iterate are no longer standalone stages: they live in a modal
+// launched from the Design step ("Validate & iterate"), so the journey ends at
+// Design. The StageId members stay in the type so persisted references and the
+// tab-mapping records still typecheck.
 export const STAGES: StageDef[] = [
   { id: "problem", label: "Problem", icon: IconTargetArrow, short: "01" },
   { id: "lit", label: "Literature", icon: IconBook, short: "02" },

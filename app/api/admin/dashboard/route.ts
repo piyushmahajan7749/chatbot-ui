@@ -101,7 +101,9 @@ export async function GET(req: Request) {
       affiliate_name:
         affiliateByUser.get(r.affiliate_user_id)?.display_name ?? null
     }))
-    .sort((a: any, b: any) => (b.created_at ?? "").localeCompare(a.created_at ?? ""))
+    .sort((a: any, b: any) =>
+      (b.created_at ?? "").localeCompare(a.created_at ?? "")
+    )
 
   const referralSummaryMap = new Map<
     string,
@@ -122,7 +124,9 @@ export async function GET(req: Request) {
 
   const activeWeekAgo = Date.now() - 7 * 24 * 60 * 60 * 1000
   const activeThisWeek = usersOut.filter(
-    u => u.last_sign_in_at && new Date(u.last_sign_in_at).getTime() >= activeWeekAgo
+    u =>
+      u.last_sign_in_at &&
+      new Date(u.last_sign_in_at).getTime() >= activeWeekAgo
   ).length
 
   return NextResponse.json({

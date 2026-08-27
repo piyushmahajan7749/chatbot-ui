@@ -53,15 +53,31 @@ function formatValue(value: number): string {
   return value.toFixed(2)
 }
 
-/** Split a label string into lines that fit within `maxChars` per line. */
+/**
+ * Split a label into lines of at most `maxChars`.
+ *
+ * Long unbroken tokens are hard-cut rather than left to overflow: condition
+ * labels are routinely written without spaces ("F2-Glycine-50mM"), and the
+ * word-only version of this returned them as a single over-long line that ran
+ * straight into its neighbours.
+ */
 function wrapLabel(text: string, maxChars: number): string[] {
   if (text.length <= maxChars) return [text]
 
-  const words = text.split(/\s+/)
+  const chunks: string[] = []
+  for (const word of text.split(/\s+/)) {
+    if (word.length <= maxChars) {
+      chunks.push(word)
+      continue
+    }
+    for (let i = 0; i < word.length; i += maxChars) {
+      chunks.push(word.slice(i, i + maxChars))
+    }
+  }
+
   const lines: string[] = []
   let current = ""
-
-  for (const word of words) {
+  for (const word of chunks) {
     if (current && (current + " " + word).length > maxChars) {
       lines.push(current)
       current = word
@@ -78,11 +94,35 @@ function wrapLabel(text: string, maxChars: number): string[] {
  * Fully custom X-axis tick rendered as a function (not an element).
  * Using a function avoids recharts cloneElement path which can inject
  * unwanted angle/rotation props.
+ *
+ * Past a handful of categories there is no longer horizontal room for centred
+ * text, so the ticks rotate to 45° and anchor at their right edge - each label
+ * then runs into empty space below-left of its own tick instead of into its
+ * neighbour. This is what "labels all jumbled up" was.
  */
-function renderCustomTick(maxCharsPerLine: number) {
+function renderCustomTick(maxCharsPerLine: number, rotate: boolean) {
   const CustomTick = (tickProps: any) => {
     const { x, y, payload } = tickProps
     const lines = wrapLabel(String(payload.value), maxCharsPerLine)
+
+    if (rotate) {
+      return (
+        <g transform={`translate(${x},${y + 10}) rotate(-45)`}>
+          {lines.map((line: string, i: number) => (
+            <text
+              key={i}
+              x={0}
+              y={i * 12}
+              textAnchor="end"
+              fontSize={11}
+              fill="#374151"
+            >
+              {line}
+            </text>
+          ))}
+        </g>
+      )
+    }
 
     return (
       <g transform={`translate(${x},${y})`}>
@@ -126,14 +166,36 @@ export function ReportChart({
   const yMin = minVal >= 0 ? 0 : Math.floor((minVal - range * 0.1) * 10) / 10
   const yMax = Math.ceil((maxVal + range * 0.15) * 10) / 10
 
-  // Determine how many chars fit per line based on bar count
-  const charsPerLine = data.length <= 4 ? 16 : data.length <= 8 ? 10 : 8
+  // Past 8 categories there isn't the horizontal room for centred labels, so
+  // they rotate. Rotated text runs diagonally and so gets a generous character
+  // budget (it isn't competing with its neighbour for width) and needs a taller
+  // axis gutter to sit in.
+  const rotateLabels = data.length > 8
+  const charsPerLine = rotateLabels
+    ? 18
+    : data.length <= 4
+      ? 16
+      : data.length <= 8
+        ? 10
+        : 8
 
   // Compute how many lines the tallest label needs, for X-axis height
   const maxLines = Math.max(
     ...data.map(d => wrapLabel(d.label, charsPerLine).length)
   )
-  const xAxisHeight = maxLines * 14 + 20
+  const longestLabel = Math.max(
+    ...data.map(d =>
+      Math.max(...wrapLabel(d.label, charsPerLine).map(l => l.length))
+    )
+  )
+  const xAxisHeight = rotateLabels
+    ? // ~0.62em per char at 11px, projected onto the vertical by sin(45°).
+      Math.min(160, Math.round(longestLabel * 6.8 * 0.71) + maxLines * 12 + 16)
+    : maxLines * 14 + 20
+
+  // With many bars the per-bar value labels collide with each other just as
+  // the axis labels do. The tooltip still gives the exact figure on hover.
+  const showValueLabels = data.length <= 12
 
   // Decide chart body based on chartType. Pie shares the same data
   // shape; bar + line share axis layout.
@@ -165,8 +227,13 @@ export function ReportChart({
               cx="50%"
               cy="50%"
               outerRadius={150}
-              label={(entry: any) =>
-                `${entry.label}: ${formatValue(Number(entry.value))}`
+              /* Per-slice labels overlap once the slices get thin, so past a
+                 dozen categories the legend and tooltip carry the naming. */
+              label={
+                data.length <= 12
+                  ? (entry: any) =>
+                      `${entry.label}: ${formatValue(Number(entry.value))}`
+                  : false
               }
             >
               {data.map((_, index) => (
@@ -186,7 +253,7 @@ export function ReportChart({
         <CartesianGrid strokeDasharray="3 3" opacity={0.3} />
         <XAxis
           dataKey="label"
-          tick={renderCustomTick(charsPerLine)}
+          tick={renderCustomTick(charsPerLine, rotateLabels)}
           height={xAxisHeight}
           interval={0}
           tickLine={false}
@@ -244,12 +311,14 @@ export function ReportChart({
               dot={{ r: 4 }}
               activeDot={{ r: 6 }}
             >
-              <LabelList
-                dataKey="value"
-                position="top"
-                formatter={((v: any) => formatValue(Number(v))) as any}
-                style={{ fontSize: 11, fill: "#1f2937" }}
-              />
+              {showValueLabels && (
+                <LabelList
+                  dataKey="value"
+                  position="top"
+                  formatter={((v: any) => formatValue(Number(v))) as any}
+                  style={{ fontSize: 11, fill: "#1f2937" }}
+                />
+              )}
             </Line>
           </LineChart>
         </ResponsiveContainer>
@@ -275,12 +344,14 @@ export function ReportChart({
             radius={[4, 4, 0, 0]}
             maxBarSize={80}
           >
-            <LabelList
-              dataKey="value"
-              position="top"
-              formatter={((v: any) => formatValue(Number(v))) as any}
-              style={{ fontSize: 11, fill: "#1f2937" }}
-            />
+            {showValueLabels && (
+              <LabelList
+                dataKey="value"
+                position="top"
+                formatter={((v: any) => formatValue(Number(v))) as any}
+                style={{ fontSize: 11, fill: "#1f2937" }}
+              />
+            )}
             {data.map((_, index) => (
               <Cell
                 key={`cell-${index}`}

@@ -42,7 +42,16 @@ import type {
   Paper as DesignPaper,
   ProblemContext
 } from "@/lib/design-agent"
-import { runLiteraturePhase } from "@/lib/design/literature-phase"
+import {
+  buildLiteratureInputs,
+  runLiteraturePhase
+} from "@/lib/design/literature-phase"
+import {
+  planLiteratureSearch,
+  runLiteratureRound,
+  type LiteraturePlan,
+  type LiteratureRoundResult
+} from "@/app/api/design/draft/agents"
 import { runHypothesesPhase } from "@/lib/design/hypotheses-phase"
 
 const DEFAULT_CONCURRENCY = 4
@@ -576,11 +585,51 @@ export const processDesignPhase = inngest.createFunction(
     let patch: Partial<DesignContentV2> = {}
 
     if (phase === "literature") {
-      patch = (await step.run("literature", () =>
+      // ── Fan-out / fan-in ──────────────────────────────────────────────
+      // The scout is split into checkpointed Inngest steps so it can run for
+      // as long as it needs without any single Vercel invocation hitting the
+      // function ceiling: one "plan" step (query-gen + keyless pre-warm), then
+      // EACH PaperFinder round as its own parallel step, then one "synth" step
+      // that dedups/ranks/synthesizes. Inngest memoizes every completed step,
+      // so a slow round can't take the whole phase down and total wall-clock is
+      // effectively unbounded.
+      const litArgs = { ctx, existing, mode: data.mode }
+      const { agentState, searchOptions } = buildLiteratureInputs(litArgs)
+
+      const plan = (await step.run("lit-plan", () =>
+        meterRun({ userId, feature: "lit_search" }, () =>
+          planLiteratureSearch(
+            agentState,
+            searchOptions,
+            ev => void pushProgress(ev as Record<string, unknown>)
+          )
+        )
+      )) as LiteraturePlan
+
+      const roundResults = (await Promise.all(
+        plan.fullRoundQueries.map((fullQuery, idx) =>
+          step.run(`lit-round-${idx}`, () =>
+            runLiteratureRound(
+              {
+                rawQuery: plan.roundQueries[idx],
+                fullQuery,
+                index: idx,
+                totalRounds: plan.fullRoundQueries.length,
+                intent: plan.queryIntents[idx] ?? "primary",
+                bypassCache: searchOptions.bypassCache
+              },
+              ev => void pushProgress(ev as Record<string, unknown>)
+            )
+          )
+        )
+      )) as LiteratureRoundResult[]
+
+      patch = (await step.run("lit-synth", () =>
         meterRun({ userId, feature: "lit_search" }, () =>
           runLiteraturePhase(
-            { ctx, existing, mode: data.mode },
-            ev => void pushProgress(ev as Record<string, unknown>)
+            litArgs,
+            ev => void pushProgress(ev as Record<string, unknown>),
+            { plan, roundResults }
           )
         )
       )) as Partial<DesignContentV2>
@@ -613,6 +662,8 @@ export const processDesignPhase = inngest.createFunction(
           await pushProgress({
             step: "hyp_setup",
             message: `${label} Experimental setup`,
+            detail:
+              "Deciding what gets tested and measured, the control and experimental arms, sample types, and the replicate scheme.",
             hypothesisIndex: i + 1,
             totalHypotheses: selected.length
           })
@@ -624,6 +675,8 @@ export const processDesignPhase = inngest.createFunction(
           await pushProgress({
             step: "hyp_materials",
             message: `${label} Materials & setup`,
+            detail:
+              "Costing out reagents and equipment, working the dilution and volume calculations, and writing the prep, storage and disposal steps.",
             hypothesisIndex: i + 1,
             totalHypotheses: selected.length
           })
@@ -635,6 +688,8 @@ export const processDesignPhase = inngest.createFunction(
           await pushProgress({
             step: "hyp_protocol",
             message: `${label} Protocol & timeline`,
+            detail:
+              "Laying out the bench steps in order, building the full conditions table arm by arm, and timing the run.",
             hypothesisIndex: i + 1,
             totalHypotheses: selected.length
           })
@@ -648,6 +703,8 @@ export const processDesignPhase = inngest.createFunction(
           await pushProgress({
             step: "hyp_complete",
             message: `${label} Design complete`,
+            detail:
+              "Set the data-collection plan and statistics, added safety notes, and wrote up the rationale.",
             hypothesisIndex: i + 1,
             totalHypotheses: selected.length
           })

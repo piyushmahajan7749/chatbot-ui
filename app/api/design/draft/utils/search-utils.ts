@@ -1,5 +1,4 @@
 import axios from "axios"
-import { TavilySearchResults } from "@langchain/community/tools/tavily_search"
 import { SERPGoogleScholarAPITool } from "@langchain/community/tools/google_scholar"
 import { zodResponseFormat } from "openai/helpers/zod"
 import { z } from "zod"
@@ -23,14 +22,10 @@ if (process.env.SERPAPI_API_KEY) {
   )
 }
 
-// Initialize Tavily for comprehensive web search (if API key available)
-let tavilyTool: TavilySearchResults | null = null
-if (process.env.TAVILY_API_KEY) {
-  tavilyTool = new TavilySearchResults({
-    apiKey: process.env.TAVILY_API_KEY,
-    maxResults: 10
-  })
-}
+// Tavily is called over its REST API directly in `searchTavilyEnhanced` (the
+// LangChain tool wrapper was being passed an object where it expects a string,
+// which made every call 422). Nothing to construct here - we just read
+// TAVILY_API_KEY at call time.
 
 const openai = () => getAzureOpenAI()
 const MODEL_NAME = () => getAzureOpenAIModel()
@@ -344,8 +339,12 @@ export async function generateSearchQueriesWithLLM(
     constraintLines.length
       ? `Constraints:\n- ${constraintLines.join("\n- ")}`
       : null,
+    // SECONDARY steering only. Cap the count so a long list of design-stage
+    // considerations can't hijack the queries away from the problem+objective.
     ctx.specialConsiderations?.length
-      ? `Special considerations:\n- ${ctx.specialConsiderations.join("\n- ")}`
+      ? `Special considerations (secondary steering — do NOT make these the subject of queries):\n- ${ctx.specialConsiderations
+          .slice(0, 2)
+          .join("\n- ")}`
       : null
   ]
     .filter(Boolean)
@@ -353,12 +352,17 @@ export async function generateSearchQueriesWithLLM(
 
   const systemPrompt = [
     "You are an expert biomedical research librarian working for a senior scientist.",
-    "Your job: turn the scientist's structured experiment-design context into a small set of literature-search queries that, run in parallel, will surface the most relevant primary research from PubMed / Semantic Scholar / OpenAlex / arXiv.",
+    "Your job: turn the scientist's structured experiment-design context into a small set of literature-search queries that, run in parallel, will surface the most relevant EXPERIMENTAL / METHODOLOGY primary research from PubMed / Semantic Scholar / OpenAlex / arXiv.",
     "",
     "Hard rules:",
+    "- ANCHOR every query on the PROBLEM STATEMENT and the OBJECTIVE. They define the search. Keep all queries pointed in that ONE direction — sharpen it, do not widen it.",
+    "- Treat 'Special considerations' and answered clarifications as SECONDARY STEERING, not as query subjects. Do NOT spawn a separate query per consideration — that dilutes the search and returns off-target papers. Fold at most the one or two considerations that change WHICH papers exist (system, mechanism family, readout) into the queries; ignore the rest here.",
+    "- Target BENCH / wet-lab work. The pool should be a MIX: mostly EXPERIMENTAL / METHODOLOGY papers (studies that generate real data and describe how it was done), plus a few authoritative, well-cited REVIEWS that map the landscape. Prefer methods/experimental vocabulary ('assay', 'protocol', 'measured', 'in vitro', named techniques). Bias strongly away ONLY from purely computational / machine-learning / predictive-modeling / in-silico papers — this is a wet-lab program, so modeling-only work is noise unless the objective is explicitly computational.",
+    "- Favor well-established, highly-cited work over obscure one-offs, while staying on-problem.",
+    "- Across the query set, deliberately surface DIFFERENT APPROACHES to solving the problem (distinct mechanisms, excipient/reagent classes, assay formats, process levers) that are realistic at ordinary bench scale — not four variations of one approach. The scientist is choosing between options.",
     "- The PRIMARY query is the strongest single-shot version. Make it tight, natural-language, 6-15 words. Use domain-specific terminology (mechanisms named after their authors, standard assays, canonical proteins/factors). Avoid hedge words, filler, or jargon-stacking.",
-    "- 2-4 ALTERNATIVE queries, each targeting a DIFFERENT angle and using DIFFERENT vocabulary. Don't just shuffle the primary query's words. Each alternative carries an intent label so the agent knows what kind of paper it expects back.",
-    "- Intent labels are: mechanism (molecular/physical basis), methods (assays, techniques, instruments), applications (case studies, prior deployments), recent_advances (latest 3-5 years), comparative (vs alternatives, benchmarks), failure_modes (pitfalls, what goes wrong, common artifacts).",
+    "- 2-4 ALTERNATIVE queries, each targeting a DIFFERENT angle within the SAME problem+objective direction, using DIFFERENT vocabulary. Don't just shuffle the primary query's words. Each alternative carries an intent label so the agent knows what kind of paper it expects back.",
+    "- Intent labels are: mechanism (molecular/physical basis), methods (assays, techniques, instruments), applications (case studies, prior deployments), recent_advances (latest 3-5 years), comparative (vs alternatives, benchmarks), failure_modes (pitfalls, what goes wrong, common artifacts). Favor mechanism + methods + failure_modes for a bench program.",
     "- Pick intents that fit THIS problem. If the user is in early discovery, mechanism + recent_advances are usually right. If they're in optimization, methods + failure_modes + comparative often beat the rest. Don't force all 6.",
     "- Keywords: 5-10 short tokens distilled from the context. These are used downstream for filtering, not as standalone queries.",
     "",
@@ -657,7 +661,7 @@ export async function searchTavilyEnhanced(
   query: string,
   maxResults: number = 10
 ): Promise<SearchResult[]> {
-  if (!tavilyTool) {
+  if (!process.env.TAVILY_API_KEY) {
     console.log("⚠️ [TAVILY] Tavily API key not configured, skipping...")
     return []
   }
@@ -666,34 +670,73 @@ export async function searchTavilyEnhanced(
     await rateLimiter.checkAndWait("tavily", 5)
     console.log(`🔍 [TAVILY_ENHANCED] Searching for: ${query}`)
 
-    const searchResults = await tavilyTool.invoke({
-      query: `${query} research paper academic study`,
-      maxResults
+    // Call Tavily's REST API directly rather than through
+    // `TavilySearchResults.invoke()`. The LangChain tool takes a STRING
+    // query; we were handing it an object ({query, maxResults}), which it
+    // forwarded as a malformed request - Tavily rejected every single call
+    // with "422 Unprocessable Entity", silently killing the web arm. Verified
+    // the key + endpoint are fine: the same search over REST returns 200.
+    const res = await fetch("https://api.tavily.com/search", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        api_key: process.env.TAVILY_API_KEY,
+        query: `${query} research paper academic study`,
+        max_results: maxResults,
+        // "advanced" pulls the fuller page body, which is what our title +
+        // abstract extraction reads - "basic" often returns a stub.
+        search_depth: "advanced",
+        // Aim the web arm at the repositories and publishers that actually
+        // host primary literature (ResearchGate, preprint servers, PMC and
+        // the major publishers) instead of the open web, where it was
+        // returning news pages and vendor blurb.
+        include_domains: [
+          "researchgate.net",
+          "ncbi.nlm.nih.gov",
+          "pmc.ncbi.nlm.nih.gov",
+          "europepmc.org",
+          "sciencedirect.com",
+          "springer.com",
+          "link.springer.com",
+          "nature.com",
+          "wiley.com",
+          "onlinelibrary.wiley.com",
+          "tandfonline.com",
+          "pubs.acs.org",
+          "frontiersin.org",
+          "mdpi.com",
+          "biorxiv.org",
+          "medrxiv.org",
+          "arxiv.org",
+          "academic.oup.com",
+          "cell.com",
+          "journals.plos.org",
+          "semanticscholar.org"
+        ]
+      })
     })
 
-    const results: SearchResult[] = []
-
-    if (typeof searchResults === "string") {
-      try {
-        const parsed = JSON.parse(searchResults)
-        const webResults = parsed.results || []
-
-        webResults.forEach((result: any, index: number) => {
-          results.push({
-            title: result.title || `Tavily Result ${index + 1}`,
-            authors: [], // Tavily doesn't typically provide author info
-            abstract: result.content?.substring(0, 500) || result.snippet || "",
-            url: result.url || "",
-            publishedDate: "Recent", // Tavily focuses on recent/real-time
-            source: "tavily" as const,
-            relevanceScore: result.score || 0.7 + index * -0.05,
-            keywords: query.split(" ").filter(word => word.length > 3)
-          })
-        })
-      } catch (parseError) {
-        console.error("❌ [TAVILY] Parse error:", parseError)
-      }
+    if (!res.ok) {
+      const detail = await res.text().catch(() => "")
+      console.error(
+        `❌ [TAVILY_ENHANCED] HTTP ${res.status}: ${detail.slice(0, 200)}`
+      )
+      return []
     }
+
+    const parsed = (await res.json()) as { results?: any[] }
+    const results: SearchResult[] = (parsed.results ?? []).map(
+      (result: any, index: number) => ({
+        title: result.title || `Tavily Result ${index + 1}`,
+        authors: [], // Tavily doesn't typically provide author info
+        abstract: result.content?.substring(0, 500) || result.snippet || "",
+        url: result.url || "",
+        publishedDate: "Recent", // Tavily focuses on recent/real-time
+        source: "tavily" as const,
+        relevanceScore: result.score || 0.7 + index * -0.05,
+        keywords: query.split(" ").filter(word => word.length > 3)
+      })
+    )
 
     console.log(`✅ [TAVILY_ENHANCED] Found ${results.length} results`)
     return results

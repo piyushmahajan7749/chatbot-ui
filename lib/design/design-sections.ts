@@ -18,6 +18,7 @@ import {
   getDesignDeployment
 } from "@/lib/azure-openai"
 import type {
+  DesignAssumption,
   DesignContentV2,
   GeneratedDesign,
   Hypothesis,
@@ -25,32 +26,71 @@ import type {
 } from "@/lib/design-agent"
 
 // ── Schemas (one per section) ──────────────────────────────────────────────
+
+/**
+ * An ASSUMPTION LEDGER entry. Wherever a section needs a number or a choice the
+ * researcher hasn't supplied, the model must record what it assumed instead of
+ * quietly baking a guess into the protocol. These are surfaced back to the
+ * scientist as questions, so the final design rests on their judgement rather
+ * than the model's defaults.
+ */
+const assumptionSchema = z.object({
+  /** The parameter assumed, in bench language (e.g. "mAb stock concentration"). */
+  parameter: z.string(),
+  /** The value actually used in this draft (with units). */
+  assumedValue: z.string(),
+  /** What in the protocol changes if this is wrong (volumes, counts, feasibility). */
+  whyItMatters: z.string(),
+  /** 2-6 concrete alternatives for the researcher to pick from, with units. */
+  options: z.array(z.string()).min(2).max(6),
+  /** high = the design is unusable if wrong; low = a sensible default. */
+  impact: z.enum(["high", "medium", "low"])
+})
+
+const assumptionsField = {
+  assumptions: z.array(assumptionSchema).max(6)
+}
+
 const experimentSetupSchema = z.object({
+  // Short, complete headline for the design. Previously the title was
+  // `hypothesis.slice(0, 80)`, which cut mid-sentence and rendered as a
+  // dangling fragment in the UI.
+  designTitle: z.string(),
   whatWillBeTested: z.string(),
   whatWillBeMeasured: z.string(),
   controlGroups: z.string(),
   experimentalGroups: z.string(),
   sampleTypes: z.string(),
   replicatesAndConditions: z.string(),
-  specificRequirements: z.string()
+  specificRequirements: z.string(),
+  ...assumptionsField
 })
 const materialsSchema = z.object({
   toolsNeeded: z.string(),
   materialsList: z.string(),
   materialPreparation: z.string(),
   setupInstructions: z.string(),
-  storageDisposal: z.string()
+  storageDisposal: z.string(),
+  ...assumptionsField
 })
 const protocolSchema = z.object({
   stepByStepProcedure: z.string(),
   timeline: z.string(),
-  conditionsTable: z.string()
+  conditionsTable: z.string(),
+  /**
+   * The bench-prep sheet: for EVERY arm in the conditions table, the exact
+   * volumes of each stock plus the buffer make-up that produce it. The
+   * conditions table says WHAT each arm is; this says HOW to pipette it.
+   */
+  conditionPrepTable: z.string(),
+  ...assumptionsField
 })
 const analysisSchema = z.object({
   dataCollectionPlan: z.string(),
   statisticalAnalysis: z.string(),
   safetyNotes: z.string(),
-  rationale: z.string()
+  rationale: z.string(),
+  ...assumptionsField
 })
 
 export type SetupSection = z.infer<typeof experimentSetupSchema>
@@ -67,6 +107,34 @@ export interface DesignBlocks {
 
 const openai = () => getAzureOpenAIForDesign()
 const MODEL = () => getDesignDeployment()
+
+/**
+ * How every quantity in the design must be shown.
+ *
+ * The calculations were correct but compressed - a finished volume with the
+ * arithmetic folded away. That reads fine to whoever wrote it and is hard to
+ * follow, check, or adapt for anyone else, and bench staff span a wide range of
+ * experience. The rule is: each component is prepared SEPARATELY as its own
+ * stock, and each condition is then MIXED from those stocks, with one explicit
+ * C1V1 = C2V2 line per component and water/buffer closing the volume.
+ */
+const WORKED_EXAMPLE_RULE = `Show it as a SEPARATE-STOCKS-THEN-MIX calculation, never as a single collapsed figure:
+
+1. State the TARGET composition and the FINAL VOLUME first, in one line (e.g. "Target: 150 mg/mL mAb in 20 mM His/HCl pH 6.0 with 100 mM Arg·HCl — final volume 150 µL").
+2. List the STOCKS being drawn from, each with its concentration (e.g. "mAb stock 200 mg/mL", "His/HCl buffer stock 200 mM pH 6.0", "Arg·HCl stock 1000 mM", "WFI / dI water").
+3. Then ONE LINE PER COMPONENT, each showing the dilution arithmetic in full using C1V1 = C2V2:
+   - mAb: V1 = (150 mg/mL × 150 µL) / 200 mg/mL = 112.5 µL of the 200 mg/mL stock
+   - His/HCl: V1 = (20 mM × 150 µL) / 200 mM = 15.0 µL of the 200 mM buffer stock
+   - Arg·HCl: V1 = (100 mM × 150 µL) / 1000 mM = 15.0 µL of the 1000 mM stock
+4. Then the MAKE-UP line, as the balance: "Water/diluent = 150 − (112.5 + 15.0 + 15.0) = 7.5 µL".
+5. Then a CHECK line confirming the parts sum to the final volume and restating the delivered concentrations.
+
+Rules for these calculations everywhere they appear - buffer prep, stock prep, excipient prep, dilution series and final sample prep alike:
+- NEVER give a bare number. Every volume, mass or concentration shows the expression it came from, with units carried through.
+- Prepare each component as its OWN stock at a stated concentration, then mix. Do not weigh powders directly into a condition, and do not present a condition as a single pre-mixed recipe.
+- Use the researcher's stated stock concentrations. Where a stock concentration was not given, assume a sensible one, SAY the value you assumed on the line, and log it in the assumptions array.
+- Keep the arithmetic to one step per line so it can be checked by eye. Round volumes to what a pipette can actually deliver (0.1 µL) and say so if rounding shifts a concentration.
+- Name what each volume is drawn from, so "15.0 µL" is always "15.0 µL of the 1000 mM Arg·HCl stock".`
 
 /** Build the shared prompt context blocks for one hypothesis. */
 export function buildDesignBlocks(
@@ -96,8 +164,11 @@ export function buildDesignBlocks(
 
   const wantsReplicates =
     (ctx as { includeReplicates?: string }).includeReplicates === "yes"
+  const replicateN = (
+    (ctx as { replicateCount?: string }).replicateCount || ""
+  ).trim()
   const replicateDirective = wantsReplicates
-    ? `\n\nREPLICATES: The researcher WANTS replicates. Include a sensible biological/technical replicate scheme (state n per group) and factor it into every vial-count, the conditions-table "n" column, all material totals, and the statistical power calculation.`
+    ? `\n\nREPLICATES: The researcher WANTS replicates${replicateN ? ` and specified n = ${replicateN} per condition - USE EXACTLY THAT` : ""}. Include a sensible biological/technical replicate scheme (state n per group) and factor it into every vial-count, the conditions-table "n" column, all material totals, and the statistical power calculation.`
     : `\n\nREPLICATES: The researcher does NOT want replicates - design a SINGLE run per condition (n = 1). Do NOT multiply any count by a replicate factor. State plainly in the replicates/conditions field: "No replicates - single run per condition (n = 1)". Every conditions-table "n" column = 1, and all material totals = conditions × 1 × volume-per-sample (dead-volume buffer only, no replicate multiplier). The statistics section must reflect n = 1 (no replicate-based power calc; note the single-run limitation).`
 
   const userSuppliedNote = hyp.userSupplied
@@ -128,18 +199,73 @@ export function buildDesignBlocks(
       ? `\n\nRESEARCHER-SUPPLIED SPECIFICS (authoritative for the DESIGN - use these EXACT values; do not substitute generic placeholders, and do not leave ranges vague). These cover working concentrations, stock concentrations, how much material is available (use it to bound condition counts + material calcs), and any specific conditions to incorporate (e.g. stress temperatures, rotation/agitation speed):${additional ? `\nOperating parameters: ${additional}` : ""}${specLines ? `\n${specLines}` : ""}`
       : ""
 
-  // A stated number of conditions/runs is an UPPER BOUND (a budget), not a
-  // target - unless the researcher explicitly said "exactly N".
-  const conditionsCeilingNote = `\n\nCONDITION COUNT: If the researcher gives a maximum number of conditions / runs, treat it as an UPPER BOUND ("up to N") - a budget, NOT a quota. Use the SMALLEST well-chosen condition set that cleanly tests the hypothesis; only approach the maximum when the extra arms are scientifically justified. Do not pad the design with filler conditions to hit the number. Only design exactly N conditions when the researcher explicitly said "exactly N".`
+  // A stated number of conditions/runs is a HARD CEILING. This used to be
+  // phrased as guidance ("prefer the smallest set") and the model read it as a
+  // suggestion - designs came back with more arms than the researcher said they
+  // could run, which makes the whole protocol unrunnable in their lab.
+  const statedConditions = (spec?.conditions || "").trim()
+  const conditionsCeilingNote = `\n\nCONDITION COUNT - HARD CEILING (violating this makes the design useless):${
+    statedConditions
+      ? `\nThe researcher stated their condition budget as: "${statedConditions}". Extract the maximum number N from that statement and DO NOT EXCEED IT under any circumstance. Every row in the conditions table counts toward N - including baselines, controls, blanks and reference arms. Replicates of the SAME arm do not count as separate conditions; a different composition, level, timepoint or temperature DOES.`
+      : `\nIf the researcher gives a maximum number of conditions / runs anywhere in their inputs, treat it as an absolute ceiling. Every row in the conditions table counts toward it, including controls and baselines.`
+  }
+- Use the SMALLEST well-chosen condition set that cleanly tests the hypothesis. Only approach the ceiling when each extra arm is scientifically justified. Never pad with filler arms to hit the number.
+- If the hypothesis cannot be tested properly within the ceiling, DO NOT quietly add arms. Design the best experiment that FITS, and log the shortfall as a high-impact assumption explaining what was dropped and what it costs.
+- Before you finish, COUNT the rows in your conditions table and check the total against the ceiling. If it is over, cut arms until it fits.`
 
-  const formatDirective = `\n\nOUTPUT FORMATTING (strict - optimise for at-a-glance readability, not walls of text):\n- Write every procedure / list as DISTINCT point-wise lines. NEVER pack multiple actions into one run-on sentence. If a step has branches, split them into their own numbered sub-lines (4a, 4b, 4c …), one action per line.\n- Use Markdown TABLES wherever data is tabular - the conditions matrix, material quantities, and especially CALCULATIONS. A reader should follow the logic by scanning columns, not parsing prose.\n- Conditions table: well-formed Markdown table, header row, one row per arm, all numbers with units, explicit baseline + control rows.\n- Calculations: present each as a compact table (e.g. \`| Quantity | Value | How it's derived |\`) OR as short labelled lines - one arithmetic step per row, numbers + units, and a brief note on where each number comes from (e.g. moles = 0.020 M × 0.250 L = 5.0e-3 mol - "20 mM target × 250 mL batch"). Never bury a calculation inside a paragraph, and never give a bare result without its derivation. Keep surrounding prose to one short lead-in sentence per block.`
+  // What the design must actually serve, in priority order. Without this the
+  // model treated every input as equally weighted, so nice-to-have context
+  // (known/unknown variables) pulled the design away from the stated objective.
+  const priorityNote = `\n\nWHAT THIS DESIGN MUST SERVE (strict priority order - when inputs pull in different directions, the higher item wins):
+1. THE PROBLEM STATEMENT AND OBJECTIVE. Every arm must earn its place by moving toward the stated objective. If an arm does not help answer the problem, cut it.
+2. THE SUCCESS CRITERIA. The design must be capable of producing a clear pass/fail against them; the readouts and the analysis must measure exactly what the criteria name.
+3. THE CONSTRAINTS (material, time, equipment, condition count). These are hard limits on what may be designed, not preferences. A scientifically lovely design that exceeds them is a failed design.
+4. THE CHOSEN HYPOTHESIS - the mechanism being tested, within the bounds above.
+5. KNOWN / UNKNOWN VARIABLES - SECONDARY, LOW WEIGHT. Use them as helpful context: known variables are values you may hold fixed or reuse rather than assume, and unknown variables are things worth capturing as a secondary readout or noting as a limitation. They must NOT drive the design: do NOT add arms, factors or extra measurement burden purely to chase an unknown variable, and do NOT let them displace anything above. If exploring one would push you over the condition ceiling or dilute the primary objective, leave it out and say so in the rationale.`
 
+  const formatDirective = `\n\nOUTPUT FORMATTING (strict - optimise for at-a-glance readability, not walls of text):\n- Write every procedure / list as DISTINCT point-wise lines. NEVER pack multiple actions into one run-on sentence. If a step has branches, split them into their own numbered sub-lines (4a, 4b, 4c …), one action per line.\n- Use Markdown TABLES wherever data is tabular - the conditions matrix, material quantities, and especially CALCULATIONS. A reader should follow the logic by scanning columns, not parsing prose.\n- Conditions table: well-formed Markdown table, header row, one row per arm, all numbers with units, explicit baseline + control rows.\n- Calculations: present each as a compact table (e.g. \`| Quantity | Value | How it's derived |\`) OR as short labelled lines - one arithmetic step per row, numbers + units, and a brief note on where each number comes from (e.g. moles = 0.020 M × 0.250 L = 5.0e-3 mol - "20 mM target × 250 mL batch"). Never bury a calculation inside a paragraph, and never give a bare result without its derivation. Keep surrounding prose to one short lead-in sentence per block.
+
+CALCULATION STYLE (applies to buffer prep, stock prep, excipient prep, dilution series and final sample prep alike). Bench staff reading this span a wide range of experience, so no step may be implicit. ${WORKED_EXAMPLE_RULE}`
+
+  // The ASSUMPTION LEDGER directive. The scientist's judgement - not the
+  // model's defaults - must decide the numbers the protocol depends on. So
+  // wherever a value is missing, the model still drafts with a stated working
+  // value (the design must stay runnable) but is required to LOG it, and we ask
+  // the researcher afterwards.
+  const assumptionDirective = `\n\nASSUMPTION LEDGER (mandatory - this is how the design earns the scientist's trust):\nYou will inevitably need values the researcher has not given you: stock concentration, working concentration, how much material is on hand, incubation time, plate format, instrument settings, and so on. NEVER silently invent one and bury it in the protocol.\n- For EVERY value or choice you had to assume rather than read from the researcher's inputs, add an entry to the "assumptions" array: the parameter, the value you used, why it matters (what changes downstream if it's different), 2-6 concrete alternatives with units, and an impact rating.\n- Rate impact "high" when the protocol is unusable or the calculations are wrong if the assumption is off (e.g. stock concentration, total material available, primary readout); "medium" when it shifts numbers but not feasibility; "low" when it's a routine default any lab would accept.\n- Do NOT log things the researcher DID specify - only genuine gaps.\n- Do NOT stall or write "TBD" into the protocol: still commit to the best working value so the design reads as runnable, and log it. The researcher will confirm or correct it.\n- Keep it to the assumptions that actually matter - at most 6 per section, highest impact first.`
+
+  // Everything the researcher told us, in one authoritative block. The
+  // objective, the success criteria and the structured constraints / variables
+  // captured by the study-details step were all being collected and then never
+  // shown to the design agents - which is why designs drifted off the objective
+  // and blew past stated limits.
+  const cs = ctx.constraintsStructured
+  const vs = ctx.variablesStructured
   const problemBlock =
-    `Research problem: ${[ctx.title, ctx.problemStatement].filter(Boolean).join(" - ")}\nGoal: ${ctx.goal || "Not specified"}\nVariables: ${((ctx as { variables?: string[] }).variables ?? []).join(", ") || "Not specified"}\nConstraints: ${((ctx as { constraints?: string[] }).constraints ?? []).join(", ") || "Not specified"}` +
+    [
+      `Research problem: ${[ctx.title, ctx.problemStatement].filter(Boolean).join(" - ")}`,
+      `Objective: ${ctx.objective || ctx.goal || "Not specified"}`,
+      ctx.domain ? `Domain: ${ctx.domain}` : "",
+      ctx.phase ? `Phase: ${ctx.phase}` : "",
+      `Success criteria: ${ctx.successCriteria || "Not specified - infer a defensible target from the objective and log it as an assumption"}`,
+      cs?.material ? `Material available: ${cs.material}` : "",
+      cs?.time ? `Time available: ${cs.time}` : "",
+      cs?.equipment ? `Equipment available: ${cs.equipment}` : "",
+      `Other constraints: ${((ctx as { constraints?: string[] }).constraints ?? []).join(", ") || "None stated"}`,
+      vs?.known ? `Known variables (secondary, low weight): ${vs.known}` : "",
+      vs?.unknown
+        ? `Unknown variables (secondary, low weight): ${vs.unknown}`
+        : "",
+      `Variables: ${((ctx as { variables?: string[] }).variables ?? []).join(", ") || "Not specified"}`
+    ]
+      .filter(Boolean)
+      .join("\n") +
+    priorityNote +
     directivesBlock +
     conditionsCeilingNote +
     userPlanBlock +
     replicateDirective +
+    assumptionDirective +
     formatDirective
 
   return { problemBlock, hypBlock, litBlock, papersBlock }
@@ -164,6 +290,7 @@ export async function genSetup(blocks: DesignBlocks): Promise<SetupSection> {
 
 Fields to produce:
 
+- **designTitle** - a SHORT, COMPLETE title naming what this design does. HARD RULES: at most 70 characters; a self-contained noun phrase that reads as a finished label, never a truncated sentence; no trailing ellipsis, no trailing punctuation, no "A study to…" preamble. Name the intervention/approach and the readout or goal. Good: "Excipient screen for viscosity reduction at 150 mg/mL". Bad: "This experiment will evaluate whether the addition of arginine…".
 - **whatWillBeTested** - one short paragraph stating the concrete test objective, then a bulleted list of the 2–4 specific variables / factors being manipulated.
 - **whatWillBeMeasured** - bullet list. Each bullet: \`**Readout** - method - unit - expected range\`.
 - **controlGroups** - bullet list. Each bullet: \`**Control name** - what it isolates / why it's needed\`. PURPOSE only - do NOT restate the full per-arm value matrix (that lives in the Conditions Table downstream).
@@ -224,6 +351,8 @@ export async function genMaterials(
      5. Filter through 0.22 µm PES. Label (date + initials + lot). Store 2–8 °C, use within 14 days.
    One subsection per buffer/reagent. Every derived number must show its derivation in the table - never a bare value, and never a wall of prose.
 
+   PREPARE EACH COMPONENT SEPARATELY AS ITS OWN STOCK. Every excipient, salt, sugar and surfactant gets its own concentrated stock subsection with its own calculation - do NOT weigh several components straight into one combined solution, because a shared weigh-out cannot be re-used across arms at different levels and cannot be checked. Give each stock a NAME and a CONCENTRATION that the Condition Preparation table can then draw volumes from (e.g. "Arg·HCl stock, 1000 mM"). Choose stock concentrations high enough that every arm's draw stays pipettable at the working volume, and say why if a stock is near its solubility limit.
+
 4. **setupInstructions** - Numbered Markdown list of WORKSTATION / INSTRUMENT setup ONLY (balance calibration, pH-meter cal, biosafety cabinet setup, vial labeling scheme, temperature blocks). Each step has a bolded lead-in verb. Do NOT include reagent/buffer preparation (that's materialPreparation) or the run-time experimental steps (that's the procedure) - equipment readiness only.
 
 5. **storageDisposal** - Markdown bullets. For each material class: storage condition, container type, disposal stream (e.g. *Aqueous biowaste - 10% bleach, 30-min soak, rinse down sink; log in biohazard register*). Use bold labels.
@@ -264,11 +393,25 @@ export async function genProtocol(
 
 - **conditionsTable** - the SINGLE authoritative enumeration of every experimental arm (this replaces any separate groups/replicates list, so it must be complete). Markdown table, at minimum:
   \`| Group | Condition / composition | Variable 1 | Variable 2 | T (°C) | Time | n | Read-outs |\`
-  Include baseline and stressed controls explicitly as their own rows. All numbers must have units. Above the table, ONE short line summarizing the factorial structure + replicate scheme (e.g. "5 arginine levels × 2 temperatures × 3 biological replicates = 30 vials; arms randomized across shelves"). Do not return prose in place of a table.`
+  Include baseline and stressed controls explicitly as their own rows. All numbers must have units. Above the table, ONE short line summarizing the factorial structure + replicate scheme (e.g. "5 arginine levels × 2 temperatures × 3 biological replicates = 30 vials; arms randomized across shelves"). Do not return prose in place of a table.
+  COUNT YOUR ROWS against any condition ceiling stated in the research problem before you finish. Every row counts, controls included. If you are over, cut arms.
+  If the hypothesis is COMBINATIONAL (it proposes two or more agents/factors acting together), the arms MUST let the combination be attributed: include each single agent alone at its matched level, the combination(s), and the untreated baseline. A combination arm without its own single-agent arms cannot be interpreted.
+
+- **conditionPrepTable** - the BENCH PREP SHEET. The conditions table says what each arm IS; this says exactly how to PIPETTE it. One row per arm from the conditions table, same Group names, in the same order - no arm may be missing. Markdown table:
+  \`| Group | Stock A (µL) | Stock B (µL) | ... | Buffer make-up (µL) | Final volume (µL) | Final conc. of each component |\`
+  Rules:
+  - One column per stock/component that gets pipetted, headed with the stock's NAME and its CONCENTRATION (e.g. \`Arg·HCl 500 mM (µL)\`), so the reader never has to look up which stock is meant. Reference the stocks BY THE NAME used in Material Preparation.
+  - Every arm's volumes must ARITHMETICALLY SUM to the stated final volume - the buffer make-up column is the balance that closes it. Check each row adds up before returning.
+  - The final-concentration column must restate what that arm is actually delivering (e.g. \`mAb 150 mg/mL, Arg 50 mM\`), so it can be checked against the conditions table.
+  - Volumes are per single sample/vial at the stated final volume. Below the table add one short line for the per-arm total to prepare including replicates and dead volume (e.g. "×3 replicates × 1.15 dead volume = prepare 3.45 mL per arm").
+  - If a component is absent from an arm, write \`—\`, never leave the cell blank.
+  Do not return prose in place of a table, and do not repeat the buffer recipes here (they live in Material Preparation) - this section is quantities to combine, nothing else.
+
+  THEN, BELOW the table, WORK ONE ARM ALL THE WAY THROUGH, component by component. ${WORKED_EXAMPLE_RULE}`
       },
       {
         role: "user",
-        content: `${blocks.problemBlock}\n\n${blocks.hypBlock}\n\n${setupSummaryOf(setup)}\n\n${materialsSummaryOf(materials)}\n\nWrite the step-by-step protocol (by day, with Checkpoints), timeline table, and conditions table per the SOP format.`
+        content: `${blocks.problemBlock}\n\n${blocks.hypBlock}\n\n${setupSummaryOf(setup)}\n\n${materialsSummaryOf(materials)}\n\nWrite the step-by-step protocol (by day, with Checkpoints), timeline table, conditions table, and the condition preparation table per the SOP format. The prep table must cover EVERY arm in the conditions table, with volumes that sum to the final volume.`
       }
     ],
     response_format: zodResponseFormat(protocolSchema, "protocol")
@@ -327,10 +470,44 @@ export function assembleDesign(
   protocol: ProtocolSection,
   analysis: AnalysisSection
 ): GeneratedDesign {
+  // Prefer the model's short headline. Fall back to the hypothesis only if it
+  // came back empty — and then cut on a WORD boundary so the label never ends
+  // mid-word (the old `.slice(0, 80)` produced dangling fragments).
+  const cleanTitle = (setup.designTitle ?? "").trim().replace(/[.…]+$/, "")
+  const fallback = hyp.text.trim()
+  const title =
+    cleanTitle.length > 0
+      ? cleanTitle
+      : fallback.length <= 80
+        ? fallback
+        : `${fallback.slice(0, 80).replace(/\s+\S*$/, "")}…`
+
+  // Collect the assumption ledger from all four sections, highest impact
+  // first, so the UI asks about the design-breaking gaps before the cosmetic
+  // ones. De-duplicated by parameter: sections often need the same number
+  // (e.g. stock concentration) and would each log it.
+  const rank = { high: 0, medium: 1, low: 2 } as const
+  const seenParams = new Set<string>()
+  const assumptions: DesignAssumption[] = [
+    ...(setup.assumptions ?? []).map(a => ({ ...a, section: "Setup" })),
+    ...(materials.assumptions ?? []).map(a => ({ ...a, section: "Materials" })),
+    ...(protocol.assumptions ?? []).map(a => ({ ...a, section: "Protocol" })),
+    ...(analysis.assumptions ?? []).map(a => ({ ...a, section: "Analysis" }))
+  ]
+    .sort((a, b) => rank[a.impact] - rank[b.impact])
+    .filter(a => {
+      const key = a.parameter.trim().toLowerCase()
+      if (!key || seenParams.has(key)) return false
+      seenParams.add(key)
+      return true
+    })
+    .map(a => ({ ...a, id: `as-${uuidv4()}` }))
+
   return {
     id: `d-${uuidv4()}`,
     hypothesisId: hyp.id,
-    title: hyp.text.slice(0, 80),
+    title,
+    ...(assumptions.length ? { assumptions } : {}),
     // Streamlined section set (no repetition): the Conditions Table is the
     // single enumerated source of every arm + n, so the old separate "Control
     // Groups", "Experimental Groups" and "Replicates & Conditions" sections are
@@ -350,6 +527,17 @@ export function assembleDesign(
       { heading: "Tools & Equipment", body: materials.toolsNeeded },
       { heading: "Materials List", body: materials.materialsList },
       { heading: "Material Preparation", body: materials.materialPreparation },
+      // Sits between "what stocks exist" and "how the run goes": the per-arm
+      // pipetting sheet. Omitted rather than shown empty if the model skipped
+      // it, so an older or degraded response never renders a blank section.
+      ...((protocol.conditionPrepTable ?? "").trim()
+        ? [
+            {
+              heading: "Condition Preparation",
+              body: protocol.conditionPrepTable
+            }
+          ]
+        : []),
       { heading: "Storage & Disposal", body: materials.storageDisposal },
       {
         heading: "Step-by-Step Procedure",

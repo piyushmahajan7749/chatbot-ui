@@ -15,7 +15,7 @@ export type ClarifyCheckpoint = "problem" | "hypothesis" | "design"
  * drill-down), with up to TOTAL questions on that one page.
  */
 export const CLARIFY_MAX_ROUNDS = 1
-export const CLARIFY_MAX_TOTAL = 6
+export const CLARIFY_MAX_TOTAL = 8
 
 /**
  * Flatten answered questions into the directive block injected into the

@@ -305,9 +305,17 @@ export default function ShareDialog({
           </button>
         </div>
 
-        {/* Add people */}
-        <div className="px-6 pb-2">
-          <div className="border-ink-200 focus-within:border-ink-400 flex items-center gap-2 rounded-2xl border px-3 py-2 transition-colors">
+        {/* Add people.
+
+            The submit control used to live INSIDE the field's border, sharing
+            the row with the role Select - so it read as part of the input
+            chrome rather than as the action, and the researcher reported
+            typing an address and finding "no share button available". The
+            action is now its own full-width primary button below the field,
+            appearing the moment an address is typed, and it names the person
+            it is about to invite. Enter still submits. */}
+        <div className="space-y-2 px-6 pb-2">
+          <div className="border-ink-200 focus-within:border-ink-400 flex flex-wrap items-center gap-2 rounded-2xl border px-3 py-2 transition-colors">
             <Input
               type="email"
               placeholder="Add people by email"
@@ -316,7 +324,7 @@ export default function ShareDialog({
               onKeyDown={e => {
                 if (e.key === "Enter" && !isInviting) invite()
               }}
-              className="h-9 flex-1 border-0 bg-transparent px-0 shadow-none focus-visible:ring-0"
+              className="h-9 min-w-[160px] flex-1 border-0 bg-transparent px-0 shadow-none focus-visible:ring-0"
             />
             <Select
               value={inviteRole}
@@ -330,15 +338,27 @@ export default function ShareDialog({
                 <SelectItem value="editor">Editor</SelectItem>
               </SelectContent>
             </Select>
+          </div>
+
+          {inviteEmail.trim().length > 0 && (
             <Button
               onClick={invite}
-              disabled={isInviting || !inviteEmail.trim()}
-              size="sm"
-              className="shrink-0"
+              disabled={isInviting}
+              className="w-full gap-2 rounded-xl"
             >
-              {isInviting ? <Loader2 className="size-4 animate-spin" /> : "Add"}
+              {isInviting ? (
+                <>
+                  <Loader2 className="size-4 animate-spin" />
+                  Sharing…
+                </>
+              ) : (
+                <>
+                  <Share2 className="size-4" />
+                  Share with {inviteEmail.trim()} as {inviteRole}
+                </>
+              )}
             </Button>
-          </div>
+          )}
         </div>
 
         {/* People with access */}
@@ -478,11 +498,20 @@ export default function ShareDialog({
             )}
             Copy link
           </Button>
+          {/* An address still sitting unsent in the box would be silently
+              discarded by Done. Send it first rather than losing it. */}
           <Button
-            onClick={() => onOpenChange(false)}
+            onClick={async () => {
+              if (inviteEmail.trim()) {
+                await invite()
+                return
+              }
+              onOpenChange(false)
+            }}
+            disabled={isInviting}
             className="rounded-full px-6"
           >
-            Done
+            {inviteEmail.trim() ? "Share & close" : "Done"}
           </Button>
         </div>
       </DialogContent>

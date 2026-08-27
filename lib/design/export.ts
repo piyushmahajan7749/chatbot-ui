@@ -607,6 +607,10 @@ export function downloadMaterialList(design: ExportableDesign) {
     docTitle: "Materials & Equipment List",
     subtitle:
       "Reagents, materials and equipment required to run this experiment.",
-    sectionHeadings: ["Tools & Equipment", "Materials List", "Material Preparation"]
+    sectionHeadings: [
+      "Tools & Equipment",
+      "Materials List",
+      "Material Preparation"
+    ]
   })
 }

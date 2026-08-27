@@ -77,7 +77,14 @@ export async function runPaperFinder(
   // abort, falling back to just the pre-warm pool of ~3-10 papers (the
   // 2026-05-19 "only 3 papers shown in UI" regression). Override via
   // PAPER_FINDER_TIMEOUT_MS in env if you need a tighter or looser cap.
-  const timeoutMs = Number(process.env.PAPER_FINDER_TIMEOUT_MS || 150000)
+  // 280s per call. A single broad round runs ~170s server-side. In the
+  // fan-out architecture each round is its OWN Inngest step = its own function
+  // invocation, and the plan caps a function at 300s, so a round MUST finish
+  // under that. 280s leaves ~20s of step overhead headroom while still being
+  // generous for a legit heavy round. If Fluid Compute is later enabled (cap
+  // 800s), raise this via PAPER_FINDER_TIMEOUT_MS + bump the inngest route's
+  // maxDuration back up. Override with PAPER_FINDER_TIMEOUT_MS.
+  const timeoutMs = Number(process.env.PAPER_FINDER_TIMEOUT_MS || 280000)
   const timeoutController = new AbortController()
   const timer = setTimeout(() => timeoutController.abort(), timeoutMs)
 
@@ -283,11 +290,27 @@ function toSearchResult(doc: PaperFinderDocument): SearchResult | null {
       "chunk_content"
     ) || undefined
 
-  if (!title && !url && !abstract) {
+  // PaperFinder returns `title: null` for most non-OpenAlex docs (S2, arXiv,
+  // PubMed and the Tavily web arm) - in one measured run, 56 of 75 documents.
+  // The real title is carried in the `markdown` body as a leading
+  // "# Title: <actual title>" heading. Without this we fell back to the first
+  // 160 chars of the abstract (the "incomplete title" the scientist saw), and
+  // DROPPED the doc entirely when abstract+url were also missing - which is why
+  // the most relevant hits went missing and the examined count came out low.
+  const markdownTitle = extractMarkdownTitle(
+    getFirstString(candidates, "markdown", "content", "text")
+  )
+
+  // A URL alone is not enough to render a paper. Some S2 records come back as
+  // empty shells - a corpus_id plus an api.semanticscholar.org link, with no
+  // title, abstract, tldr, snippets or venue (27 of 75 in a measured run).
+  // Keeping them produced "Untitled Research Result" rows that padded the list
+  // and the examined count with nothing the scientist can read or open.
+  if (!title && !markdownTitle && !abstract) {
     return null
   }
 
-  let resolvedTitle = title
+  let resolvedTitle = title || markdownTitle
   if (!resolvedTitle && abstract) {
     // Fallback: first sentence of the abstract (up to 160 chars).
     const firstSentence =
@@ -316,6 +339,27 @@ function toSearchResult(doc: PaperFinderDocument): SearchResult | null {
     publicationTypes: publicationTypes?.length ? publicationTypes : undefined,
     isReview
   }
+}
+
+/**
+ * Pull the article title out of a PaperFinder `markdown` body. The bodies start
+ * with either "# Title: <title>" or a plain "# <title>" heading. Returns
+ * undefined when nothing title-shaped is present.
+ */
+function extractMarkdownTitle(markdown?: string): string | undefined {
+  if (!markdown) return undefined
+  for (const line of markdown.split("\n").slice(0, 8)) {
+    const m = line.match(/^#{1,3}\s*(?:title\s*:\s*)?(.+?)\s*$/i)
+    if (!m) continue
+    const t = m[1].trim()
+    // Skip section headings that aren't the title.
+    if (/^(abstract|introduction|summary|contents?|references?)$/i.test(t))
+      continue
+    // Empty S2 shells serialize as a literal "# Title: None".
+    if (/^(none|null|n\/a|undefined)$/i.test(t)) continue
+    if (t.length >= 12) return t
+  }
+  return undefined
 }
 
 /**

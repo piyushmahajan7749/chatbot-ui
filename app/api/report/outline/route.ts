@@ -74,7 +74,7 @@ RULES:
    - "bar" - comparing a numeric metric across conditions / samples / formulations (DEFAULT).
    - "pie" - showing proportion / share / composition of a whole (values should sum to ~100% or represent parts of one whole). Use pie ONLY when parts-of-a-whole is the actual meaning.
 3. Use SHORT labels (max 15 characters) for the categories. Abbreviate names (e.g. "C0 Control", "E1", "F2 Glycine").
-4. All values MUST be in the same unit. If the data has multiple metrics, choose the most scientifically relevant one.
+4. All values within ONE series MUST share a unit. If the data has several metrics, pick the most scientifically relevant one as the PRIMARY chart - and return every OTHER metric in additionalSeries, one entry each, with its own label and units. Do NOT silently drop the other metrics: the researcher uploaded them and expects to be able to see them.
 5. Provide a clear chartTitle (e.g. "Mean Viscosity by Formulation") and yAxisLabel WITH units for bar charts (e.g. "Viscosity (mPa·s)"). yAxisLabel can be empty for pie charts.
 6. Return only POSITIVE values when possible. If comparing % changes, use absolute values or the raw measurement instead.
 7. IMPORTANT: Include ALL data points / conditions / formulations from the dataset. Do NOT skip or drop any rows.`
@@ -89,7 +89,8 @@ Return a JSON object with:
 - chartTitle: descriptive title
 - chartType: "bar" or "pie"
 - yAxisLabel: Y-axis label with units (for bar charts)
-- data: array of {label, value} pairs with short labels and consistent numeric values`
+- data: array of {label, value} pairs with short labels and consistent numeric values
+- additionalSeries: one entry per OTHER metric in the data (metric name, yAxisLabel with units, its own data array)`
 
   try {
     const completion = await openai().beta.chat.completions.parse({
@@ -408,7 +409,30 @@ const chartTool = tool(
       yAxisLabel: z
         .string()
         .optional()
-        .describe("Label for the Y axis with units (bar charts only)")
+        .describe("Label for the Y axis with units (bar charts only)"),
+      /**
+       * EVERY other metric present in the data, one entry each. The primary
+       * `data` above stays the headline chart (and the rendered PNG); these let
+       * the researcher switch to the other readouts instead of losing them.
+       */
+      additionalSeries: z
+        .array(
+          z.object({
+            metric: z
+              .string()
+              .describe("What this series measures, e.g. 'SEC monomer'"),
+            yAxisLabel: z
+              .string()
+              .describe("Axis label WITH units, e.g. 'Monomer (%)'"),
+            chartType: z.enum(["bar", "pie"]).optional(),
+            data: z.array(z.object({ label: z.string(), value: z.number() }))
+          })
+        )
+        .max(8)
+        .optional()
+        .describe(
+          "One entry per ADDITIONAL metric in the data. Omit only if the data truly has a single metric."
+        )
     })
   }
 )

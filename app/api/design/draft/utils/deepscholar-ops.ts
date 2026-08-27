@@ -31,14 +31,115 @@ export async function generateQueries(
   return out
 }
 
+/**
+ * How much we trust a source to be the canonical record of a paper. When the
+ * same work comes back from several arms we keep the highest-ranked copy: a
+ * PubMed or OpenAlex record carries a DOI, a journal and a real abstract, where
+ * the Tavily copy is usually a publisher landing page scraped off the web.
+ */
+const SOURCE_RANK: Record<SearchResult["source"], number> = {
+  pubmed: 0,
+  openalex: 1,
+  semantic_scholar: 2,
+  arxiv: 3,
+  scholar: 4,
+  tavily: 5
+}
+
+/** DOIs arrive as bare ids, doi.org URLs, and with assorted casing. */
+function normalizeDoi(doi?: string): string {
+  if (!doi) return ""
+  return doi
+    .trim()
+    .toLowerCase()
+    .replace(/^https?:\/\/(dx\.)?doi\.org\//, "")
+    .replace(/^doi:\s*/, "")
+    .replace(/[.\s]+$/, "")
+}
+
+/**
+ * A title reduced to comparable form: no case, no punctuation, no publisher
+ * furniture, no whitespace runs. Two records of one paper routinely differ by
+ * a trailing period, smart quotes, or a "| Journal | Publisher" suffix.
+ */
+function titleKey(title?: string): string {
+  if (!title) return ""
+  return title
+    .toLowerCase()
+    .split(/\s[|·–—-]\s/)[0]
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim()
+    .replace(/\s+/g, " ")
+}
+
+/**
+ * Collapse the same paper retrieved by different arms down to one record.
+ *
+ * The old key was `doi || url || title`, which only ever caught exact repeats
+ * from a single source: a PubMed hit and a Tavily hit for one paper have
+ * different URLs and often only one of them carries a DOI, so both survived and
+ * the researcher saw the same study listed twice. Matching now runs on the DOI
+ * and on a normalized title independently, the higher-ranked source wins, and
+ * fields the winner is missing are filled in from the copy being dropped.
+ */
 export function dedupeNormalize(papers: SearchResult[]): SearchResult[] {
-  const seen = new Set<string>()
-  return papers.filter(p => {
-    const key = (p.doi || p.url || p.title).toLowerCase()
-    if (!key || seen.has(key)) return false
-    seen.add(key)
-    return true
-  })
+  const byKey = new Map<string, number>()
+  const out: SearchResult[] = []
+
+  for (const p of papers) {
+    const doi = normalizeDoi(p.doi)
+    const tkey = titleKey(p.title)
+    // A title under ~15 normalized chars is too weak to match on (stubs like
+    // "Supplementary data" would swallow unrelated records), so those fall back
+    // to DOI/URL only.
+    const keys = [
+      doi ? `doi:${doi}` : "",
+      tkey.length >= 15 ? `title:${tkey}` : "",
+      !doi && tkey.length < 15 && p.url ? `url:${p.url.toLowerCase()}` : ""
+    ].filter(Boolean)
+
+    if (keys.length === 0) continue
+
+    const existingIdx = keys
+      .map(k => byKey.get(k))
+      .find(i => typeof i === "number")
+
+    if (existingIdx === undefined) {
+      out.push(p)
+      for (const k of keys) byKey.set(k, out.length - 1)
+      continue
+    }
+
+    // Already have this paper. Keep whichever copy comes from the more
+    // authoritative source, then backfill anything it lacks from the other.
+    const kept = out[existingIdx]
+    const winner = SOURCE_RANK[p.source] < SOURCE_RANK[kept.source] ? p : kept
+    const loser = winner === p ? kept : p
+    out[existingIdx] = {
+      ...winner,
+      doi: winner.doi || loser.doi,
+      abstract:
+        (winner.abstract?.length ?? 0) >= (loser.abstract?.length ?? 0)
+          ? winner.abstract
+          : loser.abstract,
+      journal: winner.journal || loser.journal,
+      publishedDate: winner.publishedDate || loser.publishedDate,
+      citationCount: Math.max(
+        winner.citationCount ?? 0,
+        loser.citationCount ?? 0
+      ),
+      publicationTypes: winner.publicationTypes?.length
+        ? winner.publicationTypes
+        : loser.publicationTypes
+    }
+    // Point every key at the surviving record, including keys only the loser
+    // had (e.g. the DOI the Tavily copy carried and PubMed's record didn't).
+    for (const k of keys) byKey.set(k, existingIdx)
+    const survivorDoi = normalizeDoi(out[existingIdx].doi)
+    if (survivorDoi) byKey.set(`doi:${survivorDoi}`, existingIdx)
+  }
+
+  return out
 }
 
 const RelevanceSchema = z.object({

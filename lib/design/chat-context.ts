@@ -19,7 +19,13 @@
  * Extracted from the design page so it can be unit-tested (it's the seam that
  * guarantees the design chat actually has the experiment's context).
  */
-import type { GeneratedDesign, Hypothesis, Paper } from "@/lib/design-agent"
+import type {
+  DesignVersionSnapshot,
+  GeneratedDesign,
+  Hypothesis,
+  Paper,
+  ValidationState
+} from "@/lib/design-agent"
 
 export const TIER3_MAX_CHARS = 90_000
 
@@ -40,6 +46,12 @@ export interface DesignChatContextInput {
    * chat honours them and asks before overriding one.
    */
   presets?: string
+  /** The design→lab→analyze iteration loop, so the chat can reason across the
+   *  whole series (find patterns, track what changed and why, maintain context
+   *  for a PhD scholar's write-up). */
+  validation?: ValidationState
+  /** Prior design versions (each iteration's snapshot), newest first. */
+  designVersions?: DesignVersionSnapshot[]
 }
 
 export function buildDesignChatContext(input: DesignChatContextInput): string {
@@ -114,6 +126,86 @@ export function buildDesignChatContext(input: DesignChatContextInput): string {
       lines.push(sec.body.trim())
     })
   })
+
+  // Iteration history: the design→lab→analyze loop. This is what lets the chat
+  // "find patterns across the design series" and keep a PhD scholar's context.
+  const v = input.validation
+  if (
+    v &&
+    (v.iterations?.length ||
+      v.cumulativeInsights ||
+      v.simulation ||
+      (input.designVersions?.length ?? 0) > 0)
+  ) {
+    lines.push("", "## Iteration history (design → lab → analyze loop)")
+    if (input.designVersions?.length) {
+      lines.push(
+        `The design has ${input.designVersions.length} prior version(s) saved; the Active design above is the latest.`
+      )
+    }
+    if (v.desiredOutcome)
+      lines.push(`Desired outcome / target: ${v.desiredOutcome}`)
+    if (v.cumulativeInsights) {
+      lines.push("", "### Cumulative synthesis across all rounds")
+      lines.push(v.cumulativeInsights.trim())
+    }
+    if (v.simulation) {
+      const s = v.simulation
+      lines.push("", "### Latest pre-lab simulation")
+      if (s.executed) {
+        lines.push(
+          `Modeled simulation (${s.modelUsed ?? "monte-carlo"}, ${s.nTrials ?? "?"} in-silico runs).`
+        )
+        if (typeof s.meetRate === "number")
+          lines.push(
+            `As-written design met the target in ${Math.round(s.meetRate * 100)}% of runs (target: ${s.targetMetric ?? "?"} ${s.targetDirection ?? ""} ${s.targetThreshold ?? "?"}).`
+          )
+        if (s.distribution)
+          lines.push(
+            `Readout distribution: mean ${s.distribution.mean}, sd ${s.distribution.sd}, median ${s.distribution.median}, p10 ${s.distribution.p10}, p90 ${s.distribution.p90}.`
+          )
+        if (s.sensitivity?.length)
+          lines.push(
+            `Highest-leverage knobs: ${[...s.sensitivity]
+              .sort((a, b) => b.effect - a.effect)
+              .slice(0, 4)
+              .map(x => `${x.factor} (${x.direction})`)
+              .join(", ")}.`
+          )
+        if (s.gotchas?.length)
+          lines.push(
+            `Gotchas: ${s.gotchas.map(g => `${g.issue} → ${g.fix}`).join("; ")}.`
+          )
+        if (s.rounds && s.rounds.length > 1)
+          lines.push(
+            `Optimization trajectory (meet-rate by round): ${s.rounds
+              .map(r => `r${r.round} ${Math.round(r.meetRate * 100)}%`)
+              .join(" → ")}.`
+          )
+      }
+      lines.push(
+        `Predicted: ${s.predictedResults}`,
+        `Meets target: ${s.meetsTarget ? "yes" : "no"} (${Math.round(
+          s.confidence * 100
+        )}% confidence).`
+      )
+      if (s.gapAnalysis) lines.push(`Gap: ${s.gapAnalysis}`)
+      if (s.optimizedChanges?.length)
+        lines.push(`Suggested edits: ${s.optimizedChanges.join("; ")}.`)
+    }
+    ;(v.iterations ?? []).forEach(it => {
+      lines.push("", `### Iteration ${it.index} — verdict: ${it.verdict}`)
+      if (it.hypothesisText)
+        lines.push(`Hypothesis tested: ${it.hypothesisText}`)
+      if (it.structuredData?.summary)
+        lines.push(`Data: ${it.structuredData.summary}`)
+      else if (it.data?.raw) lines.push(`Data: ${it.data.raw.slice(0, 600)}`)
+      if (it.reasoning) lines.push(`Reasoning: ${it.reasoning}`)
+      if (it.insights?.length) lines.push(`Insights: ${it.insights.join("; ")}`)
+      if (it.suggestedChanges?.length)
+        lines.push(`Changes suggested after: ${it.suggestedChanges.join("; ")}`)
+    })
+  }
 
   if (input.papers?.length) {
     lines.push("", "## Cited literature")

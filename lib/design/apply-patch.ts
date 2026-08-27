@@ -37,15 +37,24 @@ export function applyFindReplace(
   if (find && body.includes(find)) return body.split(find).join(replace)
   const f = find.trim()
   if (f && body.includes(f)) return body.replace(f, () => replace.trim())
+  // Character-class normalization: LLMs re-quote text with cosmetically
+  // different glyphs — curly vs straight quotes, en/em dash vs hyphen,
+  // non-breaking / re-wrapped whitespace, bullet vs middot. A byte match then
+  // fails ("Couldn't locate the text to change"). Build a tolerant regex from
+  // the ORIGINAL body (so replace indices stay correct) where each such glyph
+  // matches any of its variants, whitespace runs match `\s+`, and the match is
+  // case-insensitive.
   if (f) {
-    // Collapse runs of whitespace in the find text to `\s+` so a re-wrapped
-    // quote still matches. Escape regex metacharacters first.
-    const escaped = f
+    const tolerant = f
       .replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
+      .replace(/['‘’ʼ]/g, "['\\u2018\\u2019\\u02bc]")
+      .replace(/["“”]/g, '["\\u201c\\u201d]')
+      .replace(/[-‐‑‒–—−]/g, "[-\\u2010-\\u2015\\u2212]")
+      .replace(/[·•‧▪]/g, "[\\u00b7\\u2022\\u2027\\u25aa]")
       .replace(/\s+/g, "\\s+")
     try {
-      const re = new RegExp(escaped)
-      if (re.test(body)) return body.replace(re, () => replace.trim())
+      const re = new RegExp(tolerant, "i")
+      if (re.test(body)) return body.replace(re, () => replace)
     } catch {
       // malformed regex → fall through to "not found"
     }

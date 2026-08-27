@@ -252,6 +252,12 @@ export type LiteratureScoutProgressEvent =
        * cream.
        */
       totalCandidates?: number
+      /**
+       * Hits seen across every source BEFORE dedup. `totalCandidates` is
+       * post-dedup and equals the surfaced count whenever nothing is
+       * truncated, which made "N examined" read as a copy of "N surfaced".
+       */
+      rawCandidates?: number
     }
   /**
    * Dedup funnel: raw count across all sources (PubMed/arXiv/OpenAlex/
@@ -297,6 +303,10 @@ export type LiteratureScoutProgressCallback = (
 export interface LiteratureScoutSearchOptions {
   /** Target minimum unique papers before early-exit. Default 10. */
   minPapers?: number
+  /** Cap the number of PaperFinder query-rounds (0/undefined = no cap, run
+   *  every planned query). Set per-run from the design's effort level;
+   *  overrides the LIT_SCOUT_MAX_ROUNDS env fallback. */
+  maxRounds?: number
   /** If true, bypass PaperFinder cache so repeat calls produce fresh results. */
   bypassCache?: boolean
   /** If true, shuffle the alternative queries before fanning out. */
@@ -307,54 +317,61 @@ export interface LiteratureScoutSearchOptions {
   excludeTitles?: string[]
 }
 
-export async function callLiteratureScoutAgent(
+/** One PaperFinder round's outcome. Serializable so it can cross an Inngest
+ *  step boundary (each round runs as its own checkpointed step). */
+export interface LiteratureRoundResult {
+  index: number
+  papers: SearchResult[]
+  responseText?: string
+  error?: { message: string; isUpstreamFailure: boolean }
+  elapsedMs: number
+}
+
+/** The output of the "common" planning step: the queries to run + the keyless
+ *  pre-warm pool. Everything here is JSON-serializable so the Inngest worker
+ *  can compute it in one step and fan the rounds out from it. */
+export interface LiteraturePlan {
+  queryData: {
+    primaryQuery: string
+    alternativeQueries: string[]
+    keywords: string[]
+  }
+  queryIntents: QueryIntent[]
+  usedLLM: boolean
+  /** Raw per-round queries (primary + alternatives), in round order. */
+  roundQueries: string[]
+  /** The same queries with the shared context suffix applied, ready to send. */
+  fullRoundQueries: string[]
+  prewarmResults: SearchResult[]
+  excludeUrls: string[]
+  excludeTitles: string[]
+}
+
+/** When the caller (the Inngest worker) has already run planning + the rounds
+ *  as separate steps, it passes the results in here and the agent SKIPS its own
+ *  planning / pre-warm / fan-out and goes straight to synthesis. Direct callers
+ *  omit this and the agent runs everything inline as before. */
+export interface LiteraturePrecomputed {
+  plan: LiteraturePlan
+  roundResults: (LiteratureRoundResult | null)[]
+}
+
+/**
+ * The "common" planning step: LLM query generation (+ heuristic fallback) and
+ * the keyless multi-source pre-warm. Extracted so the Inngest worker can run it
+ * as ONE step and then fan the PaperFinder rounds out from its output. The
+ * inline agent path calls this too, so both paths build queries identically.
+ */
+export async function planLiteratureSearch(
   state: ExperimentDesignState,
-  overrides?: AgentPromptOverrides["literatureScout"],
-  onProgress?: LiteratureScoutProgressCallback,
-  searchOptions: LiteratureScoutSearchOptions = {}
-): Promise<AgentCallResult<LiteratureScoutOutput>> {
-  const startTime = Date.now()
-  console.log("\n" + "=".repeat(80))
-  console.log("📚 [LITERATURE_SCOUT_AGENT] Starting Agent Execution")
-  console.log("=".repeat(80))
-
-  // Log input state
-  console.log("📥 [LITERATURE_SCOUT_INPUT] Agent Input:")
-  console.log("  📋 Problem:", state.problem)
-  console.log("  🌐 Domain:", state.domain || "(not specified)")
-  console.log("  🧪 Phase:", state.phase || "(not specified)")
-  console.log("  🎯 Objectives:", JSON.stringify(state.objectives, null, 2))
-  console.log(
-    "  🔬 Known variables:",
-    JSON.stringify(state.variables?.known || [], null, 2)
-  )
-  console.log(
-    "  ❓ Unknown variables:",
-    JSON.stringify(state.variables?.unknown || [], null, 2)
-  )
-
-  onProgress?.({
-    step: "analyzing",
-    message: "Analyzing research problem..."
-  })
-
+  searchOptions: LiteratureScoutSearchOptions = {},
+  onProgress?: LiteratureScoutProgressCallback
+): Promise<LiteraturePlan> {
   const combinedVariables = [
     ...(state.variables?.known || []),
     ...(state.variables?.unknown || [])
   ]
 
-  // ── Query generation: LLM-first, heuristic fallback ──────────────────
-  // The LLM generator takes the full structured design context (problem
-  // + domain + phase + objectives + variables + constraints + special
-  // considerations) and emits 3-4 complementary queries each labelled
-  // with its intent (mechanism / methods / applications / etc.). The
-  // intent labels flow through to per-round progress events so the user
-  // sees "round 2/4 · mechanism · q: '…'" instead of guessing why two
-  // rounds look almost identical.
-  //
-  // If the LLM call fails for any reason (network, parse, empty), we
-  // fall back to the heuristic optimizeSearchQuery - same shape, less
-  // intelligent, but always works.
   onProgress?.({
     step: "optimizing_query",
     message: "Generating literature-search queries from your problem context…"
@@ -382,8 +399,6 @@ export async function callLiteratureScoutAgent(
       alternativeQueries: llmQueries.alternativeQueries,
       keywords: llmQueries.keywords
     }
-    // Track the LLM-assigned intent for each alternative so we can
-    // show "round 2/4 · mechanism" in the UI progress feed.
     queryIntents = ["primary", ...llmQueries.alternativeIntents]
   } else {
     queryData = optimizeSearchQuery(
@@ -392,8 +407,6 @@ export async function callLiteratureScoutAgent(
       combinedVariables,
       "biomedical"
     )
-    // Heuristic mode: tag everything as "primary" so the UI doesn't
-    // claim intent we don't actually have.
     queryIntents = [
       "primary",
       ...queryData.alternativeQueries.map(() => "primary" as QueryIntent)
@@ -416,312 +429,320 @@ export async function callLiteratureScoutAgent(
     primaryQuery: queryData.primaryQuery
   })
 
-  try {
-    const constraintsParts = [
-      state.constraints?.material && `Material: ${state.constraints.material}`,
-      state.constraints?.time && `Time: ${state.constraints.time}`,
-      state.constraints?.equipment &&
-        `Equipment: ${state.constraints.equipment}`
-    ].filter(Boolean)
+  const constraintsParts = [
+    state.constraints?.material && `Material: ${state.constraints.material}`,
+    state.constraints?.time && `Time: ${state.constraints.time}`,
+    state.constraints?.equipment && `Equipment: ${state.constraints.equipment}`
+  ].filter(Boolean)
 
-    const paperFinderQuery = [
-      `Research problem: ${state.problem}`,
-      state.domain ? `Domain: ${state.domain}` : null,
-      state.phase ? `Phase: ${state.phase}` : null,
-      state.objectives.length
-        ? `Objectives: ${state.objectives.join("; ")}`
-        : null,
-      state.variables?.known?.length
-        ? `Known variables: ${state.variables.known.join("; ")}`
-        : null,
-      state.variables?.unknown?.length
-        ? `Unknown variables: ${state.variables.unknown.join("; ")}`
-        : null,
-      constraintsParts.length
-        ? `Constraints: ${constraintsParts.join(" | ")}`
-        : null,
-      state.specialConsiderations.length
-        ? `Additional considerations: ${state.specialConsiderations.join("; ")}`
-        : null,
-      queryData.primaryQuery
-        ? `Optimized query: ${queryData.primaryQuery}`
-        : null,
-      queryData.alternativeQueries.length
-        ? `Alternative queries: ${queryData.alternativeQueries.join(" | ")}`
-        : null
-    ]
-      .filter(Boolean)
-      .join("\n")
+  const paperFinderQuery = [
+    `Research problem: ${state.problem}`,
+    state.domain ? `Domain: ${state.domain}` : null,
+    state.phase ? `Phase: ${state.phase}` : null,
+    state.objectives.length
+      ? `Objectives: ${state.objectives.join("; ")}`
+      : null,
+    state.variables?.known?.length
+      ? `Known variables: ${state.variables.known.join("; ")}`
+      : null,
+    state.variables?.unknown?.length
+      ? `Unknown variables: ${state.variables.unknown.join("; ")}`
+      : null,
+    constraintsParts.length
+      ? `Constraints: ${constraintsParts.join(" | ")}`
+      : null,
+    state.specialConsiderations.length
+      ? `Additional considerations: ${state.specialConsiderations.join("; ")}`
+      : null,
+    queryData.primaryQuery
+      ? `Optimized query: ${queryData.primaryQuery}`
+      : null,
+    queryData.alternativeQueries.length
+      ? `Alternative queries: ${queryData.alternativeQueries.join(" | ")}`
+      : null
+  ]
+    .filter(Boolean)
+    .join("\n")
 
-    // PaperFinder is best-effort: if it fails, we still run the pipeline
-    // with no citations. Target 10 unique papers per round - keeps the
-    // literature shortlist scannable while staying within the 8–10 band the
-    // product asks for. Early-exit fires once we hit this threshold.
-    const minPapers = searchOptions.minPapers ?? 10
-    const excludeUrls = new Set(
-      (searchOptions.excludeUrls ?? [])
-        .filter(Boolean)
-        .map(u => u.toLowerCase())
-    )
-    const excludeTitles = new Set(
-      (searchOptions.excludeTitles ?? [])
-        .filter(Boolean)
-        .map(t => t.toLowerCase())
-    )
+  const excludeUrls = (searchOptions.excludeUrls ?? [])
+    .filter(Boolean)
+    .map(u => u.toLowerCase())
+  const excludeTitles = (searchOptions.excludeTitles ?? [])
+    .filter(Boolean)
+    .map(t => t.toLowerCase())
 
-    // Build the query list: primary + alternatives, each augmented with the
-    // full context so PaperFinder has the same signal in every round.
-    const contextSuffix = paperFinderQuery
-      .split("\n")
-      .filter(line => !line.startsWith("Optimized query:"))
-      .join("\n")
-    const buildRoundQuery = (q: string) =>
-      `Optimized query: ${q}\n${contextSuffix}`
+  const contextSuffix = paperFinderQuery
+    .split("\n")
+    .filter(line => !line.startsWith("Optimized query:"))
+    .join("\n")
+  const buildRoundQuery = (q: string) =>
+    `Optimized query: ${q}\n${contextSuffix}`
 
-    const alternatives = [...queryData.alternativeQueries]
-    if (searchOptions.shuffleQueries) {
-      for (let i = alternatives.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1))
-        ;[alternatives[i], alternatives[j]] = [alternatives[j], alternatives[i]]
-      }
+  const alternatives = [...queryData.alternativeQueries]
+  if (searchOptions.shuffleQueries) {
+    for (let i = alternatives.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1))
+      ;[alternatives[i], alternatives[j]] = [alternatives[j], alternatives[i]]
     }
-    const roundQueries = [queryData.primaryQuery, ...alternatives].filter(
-      Boolean
+  }
+  // Per-run round cap from effort (searchOptions.maxRounds) takes precedence;
+  // LIT_SCOUT_MAX_ROUNDS env is the fallback. 0/unset = no cap (every query).
+  const maxRounds =
+    searchOptions.maxRounds ?? (Number(process.env.LIT_SCOUT_MAX_ROUNDS) || 0)
+  const roundQueries = (() => {
+    const qs = [queryData.primaryQuery, ...alternatives].filter(Boolean)
+    return maxRounds > 0 ? qs.slice(0, maxRounds) : qs
+  })()
+  const fullRoundQueries = roundQueries.map(buildRoundQuery)
+
+  // ── Pre-warm with keyless sources (best-effort). ─────────────────────────
+  let prewarmResults: SearchResult[] = []
+  onProgress?.({
+    step: "searching_sources",
+    message: "Casting a wide net across 6 paper indexes…",
+    detail:
+      "PubMed · arXiv · Semantic Scholar · Google Scholar · OpenAlex · the web - all in parallel"
+  })
+  const prewarmStart = Date.now()
+  try {
+    const multi = await performMultiSourceSearch(queryData.primaryQuery, 10)
+    prewarmResults = [
+      ...multi.sources.pubmed,
+      ...multi.sources.arxiv,
+      ...multi.sources.semanticScholar,
+      ...multi.sources.scholar,
+      ...multi.sources.tavily,
+      ...multi.sources.openalex
+    ]
+    const prewarmMs = Date.now() - prewarmStart
+    const perSource = [
+      ["PubMed", multi.sources.pubmed.length],
+      ["arXiv", multi.sources.arxiv.length],
+      ["Semantic Scholar", multi.sources.semanticScholar.length],
+      ["Google Scholar", multi.sources.scholar.length],
+      ["OpenAlex", multi.sources.openalex.length],
+      ["Web", multi.sources.tavily.length]
+    ] as const
+    const detail = perSource.map(([label, n]) => `${label}: ${n}`).join("  ·  ")
+    console.log(
+      `🟢 [LITERATURE_SCOUT_PREWARM] Keyless sources returned ${prewarmResults.length} papers in ${prewarmMs}ms (${detail})`
     )
-
-    let curated = buildCuratedAggregatedResults([])
-    const responseTexts: string[] = []
-    const allResults: SearchResult[] = []
-
     onProgress?.({
       step: "searching_sources",
-      message: "Casting a wide net across 6 paper indexes…",
-      detail:
-        "PubMed · arXiv · Semantic Scholar · Google Scholar · OpenAlex · the web - all in parallel"
+      message: `Got ${prewarmResults.length} candidate papers from the open indexes (in ${(prewarmMs / 1000).toFixed(1)}s). Refining with PaperFinder for snippet-level ranking…`,
+      detail
     })
+  } catch (e: any) {
+    console.warn(
+      `⚠️  [LITERATURE_SCOUT_PREWARM] Multi-source pre-warm failed:`,
+      e?.message ?? e
+    )
+    onProgress?.({
+      step: "searching_sources",
+      message:
+        "Open indexes had trouble responding - falling back to PaperFinder only.",
+      detail: e?.message ? String(e.message).slice(0, 120) : undefined
+    })
+  }
 
-    // ── Pre-warm with keyless sources (PubMed + arXiv + S2-public + Scholar
-    // + Tavily + OpenAlex) BEFORE the PaperFinder fan-out. This makes the
-    // lit-scout resilient to PaperFinder outages: even if every PaperFinder
-    // round 5xx's, we still surface real papers to the scientist. PubMed,
-    // arXiv, and OpenAlex require no API key at all so they always work.
-    // performMultiSourceSearch wraps each source in .catch() so one
-    // failure never sinks the rest.
-    const prewarmStart = Date.now()
-    try {
-      const multi = await performMultiSourceSearch(queryData.primaryQuery, 10)
-      const prewarmed: SearchResult[] = [
-        ...multi.sources.pubmed,
-        ...multi.sources.arxiv,
-        ...multi.sources.semanticScholar,
-        ...multi.sources.scholar,
-        ...multi.sources.tavily,
-        ...multi.sources.openalex
-      ]
-      allResults.push(...prewarmed)
-      const prewarmMs = Date.now() - prewarmStart
-      // Per-source breakdown so the user actually sees which indexes
-      // came back with results vs which struck out for this query.
-      // Renders below the message line in PhaseProgressView's `detail`
-      // slot.
-      const perSource = [
-        ["PubMed", multi.sources.pubmed.length],
-        ["arXiv", multi.sources.arxiv.length],
-        ["Semantic Scholar", multi.sources.semanticScholar.length],
-        ["Google Scholar", multi.sources.scholar.length],
-        ["OpenAlex", multi.sources.openalex.length],
-        ["Web", multi.sources.tavily.length]
-      ] as const
-      const detail = perSource
-        .map(([label, n]) => `${label}: ${n}`)
-        .join("  ·  ")
-      console.log(
-        `🟢 [LITERATURE_SCOUT_PREWARM] Keyless sources returned ${prewarmed.length} papers in ${prewarmMs}ms (${detail})`
-      )
-      onProgress?.({
-        step: "searching_sources",
-        message: `Got ${prewarmed.length} candidate papers from the open indexes (in ${(prewarmMs / 1000).toFixed(1)}s). Refining with PaperFinder for snippet-level ranking…`,
-        detail
-      })
-    } catch (e: any) {
-      console.warn(
-        `⚠️  [LITERATURE_SCOUT_PREWARM] Multi-source pre-warm failed:`,
-        e?.message ?? e
-      )
-      onProgress?.({
-        step: "searching_sources",
-        message:
-          "Open indexes had trouble responding - falling back to PaperFinder only.",
-        detail: e?.message ? String(e.message).slice(0, 120) : undefined
-      })
+  return {
+    queryData,
+    queryIntents,
+    usedLLM: !!llmQueries,
+    roundQueries,
+    fullRoundQueries,
+    prewarmResults,
+    excludeUrls,
+    excludeTitles
+  }
+}
+
+/**
+ * One PaperFinder round. Extracted so each round can run as its own Inngest
+ * step (a separate ≤600s invocation that Inngest checkpoints) — the fan-out.
+ */
+export async function runLiteratureRound(
+  args: {
+    rawQuery: string
+    fullQuery: string
+    index: number
+    totalRounds: number
+    intent: QueryIntent
+    bypassCache?: boolean
+    signal?: AbortSignal
+  },
+  onProgress?: LiteratureScoutProgressCallback
+): Promise<LiteratureRoundResult> {
+  const { rawQuery, fullQuery, index, totalRounds, intent } = args
+  const shortQuery =
+    rawQuery.length > 70 ? rawQuery.slice(0, 67) + "…" : rawQuery
+  const intentSuffix = intent !== "primary" ? ` · ${intent}` : ""
+  onProgress?.({
+    step: "searching_round",
+    message: `PaperFinder round ${index + 1}/${totalRounds}${intentSuffix} · asking with snippet-level ranking…`,
+    round: index + 1,
+    totalRounds,
+    // Per-round steps run in isolation (no cross-round pool), so this is a
+    // best-effort UI counter, not the authoritative unique count.
+    uniqueSoFar: 0,
+    query: shortQuery,
+    intent
+  })
+  const pfStart = Date.now()
+  try {
+    const response = await runPaperFinder(fullQuery, {
+      operationMode: "infer",
+      readResultsFromCache: !args.bypassCache,
+      signal: args.signal
+    })
+    const elapsedMs = Date.now() - pfStart
+    console.log(
+      `⏱️  [LITERATURE_SCOUT_SEARCH] Round ${index + 1} responded in ${elapsedMs}ms`
+    )
+    const papers = normalizePaperFinderResults(response)
+    onProgress?.({
+      step: "searching_round",
+      message: `PaperFinder round ${index + 1}${intentSuffix} done · returned ${papers.length} paper${papers.length === 1 ? "" : "s"}`,
+      round: index + 1,
+      totalRounds,
+      uniqueSoFar: papers.length,
+      query: shortQuery,
+      elapsedMs,
+      intent
+    })
+    return {
+      index,
+      papers,
+      responseText: response?.response_text,
+      elapsedMs
     }
+  } catch (paperFinderError: any) {
+    const msg = paperFinderError?.message ?? String(paperFinderError)
+    console.warn(
+      `⚠️  [LITERATURE_SCOUT_SEARCH] Round ${index + 1} failed; continuing:`,
+      msg
+    )
+    const isUpstreamFailure =
+      /^(5\d{2}|PaperFinder failed)/i.test(msg) ||
+      /failed to respond|no documents retrieved/i.test(msg)
+    return {
+      index,
+      papers: [],
+      elapsedMs: Date.now() - pfStart,
+      error: { message: msg, isUpstreamFailure }
+    }
+  }
+}
 
-    // ── Parallel PaperFinder fan-out (all-complete, no abort) ──────────
-    // Round dispatch fires all queries in parallel against PaperFinder,
-    // waits for ALL of them to complete, then merges + dedupes + ranks.
-    //
-    // Earlier versions of this code aborted in-flight rounds the moment
-    // one round pushed the unique-paper count past `minPapers`. That
-    // saved wall-clock time but at the cost of throwing away whole
-    // rounds' worth of paper-finder responses that arrived 50ms after
-    // the threshold was hit - and paper-finder had already paid the S2
-    // quota for those calls server-side. Net effect: data loss for no
-    // material wall-clock win (the longest round dominates total time
-    // regardless of how many earlier rounds we cancel).
-    //
-    // Current design:
-    //   - Per-round results collected into a local map keyed by index.
-    //   - No shared AbortController; rounds finish or time out on
-    //     their own per-call deadline (PAPER_FINDER_TIMEOUT_MS = 150s).
-    //   - Per-round progress events still fire pre/post-call so the
-    //     UI checklist updates in real time as each round completes.
-    //   - Pre-round skip preserved at the dispatch site: if pre-warm
-    //     already produced ≥ minPapers, we don't fire any rounds.
-    //   - After Promise.allSettled, flatten all per-round papers into
-    //     allResults in a single batched concat - guarantees the
-    //     downstream dedup/rank/slice sees the FULL union of every
-    //     round's contribution, in deterministic order.
+export async function callLiteratureScoutAgent(
+  state: ExperimentDesignState,
+  overrides?: AgentPromptOverrides["literatureScout"],
+  onProgress?: LiteratureScoutProgressCallback,
+  searchOptions: LiteratureScoutSearchOptions = {},
+  precomputed?: LiteraturePrecomputed
+): Promise<AgentCallResult<LiteratureScoutOutput>> {
+  const startTime = Date.now()
+  console.log("\n" + "=".repeat(80))
+  console.log("📚 [LITERATURE_SCOUT_AGENT] Starting Agent Execution")
+  console.log("=".repeat(80))
+
+  // Log input state
+  console.log("📥 [LITERATURE_SCOUT_INPUT] Agent Input:")
+  console.log("  📋 Problem:", state.problem)
+  console.log("  🌐 Domain:", state.domain || "(not specified)")
+  console.log("  🧪 Phase:", state.phase || "(not specified)")
+  console.log("  🎯 Objectives:", JSON.stringify(state.objectives, null, 2))
+  console.log(
+    "  🔬 Known variables:",
+    JSON.stringify(state.variables?.known || [], null, 2)
+  )
+  console.log(
+    "  ❓ Unknown variables:",
+    JSON.stringify(state.variables?.unknown || [], null, 2)
+  )
+
+  onProgress?.({
+    step: "analyzing",
+    message: "Analyzing research problem..."
+  })
+
+  // ── Plan: query generation + keyless pre-warm ────────────────────────
+  // Direct callers compute it inline here; when the Inngest worker ran it as
+  // its own step it arrives via `precomputed` and we skip re-doing it.
+  const plan =
+    precomputed?.plan ??
+    (await planLiteratureSearch(state, searchOptions, onProgress))
+  const { queryData, queryIntents } = plan
+
+  try {
+    let curated = buildCuratedAggregatedResults([])
+    const responseTexts: string[] = []
+    const allResults: SearchResult[] = [...plan.prewarmResults]
+    const roundQueries = plan.roundQueries
+    const excludeUrls = new Set(plan.excludeUrls)
+    const excludeTitles = new Set(plan.excludeTitles)
     let roundsAttempted = 0
     let roundsServerError = 0
     let lastServerError: string | null = null
 
-    // Always fire PaperFinder rounds when queries are present.
-    //
-    // We used to skip the PaperFinder fan-out when pre-warm already
-    // produced ≥ minPapers (default 10) unique candidates. That made
-    // sense when paper-finder was unreliable, slow, and used a single
-    // arm - pre-warm's 6 keyless sources could outperform it.
-    //
-    // Today paper-finder runs 7 retrieval arms (S2 dense + S2 paper
-    // search + OpenAlex + PubMed + arXiv + Scholar + Tavily) against
-    // ALL of the LLM-planned queries (primary + mechanism + methods +
-    // failure_modes + …). Skipping it costs us:
-    //   - the 2-4 alternative queries' contributions entirely
-    //   - Cohere rerank + LLM relevance judgement over the merged pool
-    //   - ~5× the candidate count
-    //
-    // So we now always run paper-finder when there's at least one
-    // query to send. Pre-warm becomes purely additive - visible-fast
-    // baseline + safety net for when paper-finder is unreachable -
-    // not a short-circuit.
-    if (roundQueries.length > 0) {
-      const preWarmCount = dedupeNormalize(allResults).length
+    // ── PaperFinder fan-out ────────────────────────────────────────────
+    // Precomputed when the Inngest worker ran EACH round as its own
+    // checkpointed step (the fan-out/fan-in architecture — total time is
+    // unbounded because every round is a separate ≤600s invocation).
+    // Otherwise the rounds run here in one parallel batch (direct callers),
+    // each bounded by runPaperFinder's PAPER_FINDER_TIMEOUT_MS.
+    let roundResults: (LiteratureRoundResult | null)[]
+    if (precomputed) {
+      roundResults = precomputed.roundResults
+    } else if (plan.fullRoundQueries.length > 0) {
       const fanOutStart = Date.now()
       console.log(
-        `🚀 [LITERATURE_SCOUT_SEARCH] Firing ${roundQueries.length} PaperFinder rounds in parallel (pre-warm seeded ${preWarmCount} candidates; PaperFinder adds the multi-query, multi-arm coverage).`
+        `🚀 [LITERATURE_SCOUT_SEARCH] Firing ${plan.fullRoundQueries.length} PaperFinder rounds in parallel (pre-warm seeded ${dedupeNormalize(allResults).length} candidates).`
       )
-
-      // Per-round result slots, keyed by round index so we can stitch
-      // results back together in deterministic order even though
-      // completions arrive concurrently.
-      type RoundResult = {
-        papers: SearchResult[]
-        responseText?: string
-        error?: { message: string; isUpstreamFailure: boolean }
-        elapsedMs: number
-      }
-      const roundResults: Array<RoundResult | null> = roundQueries.map(
-        () => null
-      )
-
-      const runOneRound = async (q: string, idx: number): Promise<void> => {
-        const shortQuery = q.length > 70 ? q.slice(0, 67) + "…" : q
-        const intent = queryIntents[idx] ?? "primary"
-        // Intent suffix renders next to the round number in the UI
-        // ("Round 2/4 · mechanism") - helps the user understand WHY
-        // we ran each round, not just "we ran another round".
-        const intentSuffix = intent !== "primary" ? ` · ${intent}` : ""
-        // Pre-call event - tells the UI this round has started.
-        onProgress?.({
-          step: "searching_round",
-          message: `PaperFinder round ${idx + 1}/${roundQueries.length}${intentSuffix} · asking with snippet-level ranking…`,
-          round: idx + 1,
-          totalRounds: roundQueries.length,
-          uniqueSoFar: dedupeNormalize(allResults).length,
-          query: shortQuery,
-          intent
-        })
-        const pfStart = Date.now()
-        try {
-          const response = await runPaperFinder(buildRoundQuery(q), {
-            operationMode: "infer",
-            readResultsFromCache: !searchOptions.bypassCache
-          })
-          const roundElapsedMs = Date.now() - pfStart
-          console.log(
-            `⏱️  [LITERATURE_SCOUT_SEARCH] Round ${idx + 1} responded in ${roundElapsedMs}ms`
+      const settled = await Promise.allSettled(
+        plan.fullRoundQueries.map((fq, idx) =>
+          runLiteratureRound(
+            {
+              rawQuery: roundQueries[idx],
+              fullQuery: fq,
+              index: idx,
+              totalRounds: plan.fullRoundQueries.length,
+              intent: queryIntents[idx] ?? "primary",
+              bypassCache: searchOptions.bypassCache
+            },
+            onProgress
           )
-
-          const normalized = normalizePaperFinderResults(response)
-          roundResults[idx] = {
-            papers: normalized,
-            responseText: response?.response_text,
-            elapsedMs: roundElapsedMs
-          }
-
-          // Best-effort live progress: estimate the running unique
-          // count by combining the prior allResults snapshot with
-          // this round's contribution. This is for UX feedback only -
-          // the AUTHORITATIVE dedup happens once after the gather.
-          const provisionalUnique = dedupeNormalize([
-            ...allResults,
-            ...normalized
-          ]).length
-          onProgress?.({
-            step: "searching_round",
-            message: `PaperFinder round ${idx + 1}${intentSuffix} done · returned ${normalized.length} paper${normalized.length === 1 ? "" : "s"} (≈${provisionalUnique} unique so far)`,
-            round: idx + 1,
-            totalRounds: roundQueries.length,
-            uniqueSoFar: provisionalUnique,
-            query: shortQuery,
-            elapsedMs: roundElapsedMs,
-            intent
-          })
-        } catch (paperFinderError: any) {
-          const msg = paperFinderError?.message ?? String(paperFinderError)
-          console.warn(
-            `⚠️  [LITERATURE_SCOUT_SEARCH] Round ${idx + 1} failed; continuing:`,
-            msg
-          )
-          const isUpstreamFailure =
-            /^(5\d{2}|PaperFinder failed)/i.test(msg) ||
-            /failed to respond|no documents retrieved/i.test(msg)
-          roundResults[idx] = {
-            papers: [],
-            elapsedMs: Date.now() - pfStart,
-            error: { message: msg, isUpstreamFailure }
-          }
-        }
-      }
-
-      roundsAttempted = roundQueries.length
-      await Promise.allSettled(
-        roundQueries.map((q, idx) => runOneRound(q, idx))
+        )
       )
-
-      // ── All rounds settled. Aggregate now. ──────────────────────────
-      // Flatten per-round results into allResults in deterministic
-      // order (round 0 first, round 1 next, ...). Order matters here
-      // only for stable dedup behaviour (first occurrence wins) -
-      // final ranking is by relevanceScore so visual order isn't
-      // affected.
-      for (const result of roundResults) {
-        if (!result) continue
-        if (result.papers.length > 0) {
-          allResults.push(...result.papers)
-        }
-        if (result.responseText) {
-          responseTexts.push(result.responseText)
-        }
-        if (result.error?.isUpstreamFailure) {
-          roundsServerError++
-          lastServerError = result.error.message
-        }
-      }
-
+      roundResults = settled.map((s, i) =>
+        s.status === "fulfilled"
+          ? s.value
+          : {
+              index: i,
+              papers: [],
+              elapsedMs: 0,
+              error: { message: String(s.reason), isUpstreamFailure: false }
+            }
+      )
       console.log(
-        `🏁 [LITERATURE_SCOUT_SEARCH] Parallel fan-out finished in ${Date.now() - fanOutStart}ms (${roundsAttempted} rounds, ${roundsServerError} server errors).`
+        `🏁 [LITERATURE_SCOUT_SEARCH] Parallel fan-out finished in ${Date.now() - fanOutStart}ms (${plan.fullRoundQueries.length} rounds).`
       )
+    } else {
+      roundResults = []
+    }
+
+    // Flatten every round's papers into the pool in deterministic order
+    // (round 0 first, …) — first-occurrence wins in dedup; final ranking is
+    // by relevance so visual order isn't affected.
+    roundsAttempted = plan.fullRoundQueries.length
+    for (const result of roundResults) {
+      if (!result) continue
+      if (result.papers.length > 0) allResults.push(...result.papers)
+      if (result.responseText) responseTexts.push(result.responseText)
+      if (result.error?.isUpstreamFailure) {
+        roundsServerError++
+        lastServerError = result.error.message
+      }
     }
 
     // ── Dedup funnel ────────────────────────────────────────────────────
@@ -748,27 +769,47 @@ export async function callLiteratureScoutAgent(
     // paper-finder.ts/toSearchResult via publication-type tags + title
     // heuristic. We keep the dropped reviews around in a separate bucket
     // so we can re-introduce them if the primary list comes back empty.
+    // We want a MIX, not a purge. Dropping every review starved the pool
+    // (reviews are how a scientist gets the lay of the land + alternative
+    // approaches), but letting them dominate buries the methodology papers
+    // that actually describe how to run something. So: keep ALL primary
+    // research, plus the most-cited reviews capped at REVIEW_SHARE of the
+    // pool. Citations are the tie-breaker so the reviews that survive are the
+    // authoritative ones, not the newest blog-ish ones.
+    const REVIEW_SHARE = 0.3
     const primaryResearch = deduped.filter(p => !p.isReview)
-    const droppedReviews = deduped.length - primaryResearch.length
-    if (droppedReviews > 0) {
-      console.log(
-        `🚫 [LITERATURE_SCOUT_FILTER] Dropped ${droppedReviews} review article(s); ${primaryResearch.length} primary research papers remain.`
+    const reviews = deduped.filter(p => p.isReview)
+    const reviewQuota =
+      primaryResearch.length > 0
+        ? Math.max(
+            2,
+            Math.round(
+              (primaryResearch.length / (1 - REVIEW_SHARE)) * REVIEW_SHARE
+            )
+          )
+        : reviews.length
+    const keptReviews = [...reviews]
+      .sort(
+        (a, b) =>
+          ((b as any).citationCount ?? 0) - ((a as any).citationCount ?? 0)
       )
-    }
+      .slice(0, reviewQuota)
+    const droppedReviews = reviews.length - keptReviews.length
+    console.log(
+      `📚 [LITERATURE_SCOUT_FILTER] Mixing ${primaryResearch.length} primary research + ${keptReviews.length} review(s) (dropped ${droppedReviews} surplus review(s)).`
+    )
     onProgress?.({
       step: "filtering_reviews",
-      message:
-        droppedReviews > 0
-          ? `Filtered ${droppedReviews} review article${droppedReviews === 1 ? "" : "s"}, kept ${primaryResearch.length} primary research paper${primaryResearch.length === 1 ? "" : "s"}.`
-          : "No review articles to filter.",
+      message: `Balancing the pool: ${primaryResearch.length} methodology/research paper${primaryResearch.length === 1 ? "" : "s"} + ${keptReviews.length} high-impact review${keptReviews.length === 1 ? "" : "s"}.`,
       dropped: droppedReviews,
-      remaining: primaryResearch.length
+      remaining: primaryResearch.length + keptReviews.length
     })
 
-    // Fall back to including reviews ONLY when the primary pool is
-    // empty - better than blank UI. We still flag them as reviews
-    // downstream so the LLM is told to treat them with caution.
-    const filteredPool = primaryResearch.length > 0 ? primaryResearch : deduped
+    // Fall back to the raw deduped pool only when there's nothing else.
+    const filteredPool =
+      primaryResearch.length > 0 || keptReviews.length > 0
+        ? [...primaryResearch, ...keptReviews]
+        : deduped
 
     onProgress?.({
       step: "ranking",
@@ -776,8 +817,33 @@ export async function callLiteratureScoutAgent(
       remaining: filteredPool.length
     })
 
+    // ── Downrank computational / ML-only papers ─────────────────────────
+    // This is a BENCH / wet-lab program. Purely computational, machine-
+    // learning, or predictive-modeling papers were dominating the output
+    // (scientist's complaint). We DON'T drop them (a title can mislead), we
+    // just push them below real experimental work so the top of the list is
+    // methodology/primary research. Penalty only reorders within the pool.
+    const ML_SIGNAL =
+      /\b(machine learning|deep learning|neural network|convolutional|transformer model|predictive model(?:ing|ling)?|in silico|computational model|random forest|gradient boost|XGBoost|generative model|large language model|graph neural)\b/i
+    const WETLAB_SIGNAL =
+      /\b(assay|in vitro|in vivo|protocol|measured|purified|incubated|SDS-PAGE|HPLC|ELISA|western blot|chromatograph|titration|formulation|cell culture|expressed|crystalliz)\b/i
+    const scoreOf = (p: SearchResult): number => {
+      const hay = `${p.title ?? ""} ${(p as any).abstract ?? ""}`
+      let s = p.relevanceScore ?? 0
+      // ML-only (no wet-lab signal) → heavy penalty; ML + wet-lab (e.g. an
+      // assay paper that also models) → small penalty; wet-lab → untouched.
+      if (ML_SIGNAL.test(hay)) s -= WETLAB_SIGNAL.test(hay) ? 0.1 : 0.5
+      // Citation boost — the scientist wants well-established work near the
+      // top. Log-scaled and capped so a 10k-citation classic can't outrank a
+      // genuinely on-topic paper on citations alone.
+      const cites = (p as any).citationCount
+      if (typeof cites === "number" && cites > 0) {
+        s += Math.min(0.2, Math.log10(1 + cites) / 25)
+      }
+      return s
+    }
     const mergedResults = [...filteredPool]
-      .sort((a, b) => (b.relevanceScore ?? 0) - (a.relevanceScore ?? 0))
+      .sort((a, b) => scoreOf(b) - scoreOf(a))
       .slice(0, 40)
 
     // ── Problem-aware summaries ────────────────────────────────────────
@@ -835,12 +901,13 @@ export async function callLiteratureScoutAgent(
         tavily: curated.sources.tavily.length,
         openalex: curated.sources.openalex.length
       }
-      // `totalCandidates` is the count BEFORE the .slice(0, 40) cut, so
-      // the UI can show "10 surfaced · ranked by relevance · from
-      // <totalCandidates> searched". This is `filteredPool.length`
-      // which is post-dedup + post-review-filter (or post-dedup if
-      // we fell back to including reviews).
-      const totalCandidates = filteredPool.length
+      // `totalCandidates` = how many UNIQUE papers the pipeline actually
+      // examined (post-dedup, before the review-filter + top-N cut). The UI
+      // shows "10 surfaced · from <totalCandidates> examined" so the scientist
+      // always sees the funnel, not just the surfaced count. Uses
+      // `deduped.length` (all unique hits) rather than `filteredPool.length`
+      // so review-filtered papers still count as "examined".
+      const totalCandidates = deduped.length
       onProgress?.({
         step: "papers_found",
         message:
@@ -849,7 +916,12 @@ export async function callLiteratureScoutAgent(
             : `Found ${mergedResults.length} paper${mergedResults.length === 1 ? "" : "s"}`,
         totalPapers: mergedResults.length,
         sourceCounts,
-        totalCandidates
+        totalCandidates,
+        // How many hits we actually looked at across every source BEFORE
+        // dedup. `totalCandidates` (post-dedup) equals the surfaced count
+        // whenever nothing gets truncated, which made the "N examined" figure
+        // read as a duplicate of "N surfaced".
+        rawCandidates: rawCandidateCount
       })
     }
 

@@ -239,19 +239,25 @@ export const useChatHandler = () => {
       // (PR-8 wires the >150k-token gate).
       let retrievedFileItems: any[] = []
 
-      // Design/report chats are "tier-3": the entire document is already in the
-      // system prompt (ScopedChatRail dumps it into chat.prompt). Running
-      // workspace RAG for them just adds latency + the misleading "Searching
-      // files…" indicator and can inject irrelevant chunks. Skip it for those
-      // scopes; project/workspace chats still retrieve.
+      // Design/report chats are "tier-3": the DESIGN DOCUMENT is already in the
+      // system prompt (ScopedChatRail dumps it into chat.prompt), so scope RAG
+      // used to be skipped for them to save latency and avoid duplicate chunks.
+      //
+      // But the document is not the FILES. A paper, an uploaded data file, or
+      // anything the researcher attaches to the message lives in file_items and
+      // reaches the model ONLY through retrieval. Skipping unconditionally meant
+      // attaching a file to a design chat did nothing whatsoever, and the model
+      // - correctly, given what it was sent - replied that it had no access to
+      // files. Retrieval is scope-filtered (scope + scope_id), not
+      // workspace-wide, so running it here returns this design's or report's own
+      // documents rather than unrelated ones.
       const chatScope = (currentChat?.scope ?? null) as
         | "project"
         | "design"
         | "report"
         | null
-      const skipRetrieval = chatScope === "design" || chatScope === "report"
 
-      if (useRetrieval && selectedWorkspace && !skipRetrieval) {
+      if (useRetrieval && selectedWorkspace) {
         setToolInUse("retrieval")
 
         retrievedFileItems = await handleRetrieval(

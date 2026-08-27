@@ -198,21 +198,66 @@ export async function retrieve(q: RetrieveQuery): Promise<RagItem[]> {
   if (!embedding) return []
 
   const supabase = getSupabaseAdmin()
-  const { data, error } = await supabase.rpc("match_rag_items" as any, {
-    query_embedding: embedding as any,
-    query_text: q.query,
-    match_count: sourceCount * RPC_MATCH_COUNT_MULTIPLIER,
-    ...filters
-  })
+  const matchCount = sourceCount * RPC_MATCH_COUNT_MULTIPLIER
 
-  if (error) {
-    console.error("[rag/retrieve] match_rag_items failed:", error)
-    throw error
+  const runRpc = async (f: RpcFilters) => {
+    const { data, error } = await supabase.rpc("match_rag_items" as any, {
+      query_embedding: embedding as any,
+      query_text: q.query,
+      match_count: matchCount,
+      ...f
+    })
+    if (error) {
+      console.error("[rag/retrieve] match_rag_items failed:", error)
+      throw error
+    }
+    return (data ?? []) as unknown as MatchRagItemRow[]
   }
 
-  const rows = (data ?? []) as unknown as MatchRagItemRow[]
-  if (rows.length === 0) return []
+  const rows = await runRpc(filters)
+
+  /**
+   * Second pass over FILE content for design/report scopes.
+   *
+   * The RPC ANDs `p_source_types` with `p_only_source_ids`, so a single call
+   * can search "this design's document" or "files", never both. Scoping to the
+   * document alone meant a design or report chat could never see what was
+   * inside an uploaded file: the chunker deliberately indexes only filenames
+   * and descriptions for attachments and embeds their contents separately
+   * under source_type='file'. Asking "what's in my data file?" therefore
+   * retrieved a list of filenames, and the model answered - accurately for
+   * what it had been given - that it had no access to the file.
+   *
+   * Skipped when the caller already restricted to specific files (those ARE
+   * the file pass), and when the scope has no document filter to complement.
+   */
+  const needsFilePass =
+    (q.scope === "design" || q.scope === "report") &&
+    !(q.fileIds && q.fileIds.length > 0)
+
+  let allRows = rows
+  if (needsFilePass) {
+    try {
+      const fileRows = await runRpc({
+        p_workspace_id: q.workspaceId,
+        p_project_id: null,
+        p_source_types: ["file", "project_file"],
+        p_only_source_ids: null,
+        p_exclude_source_ids: null
+      })
+      // De-duplicate defensively; the two filters are disjoint by source_type,
+      // but a future filter change shouldn't be able to double-count a chunk.
+      const seen = new Set(rows.map(r => r.id))
+      allRows = [...rows, ...fileRows.filter(r => !seen.has(r.id))]
+    } catch (err) {
+      // A failed file pass must not take down the whole answer - the document
+      // chunks from the first pass are still worth returning.
+      console.warn("[rag/retrieve] file pass failed, continuing:", err)
+    }
+  }
+
+  if (allRows.length === 0) return []
 
   const fileScope = !!(q.fileIds && q.fileIds.length > 0)
-  return fuseAndScore(rows, sourceCount, { fileScope })
+  return fuseAndScore(allRows, sourceCount, { fileScope })
 }

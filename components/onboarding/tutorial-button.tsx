@@ -38,7 +38,7 @@ export function TutorialButton() {
       type="button"
       onClick={replay}
       title="Replay the walkthrough"
-      className="border-line bg-surface text-ink-2 hover:bg-paper-2 hover:text-ink fixed right-3 top-2.5 z-30 inline-flex h-8 items-center gap-1.5 rounded-full border px-3 text-[12px] font-medium shadow-sm transition-colors"
+      className="border-line bg-surface text-ink-2 hover:bg-paper-2 hover:text-ink fixed bottom-4 right-4 z-30 inline-flex h-8 items-center gap-1.5 rounded-full border px-3 text-[12px] font-medium shadow-sm transition-colors"
     >
       <IconHelpCircle size={14} />
       Tutorial

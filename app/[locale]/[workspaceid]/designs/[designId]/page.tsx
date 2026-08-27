@@ -38,41 +38,65 @@ import {
 // can ask for edits while looking at it.
 import { ScopedChatRail } from "@/components/canvas/scoped-chat-rail"
 import ShareDialog from "@/components/design-flow/share-dialog"
+import { StudyDetailsModal } from "@/components/design-flow/study-details-modal"
+import { Dialog, DialogContent } from "@/components/ui/dialog"
 import type { DesignSubViewContext } from "@/components/design-flow/design-sub-views"
 import { GenerateReportModal } from "@/components/designs/generate-report-modal"
+import { deleteReport, getReportsByWorkspaceId } from "@/db/reports-firestore"
+import { exportReportToPDF } from "@/lib/report/export"
+import { DEFAULT_TEMPLATE_ID, getTemplate } from "@/lib/report/templates"
 import { ClarifyStep } from "@/components/design-flow/clarify-step"
 import { handleBudgetError } from "@/lib/billing/handle-budget-error"
 import { DesignCoach } from "@/components/onboarding/design-coach"
-import {
-  clarifyAnswersToText,
-  type ClarifyCheckpoint
-} from "@/lib/design/clarify-shared"
+import { clarifyAnswersToText } from "@/lib/design/clarify-shared"
 import type { ClarifyAnswer } from "@/lib/design-agent"
 import type { Sharing } from "@/types/sharing"
 import { addPaperToLibrary } from "@/db/paper-library"
+import { createFileBasedOnExtension } from "@/db/files"
 import { supabase } from "@/lib/supabase/browser-client"
 import { ChatbotUIContext } from "@/context/context"
 import { useToast } from "@/app/hooks/use-toast"
 import { toast } from "sonner"
+import {
+  Bar,
+  BarChart,
+  CartesianGrid,
+  Legend as RLegend,
+  Line,
+  LineChart,
+  ResponsiveContainer,
+  Tooltip as RTooltip,
+  XAxis,
+  YAxis
+} from "recharts"
 import { cn } from "@/lib/utils"
 import ReactMarkdown from "react-markdown"
 import remarkGfm from "remark-gfm"
 import {
+  DEFAULT_DESIGN_EFFORT,
   DESIGN_DOMAIN_OPTIONS,
   DESIGN_PHASE_OPTIONS,
   PHASE_ORDER,
+  type DesignAssumption,
   type DesignContentV2,
   type DesignDomain,
+  type DesignEffort,
   type DesignPhase,
   type DesignSection,
   type DesignVersionSnapshot,
+  type ExperimentIteration,
   type GeneratedDesign,
   type Hypothesis,
   type Paper,
+  type ParsedLabData,
   type PhaseKey,
-  type ProblemContext
+  type PreLabSimulation,
+  type ProblemContext,
+  type ValidationState,
+  type ValidationVerdict
 } from "@/lib/design-agent"
 import { buildDesignChatContext } from "@/lib/design/chat-context"
+import { cleanPaperTitle } from "@/lib/design/paper-title"
 import {
   downloadBenchExecutionGuide,
   downloadMaterialList,
@@ -94,16 +118,19 @@ import {
   IconBulb,
   IconBooks,
   IconChartBar,
+  IconChartHistogram,
   IconCheck,
   IconChevronDown,
   IconArrowBackUp,
   IconClipboardText,
   IconDownload,
+  IconTrash,
   IconFileText,
   IconFlask,
   IconInfoCircle,
   IconLayoutGrid,
   IconListDetails,
+  IconLoader2,
   IconNote,
   IconPencil,
   IconQuote,
@@ -172,6 +199,8 @@ export type LiteratureProgress = PhaseProgress & {
   rawCount?: number
   uniqueCount?: number
   totalCandidates?: number
+  /** Total hits seen across all sources BEFORE dedup - the true "examined". */
+  rawCandidates?: number
 }
 
 async function runPhaseStreaming(
@@ -391,7 +420,13 @@ export default function DesignDetailPage() {
   // phase once the loader catches up.
   const initialTab = (() => {
     const t = searchParams?.get("tab") ?? ""
-    return ["problem", "literature", "hypotheses", "design"].includes(t)
+    return [
+      "problem",
+      "literature",
+      "hypotheses",
+      "design",
+      "validate"
+    ].includes(t)
       ? t
       : "problem"
   })()
@@ -400,6 +435,20 @@ export default function DesignDetailPage() {
   // scoped Reports / Chats / Files. Reports/chats/files now live under the
   // design (not the project), so they only appear once a design is opened.
   const [showLibrary, setShowLibrary] = useState(false)
+  // Full-page decision step after Design → Next: finalise now, or simulate
+  // before the bench. Replaces the page while open.
+  const [showDesignGate, setShowDesignGate] = useState(false)
+  // "Validate & iterate" modal (replaces the old Validate/Iterate tabs). One
+  // button, two paths inside - simulate the results, or bring your own lab
+  // data - mirroring the hypothesis stage's Generated/Create-your-own pattern.
+  const [validateModalOpen, setValidateModalOpen] = useState(false)
+  const [validateMode, setValidateMode] = useState<"simulate" | "iterate">(
+    "simulate"
+  )
+  // Provenance of the CURRENT design, used to label it in the iteration rail.
+  const [designOrigin, setDesignOrigin] = useState<
+    "original" | "simulation" | "lab-data" | "manual"
+  >("original")
   const [busy, setBusy] = useState<
     | null
     | "literature"
@@ -453,23 +502,54 @@ export default function DesignDetailPage() {
   const [includeReplicates, setIncludeReplicates] = useState<"" | "yes" | "no">(
     ""
   )
-  // Mandatory free-text field. Captures concrete operating parameters the
-  // hypothesis + design agents need to stay specific. NOT a visible field
-  // anymore - it's the CARRIER populated from the "Refine" problem-checkpoint
-  // answers (clarifyAnswersToText) and read by the literature/hypotheses/design
-  // phases as before.
+  // Visible free-text field on the Problem tab. Captures concrete operating
+  // parameters; read by the literature (steering), hypotheses, and design
+  // prompts. This is the ONLY problem-stage context now that the literature
+  // search runs without clarifying questions.
+  const [replicateCount, setReplicateCount] = useState("")
   const [additionalDetails, setAdditionalDetails] = useState("")
+  // Pre-flight "study details" step. Asked ONCE before anything generates, so
+  // hypotheses and the design are built WITH the researcher's constraints
+  // rather than around choices we made for them.
+  const [studyDetailsFor, setStudyDetailsFor] = useState<
+    null | "auto" | "hypotheses" | "own-questions" | "own-text"
+  >(null)
+  const pendingOwnTextRef = useRef<string>("")
+  // Effort for generative runs (set on the create-design modal, persisted in
+  // content.problem.effort). Scales literature + hypothesis work per phase.
+  const [effort, setEffort] = useState<DesignEffort>(DEFAULT_DESIGN_EFFORT)
 
-  // "Refine" clarifying-question step. Set to a checkpoint to show the
-  // full-screen Q&A before that phase runs; null = not refining. Answers are
-  // persisted into content.clarifications for audit + re-open.
-  const [refineCheckpoint, setRefineCheckpoint] =
-    useState<ClarifyCheckpoint | null>(null)
+  // "Refine" clarifying questions. Set to a checkpoint to show the full-screen
+  // Q&A before that phase runs; null = not refining.
+  // NOTE: the PROBLEM checkpoint is deliberately gone — questions there were
+  // diluting the literature search, which now runs straight off the Problem
+  // tab. Only "hypothesis" and "design" ask questions.
+  const [refineCheckpoint, setRefineCheckpoint] = useState<
+    "hypothesis" | "design" | null
+  >(null)
+  // Hypothesis stage sub-tab: "suggested" (paper-derived hypotheses to pick +
+  // edit) vs "own" (answer setup questions to generate one, or type your own).
+  const [hypTab, setHypTab] = useState<"suggested" | "own">("suggested")
+  // Which design version the user is READING. null = the live design. This is a
+  // view pointer only - browsing history never mutates or renumbers it.
+  const [viewingVersionId, setViewingVersionId] = useState<string | null>(null)
+  // True when THIS design was produced by the hands-free auto pipeline. Auto
+  // runs surface a finished design: only the hypothesis it picked, and no
+  // choices panel to review.
+  const [autoGenerated, setAutoGenerated] = useState(false)
   const [clarifications, setClarifications] = useState<{
     problem?: ClarifyAnswer[]
     hypothesis?: ClarifyAnswer[]
     design?: ClarifyAnswer[]
   }>({})
+
+  // Validate-and-iterate loop: lab-data rounds testing the hypothesis, each
+  // feeding the next. Persisted into content.validation.
+  const [validation, setValidation] = useState<ValidationState>({
+    iterations: []
+  })
+  const [validating, setValidating] = useState(false)
+  const [simulating, setSimulating] = useState(false)
 
   // Literature tab state
   const [papers, setPapers] = useState<Paper[]>([])
@@ -486,6 +566,18 @@ export default function DesignDetailPage() {
   // stream resets on remount, but the persisted value stays put.
   const [persistedLitTotalCandidates, setPersistedLitTotalCandidates] =
     useState<number | undefined>(undefined)
+  const [persistedLitRawCandidates, setPersistedLitRawCandidates] = useState<
+    number | undefined
+  >(undefined)
+  const literatureRawCandidates = useMemo(() => {
+    for (let i = literatureProgress.length - 1; i >= 0; i--) {
+      const ev = literatureProgress[i]
+      if (ev.step === "papers_found" && typeof ev.rawCandidates === "number") {
+        return ev.rawCandidates
+      }
+    }
+    return persistedLitRawCandidates
+  }, [literatureProgress, persistedLitRawCandidates])
   const literatureTotalCandidates = useMemo(() => {
     for (let i = literatureProgress.length - 1; i >= 0; i--) {
       const ev = literatureProgress[i]
@@ -536,6 +628,49 @@ export default function DesignDetailPage() {
   const [designVersions, setDesignVersions] = useState<DesignVersionSnapshot[]>(
     []
   )
+  /**
+   * Version number of the LIVE design, when it isn't simply "one above the
+   * highest in history".
+   *
+   * Promoting an old version used to append the promoted set as a brand-new
+   * version, so restoring v1 produced a v4 that was a copy of v1 - the timeline
+   * grew every time you looked back and the number no longer meant anything.
+   * A promotion now swaps: the live set goes into history under its own number
+   * and the promoted version comes out of history and keeps its number. This
+   * holds that number.
+   */
+  const [currentVersionNumber, setCurrentVersionNumber] = useState<
+    number | null
+  >(null)
+
+  /**
+   * What an in-flight design regeneration is producing, and why.
+   *
+   * While a new version was being built the page carried on rendering the
+   * PREVIOUS design with the buttons greyed out, which read as "nothing is
+   * happening to a design I can't use". This drives a progress view naming the
+   * version being generated and listing the changes going into it.
+   */
+  const [regenPlan, setRegenPlan] = useState<{
+    version: number
+    changes: string[]
+    hypothesis?: string
+  } | null>(null)
+
+  /**
+   * Highest number in history. Computed over the whole list rather than read
+   * off `designVersions[0]`: promotion swaps entries in and out, so the first
+   * element is no longer guaranteed to be the highest-numbered one.
+   */
+  const maxVersionNumber = designVersions.reduce(
+    (m, v) => Math.max(m, v.versionNumber),
+    0
+  )
+  /** What the LIVE design is called. */
+  const liveVersionNumber = currentVersionNumber ?? maxVersionNumber + 1
+  /** What the NEXT generated version will be called. */
+  const nextNewVersionNumber =
+    Math.max(maxVersionNumber + 1, liveVersionNumber) + 1
 
   // Rail toggle
   const [showRail, setShowRail] = useState(false)
@@ -566,7 +701,16 @@ export default function DesignDetailPage() {
 
   const getPhaseState = (phase: PhaseKey): TabStatus => {
     if (isPhaseApproved(phase)) return "approved"
+    // "iterate" is a UI stage, not a persisted phase, so it isn't in
+    // PHASE_ORDER. indexOf returned -1 and slice(0, -1) then demanded EVERY
+    // earlier phase (including validate) be approved - so skipping the
+    // simulation locked Iterate permanently. The real prerequisite is just a
+    // design to iterate on.
+    if ((phase as string) === "iterate") {
+      return generatedDesigns.length > 0 ? "active" : "locked"
+    }
     const idx = PHASE_ORDER.indexOf(phase)
+    if (idx < 0) return "active"
     if (idx === 0) return problemValid ? "review" : "active"
     const allPrevApproved = PHASE_ORDER.slice(0, idx).every(p =>
       approvedPhases.includes(p)
@@ -667,22 +811,35 @@ export default function DesignDetailPage() {
       const repRaw =
         ((problem as any).includeReplicates as string | undefined) ?? ""
       setIncludeReplicates(repRaw === "yes" || repRaw === "no" ? repRaw : "")
+      setReplicateCount(((problem as any).replicateCount as string) ?? "")
       setAdditionalDetails(
         ((problem as any).additionalDetails as string | undefined) ?? ""
       )
+      setEffort(
+        ((problem as any).effort as DesignEffort | undefined) ??
+          DEFAULT_DESIGN_EFFORT
+      )
       if (content?.clarifications) setClarifications(content.clarifications)
+      if (content?.validation) setValidation(content.validation)
 
       if (content?.papers) setPapers(content.papers)
       // Restore the "from N searched" total from prior runs so the
       // Literature header still reads correctly after coming back to the
       // page (the progress-event stream resets on remount).
       setPersistedLitTotalCandidates(content?.literatureStats?.totalCandidates)
+      setPersistedLitRawCandidates(content?.literatureStats?.rawCandidates)
+      setAutoGenerated(Boolean(content?.autoGenerated))
       if (content?.hypotheses) setHypotheses(content.hypotheses)
       if (content?.designs) {
         setGeneratedDesigns(content.designs)
         setActiveDesignId(content.designs[0]?.id ?? null)
       }
       if (content?.designVersions) setDesignVersions(content.designVersions)
+      setCurrentVersionNumber(
+        typeof content?.currentVersionNumber === "number"
+          ? content.currentVersionNumber
+          : null
+      )
       if (content?.approvedPhases) setApprovedPhases(content.approvedPhases)
 
       // Resume polling ONLY if a background job is genuinely still in flight.
@@ -829,9 +986,13 @@ export default function DesignDetailPage() {
         ? { successCriteria: successCriteria.trim() }
         : {}),
       ...(includeReplicates ? { includeReplicates } : {}),
+      ...(replicateCount.trim()
+        ? { replicateCount: replicateCount.trim() }
+        : {}),
       ...(additionalDetails.trim()
         ? { additionalDetails: additionalDetails.trim() }
-        : {})
+        : {}),
+      effort
     }) as ProblemContext
 
   useEffect(() => {
@@ -904,9 +1065,8 @@ export default function DesignDetailPage() {
       setActiveTab("literature")
       return
     }
-    // Open the Refine clarifying-question step; it runs literature on complete.
     track("literature_search_started")
-    setRefineCheckpoint("problem")
+    void runLiteratureGeneration()
   }
 
   const runLiteratureGeneration = async (clarifyText?: string) => {
@@ -918,6 +1078,11 @@ export default function DesignDetailPage() {
     setBusy("literature")
     setLiteratureProgress([])
     try {
+      // Accumulate the streamed events LOCALLY as well as into state. Reading
+      // the `literatureProgress` state here instead would capture the stale
+      // render-time value (empty at kick-off), so the examined-count was never
+      // persisted and vanished on revisit.
+      const runEvents: LiteratureProgress[] = []
       const content = await runPhaseBackground(
         designId,
         {
@@ -930,30 +1095,36 @@ export default function DesignDetailPage() {
           },
           approvedPhases: nextApproved
         },
-        ev => setLiteratureProgress(prev => [...prev, ev])
+        ev => {
+          runEvents.push(ev)
+          setLiteratureProgress(prev => [...prev, ev])
+        }
       )
       latestContentRef.current = content
       if (content.papers) setPapers(content.papers)
-      // Persist the "from N searched" total alongside the papers so the
-      // Literature header still shows it when the user navigates away and
-      // comes back. We pluck it from the just-streamed progress events; if
-      // nothing reported (legacy run, pre-warm only, etc.), the field stays
-      // undefined and the header gracefully drops the total.
+      // Persist the "N examined" total alongside the papers so the Literature
+      // header still shows it when the user navigates away and comes back.
       let totalFromRun: number | undefined
-      for (let i = literatureProgress.length - 1; i >= 0; i--) {
-        const ev = literatureProgress[i]
+      let rawFromRun: number | undefined
+      for (let i = runEvents.length - 1; i >= 0; i--) {
+        const ev = runEvents[i]
         if (
           ev.step === "papers_found" &&
           typeof ev.totalCandidates === "number"
         ) {
           totalFromRun = ev.totalCandidates
+          if (typeof ev.rawCandidates === "number")
+            rawFromRun = ev.rawCandidates
           break
         }
       }
       if (typeof totalFromRun === "number") {
         setPersistedLitTotalCandidates(totalFromRun)
         void persistContent({
-          literatureStats: { totalCandidates: totalFromRun }
+          literatureStats: {
+            totalCandidates: totalFromRun,
+            rawCandidates: rawFromRun
+          }
         })
       }
     } catch (error: any) {
@@ -987,8 +1158,89 @@ export default function DesignDetailPage() {
       setActiveTab("hypotheses")
       return
     }
+    // Land on the hypothesis stage WITHOUT generating anything. The researcher
+    // picks the route first - have us suggest hypotheses from the papers, or
+    // build their own - otherwise generation starts on its own and the
+    // "Create your own" tab is dead until it finishes.
+    setActiveTab("hypotheses")
+    setHypTab("suggested")
+  }
+
+  /**
+   * Commit the pre-flight study details, then continue into whatever the
+   * researcher was about to do. Persisted immediately so the phase prompts read
+   * them from the same problem object every downstream call uses.
+   */
+  const handleStudyDetails = async (d: {
+    successCriteria: string
+    includeReplicates: "yes" | "no" | ""
+    replicateCount: string
+    constraintMaterial: string
+    constraintTime: string
+    constraintEquipment: string
+    variablesKnown: string
+    variablesUnknown: string
+    additionalDetails: string
+  }) => {
+    const target = studyDetailsFor
+    setStudyDetailsFor(null)
+    setSuccessCriteria(d.successCriteria)
+    setIncludeReplicates(d.includeReplicates)
+    setReplicateCount(d.replicateCount)
+    setConstraintMaterial(d.constraintMaterial)
+    setConstraintTime(d.constraintTime)
+    setConstraintEquipment(d.constraintEquipment)
+    setVariablesKnown(d.variablesKnown)
+    setVariablesUnknown(d.variablesUnknown)
+    setAdditionalDetails(d.additionalDetails)
+
+    const nextProblem: ProblemContext = {
+      ...currentProblem(),
+      ...(d.successCriteria.trim()
+        ? { successCriteria: d.successCriteria.trim() }
+        : {}),
+      ...(d.includeReplicates
+        ? { includeReplicates: d.includeReplicates }
+        : {}),
+      ...(d.replicateCount.trim()
+        ? { replicateCount: d.replicateCount.trim() }
+        : {}),
+      constraintsStructured: {
+        material: d.constraintMaterial,
+        time: d.constraintTime,
+        equipment: d.constraintEquipment
+      },
+      variablesStructured: {
+        known: d.variablesKnown,
+        unknown: d.variablesUnknown
+      },
+      ...(d.additionalDetails.trim()
+        ? { additionalDetails: d.additionalDetails.trim() }
+        : {})
+    }
+    try {
+      await persistContent({ problem: nextProblem })
+    } catch (err) {
+      console.warn("Couldn't save study details:", err)
+    }
+
+    if (target === "auto") void handleAutoGenerateDesign()
+    else if (target === "hypotheses") void runHypothesisGeneration()
+    else if (target === "own-questions") setRefineCheckpoint("hypothesis")
+    else if (target === "own-text") {
+      const text = pendingOwnTextRef.current
+      pendingOwnTextRef.current = ""
+      if (text) applyOwnHypothesis(text)
+    }
+  }
+
+  /** Explicit "suggest hypotheses from my papers" action (item 1). */
+  const handleGenerateSuggestedHypotheses = () => {
+    if (!ensureCanEdit()) return
+    if (busy) return
     track("hypothesis_generation_started", { papers: selectedPapers.length })
-    setRefineCheckpoint("hypothesis")
+    setHypTab("suggested")
+    void runHypothesisGeneration()
   }
 
   const runHypothesisGeneration = async (clarifyText?: string) => {
@@ -1035,6 +1287,78 @@ export default function DesignDetailPage() {
     }
   }
 
+  // Switching to "Create your own" CLEARS any suggested hypothesis the
+  // researcher had ticked. Otherwise a stale selection survives into the design
+  // stage and they'd generate a design for a hypothesis they'd moved on from.
+  const handleHypTab = (t: "suggested" | "own") => {
+    if (t === "own" && hypotheses.some(h => h.selected)) {
+      const cleared = hypotheses.map(h => ({ ...h, selected: false }))
+      setHypotheses(cleared)
+      latestContentRef.current = {
+        ...latestContentRef.current,
+        hypotheses: cleared
+      }
+      void persistContent({ hypotheses: cleared })
+    }
+    setHypTab(t)
+  }
+
+  // "Create your own" tab: adopt a hypothesis the researcher typed themselves.
+  // It becomes the single selected hypothesis; they then generate the design.
+  /**
+   * Gate: capture the study details FIRST (item 7 - the questions belong before
+   * generation, not after), then adopt the hypothesis.
+   */
+  const handleUseOwnHypothesis = (text: string) => {
+    if (!ensureCanEdit()) return
+    const trimmed = text.trim()
+    if (trimmed.length < 8) {
+      toast({
+        title: "Add a bit more",
+        description: "Write your hypothesis (at least a sentence) to continue.",
+        variant: "destructive"
+      })
+      return
+    }
+    pendingOwnTextRef.current = trimmed
+    setStudyDetailsFor("own-text")
+  }
+
+  const applyOwnHypothesis = (text: string) => {
+    const trimmed = text.trim()
+    const own: Hypothesis = {
+      id: `h-own-${Date.now()}`,
+      text: trimmed,
+      reasoning: "Researcher-supplied hypothesis.",
+      basedOnPaperIds: selectedPapers.map(p => p.id),
+      selected: true,
+      userSupplied: true
+    }
+    // ADD to the list rather than replacing it.
+    //
+    // This used to be `[own]`, wiping every generated hypothesis. The moment a
+    // researcher is best placed to write a sharp hypothesis is right after
+    // reading ours - and that was exactly the moment acting on it destroyed
+    // what they had just read, with no way back short of regenerating. Theirs
+    // is now added on top and selected; the generated set stays available, and
+    // they can pick a different one or several.
+    const next: Hypothesis[] = [
+      own,
+      ...hypotheses.map(h => ({ ...h, selected: false }))
+    ]
+    setHypotheses(next)
+    latestContentRef.current = { ...latestContentRef.current, hypotheses: next }
+    void persistContent({ hypotheses: next })
+    setHypTab("suggested")
+    toast({
+      title: "Your hypothesis was added",
+      description:
+        hypotheses.length > 0
+          ? "It's selected and sits at the top; the generated ones are still there."
+          : "It's selected - generate the design when you're ready."
+    })
+  }
+
   // Step 1: validate + open the design-spec popup. The popup collects extra
   // parameters (concentration, condition count, notes) so the generated design
   // is specific to the researcher's use case rather than generic.
@@ -1054,15 +1378,25 @@ export default function DesignDetailPage() {
       setActiveTab("design")
       return
     }
-    // Open the Refine clarifying-question step; it runs design on complete.
     track("design_generation_started", {
       hypotheses: selectedHypotheses.length
     })
+    // ALWAYS ask the design questions.
+    //
+    // This used to skip straight to generation whenever the chosen hypothesis
+    // was one we suggested, on the reasoning that our own hypothesis already
+    // encodes the direction. But the direction was never what these questions
+    // are for - they ask what is on the bench: stock concentrations, the
+    // diluent, how much material is on hand, the instrument and its settings.
+    // None of that is knowable from the hypothesis, whoever wrote it. Since
+    // picking a generated hypothesis is the common path, the effect was that
+    // most runs were never asked anything and the design filled the gaps with
+    // assumptions.
     setRefineCheckpoint("design")
   }
 
-  // Step 2: run generation with the Refine answers as the authoritative design
-  // spec (buildDesignBlocks reads designSpec).
+  // Step 2: run generation with the Refine answers as the design spec
+  // (buildDesignBlocks reads designSpec).
   const runDesignGeneration = async (clarifyText?: string) => {
     if (!ensureCanEdit()) return
     const nextApproved: PhaseKey[] = ["problem", "literature", "hypotheses"]
@@ -1104,6 +1438,7 @@ export default function DesignDetailPage() {
       latestContentRef.current = content
       const designs = content.designs ?? []
       setGeneratedDesigns(designs)
+      setViewingVersionId(null)
       setActiveDesignId(designs[0]?.id ?? null)
     } catch (error: any) {
       if ((error as any)?.message === "__paywall__") return
@@ -1117,7 +1452,296 @@ export default function DesignDetailPage() {
     }
   }
 
+  // ── Auto-generate: run the WHOLE pipeline hands-free ───────────────────
+  // literature → auto-select all papers → hypotheses → auto-select the top
+  // one → design. No Refine questions, no manual selection. The scientist
+  // gets a finished design straight from the Problem tab, then refines it by
+  // chatting. Chains off each phase's RETURNED content (not React state, which
+  // updates async) so the steps feed each other reliably.
+  const handleAutoGenerateDesign = async () => {
+    if (!ensureCanEdit()) return
+    if (busy) return
+    if (!problemValid) {
+      toast({
+        title: "Add the essentials first",
+        description: "Problem statement, domain, and phase are required.",
+        variant: "destructive"
+      })
+      return
+    }
+    try {
+      // 1 — Literature
+      setActiveTab("literature")
+      setLiteratureProgress([])
+      setBusy("literature")
+      const litApproved: PhaseKey[] = ["problem"]
+      setApprovedPhases(litApproved)
+      const litContent = await runPhaseBackground(
+        designId,
+        {
+          phase: "literature",
+          problem: currentProblem(),
+          approvedPhases: litApproved
+        },
+        ev => setLiteratureProgress(prev => [...prev, ev])
+      )
+      const autoPapers = (litContent.papers ?? []).map(p => ({
+        ...p,
+        selected: true
+      }))
+      if (autoPapers.length === 0)
+        throw new Error("No papers were found to build on. Try again shortly.")
+      setPapers(autoPapers)
+      latestContentRef.current = litContent
+
+      // 2 — Hypotheses (auto-select the top-ranked one)
+      setActiveTab("hypotheses")
+      setHypothesesProgress([])
+      setBusy("hypotheses")
+      const hypApproved: PhaseKey[] = ["problem", "literature"]
+      setApprovedPhases(hypApproved)
+      const hypContent = await runPhaseBackground(
+        designId,
+        {
+          phase: "hypotheses",
+          problem: currentProblem(),
+          papers: autoPapers,
+          approvedPhases: hypApproved
+        },
+        ev => setHypothesesProgress(prev => [...prev, ev])
+      )
+      const rawHyps = hypContent.hypotheses ?? []
+      if (rawHyps.length === 0)
+        throw new Error("No hypotheses were generated. Try again shortly.")
+      // Auto mode carries exactly ONE hypothesis forward without the
+      // researcher choosing it, so prefer the highest-ranked one that actually
+      // cites the selected papers. Ranking now weights grounding, but if the
+      // top pick still cites nothing, taking it would hand back a hypothesis
+      // that reads as unrelated to the literature it was supposedly built on.
+      const groundedIdx = rawHyps.findIndex(
+        h => (h.basedOnPaperIds?.length ?? 0) > 0
+      )
+      const pickIdx = groundedIdx >= 0 ? groundedIdx : 0
+      const autoHyps = rawHyps.map((h, i) => ({
+        ...h,
+        selected: i === pickIdx
+      }))
+      setHypotheses(autoHyps)
+      latestContentRef.current = hypContent
+
+      // 3 — Design (Lab-standards folded in, like the manual path)
+      setActiveTab("design")
+      setDesignProgress([])
+      setBusy("design")
+      const designApproved: PhaseKey[] = ["problem", "literature", "hypotheses"]
+      setApprovedPhases(designApproved)
+      const mergedDetails = [
+        currentProblem().additionalDetails,
+        labStandardsToText()
+      ]
+        .map(s => (s ?? "").trim())
+        .filter(Boolean)
+        .join("\n\n")
+      const designContent = await runPhaseBackground(
+        designId,
+        {
+          phase: "design",
+          problem: {
+            ...currentProblem(),
+            ...(mergedDetails ? { additionalDetails: mergedDetails } : {})
+          },
+          hypotheses: autoHyps,
+          approvedPhases: designApproved
+        },
+        ev => setDesignProgress(prev => [...prev, ev])
+      )
+      let curDesigns = designContent.designs ?? []
+      setGeneratedDesigns(curDesigns)
+      setViewingVersionId(null)
+      setActiveDesignId(curDesigns[0]?.id ?? null)
+      latestContentRef.current = designContent
+      let curProblem: ProblemContext = {
+        ...currentProblem(),
+        ...(mergedDetails ? { additionalDetails: mergedDetails } : {})
+      }
+      // Persist (awaited) before simulating - the simulate route reads the
+      // design back from Firestore, so it must be written first.
+      setAutoGenerated(true)
+      await persistContent({
+        papers: autoPapers,
+        hypotheses: autoHyps,
+        designs: curDesigns,
+        approvedPhases: designApproved,
+        problem: curProblem,
+        autoGenerated: true
+      })
+
+      // 4 — Simulate + iterate until the success criteria is met (or a cap).
+      // The pre-lab Monte-Carlo sim predicts the design vs the target; if it
+      // falls short we apply its suggested changes as a NEW design version and
+      // re-simulate. Each round snapshots the prior design so the version rail
+      // shows the trajectory. Skipped entirely when no target was given.
+      const target = (
+        curProblem.successCriteria ||
+        curProblem.objective ||
+        ""
+      ).trim()
+      let simMet = false
+      let ranSim = false
+      if (target) {
+        const MAX_AUTO_SIM_ROUNDS = 3
+        let versions = designVersions
+        let curDetails = curProblem.additionalDetails ?? ""
+        let curOrigin: "original" | "simulation" | "lab-data" | "manual" =
+          designOrigin
+        setApprovedPhases(prev =>
+          prev.includes("validate") ? prev : [...prev, "validate"]
+        )
+        for (let round = 1; round <= MAX_AUTO_SIM_ROUNDS; round++) {
+          // Simulate the current design against the target. The Validate tab
+          // is gone - stay on Design and show progress via the busy state.
+          setActiveTab("design")
+          setSimulating(true)
+          let sim: PreLabSimulation | null = null
+          try {
+            const res = await fetch(`/api/design/${designId}/validate`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ mode: "simulate", desiredOutcome: target })
+            })
+            if (await handleBudgetError(res)) break
+            const json = await res.json().catch(() => null)
+            if (!res.ok || !json) break
+            const nextValidation = json.validation as ValidationState
+            setValidation(nextValidation)
+            latestContentRef.current = {
+              ...latestContentRef.current,
+              validation: nextValidation
+            }
+            sim = (json.simulation ?? null) as PreLabSimulation | null
+            ranSim = true
+          } finally {
+            setSimulating(false)
+          }
+          if (!sim) break
+          if (sim.meetsTarget) {
+            simMet = true
+            break
+          }
+          const changes: string[] = Array.isArray(sim.optimizedChanges)
+            ? sim.optimizedChanges
+            : []
+          // No actionable changes, or out of rounds → keep the best design.
+          if (changes.length === 0 || round === MAX_AUTO_SIM_ROUNDS) break
+
+          // Apply the simulation's changes as a new design iteration.
+          const directive = [
+            `[Auto design iteration ${round} — apply these simulation-suggested changes so the design meets the success criteria]`,
+            `Success criteria / target: ${target}`,
+            sim.gapAnalysis ? `Predicted gap: ${sim.gapAnalysis}` : "",
+            `Apply these changes:\n- ${changes.join("\n- ")}`
+          ]
+            .filter(Boolean)
+            .join("\n")
+          const MARK = "\n\n<<ITERATION MEMORY>>\n"
+          const baseDetails = curDetails.split(MARK)[0].trimEnd()
+          curDetails = `${baseDetails}${MARK}${directive}`
+
+          // Snapshot the current design before overwriting it.
+          const nextVersionNumber = (versions[0]?.versionNumber ?? 0) + 1 || 1
+          const snapshot: DesignVersionSnapshot = {
+            id:
+              typeof crypto !== "undefined" && "randomUUID" in crypto
+                ? crypto.randomUUID()
+                : `v-${Date.now()}`,
+            versionNumber: nextVersionNumber,
+            designs: curDesigns,
+            createdAt: new Date().toISOString(),
+            origin: curOrigin,
+            // Auto mode iterates unattended, so without this the researcher
+            // came back to a stack of versions with no record of why any of
+            // them was superseded. Keep the verdict, the numbers, the changes
+            // that were applied, and the whole simulation for the expander.
+            outcome: {
+              verdict: sim.predictedResults,
+              meetRate: sim.meetRate,
+              metTarget: sim.meetsTarget,
+              appliedChanges: changes,
+              simulation: sim
+            }
+          }
+          versions = [snapshot, ...versions]
+          setDesignVersions(versions)
+          setDesignOrigin("simulation")
+          curOrigin = "simulation"
+
+          // Regenerate the design with the changes folded in. Same progress
+          // treatment as the manual path - otherwise the auto run sits on the
+          // superseded protocol while it builds the next one.
+          setActiveTab("design")
+          setBusy("design")
+          setDesignProgress([])
+          setRegenPlan({ version: nextVersionNumber + 1, changes })
+          curProblem = { ...curProblem, additionalDetails: curDetails }
+          const iterContent = await runPhaseBackground(
+            designId,
+            {
+              phase: "design",
+              problem: curProblem,
+              hypotheses: autoHyps,
+              approvedPhases: designApproved
+            },
+            ev => setDesignProgress(prev => [...prev, ev])
+          )
+          setRegenPlan(null)
+          curDesigns = iterContent.designs ?? curDesigns
+          setGeneratedDesigns(curDesigns)
+          setViewingVersionId(null)
+          setActiveDesignId(curDesigns[0]?.id ?? null)
+          latestContentRef.current = {
+            ...iterContent,
+            designVersions: versions,
+            problem: curProblem
+          }
+          await persistContent({
+            designs: curDesigns,
+            designVersions: versions,
+            problem: curProblem
+          })
+        }
+      }
+
+      // Land on the finished design (version rail + validation populated).
+      setActiveTab("design")
+      toast({
+        title: simMet
+          ? "Design meets your success criteria"
+          : ranSim
+            ? "Design built + simulated"
+            : "Design generated",
+        description: simMet
+          ? "Ran the whole workflow and iterated the design until the simulation hit your target. Refine it by chatting on the right."
+          : ranSim
+            ? "Built and simulated the design — see the predicted gap and version history. Refine it by chatting on the right."
+            : "Built the full design automatically. Refine it by chatting on the right."
+      })
+    } catch (error: any) {
+      if ((error as any)?.message === "__paywall__") return
+      toast({
+        title: "Auto-generate failed",
+        description: error?.message ?? "Try again in a moment.",
+        variant: "destructive"
+      })
+    } finally {
+      setBusy(null)
+      // Never leave the pane stuck on "generating v3" if the run died midway.
+      setRegenPlan(null)
+    }
+  }
+
   // ── Refine (clarifying questions) → run the gated phase ────────────────
+  // Only "hypothesis" and "design" reach here; the problem checkpoint was
+  // removed (its questions diluted the literature search).
   const handleClarifyComplete = async (answers: ClarifyAnswer[]) => {
     const cp = refineCheckpoint
     setRefineCheckpoint(null)
@@ -1126,10 +1750,10 @@ export default function DesignDetailPage() {
     const nextClarifications = { ...clarifications, [cp]: answers }
     setClarifications(nextClarifications)
     void persistContent({ clarifications: nextClarifications })
-    if (cp === "problem") {
-      setAdditionalDetails(text) // carrier for the downstream phases
-      await runLiteratureGeneration(text)
-    } else if (cp === "hypothesis") {
+    if (cp === "hypothesis") {
+      // Own-path questions answered → generate a steered hypothesis and land on
+      // the Suggested tab so the researcher can pick + edit it, then continue.
+      setHypTab("suggested")
       await runHypothesisGeneration(text)
     } else {
       await runDesignGeneration(text)
@@ -1168,8 +1792,19 @@ export default function DesignDetailPage() {
       )
   }
 
-  const handleApproveDesignAndContinue = async () => {
+  // "Next" on the Design tab opens the decision page rather than finalising
+  // outright — the scientist chooses between shipping the design as-is and
+  // simulating it first.
+  const handleApproveDesignAndContinue = () => {
     if (!ensureCanEdit()) return
+    if (generatedDesigns.length === 0) return
+    setShowDesignGate(true)
+  }
+
+  /** Gate option A — finalise. Approves the design, returns to it, and opens
+   *  Export so the download formats are right there (items 10 / 15). */
+  const handleFinalizeDesign = async () => {
+    setShowDesignGate(false)
     const nextApproved: PhaseKey[] = [
       "problem",
       "literature",
@@ -1179,7 +1814,299 @@ export default function DesignDetailPage() {
     setApprovedPhases(nextApproved)
     await persistContent({ approvedPhases: nextApproved })
     setActiveTab("design")
-    toast({ title: "Design finalized", description: "All phases approved." })
+    setShowLibrary(true)
+    toast({
+      title: "Design finalised",
+      description: "Pick a format on the right to download it."
+    })
+  }
+
+  /** Leave Validate/Iterate and go back to the design with Export open, so
+   *  the download formats are right there (items 10 / 15). */
+  const handleContinueToDesign = () => {
+    setValidateModalOpen(false)
+    setActiveTab("design")
+    setShowLibrary(true)
+  }
+
+  /** Gate option B — simulate first. Opens the Validate & iterate modal on
+   *  the simulate path and kicks the simulation off immediately. */
+  const handleGoSimulate = () => {
+    setShowDesignGate(false)
+    setActiveTab("design")
+    setValidateMode("simulate")
+    setValidateModalOpen(true)
+    if (!validation.simulation && !simulating) {
+      void handleSimulate((successCriteria || objective || "").trim())
+    }
+  }
+
+  // ── Validate-and-iterate loop ─────────────────────────────────────────────
+
+  // 5a: pre-lab simulation — predict results vs the desired outcome and get the
+  // design changes that would hit the target, before running anything.
+  const handleSimulate = async (desiredOutcome: string) => {
+    if (!ensureCanEdit()) return
+    setSimulating(true)
+    try {
+      const res = await fetch(`/api/design/${designId}/validate`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ mode: "simulate", desiredOutcome })
+      })
+      if (res.status === 402) {
+        await handleBudgetError(res)
+        return
+      }
+      const json = await res.json().catch(() => null)
+      if (!res.ok) {
+        toast({
+          title: "Simulation failed",
+          description: json?.error ?? `Simulate failed (HTTP ${res.status}).`,
+          variant: "destructive"
+        })
+        return
+      }
+      const nextValidation = json.validation as ValidationState
+      setValidation(nextValidation)
+      latestContentRef.current = {
+        ...latestContentRef.current,
+        validation: nextValidation
+      }
+      if (!approvedPhases.includes("validate")) {
+        setApprovedPhases(prev =>
+          prev.includes("validate") ? prev : [...prev, "validate"]
+        )
+      }
+      const sim = json.simulation
+      toast({
+        title: sim?.meetsTarget
+          ? "Simulation: design should hit your target"
+          : "Simulation: design needs tuning",
+        description: sim?.meetsTarget
+          ? "Predicted to reach the desired outcome. Run it, then validate with real data."
+          : "See the predicted gap + the changes that would get there below."
+      })
+    } catch {
+      toast({
+        title: "Couldn't run the simulation",
+        description: "Try again in a moment.",
+        variant: "destructive"
+      })
+    } finally {
+      setSimulating(false)
+    }
+  }
+
+  const handleRunValidation = async (
+    raw: string,
+    dataFiles: { id?: string; name: string; size?: number; type?: string }[],
+    structured?: ParsedLabData | null
+  ) => {
+    if (!ensureCanEdit()) return
+    setValidating(true)
+    try {
+      const res = await fetch(`/api/design/${designId}/validate`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ mode: "validate", raw, dataFiles, structured })
+      })
+      if (res.status === 402) {
+        await handleBudgetError(res)
+        return
+      }
+      const json = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        toast({
+          title: "Validation failed",
+          description: json?.error ?? "Try again.",
+          variant: "destructive"
+        })
+        return
+      }
+      const nextValidation = json.validation as ValidationState
+      setValidation(nextValidation)
+      // Server already persisted; mirror into the ref + approvedPhases so a
+      // reload and the tab gating stay consistent without a second write.
+      latestContentRef.current = {
+        ...latestContentRef.current,
+        validation: nextValidation
+      }
+      if (!approvedPhases.includes("validate")) {
+        setApprovedPhases(prev =>
+          prev.includes("validate") ? prev : [...prev, "validate"]
+        )
+      }
+      const v = (json.iteration as ExperimentIteration)?.verdict
+      toast({
+        title: `Iteration ${json.iteration?.index}: ${verdictLabel(v)}`,
+        description:
+          v === "supported"
+            ? "Your data supports the hypothesis."
+            : "See the insights and suggested next steps below."
+      })
+    } catch {
+      toast({
+        title: "Couldn't reach the validator",
+        description: "Check your connection and try again.",
+        variant: "destructive"
+      })
+    } finally {
+      setValidating(false)
+    }
+  }
+
+  // 5b: apply the user's SELECTED suggested changes and regenerate the DESIGN
+  // directly (snapshotting the current one as a version), rather than re-opening
+  // the whole hypothesis→design loop. The chosen changes + running memory are
+  // injected into the design prompt.
+  const handleApplyIterationChanges = async (
+    changes: string[],
+    revisedHypothesis?: string,
+    origin: "simulation" | "lab-data" = "lab-data"
+  ) => {
+    if (!ensureCanEdit()) return
+    if (changes.length === 0 && !revisedHypothesis) {
+      toast({
+        title: "Nothing selected",
+        description: "Pick at least one change to apply.",
+        variant: "destructive"
+      })
+      return
+    }
+    const nextRound = validation.iterations.length + 1
+    const latestIteration =
+      validation.iterations[validation.iterations.length - 1]
+    const directive = [
+      `[Design iteration ${nextRound} — apply these changes the researcher selected after reviewing the data]`,
+      validation.cumulativeInsights
+        ? `Everything learned so far: ${validation.cumulativeInsights}`
+        : "",
+      changes.length ? `Apply these changes:\n- ${changes.join("\n- ")}` : "",
+      revisedHypothesis
+        ? `Test this sharper hypothesis: ${revisedHypothesis}`
+        : ""
+    ]
+      .filter(Boolean)
+      .join("\n")
+
+    const MARK = "\n\n<<ITERATION MEMORY>>\n"
+    const base = additionalDetails.split(MARK)[0].trimEnd()
+    const nextDetails = `${base}${MARK}${directive}`
+    setAdditionalDetails(nextDetails)
+    const nextProblem = { ...currentProblem(), additionalDetails: nextDetails }
+
+    // Snapshot the current design as a version before overwriting it. The
+    // snapshot carries the provenance of the design being SAVED (the first one
+    // is the original); the new design takes on this round's origin, so the
+    // timeline reads "Original → Simulated → From lab data".
+    let snapshotVersions = designVersions
+    if (generatedDesigns.length > 0) {
+      const nextVersionNumber = liveVersionNumber
+      const snapshot: DesignVersionSnapshot = {
+        id:
+          typeof crypto !== "undefined" && "randomUUID" in crypto
+            ? crypto.randomUUID()
+            : `v-${Date.now()}`,
+        versionNumber: nextVersionNumber,
+        designs: generatedDesigns,
+        createdAt: new Date().toISOString(),
+        origin: designOrigin,
+        // Record WHY this version was superseded, so reading it later still
+        // shows the verdict and the changes that moved the design on - not
+        // just the protocol with no reasoning attached.
+        outcome: {
+          ...(origin === "simulation" && validation.simulation
+            ? {
+                verdict: validation.simulation.predictedResults,
+                meetRate: validation.simulation.meetRate,
+                metTarget: validation.simulation.meetsTarget,
+                simulation: validation.simulation
+              }
+            : {}),
+          ...(origin === "lab-data" && latestIteration
+            ? {
+                verdict: latestIteration.reasoning || latestIteration.verdict,
+                insights: latestIteration.insights
+              }
+            : {}),
+          appliedChanges: changes
+        }
+      }
+      snapshotVersions = [snapshot, ...designVersions]
+      setDesignVersions(snapshotVersions)
+      setDesignOrigin(origin)
+      // The live design is the newest again, so drop any number pinned by an
+      // earlier promotion - otherwise the new version would keep the old label.
+      setCurrentVersionNumber(null)
+      // Tell the design tab WHAT is being built, so it can show progress in
+      // place of the version that is being superseded.
+      setRegenPlan({
+        version: nextVersionNumber + 1,
+        changes,
+        hypothesis: revisedHypothesis
+      })
+    }
+
+    // Close the modal and land on the design so the regeneration - and then
+    // the updated design with its new version-rail entry - is what they see.
+    setValidateModalOpen(false)
+    setActiveTab("design")
+    setBusy("design")
+    setDesignProgress([])
+    try {
+      const content = await runPhaseBackground(
+        designId,
+        {
+          phase: "design",
+          problem: nextProblem,
+          hypotheses,
+          approvedPhases
+        },
+        ev => setDesignProgress(prev => [...prev, ev])
+      )
+      latestContentRef.current = {
+        ...content,
+        designVersions: snapshotVersions,
+        currentVersionNumber: null,
+        problem: nextProblem
+      }
+      if (content.designs) {
+        setGeneratedDesigns(content.designs)
+        setViewingVersionId(null)
+        setActiveDesignId(content.designs[0]?.id ?? null)
+      }
+      // The stored simulation described the design we just REPLACED. Leaving
+      // it in place meant reopening Validate for the new version showed the
+      // previous version's verdict and its full working stacked around the
+      // simulate button - two versions' results on one screen with nothing
+      // saying which was which. The old result lives on its version snapshot,
+      // which is where "Earlier rounds" reads it from.
+      const clearedValidation = { ...validation, simulation: undefined }
+      setValidation(clearedValidation)
+      void persistContent({
+        designs: content.designs,
+        designVersions: snapshotVersions,
+        currentVersionNumber: null,
+        problem: nextProblem,
+        validation: clearedValidation
+      })
+      toast({
+        title: `Design iteration ${nextRound} generated`,
+        description: "Your selected changes are applied. Prior version saved."
+      })
+    } catch (e: any) {
+      if (e?.message !== "__paywall__") {
+        toast({
+          title: "Couldn't generate the iteration",
+          description: e?.message ?? "Try again.",
+          variant: "destructive"
+        })
+      }
+    } finally {
+      setBusy(null)
+      setRegenPlan(null)
+    }
   }
 
   // ── Regenerate handlers ───────────────────────────────────────────────
@@ -1189,6 +2116,9 @@ export default function DesignDetailPage() {
     setBusy("literature")
     setLiteratureProgress([])
     try {
+      // Local accumulation — see the note in runLiteratureGeneration; reading
+      // the state here captures the stale render-time value.
+      const runEvents: LiteratureProgress[] = []
       const content = await runPhaseBackground(
         designId,
         {
@@ -1197,30 +2127,36 @@ export default function DesignDetailPage() {
           problem: currentProblem(),
           approvedPhases
         },
-        ev => setLiteratureProgress(prev => [...prev, ev])
+        ev => {
+          runEvents.push(ev)
+          setLiteratureProgress(prev => [...prev, ev])
+        }
       )
       latestContentRef.current = content
       if (content.papers) setPapers(content.papers)
-      // Persist the "from N searched" total alongside the papers so the
-      // Literature header still shows it when the user navigates away and
-      // comes back. We pluck it from the just-streamed progress events; if
-      // nothing reported (legacy run, pre-warm only, etc.), the field stays
-      // undefined and the header gracefully drops the total.
+      // Persist the "N examined" total alongside the papers so the header
+      // still shows it after navigating away and back.
       let totalFromRun: number | undefined
-      for (let i = literatureProgress.length - 1; i >= 0; i--) {
-        const ev = literatureProgress[i]
+      let rawFromRun: number | undefined
+      for (let i = runEvents.length - 1; i >= 0; i--) {
+        const ev = runEvents[i]
         if (
           ev.step === "papers_found" &&
           typeof ev.totalCandidates === "number"
         ) {
           totalFromRun = ev.totalCandidates
+          if (typeof ev.rawCandidates === "number")
+            rawFromRun = ev.rawCandidates
           break
         }
       }
       if (typeof totalFromRun === "number") {
         setPersistedLitTotalCandidates(totalFromRun)
         void persistContent({
-          literatureStats: { totalCandidates: totalFromRun }
+          literatureStats: {
+            totalCandidates: totalFromRun,
+            rawCandidates: rawFromRun
+          }
         })
       }
     } catch (error: any) {
@@ -1280,7 +2216,7 @@ export default function DesignDetailPage() {
     // the user can restore it later via the version switcher.
     let snapshotVersions = designVersions
     if (generatedDesigns.length > 0) {
-      const nextVersionNumber = (designVersions[0]?.versionNumber ?? 0) + 1 || 1
+      const nextVersionNumber = liveVersionNumber
       const snapshot: DesignVersionSnapshot = {
         id:
           typeof crypto !== "undefined" && "randomUUID" in crypto
@@ -1292,7 +2228,11 @@ export default function DesignDetailPage() {
       }
       snapshotVersions = [snapshot, ...designVersions]
       setDesignVersions(snapshotVersions)
-      await persistContent({ designVersions: snapshotVersions })
+      setCurrentVersionNumber(null)
+      await persistContent({
+        designVersions: snapshotVersions,
+        currentVersionNumber: null
+      })
     }
 
     const keep = clearDownstreamState("design")
@@ -1315,10 +2255,14 @@ export default function DesignDetailPage() {
       }
       const designs = content.designs ?? []
       setGeneratedDesigns(designs)
+      setViewingVersionId(null)
       setActiveDesignId(designs[0]?.id ?? null)
       // Persist designVersions alongside the regenerated designs so they
       // survive a reload.
-      await persistContent({ designVersions: snapshotVersions })
+      await persistContent({
+        designVersions: snapshotVersions,
+        currentVersionNumber: null
+      })
     } catch (error: any) {
       if ((error as any)?.message === "__paywall__") return
       toast({
@@ -1331,41 +2275,233 @@ export default function DesignDetailPage() {
     }
   }
 
+  /**
+   * Resolve the ASSUMPTION LEDGER. Each answer is either the researcher's own
+   * value or an explicit "keep what you assumed". The confirmed values become
+   * an authoritative directive and the design is regenerated, snapshotting the
+   * assumption-based draft as a version so the change is auditable.
+   */
+  const handleResolveAssumptions = async (
+    answers: { id: string; value: string; acceptedAssumption: boolean }[]
+  ) => {
+    if (!ensureCanEdit()) return
+    if (busy) return
+    const design = generatedDesigns[0]
+    const ledger = design?.assumptions ?? []
+    if (!design || ledger.length === 0) return
+
+    const answeredAt = new Date().toISOString()
+    const byId = new Map(answers.map(a => [a.id, a]))
+    const resolved = ledger.map(a => {
+      const ans = byId.get(a.id)
+      return ans
+        ? {
+            ...a,
+            resolution: {
+              value: ans.value,
+              acceptedAssumption: ans.acceptedAssumption,
+              answeredAt
+            }
+          }
+        : a
+    })
+
+    // Only the values the researcher actually CHANGED need to override the
+    // draft; accepted assumptions are already baked in.
+    const corrections = resolved.filter(
+      a => a.resolution && !a.resolution.acceptedAssumption
+    )
+    if (corrections.length === 0) {
+      // Everything accepted - just record the confirmation, no regeneration.
+      const confirmedDesigns = generatedDesigns.map(d =>
+        d.id === design.id ? { ...d, assumptions: resolved } : d
+      )
+      setGeneratedDesigns(confirmedDesigns)
+      latestContentRef.current = {
+        ...latestContentRef.current,
+        designs: confirmedDesigns
+      }
+      void persistContent({ designs: confirmedDesigns })
+      toast({
+        title: "Assumptions confirmed",
+        description: "The design stands as generated."
+      })
+      return
+    }
+
+    const directive = [
+      "[CONFIRMED PARAMETERS from the researcher - these REPLACE the values you assumed. Recompute every dependent volume, count, dilution and total. Do not keep the superseded numbers anywhere in the protocol.]",
+      ...corrections.map(
+        a =>
+          `- ${a.parameter}: ${a.resolution!.value} (you had assumed ${a.assumedValue})`
+      )
+    ].join("\n")
+
+    const MARK = "\n\n<<CONFIRMED PARAMETERS>>\n"
+    const base = additionalDetails.split(MARK)[0].trimEnd()
+    const nextDetails = `${base}${MARK}${directive}`
+    setAdditionalDetails(nextDetails)
+    const nextProblem = { ...currentProblem(), additionalDetails: nextDetails }
+
+    // Snapshot the assumption-based draft before replacing it.
+    let snapshotVersions = designVersions
+    const nextVersionNumber = liveVersionNumber
+    const snapshot: DesignVersionSnapshot = {
+      id:
+        typeof crypto !== "undefined" && "randomUUID" in crypto
+          ? crypto.randomUUID()
+          : `v-${Date.now()}`,
+      versionNumber: nextVersionNumber,
+      designs: generatedDesigns.map(d =>
+        d.id === design.id ? { ...d, assumptions: resolved } : d
+      ),
+      createdAt: answeredAt,
+      origin: designOrigin
+    }
+    snapshotVersions = [snapshot, ...designVersions]
+    setDesignVersions(snapshotVersions)
+    setCurrentVersionNumber(null)
+
+    setActiveTab("design")
+    setBusy("design")
+    setDesignProgress([])
+    try {
+      const content = await runPhaseBackground(
+        designId,
+        {
+          phase: "design",
+          problem: nextProblem,
+          hypotheses,
+          approvedPhases
+        },
+        ev => setDesignProgress(prev => [...prev, ev])
+      )
+      // Carry the resolutions forward so the panel shows them as settled
+      // rather than re-asking about parameters the researcher just answered.
+      const carried = (content.designs ?? []).map((d, i) =>
+        i === 0
+          ? {
+              ...d,
+              assumptions: [
+                ...resolved,
+                ...(d.assumptions ?? []).filter(
+                  na =>
+                    !resolved.some(
+                      r =>
+                        r.parameter.trim().toLowerCase() ===
+                        na.parameter.trim().toLowerCase()
+                    )
+                )
+              ]
+            }
+          : d
+      )
+      setGeneratedDesigns(carried)
+      setViewingVersionId(null)
+      setActiveDesignId(carried[0]?.id ?? null)
+      latestContentRef.current = {
+        ...content,
+        designs: carried,
+        designVersions: snapshotVersions,
+        currentVersionNumber: null,
+        problem: nextProblem
+      }
+      await persistContent({
+        designs: carried,
+        designVersions: snapshotVersions,
+        currentVersionNumber: null,
+        problem: nextProblem
+      })
+      toast({
+        title: `Design rebuilt on your values`,
+        description: `${corrections.length} assumption${corrections.length === 1 ? "" : "s"} replaced. Prior draft saved to history.`
+      })
+    } catch (e: any) {
+      if (e?.message !== "__paywall__") {
+        toast({
+          title: "Couldn't rebuild the design",
+          description: e?.message ?? "Try again.",
+          variant: "destructive"
+        })
+      }
+    } finally {
+      setBusy(null)
+    }
+  }
+
+  /**
+   * BROWSE a version (item 11). Clicking a version used to snapshot the current
+   * design as a NEW version and delete the clicked one from history, so every
+   * click inflated the numbering (v1/v2 → v3/v4 → …) and you could never get
+   * back to where you started. Versions are now an immutable timeline and this
+   * only moves a read pointer: no writes, no renumbering. `null` = the live
+   * design.
+   */
+  const handleViewDesignVersion = (versionId: string | null) => {
+    if (versionId && !designVersions.some(v => v.id === versionId)) return
+    setViewingVersionId(versionId)
+  }
+
+  /**
+   * Promote the version being viewed to be the live design.
+   *
+   * This is a SWAP, not an append. It used to snapshot the live set under a
+   * brand-new number and then copy the chosen version on top, so restoring v1
+   * produced a v4 that was really v1 - the timeline grew on every look back and
+   * the numbers stopped meaning anything. Now the live set goes into history
+   * under the number it already had, the promoted version comes out of history
+   * keeping ITS number, and the total count is unchanged. Nothing is lost and
+   * nothing is renumbered; the researcher can save and carry on from it.
+   */
   const handleRestoreDesignVersion = async (versionId: string) => {
     if (!ensureCanEdit()) return
     const version = designVersions.find(v => v.id === versionId)
     if (!version) return
 
-    // Snapshot current designs as a new version, then restore the selected one
-    // as the current designs. Drop the restored version from history to avoid
-    // duplicates, keeping it as "current".
-    let nextVersions = designVersions
+    // Take the promoted version OUT of history...
+    let nextVersions = designVersions.filter(v => v.id !== versionId)
+    // ...and put the set we were on IN, under its own existing number.
     if (generatedDesigns.length > 0) {
-      const nextNumber = (designVersions[0]?.versionNumber ?? 0) + 1 || 1
       const snapshot: DesignVersionSnapshot = {
         id:
           typeof crypto !== "undefined" && "randomUUID" in crypto
             ? crypto.randomUUID()
             : `v-${Date.now()}`,
-        versionNumber: nextNumber,
+        versionNumber: liveVersionNumber,
         designs: generatedDesigns,
-        createdAt: new Date().toISOString()
+        createdAt: new Date().toISOString(),
+        origin: designOrigin,
+        // Keep whatever verdict the set we're stepping away from earned, so
+        // stepping back to it later still shows its simulation result.
+        ...(validation.simulation
+          ? {
+              outcome: {
+                verdict: validation.simulation.predictedResults,
+                meetRate: validation.simulation.meetRate,
+                metTarget: validation.simulation.meetsTarget,
+                simulation: validation.simulation
+              }
+            }
+          : {})
       }
-      nextVersions = [snapshot, ...designVersions]
+      nextVersions = [snapshot, ...nextVersions]
     }
-    nextVersions = nextVersions.filter(v => v.id !== versionId)
 
     setGeneratedDesigns(version.designs)
     setActiveDesignId(version.designs[0]?.id ?? null)
     setDesignVersions(nextVersions)
+    setCurrentVersionNumber(version.versionNumber)
+    setDesignOrigin(version.origin ?? "original")
+    setViewingVersionId(null)
     await persistContent({
       designs: version.designs,
-      designVersions: nextVersions
+      designVersions: nextVersions,
+      currentVersionNumber: version.versionNumber
     })
     toast({
-      title: `Restored v${version.versionNumber}`,
+      title: `v${version.versionNumber} is now the current design`,
       description:
-        "Previous design restored. Prior current set saved to history."
+        "It keeps its version number, and the set you were on moved into history. Save when you're ready."
     })
   }
 
@@ -1768,13 +2904,28 @@ export default function DesignDetailPage() {
       {
         key: "design",
         label: "Design",
+        // Counts EVERY design produced, not just the ones in the current
+        // version. Simulation and lab-data iterations snapshot the previous
+        // designs into designVersions and replace the live set, so a researcher
+        // who had iterated twice still saw "2 designs" and no sign that the
+        // earlier work existed.
         sublabel:
-          generatedDesigns.length > 0
-            ? `${generatedDesigns.length} designs`
-            : "No designs",
+          generatedDesigns.length === 0
+            ? "No designs"
+            : designVersions.length > 0
+              ? `${
+                  generatedDesigns.length +
+                  designVersions.reduce(
+                    (n, v) => n + (v.designs?.length ?? 0),
+                    0
+                  )
+                } designs · ${designVersions.length + 1} versions`
+              : `${generatedDesigns.length} designs`,
         accent: "sage-brand",
         icon: <IconClipboardText size={18} />
       }
+      // Validate + Iterate are not stages anymore - they run in a modal opened
+      // from the Design step, so the phase rail ends at Design.
     ]
 
     return phaseTabConfig.map(t => ({
@@ -1789,6 +2940,7 @@ export default function DesignDetailPage() {
     papers,
     hypotheses,
     generatedDesigns,
+    designVersions,
     problemValid,
     title
   ])
@@ -1957,6 +3109,13 @@ export default function DesignDetailPage() {
   const activeDesign =
     generatedDesigns.find(d => d.id === activeDesignId) ?? generatedDesigns[0]
 
+  // The historical version being read, if any. Resolved (not just the id) so a
+  // version deleted/restored out from under the pointer falls back to the live
+  // design instead of rendering an empty tab.
+  const viewedVersion = viewingVersionId
+    ? (designVersions.find(v => v.id === viewingVersionId) ?? null)
+    : null
+
   // Auto-fire picker-routed actions once the design is loaded. Strips the
   // `auto` query param so a back/forward doesn't re-trigger the action.
   // "literature" fires without a pre-existing design (#8); other actions
@@ -1965,7 +3124,10 @@ export default function DesignDetailPage() {
     if (autoFiredRef.current) return
     if (loading) return
     if (!autoAction) return
-    if (autoAction !== "literature" && !activeDesign) return
+    // "literature" and "full" start from the Problem (no design yet); the
+    // review actions need an existing design.
+    if (autoAction !== "literature" && autoAction !== "full" && !activeDesign)
+      return
     autoFiredRef.current = true
     // Make sure the user sees the design tab where the action lands.
     if (activeTab !== "design") setActiveTab("design")
@@ -1978,10 +3140,17 @@ export default function DesignDetailPage() {
     } else if (autoAction === "make-plan") {
       void handleMakePlan()
     } else if (autoAction === "literature") {
-      // from-scratch dialog already captured problem+objective - auto-open
-      // the Refine step so the user skips re-entering on the Problem tab (#8)
+      // from-scratch dialog already captured problem+objective - run the
+      // literature search straight away (#8)
       if (problemValid && papers.length === 0 && !busy) {
-        setRefineCheckpoint("problem")
+        void runLiteratureGeneration()
+      }
+    } else if (autoAction === "full") {
+      // Auto mode: run the WHOLE pipeline hands-free from the Problem.
+      if (problemValid && generatedDesigns.length === 0 && !busy) {
+        // Collect the study details first (#5) - the whole point of auto mode
+        // is that it won't stop later, so this is the one chance to steer it.
+        setStudyDetailsFor("auto")
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -2031,7 +3200,9 @@ export default function DesignDetailPage() {
     papers,
     generatedDesigns,
     activeDesign,
-    presets: chatPresets
+    presets: chatPresets,
+    validation,
+    designVersions
   })
   // When the user asks for a change ("change the buffer to 20 mM",
   // "swap the readout method") we want the assistant to PROPOSE an edit
@@ -2060,10 +3231,41 @@ Or replace the section body entirely:
 </design-patch>
 
 Rules:
+- NEVER claim an edit has been made. You cannot change the design yourself -
+  the ONLY thing that changes it is the researcher clicking Approve on the
+  patch card. So do not write "I've updated…", "the design now says…",
+  "applied", "done" or anything in the past tense about the document. Describe
+  the change you are PROPOSING, emit the block, and say it takes effect once
+  they approve it. Saying you applied something you didn't is the single worst
+  failure here: the researcher walks away believing their protocol changed when
+  it did not.
+- If you are answering a question, explaining, or declining, that is fine - but
+  then do not imply the document changed either.
+- A response that describes an edit MUST contain a \`<design-patch>\` block for
+  every section it changes. Never describe an edit you did not emit a block for.
 - \`sectionHeading\` MUST match exactly one of the section headings shown above.
 - Either \`find\`+\`replace\` OR \`newBody\` - not both.
-- Emit at most one \`<design-patch>\` per response. If multiple edits are
-  needed, ask the user to confirm the first before proposing the next.
+- MULTI-SECTION EDITS: when a request touches several sections, handle the WHOLE
+  request in ONE response. Do not do one section and stop - being asked to
+  "carry on" after every single section is the most tedious possible way to
+  make a change, and the researcher has said so.
+  1. Open with a short numbered PLAN naming each section you are about to
+     change and, in a few words, what changes in it. This is the list they
+     approve against, so it must be complete and match the blocks that follow.
+  2. Then emit the blocks in that same order, ONE PER SECTION, each preceded by
+     a one-line heading like \`**1. Conditions Table** - drop to 6 arms\` so
+     each approve card is identifiable.
+  3. Close by saying they can approve them individually, in any order, and that
+     nothing changes until they do.
+  Keep it to at most 6 sections per response; if the request genuinely touches
+  more, do the 6 most important, then say plainly which remain and offer to
+  continue.
+- Keep every patch INDEPENDENT: each must stand on its own against the CURRENT
+  section text, because the researcher may approve some and reject others. A
+  patch whose \`find\` only matches after a different patch is approved will
+  silently fail - so never chain them.
+- Do not emit two blocks for the same \`sectionHeading\` in one response. Merge
+  them into a single block for that section.
 - IMPORTANT - researcher presets: if an edit would CHANGE or VIOLATE a preset
   listed under "Researcher presets & constraints" (e.g. they capped the design
   at 8 conditions and now ask to add a 9th), do NOT emit the \`<design-patch>\`
@@ -2215,14 +3417,89 @@ Rules:
   // A completed (Design-approved) design is locked - edits require duplicating.
   const designLocked = approvedPhases.includes("design")
 
-  // Full-screen "Refine" clarifying-question step. Replaces the page while
-  // active; on complete/cancel it runs the gated phase (or backs out).
+  // Full-screen decision step after Design → Next. Two clearly-explained
+  // paths: finalise the design now, or simulate it before spending bench time.
+  if (showDesignGate) {
+    return (
+      <div className="bg-ink-50 h-full overflow-auto">
+        <div className="mx-auto max-w-[760px] px-6 py-12">
+          <div className="text-teal-journey flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.13em]">
+            <IconFlask size={13} /> Design ready
+          </div>
+          <h1 className="text-ink-900 mt-1 text-2xl font-extrabold tracking-tight">
+            What next?
+          </h1>
+          <p className="text-ink-500 mt-1 text-sm">
+            Your design is written. You can take it to the bench as it stands,
+            or have it stress-tested on the computer first.
+          </p>
+
+          <div className="mt-6 space-y-3">
+            <div className="border-ink-200 rounded-2xl border bg-white p-5">
+              <h2 className="text-ink-900 text-[15px] font-semibold">
+                Use this design
+              </h2>
+              <p className="text-ink-500 mt-1 text-[13px] leading-relaxed">
+                Finalise it as-is and go straight to downloads — protocol, SOP,
+                material list, bench guide. Pick this when you&apos;re confident
+                in the plan and ready to run it.
+              </p>
+              <Button
+                onClick={() => void handleFinalizeDesign()}
+                className="bg-brick hover:bg-brick-hover mt-3 gap-2"
+              >
+                <IconCheck size={16} /> Approve &amp; finalise design
+              </Button>
+            </div>
+
+            <div className="border-ink-200 rounded-2xl border bg-white p-5">
+              <h2 className="text-ink-900 text-[15px] font-semibold">
+                Simulate the results first
+              </h2>
+              <p className="text-ink-500 mt-1 text-[13px] leading-relaxed">
+                We run your design on the computer many times over to estimate
+                what it would produce and how reliably it would hit your target
+                — then flag the problems to fix and the changes most likely to
+                get you there. Pick this to tighten the design before using up
+                material and bench time.
+              </p>
+              <Button
+                variant="outline"
+                onClick={handleGoSimulate}
+                className="mt-3 gap-2"
+              >
+                <IconSparkles size={16} /> Simulate before the bench
+              </Button>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onClick={() => setShowDesignGate(false)}
+            className="text-ink-400 hover:text-ink-700 mt-6 text-[13px]"
+          >
+            Back to the design
+          </button>
+        </div>
+      </div>
+    )
+  }
+
+  // Full-screen "Refine" clarifying-question step (hypothesis + design only).
+  // Replaces the page while active; on complete/cancel it runs the gated phase
+  // (or backs out).
   if (refineCheckpoint) {
     return (
       <div className="bg-ink-50 h-full">
+        {/* ClarifyStep owns the FULL height itself (own header + scrolling
+            question list + footer). Wrapping it in an extra header row made it
+            overflow by that row's height, pushing its footer - and the Continue
+            button - below the viewport with no way to scroll to it. The working
+            title (item 10) is passed in and rendered inside its own header. */}
         <ClarifyStep
           designId={designId}
           checkpoint={refineCheckpoint}
+          designTitle={title || design?.name || undefined}
           onComplete={handleClarifyComplete}
           onCancel={handleClarifyCancel}
         />
@@ -2244,9 +3521,12 @@ Rules:
             className="border-ink-200 absolute left-0 top-0 z-40 flex h-full flex-col border-r bg-white shadow-2xl"
             style={{ width: railWidth }}
           >
+            {/* Starts BELOW the header: at full height it sat on top of the
+                close button (z-20, translated half outside), so the two
+                controls overlapped and the X was hard to hit. */}
             <div
               onMouseDown={startRailResize}
-              className="hover:bg-brick/40 absolute right-0 top-0 z-20 h-full w-1.5 translate-x-1/2 cursor-col-resize"
+              className="hover:bg-brick/40 absolute right-0 top-[60px] z-20 h-[calc(100%-60px)] w-1.5 translate-x-1/2 cursor-col-resize"
               title="Drag to resize the chat"
             />
             <div className="min-h-0 min-w-0 flex-1">
@@ -2254,6 +3534,17 @@ Rules:
                 scope="design"
                 scopeId={designId}
                 scopeName={title || design?.name || "Design"}
+                scopeMeta={
+                  generatedDesigns.length > 0
+                    ? `Editing v${liveVersionNumber}${
+                        isPhaseApproved("design") ? " · saved" : ""
+                      }${
+                        designVersions.length > 0
+                          ? ` · ${designVersions.length} earlier version${designVersions.length === 1 ? "" : "s"}`
+                          : ""
+                      }`
+                    : undefined
+                }
                 autoStart
                 contextPrompt={chatContextPrompt}
                 headerSlot={
@@ -2328,6 +3619,25 @@ Rules:
                       Running {busy}...
                     </span>
                   )}
+                  {/* How this design was built. Auto mode picked its own
+                      papers, hypothesis and iterations, so which path produced
+                      a design is worth knowing before reading it - and the two
+                      were indistinguishable once open. */}
+                  <span
+                    className={cn(
+                      "rounded border px-2 py-0.5 normal-case tracking-normal",
+                      autoGenerated
+                        ? "border-brick/30 bg-brick/10 text-brick"
+                        : "border-ink-300 bg-ink-50 text-ink-600"
+                    )}
+                    title={
+                      autoGenerated
+                        ? "Built end-to-end by the automatic pipeline: it selected the papers, chose the hypothesis, and iterated on the design itself."
+                        : "You drove each stage: you chose the papers and the hypothesis."
+                    }
+                  >
+                    {autoGenerated ? "Auto mode" : "Built by you"}
+                  </span>
                 </div>
                 <h1 className="text-ink-900 text-xl font-bold">
                   {title || design.name || "Untitled Design"}
@@ -2398,27 +3708,31 @@ Rules:
                 size="sm"
                 onClick={() => setShowLibrary(s => !s)}
                 className="gap-1.5"
-                title="Open Library - generate reports, protocols, and documents"
+                title="Open Export - generate reports, protocols, and documents from any design iteration"
               >
-                <IconBooks size={14} /> Library
+                <IconBooks size={14} /> Export
               </Button>
             </div>
           </div>
         </div>
 
-        {/* Stage stepper — 4-stage rail (overview removed) */}
+        {/* Stage stepper — 5-stage rail (problem → … → validate) */}
         {(() => {
           const tabToStage: Record<string, DesignStageId> = {
             problem: "problem",
             literature: "lit",
             hypotheses: "hyp",
-            design: "design"
+            design: "design",
+            validate: "validate",
+            iterate: "iterate"
           }
           const stageToTab: Record<DesignStageId, string> = {
             problem: "problem",
             lit: "literature",
             hyp: "hypotheses",
-            design: "design"
+            design: "design",
+            validate: "validate",
+            iterate: "iterate"
           }
           const completedStages: DesignStageId[] = approvedPhases
             .filter(p => p !== "simulation")
@@ -2440,7 +3754,16 @@ Rules:
             design:
               generatedDesigns.length > 0
                 ? `${generatedDesigns.length} design${generatedDesigns.length === 1 ? "" : "s"}`
-                : "no designs"
+                : "no designs",
+            validate: validation.simulation
+              ? validation.simulation.meetsTarget
+                ? "predicted to hit"
+                : "predicted short"
+              : "not simulated",
+            iterate:
+              validation.iterations.length > 0
+                ? `${validation.iterations.length} round${validation.iterations.length === 1 ? "" : "s"}`
+                : "no lab data yet"
           }
           const currentStage = tabToStage[activeTab] || "problem"
           return (
@@ -2499,9 +3822,12 @@ Rules:
                 setVariablesUnknown={setVariablesUnknown}
                 successCriteria={successCriteria}
                 setSuccessCriteria={setSuccessCriteria}
+                additionalDetails={additionalDetails}
+                setAdditionalDetails={setAdditionalDetails}
                 includeReplicates={includeReplicates}
                 setIncludeReplicates={setIncludeReplicates}
                 onApproveAndGenerate={handleApproveAndGenerateLiterature}
+                onAutoGenerate={handleAutoGenerateDesign}
                 canSubmit={problemValid}
                 isApproved={isPhaseApproved("problem")}
                 canEdit={canEdit}
@@ -2512,10 +3838,7 @@ Rules:
 
             {activeTab === "literature" && (
               <>
-                <ClarifyAnswersBanner
-                  answers={clarifications.problem ?? []}
-                  onEdit={() => setRefineCheckpoint("problem")}
-                />
+                <ClarifyAnswersBanner answers={clarifications.problem ?? []} />
                 <LiteratureTab
                   papers={papers}
                   onTogglePaper={handleTogglePaper}
@@ -2529,6 +3852,7 @@ Rules:
                   isSearching={busy === "literature"}
                   progress={literatureProgress}
                   totalCandidates={literatureTotalCandidates}
+                  rawCandidates={literatureRawCandidates}
                   onRevise={() => handleRevisePhase("literature")}
                   onSavePaper={handleSavePaper}
                   savedPaperIds={savedPaperIds}
@@ -2543,7 +3867,11 @@ Rules:
                   onEdit={() => setRefineCheckpoint("hypothesis")}
                 />
                 <HypothesesTab
-                  hypotheses={hypotheses}
+                  hypotheses={
+                    autoGenerated && hypotheses.some(h => h.selected)
+                      ? hypotheses.filter(h => h.selected)
+                      : hypotheses
+                  }
                   papers={papers}
                   onToggle={handleToggleHypothesis}
                   onEdit={handleEditHypothesis}
@@ -2557,6 +3885,12 @@ Rules:
                   progress={hypothesesProgress}
                   onRevise={() => handleRevisePhase("hypotheses")}
                   genError={hypothesesError}
+                  subTab={hypTab}
+                  onSubTab={handleHypTab}
+                  autoMode={autoGenerated}
+                  onGenerateSuggested={handleGenerateSuggestedHypotheses}
+                  onBuildOwn={() => setStudyDetailsFor("own-questions")}
+                  onUseOwnText={handleUseOwnHypothesis}
                 />
               </>
             )}
@@ -2572,13 +3906,27 @@ Rules:
                   onEdit={() => setRefineCheckpoint("design")}
                 />
                 <DesignTab
-                  designs={generatedDesigns}
+                  designs={
+                    viewedVersion ? viewedVersion.designs : generatedDesigns
+                  }
                   hypotheses={hypotheses}
-                  activeId={activeDesignId}
+                  activeId={
+                    viewedVersion
+                      ? (viewedVersion.designs[0]?.id ?? null)
+                      : activeDesignId
+                  }
                   onSelect={setActiveDesignId}
-                  activeDesign={activeDesign}
-                  onSave={handleSaveDesign}
+                  activeDesign={
+                    viewedVersion ? viewedVersion.designs[0] : activeDesign
+                  }
                   onApproveAndContinue={handleApproveDesignAndContinue}
+                  onSaveNow={() => void handleFinalizeDesign()}
+                  onValidateIterate={() => {
+                    setValidateMode(
+                      validation.iterations.length > 0 ? "iterate" : "simulate"
+                    )
+                    setValidateModalOpen(true)
+                  }}
                   onRegenerate={handleRegenerateDesign}
                   isApproved={isPhaseApproved("design")}
                   canEdit={canEdit}
@@ -2587,7 +3935,18 @@ Rules:
                   progress={designProgress}
                   onRevise={() => handleRevisePhase("design")}
                   designVersions={designVersions}
+                  liveVersionNumber={liveVersionNumber}
+                  regenPlan={regenPlan}
+                  currentOrigin={designOrigin}
                   onRestoreVersion={handleRestoreDesignVersion}
+                  viewingVersionId={viewingVersionId}
+                  onViewVersion={handleViewDesignVersion}
+                  /* Retired: the study-details step now asks BEFORE the design
+                     is built, so re-confirming afterwards would ask twice and
+                     pay for a second generation. handleResolveAssumptions and
+                     the ledger stay in place - the generator still records what
+                     it decided, we just don't gate on it. */
+                  onResolveAssumptions={undefined}
                   onEditSection={handleEditSection}
                 />
               </>
@@ -2596,15 +3955,118 @@ Rules:
         </div>
       </div>
 
+      <StudyDetailsModal
+        open={studyDetailsFor !== null}
+        onOpenChange={o => {
+          if (!o) setStudyDetailsFor(null)
+        }}
+        initial={{
+          successCriteria,
+          includeReplicates,
+          replicateCount,
+          constraintMaterial,
+          constraintTime,
+          constraintEquipment,
+          variablesKnown,
+          variablesUnknown,
+          additionalDetails
+        }}
+        nextStepLabel={
+          studyDetailsFor === "auto"
+            ? "Start the full run"
+            : studyDetailsFor === "own-text"
+              ? "Use my hypothesis"
+              : studyDetailsFor === "own-questions"
+                ? "Continue to the questions"
+                : "Generate hypotheses"
+        }
+        onSubmit={d => void handleStudyDetails(d)}
+      />
+
+      {/* Validate & iterate modal - one entry point, two paths inside
+          (simulate the results, or bring your own lab data), replacing the old
+          Validate and Iterate tabs. Applying changes regenerates the design and
+          closes the modal, so the researcher lands on the updated design with
+          the iteration recorded in the version rail. */}
+      <Dialog
+        open={validateModalOpen}
+        onOpenChange={o => {
+          // Don't allow closing mid-regeneration - the apply path is writing.
+          if (!o && busy === "design") return
+          setValidateModalOpen(o)
+        }}
+      >
+        <DialogContent className="flex h-[90vh] max-w-[min(1100px,96vw)] flex-col gap-0 overflow-hidden p-0 sm:max-w-[min(1100px,96vw)]">
+          <div className="border-ink-200 flex shrink-0 flex-wrap items-center justify-between gap-3 border-b bg-white px-5 py-3.5">
+            <div className="min-w-0">
+              <h2 className="text-ink-900 text-[15px] font-bold">
+                Validate &amp; iterate
+              </h2>
+              <p className="text-ink-500 text-[12px]">
+                Stress-test this design before or after the bench - the applied
+                changes become a new design version.
+              </p>
+            </div>
+            <div className="border-line inline-flex shrink-0 rounded-lg border p-0.5 text-[12px] font-semibold">
+              {(["simulate", "iterate"] as const).map(m => (
+                <button
+                  key={m}
+                  type="button"
+                  onClick={() => setValidateMode(m)}
+                  className={cn(
+                    "rounded-md px-3 py-1.5 transition-colors",
+                    validateMode === m
+                      ? "bg-teal-journey text-white"
+                      : "text-ink-500 hover:text-ink-800"
+                  )}
+                >
+                  {m === "simulate"
+                    ? "Simulate the results"
+                    : "Use your own lab data"}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="min-h-0 flex-1 overflow-auto p-5">
+            <ValidateTab
+              mode={validateMode}
+              validation={validation}
+              hasDesign={generatedDesigns.length > 0}
+              canEdit={canEdit}
+              isValidating={validating}
+              onValidate={handleRunValidation}
+              onApplyChanges={handleApplyIterationChanges}
+              onSimulate={handleSimulate}
+              onContinueToDesign={handleContinueToDesign}
+              nextVersionNumber={nextNewVersionNumber}
+              isSimulating={simulating}
+              outcomePrefill={successCriteria || objective || ""}
+              isGenerating={busy === "design"}
+              designId={designId}
+              userId={profile?.user_id ?? null}
+              selectedWorkspace={selectedWorkspace}
+              designVersions={designVersions}
+              onOpenVersion={id => {
+                setValidateModalOpen(false)
+                handleViewDesignVersion(id)
+              }}
+            />
+          </div>
+        </DialogContent>
+      </Dialog>
+
       {/* RIGHT: Library — overlays the page (does NOT shrink it). A click-
           catching backdrop dims the content; the panel slides in on the right. */}
       {showLibrary && (
         <>
           <div
-            className="absolute inset-0 z-30 bg-black/20"
+            className="animate-in fade-in absolute inset-0 z-30 bg-black/20 duration-200"
             onClick={() => setShowLibrary(false)}
           />
-          <div className="absolute right-0 top-0 z-40 h-full shadow-2xl">
+          {/* Slides in rather than popping: approving the design opens this
+              panel on its own, and an instant full-height column appearing next
+              to the design read as a glitch. */}
+          <div className="animate-in slide-in-from-right absolute right-0 top-0 z-40 h-full shadow-2xl duration-300 ease-out">
             <DesignLibrarySidebar
               ctx={{
                 designId,
@@ -2617,11 +4079,26 @@ Rules:
                 chatSettings
               }}
               design={design}
-              getExportable={() => ({
+              iterations={[
+                {
+                  id: "current",
+                  label: `Latest (v${liveVersionNumber})`,
+                  designs: generatedDesigns
+                },
+                ...designVersions.map(v => ({
+                  id: v.id,
+                  label: `Iteration v${v.versionNumber}`,
+                  designs: v.designs
+                }))
+              ]}
+              getExportable={(designsOverride?: GeneratedDesign[]) => ({
                 id: designId,
                 name: title || design?.name,
                 description: design?.description,
-                content: latestContentRef.current
+                content:
+                  designsOverride && latestContentRef.current
+                    ? { ...latestContentRef.current, designs: designsOverride }
+                    : latestContentRef.current
               })}
               onClose={() => setShowLibrary(false)}
             />
@@ -2750,9 +4227,12 @@ function ProblemTab(props: {
   setVariablesUnknown: (v: string) => void
   successCriteria: string
   setSuccessCriteria: (v: string) => void
+  additionalDetails: string
+  setAdditionalDetails: (v: string) => void
   includeReplicates: "" | "yes" | "no"
   setIncludeReplicates: (v: "" | "yes" | "no") => void
   onApproveAndGenerate: () => void
+  onAutoGenerate: () => void
   canSubmit: boolean
   isApproved: boolean
   canEdit: boolean
@@ -2782,9 +4262,12 @@ function ProblemTab(props: {
     setVariablesUnknown,
     successCriteria,
     setSuccessCriteria,
+    additionalDetails,
+    setAdditionalDetails,
     includeReplicates,
     setIncludeReplicates,
     onApproveAndGenerate,
+    onAutoGenerate,
     canSubmit,
     isApproved,
     canEdit,
@@ -2908,6 +4391,31 @@ function ProblemTab(props: {
             />
           </div>
 
+          {/* Additional details — free-text operating parameters. Read by the
+              literature (steering), hypotheses, and design prompts. Restored as
+              a visible field when the Refine question flow was removed; that
+              flow had been its only writer. Optional: keeping it non-blocking
+              avoids stranding designs that predate it. */}
+          <div className="space-y-1.5">
+            <Label>Additional details</Label>
+            <p className="text-ink-500 text-[12px] leading-relaxed">
+              The more concrete you are here, the more exact the calculations
+              and prep steps come out. Useful things to include: what you have
+              and at what <b>stock concentration</b>; buffer/diluent and pH;
+              available excipients or reagents; plate/tube format and working
+              volumes; instruments and their settings; incubation time and
+              temperature; controls you always run; replicate count; anything
+              that must not change.
+            </p>
+            <Textarea
+              value={additionalDetails}
+              onChange={e => setAdditionalDetails(e.target.value)}
+              placeholder="e.g. mAb at 150 mg/mL in 20 mM histidine pH 5.5, ~40 mg left; sucrose, trehalose, arginine-HCl and PS80 in stock; 96-well plate, 200 µL working volume; plate reader at 600 nm; 25 °C and 40 °C arms, 2 weeks; always run a buffer-only blank; n = 3."
+              rows={4}
+              disabled={isApproved || !canEdit}
+            />
+          </div>
+
           {/* Include replicates - issue #28. Yes/No dropdown so the design
               agent knows whether to bake replicates into its sample-budget
               math by default. Optional; the agent has a sensible default
@@ -3012,6 +4520,28 @@ function ProblemTab(props: {
           isBusy={isBusy}
           isApproved={isApproved}
         />
+        {!isApproved && (
+          <div className="border-ink-100 mt-3 flex flex-col gap-2 border-t pt-3 sm:flex-row sm:items-center sm:justify-between">
+            <p className="text-ink-500 text-[12.5px]">
+              In a hurry?{" "}
+              <span className="text-ink-700 font-medium">
+                Auto-generate the whole workflow
+              </span>{" "}
+              — literature, hypothesis, design, then simulate and iterate the
+              design until it meets your success criteria. Refine it by chatting
+              after.
+            </p>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={onAutoGenerate}
+              disabled={!canSubmit || !canEdit || isBusy}
+              className="gap-1.5"
+            >
+              <IconSparkles size={15} /> Auto-generate design
+            </Button>
+          </div>
+        )}
       </div>
     </div>
   )
@@ -3234,6 +4764,1399 @@ function progressToEvents(
   })
 }
 
+// ── Validate-and-iterate stage ────────────────────────────────────────────
+/** Compact number formatter shared by the simulation readouts. */
+function fmtSimNum(x?: number): string {
+  if (typeof x !== "number" || !Number.isFinite(x)) return "—"
+  const a = Math.abs(x)
+  if (a !== 0 && (a < 0.01 || a >= 100000)) return x.toExponential(2)
+  return String(Math.round(x * 1000) / 1000)
+}
+
+/**
+ * A past version's simulation result: the one-line verdict always visible, the
+ * full working folded behind an expander.
+ *
+ * The elaborate view - distribution, run count, guardrails, gotchas, gap
+ * analysis, the changes it proposed - used to exist only for whichever
+ * simulation was most recent. Once a version was superseded all that survived
+ * was a sentence, so a researcher reading v1 could see the conclusion and never
+ * what produced it. Both are kept now, and both are shown here, so every
+ * version reads the same way whether it came from auto mode or a manual round.
+ */
+function SimulationOutcome(props: {
+  outcome: NonNullable<DesignVersionSnapshot["outcome"]>
+  /** Heading for the block, e.g. "v2 · Simulated version". */
+  title?: string
+  defaultOpen?: boolean
+}) {
+  const { outcome, title, defaultOpen = false } = props
+  const sim = outcome.simulation
+  const [open, setOpen] = useState(defaultOpen)
+
+  return (
+    <div className="border-teal-journey/30 bg-teal-journey/5 space-y-2 rounded-xl border p-4">
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="text-ink-800 text-[12.5px] font-semibold">
+          {title ?? "What this version showed"}
+        </span>
+        {typeof outcome.meetRate === "number" && (
+          <span
+            className={cn(
+              "rounded-full px-2 py-0.5 text-[11px] font-semibold",
+              outcome.metTarget
+                ? "bg-emerald-50 text-emerald-700"
+                : "bg-amber-50 text-amber-700"
+            )}
+          >
+            hit the target in {Math.round(outcome.meetRate * 100)}% of runs
+          </span>
+        )}
+        {sim && (
+          <button
+            type="button"
+            onClick={() => setOpen(o => !o)}
+            className="text-teal-journey ml-auto text-[11.5px] font-medium hover:underline"
+          >
+            {open ? "Hide full simulation" : "Show full simulation"}
+          </button>
+        )}
+      </div>
+
+      {outcome.verdict && (
+        <p className="text-ink-600 text-[12.5px] leading-relaxed">
+          {outcome.verdict}
+        </p>
+      )}
+      {(outcome.insights?.length ?? 0) > 0 && (
+        <ul className="text-ink-600 list-disc space-y-0.5 pl-4 text-[12px]">
+          {outcome.insights!.map(ins => (
+            <li key={ins}>{ins}</li>
+          ))}
+        </ul>
+      )}
+
+      {sim && open && (
+        <div className="border-teal-journey/20 mt-1 space-y-3 border-t pt-3">
+          {sim.executed && (
+            <div className="border-ink-200 rounded-lg border bg-white/70 p-3 text-[12px]">
+              {sim.distribution && (
+                <div className="text-ink-600">
+                  Typical result:{" "}
+                  <span className="text-ink-900 font-semibold">
+                    {fmtSimNum(sim.distribution.mean)}
+                    {sim.distribution.unit ? ` ${sim.distribution.unit}` : ""}
+                  </span>
+                  <span className="text-ink-500">
+                    {" "}
+                    (± {fmtSimNum(sim.distribution.sd)} run to run)
+                  </span>
+                </div>
+              )}
+              <div className="text-ink-500 mt-1.5 leading-relaxed">
+                Ran{" "}
+                <span className="text-ink-800 font-semibold tabular-nums">
+                  {(sim.nTrials ?? 0).toLocaleString()}
+                </span>{" "}
+                simulated experiments
+                {sim.distribution && (
+                  <>
+                    , spanning{" "}
+                    <span className="text-ink-800 font-semibold tabular-nums">
+                      {fmtSimNum(sim.distribution.p10)}
+                    </span>{" "}
+                    to{" "}
+                    <span className="text-ink-800 font-semibold tabular-nums">
+                      {fmtSimNum(sim.distribution.p90)}
+                    </span>{" "}
+                    {sim.distribution.unit ?? ""} in most runs
+                  </>
+                )}
+                .
+              </div>
+            </div>
+          )}
+
+          {(sim.secondaryCriteria?.length ?? 0) > 0 && (
+            <div>
+              <div className="text-ink-400 mb-1 text-[10.5px] font-bold uppercase tracking-wider">
+                Also checked (guardrails)
+              </div>
+              <ul className="space-y-1">
+                {sim.secondaryCriteria!.map(c => {
+                  const pct =
+                    typeof c.passRate === "number"
+                      ? Math.round(c.passRate * 100)
+                      : null
+                  return (
+                    <li
+                      key={c.metric}
+                      className="flex items-baseline justify-between gap-3 text-[12px]"
+                    >
+                      <span className="text-ink-600 min-w-0">
+                        {c.metric}{" "}
+                        <span className="text-ink-400">
+                          ({c.direction} {fmtSimNum(c.threshold)}
+                          {c.unit ? ` ${c.unit}` : ""})
+                        </span>
+                      </span>
+                      <span
+                        className={cn(
+                          "shrink-0 font-semibold tabular-nums",
+                          pct === null
+                            ? "text-ink-400"
+                            : pct >= 80
+                              ? "text-sage-brand"
+                              : "text-amber-700"
+                        )}
+                      >
+                        {pct === null ? "not scored" : `${pct}% of runs`}
+                      </span>
+                    </li>
+                  )
+                })}
+              </ul>
+            </div>
+          )}
+
+          {(sim.gotchas?.length ?? 0) > 0 && (
+            <div>
+              <div className="text-ink-400 mb-1 text-[10.5px] font-bold uppercase tracking-wider">
+                Gotchas flagged
+              </div>
+              <div className="space-y-1.5">
+                {sim.gotchas!.map((g, i) => (
+                  <div
+                    key={i}
+                    className="border-ink-100 flex items-start gap-2 rounded-lg border bg-white/70 p-2"
+                  >
+                    <span
+                      className={cn(
+                        "mt-0.5 inline-flex shrink-0 items-center rounded px-1.5 py-0.5 text-[9.5px] font-bold uppercase",
+                        g.severity === "high"
+                          ? "bg-brick/10 text-brick"
+                          : g.severity === "medium"
+                            ? "bg-amber-100 text-amber-700"
+                            : "bg-ink-100 text-ink-500"
+                      )}
+                    >
+                      {g.severity}
+                    </span>
+                    <div className="text-[12px] leading-snug">
+                      <span className="text-ink-800">{g.issue}</span>{" "}
+                      <span className="text-ink-500">— {g.fix}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {sim.gapAnalysis && (
+            <div>
+              <div className="text-ink-400 mb-0.5 text-[10.5px] font-bold uppercase tracking-wider">
+                Gap to target
+              </div>
+              <p className="text-ink-700 text-[12.5px] leading-relaxed">
+                {sim.gapAnalysis}
+              </p>
+            </div>
+          )}
+
+          {(sim.optimizedChanges?.length ?? 0) > 0 && (
+            <div>
+              <div className="text-ink-400 mb-1 text-[10.5px] font-bold uppercase tracking-wider">
+                Changes it proposed
+              </div>
+              <ul className="text-ink-600 list-disc space-y-0.5 pl-4 text-[12px]">
+                {sim.optimizedChanges.map(c => (
+                  <li key={c}>{c}</li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </div>
+      )}
+
+      {(outcome.appliedChanges?.length ?? 0) > 0 && (
+        <div className="border-teal-journey/20 border-t pt-2">
+          <div className="text-ink-400 mb-1 text-[10.5px] font-bold uppercase tracking-wider">
+            Carried forward
+          </div>
+          <ul className="text-ink-700 list-disc space-y-0.5 pl-4 text-[12px]">
+            {outcome.appliedChanges!.map(c => (
+              <li key={c}>{c}</li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function verdictLabel(v: ValidationVerdict | undefined): string {
+  switch (v) {
+    case "supported":
+      return "Supported"
+    case "partially_supported":
+      return "Partially supported"
+    case "refuted":
+      return "Refuted"
+    case "inconclusive":
+      return "Inconclusive"
+    default:
+      return "—"
+  }
+}
+
+function verdictTone(v: ValidationVerdict | undefined): {
+  bg: string
+  text: string
+  dot: string
+} {
+  switch (v) {
+    case "supported":
+      return {
+        bg: "bg-emerald-50",
+        text: "text-emerald-700",
+        dot: "bg-emerald-500"
+      }
+    case "partially_supported":
+      return { bg: "bg-amber-50", text: "text-amber-700", dot: "bg-amber-500" }
+    case "refuted":
+      return { bg: "bg-rust-soft", text: "text-rust", dot: "bg-rust" }
+    default:
+      return { bg: "bg-ink-50", text: "text-ink-600", dot: "bg-ink-300" }
+  }
+}
+
+type ValidateFile = { id?: string; name: string; size?: number; type?: string }
+
+/**
+ * Chart the parsed lab table. The first column is treated as the category
+ * axis (condition / arm / timepoint) and every column that parses as numeric
+ * across most rows becomes a series. Bars for a handful of discrete
+ * conditions, lines once it looks like a series (many points / a numeric
+ * x-axis) — which is the shape most bench readouts arrive in.
+ * Renders nothing when the table has no numeric column, rather than an
+ * empty axis.
+ */
+function ParsedDataChart({ parsed }: { parsed: ParsedLabData }) {
+  const chart = useMemo(() => {
+    if (!parsed?.rows?.length || !parsed?.columns?.length) return null
+    const toNum = (v: string) => {
+      // Tolerate "3.1 ± 0.2", "12%", "1,200", "< 0.05"
+      const m = String(v ?? "")
+        .replace(/,/g, "")
+        .match(/-?\d+(\.\d+)?([eE][-+]?\d+)?/)
+      return m ? Number(m[0]) : NaN
+    }
+    const numericCols = parsed.columns
+      .map((c, i) => ({ name: c, i }))
+      .slice(1)
+      .filter(({ i }) => {
+        const vals = parsed.rows.map(r => toNum(r[i]))
+        const good = vals.filter(v => Number.isFinite(v)).length
+        return good >= Math.max(2, Math.ceil(parsed.rows.length * 0.6))
+      })
+    if (numericCols.length === 0) return null
+    const data = parsed.rows.map((r, ri) => {
+      const point: Record<string, string | number> = {
+        __label: String(r[0] ?? `Row ${ri + 1}`)
+      }
+      numericCols.forEach(({ name, i }) => {
+        const v = toNum(r[i])
+        if (Number.isFinite(v)) point[name] = v
+      })
+      return point
+    })
+    const xIsNumeric = parsed.rows.every(r => Number.isFinite(toNum(r[0])))
+    return {
+      data,
+      series: numericCols.map(c => c.name),
+      kind: (xIsNumeric || data.length > 8 ? "line" : "bar") as "line" | "bar"
+    }
+  }, [parsed])
+
+  if (!chart) return null
+  const COLORS = ["#B4462F", "#2F6F6B", "#8A6D3B", "#3D5A80", "#6B4E71"]
+
+  return (
+    <div className="border-ink-200 rounded-lg border p-3">
+      <div className="text-ink-400 mb-2 text-[11px] font-semibold uppercase tracking-wider">
+        Your data, charted
+      </div>
+      <div style={{ width: "100%", height: 260 }}>
+        <ResponsiveContainer>
+          {chart.kind === "bar" ? (
+            <BarChart data={chart.data} margin={{ left: 4, right: 8, top: 8 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#E7E3DC" />
+              <XAxis dataKey="__label" tick={{ fontSize: 11 }} />
+              <YAxis tick={{ fontSize: 11 }} />
+              <RTooltip />
+              <RLegend wrapperStyle={{ fontSize: 11 }} />
+              {chart.series.map((s, i) => (
+                <Bar key={s} dataKey={s} fill={COLORS[i % COLORS.length]} />
+              ))}
+            </BarChart>
+          ) : (
+            <LineChart data={chart.data} margin={{ left: 4, right: 8, top: 8 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#E7E3DC" />
+              <XAxis dataKey="__label" tick={{ fontSize: 11 }} />
+              <YAxis tick={{ fontSize: 11 }} />
+              <RTooltip />
+              <RLegend wrapperStyle={{ fontSize: 11 }} />
+              {chart.series.map((s, i) => (
+                <Line
+                  key={s}
+                  type="monotone"
+                  dataKey={s}
+                  stroke={COLORS[i % COLORS.length]}
+                  strokeWidth={2}
+                  dot={{ r: 3 }}
+                />
+              ))}
+            </LineChart>
+          )}
+        </ResponsiveContainer>
+      </div>
+    </div>
+  )
+}
+
+/**
+ * Drives BOTH the Validate and Iterate tabs off one component:
+ *  - mode="simulate" → pre-lab simulation only. No lab-data entry at all.
+ *  - mode="iterate"  → real lab data: upload → parse → verdict → charts →
+ *                      suggested changes.
+ * They share the verdict/insight vocabulary and the apply-changes plumbing,
+ * so one component with a mode switch beats two near-duplicates.
+ */
+function ValidateTab(props: {
+  mode: "simulate" | "iterate"
+  validation: ValidationState
+  hasDesign: boolean
+  canEdit: boolean
+  isValidating: boolean
+  onValidate: (
+    raw: string,
+    files: ValidateFile[],
+    structured: ParsedLabData | null
+  ) => void
+  onApplyChanges: (
+    changes: string[],
+    revisedHypothesis?: string,
+    origin?: "simulation" | "lab-data"
+  ) => void
+  onSimulate: (desiredOutcome: string) => void
+  /** Leave the loop and go finalise/download the current design. */
+  onContinueToDesign: () => void
+  /** Version number an "apply changes" would create — shown on the button. */
+  nextVersionNumber: number
+  isSimulating: boolean
+  outcomePrefill: string
+  isGenerating: boolean
+  designId: string
+  userId: string | null
+  selectedWorkspace: any
+  /** Every earlier version, so this modal can show the whole round history
+   *  rather than only the most recent verdict. */
+  designVersions?: DesignVersionSnapshot[]
+  /** Open a past version in the reading pane (closes the modal). */
+  onOpenVersion?: (versionId: string) => void
+}) {
+  const {
+    mode,
+    validation,
+    hasDesign,
+    canEdit,
+    isValidating,
+    onValidate,
+    onApplyChanges,
+    onSimulate,
+    onContinueToDesign,
+    nextVersionNumber,
+    isSimulating,
+    outcomePrefill,
+    isGenerating,
+    designId,
+    userId,
+    selectedWorkspace,
+    designVersions = [],
+    onOpenVersion
+  } = props
+  const [desiredOutcome, setDesiredOutcome] = useState(
+    validation.desiredOutcome || outcomePrefill || ""
+  )
+  const [raw, setRaw] = useState("")
+  const [files, setFiles] = useState<ValidateFile[]>([])
+  const [uploading, setUploading] = useState(false)
+  const [parsing, setParsing] = useState(false)
+  const [parsed, setParsed] = useState<ParsedLabData | null>(null)
+  // 5b: which suggested changes (by index) + the revised hypothesis the user
+  // has ticked to roll into the next design iteration.
+  const [pickedChanges, setPickedChanges] = useState<Set<number>>(new Set())
+  const [pickHypothesis, setPickHypothesis] = useState(false)
+  const [pickedSimChanges, setPickedSimChanges] = useState<Set<number>>(
+    new Set()
+  )
+  const fileRef = useRef<HTMLInputElement>(null)
+
+  // Compact number formatter for simulation stats (avoid 12-decimal noise).
+  const fmtNum = (x?: number) => {
+    if (typeof x !== "number" || !Number.isFinite(x)) return "—"
+    const a = Math.abs(x)
+    if (a !== 0 && (a < 0.01 || a >= 100000)) return x.toExponential(2)
+    return String(Math.round(x * 1000) / 1000)
+  }
+
+  const iterations = validation.iterations
+  const latest = iterations[iterations.length - 1]
+  const nextRound = iterations.length + 1
+  const hasData = raw.trim().length > 0 || files.length > 0
+
+  // Step 1: parse the data into a reviewable table + summary (no persistence),
+  // so the scientist SEES what was read before it drives a verdict.
+  const doParse = async () => {
+    if (!hasData || parsing) return
+    setParsing(true)
+    setParsed(null)
+    try {
+      const res = await fetch(`/api/design/${designId}/validate`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          mode: "parse",
+          raw: raw.trim(),
+          dataFiles: files
+        })
+      })
+      const json = await res.json().catch(() => null)
+      if (!res.ok) {
+        // Surface the real cause; the generic fallback hid server 500s.
+        const msg =
+          json?.error ??
+          `Parse failed (HTTP ${res.status}). Check the server logs.`
+        console.error("[validate/parse] failed", res.status, json)
+        toast.error(msg)
+        return
+      }
+      setParsed(json.structured as ParsedLabData)
+      if (json.warning) toast.warning(json.warning)
+    } catch (e) {
+      console.error("[validate/parse] network error", e)
+      toast.error("Couldn't reach the parser. Try again.")
+    } finally {
+      setParsing(false)
+    }
+  }
+
+  const handleUpload = async (list: FileList | null) => {
+    if (!list || list.length === 0) return
+    if (!userId || !selectedWorkspace) {
+      toast.error("Sign in and select a workspace before uploading.")
+      return
+    }
+    setUploading(true)
+    try {
+      for (const file of Array.from(list)) {
+        try {
+          const created = await createFileBasedOnExtension(
+            file,
+            {
+              user_id: userId,
+              description: "",
+              file_path: "",
+              name: file.name,
+              size: file.size,
+              tokens: 0,
+              type: file.type,
+              sharing: "private"
+            },
+            selectedWorkspace.id,
+            (selectedWorkspace.embeddings_provider as "openai" | "local") ??
+              "openai"
+          )
+          setFiles(prev => [
+            ...prev,
+            {
+              id: (created as any).id,
+              name: file.name,
+              size: file.size,
+              type: file.type
+            }
+          ])
+        } catch {
+          toast.error(`Upload failed: ${file.name}`)
+        }
+      }
+    } finally {
+      setUploading(false)
+    }
+  }
+
+  if (!hasDesign) {
+    return (
+      <div className="border-ink-200 mx-auto max-w-xl rounded-2xl border border-dashed bg-white p-8 text-center">
+        <div className="bg-ink-50 text-ink-500 mx-auto mb-3 flex size-11 items-center justify-center rounded-full">
+          <IconRefresh size={20} />
+        </div>
+        <h3 className="text-ink-900 text-[15px] font-semibold">
+          Validate needs a design first
+        </h3>
+        <p className="text-ink-500 mt-1 text-[13px]">
+          Generate and approve an experiment design, run it in the lab, then
+          come back to test your hypothesis against the data.
+        </p>
+      </div>
+    )
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <div>
+        <div className="text-teal-journey flex items-center gap-2 text-[11px] font-bold uppercase tracking-[0.13em]">
+          {mode === "simulate" ? (
+            <>
+              <IconChartBar size={13} /> Validate
+            </>
+          ) : (
+            <>
+              <IconRefresh size={13} /> Iterate
+            </>
+          )}
+        </div>
+        <h2 className="text-ink-900 mt-1 text-xl font-bold">
+          {mode === "simulate"
+            ? "Check the design before the bench"
+            : iterations.length === 0
+              ? "Test your hypothesis with real data"
+              : `Iteration ${iterations.length} recorded`}
+        </h2>
+        <p className="text-ink-500 mt-1 max-w-2xl text-[13px]">
+          {mode === "simulate"
+            ? "We estimate what this design would produce and how reliably it reaches your target, so you can tighten it before using up material and bench time."
+            : "Add the results you actually got. We read the data, judge it against your hypothesis, chart it, and suggest what to change next — carrying forward everything learned in earlier rounds."}
+        </p>
+      </div>
+
+      {/* Every earlier round, oldest first.
+
+          Two complaints landed on the same gap. In auto mode the pipeline
+          simulates and iterates on its own, and opening this modal showed only
+          the MOST RECENT simulation - the original design's result was
+          nowhere, so there was no way to see what the iteration had actually
+          bought. And on the iterate side the verdict and the suggested changes
+          were only ever rendered for the latest round. Both now read as a
+          series: each round's verdict, how often it hit, and precisely which
+          changes were carried into the next version. */}
+      {(() => {
+        const rounds = [...designVersions]
+          .filter(v => v.outcome)
+          .sort((a, b) => a.versionNumber - b.versionNumber)
+        if (rounds.length === 0) return null
+        return (
+          <div className="border-ink-200 rounded-2xl border bg-white p-5">
+            <h3 className="text-ink-900 text-[14px] font-semibold">
+              Earlier rounds
+            </h3>
+            <p className="text-ink-500 mt-0.5 text-[12.5px]">
+              What each version showed, and what was carried forward.
+            </p>
+            <ol className="mt-3 space-y-3">
+              {rounds.map(v => (
+                <li key={v.id} className="relative">
+                  <SimulationOutcome
+                    outcome={v.outcome!}
+                    title={`v${v.versionNumber} · ${originLabel(v.origin)}`}
+                  />
+                  {onOpenVersion && (
+                    <button
+                      type="button"
+                      onClick={() => onOpenVersion(v.id)}
+                      className="text-teal-journey mt-1 text-[11.5px] font-medium hover:underline"
+                    >
+                      Open v{v.versionNumber}
+                    </button>
+                  )}
+                </li>
+              ))}
+            </ol>
+          </div>
+        )
+      })()}
+
+      {/* 5a — pre-lab simulation & optimization */}
+      {mode === "simulate" && canEdit && (
+        <div className="border-ink-200 rounded-2xl border bg-white p-5">
+          <h3 className="text-ink-900 text-[14px] font-semibold">
+            Simulate before the bench
+          </h3>
+          <p className="text-ink-500 mt-0.5 text-[12.5px] leading-relaxed">
+            Before you spend lab time, we run your design on the computer many
+            times over — using the quantitative relationships from your
+            literature and parameters — to estimate what it would produce and
+            how reliably it would hit your target. You get a prediction, the
+            problems to fix first, and the changes most likely to get you there.
+          </p>
+          <label className="text-ink-400 mt-3 block text-[11px] font-semibold uppercase tracking-wider">
+            Desired outcome (target to optimize toward)
+          </label>
+          <textarea
+            value={desiredOutcome}
+            onChange={e => setDesiredOutcome(e.target.value)}
+            rows={2}
+            placeholder="e.g. ≥2× viscosity reduction vs control at ≤50 mM excipient, with p < 0.05 across n = 3"
+            className="border-ink-200 focus:border-teal-journey mt-1.5 w-full rounded-lg border p-3 text-[13px] outline-none transition-colors"
+          />
+          <button
+            type="button"
+            onClick={() => onSimulate(desiredOutcome.trim())}
+            disabled={isSimulating}
+            className="bg-ink text-paper mt-3 flex items-center gap-2 rounded-lg px-4 py-2 text-[13px] font-semibold transition-opacity hover:opacity-90 disabled:opacity-50"
+          >
+            {isSimulating ? (
+              <IconLoader2 size={15} className="animate-spin" />
+            ) : (
+              <IconSparkles size={15} />
+            )}
+            {isSimulating ? "Simulating…" : "Simulate & optimize design"}
+          </button>
+
+          {validation.simulation && (
+            <div className="border-ink-100 mt-4 space-y-3 border-t pt-4">
+              <div className="flex items-center gap-2">
+                <span
+                  className={cn(
+                    "inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[11px] font-semibold",
+                    validation.simulation.meetsTarget
+                      ? "bg-emerald-50 text-emerald-700"
+                      : "bg-amber-50 text-amber-700"
+                  )}
+                >
+                  {validation.simulation.meetsTarget ? (
+                    <IconCheck size={12} />
+                  ) : (
+                    <IconAlertTriangle size={12} />
+                  )}
+                  {validation.simulation.meetsTarget
+                    ? "Predicted to hit target"
+                    : "Predicted to fall short"}
+                </span>
+                {/* This is confidence in the VERDICT, not the hit rate - "100%
+                    confident it falls short" is a coherent thing to say, but
+                    the bare "100% confidence" next to "Predicted to fall
+                    short" read as a contradiction. */}
+                <span
+                  className="text-ink-400 text-[11px]"
+                  title="How sure the simulation is about this verdict - not how often the design hit your target."
+                >
+                  <span className="font-mono tabular-nums">
+                    {Math.round(validation.simulation.confidence * 100)}%
+                  </span>{" "}
+                  sure of this verdict
+                </span>
+              </div>
+
+              {/* Simple readout: how often it hit the target + typical result.
+                  No model name, no percentiles — bench-friendly. */}
+              {validation.simulation.executed && (
+                <div className="border-ink-200 bg-ink-50/50 rounded-xl border p-3.5">
+                  {typeof validation.simulation.meetRate === "number" && (
+                    <div>
+                      <div className="text-ink-500 mb-1 flex items-center justify-between text-[11.5px]">
+                        <span>How often the design hit your target</span>
+                        <span className="text-ink-800 font-mono font-semibold tabular-nums">
+                          {Math.round(validation.simulation.meetRate * 100)}%
+                        </span>
+                      </div>
+                      <div className="bg-ink-200 h-2 w-full overflow-hidden rounded-full">
+                        <div
+                          className={cn(
+                            "h-full rounded-full",
+                            validation.simulation.meetRate >= 0.8
+                              ? "bg-emerald-500"
+                              : validation.simulation.meetRate >= 0.5
+                                ? "bg-amber-500"
+                                : "bg-brick"
+                          )}
+                          style={{
+                            width: `${Math.round(
+                              validation.simulation.meetRate * 100
+                            )}%`
+                          }}
+                        />
+                      </div>
+                    </div>
+                  )}
+                  {validation.simulation.distribution && (
+                    <div className="text-ink-600 mt-3 text-[12px]">
+                      Typical result:{" "}
+                      <span className="text-ink-900 font-semibold">
+                        {fmtNum(validation.simulation.distribution.mean)}
+                        {validation.simulation.distribution.unit
+                          ? ` ${validation.simulation.distribution.unit}`
+                          : ""}
+                      </span>
+                      <span className="text-ink-500">
+                        {" "}
+                        (± {fmtNum(validation.simulation.distribution.sd)} run
+                        to run)
+                      </span>
+                    </div>
+                  )}
+                  {/* What the simulation actually ran (item 12) — kept plain:
+                      run count + the range it saw, no model machinery. */}
+                  <div className="border-ink-200 text-ink-500 mt-3 border-t pt-2.5 text-[11.5px] leading-relaxed">
+                    Ran{" "}
+                    <span className="text-ink-800 font-semibold tabular-nums">
+                      {(validation.simulation.nTrials ?? 0).toLocaleString()}
+                    </span>{" "}
+                    simulated experiments
+                    {validation.simulation.iterationsReasoned > 1 && (
+                      <>
+                        {" "}
+                        across{" "}
+                        <span className="text-ink-800 font-semibold tabular-nums">
+                          {validation.simulation.iterationsReasoned}
+                        </span>{" "}
+                        design variations
+                      </>
+                    )}
+                    {validation.simulation.distribution && (
+                      <>
+                        , with results spanning{" "}
+                        <span className="text-ink-800 font-semibold tabular-nums">
+                          {fmtNum(validation.simulation.distribution.p10)}
+                        </span>{" "}
+                        to{" "}
+                        <span className="text-ink-800 font-semibold tabular-nums">
+                          {fmtNum(validation.simulation.distribution.p90)}
+                        </span>{" "}
+                        {validation.simulation.distribution.unit ?? ""} in most
+                        runs
+                      </>
+                    )}
+                    .
+                  </div>
+                  {/* Secondary GUARDRAILS, reported separately from the primary
+                      objective. A guardrail that misses does NOT reduce the
+                      headline confidence - only the researcher's main problem
+                      is mandatory. */}
+                  {(validation.simulation.secondaryCriteria?.length ?? 0) >
+                    0 && (
+                    <div className="border-ink-200 mt-3 border-t pt-2.5">
+                      <div className="text-ink-400 mb-1.5 text-[11px] font-semibold uppercase tracking-wider">
+                        Also checked (guardrails)
+                      </div>
+                      <ul className="space-y-1">
+                        {validation.simulation.secondaryCriteria!.map(c => {
+                          const pct =
+                            typeof c.passRate === "number"
+                              ? Math.round(c.passRate * 100)
+                              : null
+                          const ok = pct === null ? null : pct >= 80
+                          return (
+                            <li
+                              key={c.metric}
+                              className="flex items-baseline justify-between gap-3 text-[12px]"
+                            >
+                              <span className="text-ink-600 min-w-0">
+                                {c.metric}{" "}
+                                <span className="text-ink-400">
+                                  ({c.direction} {fmtNum(c.threshold)}
+                                  {c.unit ? ` ${c.unit}` : ""})
+                                </span>
+                              </span>
+                              <span
+                                className={cn(
+                                  "shrink-0 font-semibold tabular-nums",
+                                  ok === null
+                                    ? "text-ink-400"
+                                    : ok
+                                      ? "text-sage-brand"
+                                      : "text-amber-700"
+                                )}
+                              >
+                                {pct === null
+                                  ? "not scored"
+                                  : `${pct}% of runs`}
+                              </span>
+                            </li>
+                          )
+                        })}
+                      </ul>
+                      <p className="text-ink-400 mt-1.5 text-[11px] leading-snug">
+                        These are tracked separately. A guardrail falling short
+                        doesn&apos;t reduce confidence in the main objective
+                        above - it just flags something to watch.
+                      </p>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              <div>
+                <div className="text-ink-400 mb-0.5 text-[11px] font-semibold uppercase tracking-wider">
+                  Predicted results
+                </div>
+                <p className="text-ink-700 text-[13px] leading-relaxed">
+                  {validation.simulation.predictedResults}
+                </p>
+              </div>
+
+              {/* Gotchas: feasibility / soundness flags */}
+              {validation.simulation.gotchas &&
+                validation.simulation.gotchas.length > 0 && (
+                  <div>
+                    <div className="text-ink-400 mb-1 text-[11px] font-semibold uppercase tracking-wider">
+                      Gotchas to fix before the bench
+                    </div>
+                    <div className="space-y-1.5">
+                      {validation.simulation.gotchas.map((g, i) => (
+                        <div
+                          key={i}
+                          className="border-ink-100 flex items-start gap-2 rounded-lg border p-2.5"
+                        >
+                          <span
+                            className={cn(
+                              "mt-0.5 inline-flex shrink-0 items-center rounded px-1.5 py-0.5 text-[9.5px] font-bold uppercase",
+                              g.severity === "high"
+                                ? "bg-brick/10 text-brick"
+                                : g.severity === "medium"
+                                  ? "bg-amber-100 text-amber-700"
+                                  : "bg-ink-100 text-ink-500"
+                            )}
+                          >
+                            {g.severity}
+                          </span>
+                          <div className="text-[12.5px] leading-snug">
+                            <span className="text-ink-800">{g.issue}</span>{" "}
+                            <span className="text-ink-500">— {g.fix}</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+              {validation.simulation.gapAnalysis && (
+                <div>
+                  <div className="text-ink-400 mb-0.5 text-[11px] font-semibold uppercase tracking-wider">
+                    Gap to target
+                  </div>
+                  <p className="text-ink-700 text-[13px] leading-relaxed">
+                    {validation.simulation.gapAnalysis}
+                  </p>
+                </div>
+              )}
+              {validation.simulation.optimizedChanges.length > 0 && (
+                <div className="border-ink-200 rounded-xl border p-3.5">
+                  <div className="text-ink-400 mb-2 text-[11px] font-semibold uppercase tracking-wider">
+                    Pick changes → optimize the design
+                  </div>
+                  <div className="space-y-1.5">
+                    {validation.simulation.optimizedChanges.map((c, i) => {
+                      const on = pickedSimChanges.has(i)
+                      return (
+                        <button
+                          key={i}
+                          type="button"
+                          onClick={() =>
+                            setPickedSimChanges(prev => {
+                              const next = new Set(prev)
+                              next.has(i) ? next.delete(i) : next.add(i)
+                              return next
+                            })
+                          }
+                          className="hover:bg-ink-50 flex w-full items-start gap-2.5 rounded-lg px-2 py-1.5 text-left"
+                        >
+                          <span
+                            className={cn(
+                              "mt-0.5 flex size-4 shrink-0 items-center justify-center rounded border",
+                              on
+                                ? "border-brick bg-brick text-white"
+                                : "border-ink-300"
+                            )}
+                          >
+                            {on && <IconCheck size={11} stroke={3} />}
+                          </span>
+                          <span className="text-ink-700 text-[13px] leading-snug">
+                            {c}
+                          </span>
+                        </button>
+                      )
+                    })}
+                  </div>
+                  {/* Item 14 — both exits are offered explicitly, and the
+                      apply button names the version it will create. */}
+                  <div className="mt-3 flex flex-wrap items-center gap-2">
+                    <button
+                      type="button"
+                      disabled={isGenerating || pickedSimChanges.size === 0}
+                      onClick={() =>
+                        onApplyChanges(
+                          validation.simulation!.optimizedChanges.filter(
+                            (_, i) => pickedSimChanges.has(i)
+                          ),
+                          undefined,
+                          "simulation"
+                        )
+                      }
+                      className="bg-brick hover:bg-brick-hover flex items-center gap-2 rounded-lg px-4 py-2.5 text-[13px] font-semibold text-white transition-colors disabled:opacity-50"
+                    >
+                      {isGenerating ? (
+                        <IconLoader2 size={15} className="animate-spin" />
+                      ) : (
+                        <IconRefresh size={15} />
+                      )}
+                      {isGenerating
+                        ? "Optimising…"
+                        : `Apply ${pickedSimChanges.size} change${
+                            pickedSimChanges.size === 1 ? "" : "s"
+                          } → design v${nextVersionNumber}`}
+                    </button>
+                    <button
+                      type="button"
+                      disabled={isGenerating}
+                      onClick={onContinueToDesign}
+                      className="border-ink-200 text-ink-700 hover:bg-ink-50 flex items-center gap-2 rounded-lg border px-4 py-2.5 text-[13px] font-medium transition-colors disabled:opacity-50"
+                    >
+                      Skip the changes, continue with this design
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Cumulative memory */}
+      {mode === "iterate" && validation.cumulativeInsights && (
+        <div className="border-teal-journey/30 bg-teal-journey-tint/40 rounded-2xl border p-4">
+          <div className="text-teal-journey mb-1 flex items-center gap-1.5 text-[11px] font-bold uppercase tracking-wider">
+            <IconSparkles size={13} /> What we&apos;ve learned so far
+            <span className="text-ink-400 font-medium normal-case tracking-normal">
+              · across {iterations.length} round
+              {iterations.length === 1 ? "" : "s"}
+            </span>
+          </div>
+          <p className="text-ink-700 whitespace-pre-wrap text-[13px] leading-relaxed">
+            {validation.cumulativeInsights}
+          </p>
+        </div>
+      )}
+
+      {/* Latest verdict */}
+      {mode === "iterate" && latest && (
+        <div className="border-ink-200 overflow-hidden rounded-2xl border bg-white">
+          <div
+            className={cn(
+              "flex items-center justify-between px-5 py-3",
+              verdictTone(latest.verdict).bg
+            )}
+          >
+            <div className="flex items-center gap-2">
+              <span
+                className={cn(
+                  "size-2 rounded-full",
+                  verdictTone(latest.verdict).dot
+                )}
+              />
+              <span
+                className={cn(
+                  "text-[14px] font-bold",
+                  verdictTone(latest.verdict).text
+                )}
+              >
+                Iteration {latest.index}: {verdictLabel(latest.verdict)}
+              </span>
+            </div>
+            {typeof latest.confidence === "number" && (
+              <span className="text-ink-500 font-mono text-[12px] tabular-nums">
+                {Math.round(latest.confidence * 100)}% confidence
+              </span>
+            )}
+          </div>
+          <div className="space-y-4 p-5">
+            {latest.reasoning && (
+              <p className="text-ink-700 text-[13px] leading-relaxed">
+                {latest.reasoning}
+              </p>
+            )}
+            {latest.insights.length > 0 && (
+              <div>
+                <div className="text-ink-400 mb-1.5 text-[11px] font-semibold uppercase tracking-wider">
+                  Insights this round
+                </div>
+                <ul className="space-y-1">
+                  {latest.insights.map((ins, i) => (
+                    <li
+                      key={i}
+                      className="text-ink-700 flex gap-2 text-[13px] leading-snug"
+                    >
+                      <IconBulb
+                        size={14}
+                        className="text-teal-journey mt-0.5 shrink-0"
+                      />
+                      {ins}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            {/* 5b: pick which changes to roll into the next design iteration */}
+            {(latest.suggestedChanges.length > 0 || latest.revisedHypothesis) &&
+              canEdit && (
+                <div className="border-ink-200 rounded-xl border p-3.5">
+                  <div className="text-ink-400 mb-2 text-[11px] font-semibold uppercase tracking-wider">
+                    Pick changes to apply → new design iteration
+                  </div>
+                  <div className="space-y-1.5">
+                    {latest.suggestedChanges.map((c, i) => {
+                      const on = pickedChanges.has(i)
+                      return (
+                        <button
+                          key={i}
+                          type="button"
+                          onClick={() =>
+                            setPickedChanges(prev => {
+                              const next = new Set(prev)
+                              next.has(i) ? next.delete(i) : next.add(i)
+                              return next
+                            })
+                          }
+                          className="hover:bg-ink-50 flex w-full items-start gap-2.5 rounded-lg px-2 py-1.5 text-left"
+                        >
+                          <span
+                            className={cn(
+                              "mt-0.5 flex size-4 shrink-0 items-center justify-center rounded border",
+                              on
+                                ? "border-brick bg-brick text-white"
+                                : "border-ink-300"
+                            )}
+                          >
+                            {on && <IconCheck size={11} stroke={3} />}
+                          </span>
+                          <span className="text-ink-700 text-[13px] leading-snug">
+                            {c}
+                          </span>
+                        </button>
+                      )
+                    })}
+                    {latest.revisedHypothesis && (
+                      <button
+                        type="button"
+                        onClick={() => setPickHypothesis(v => !v)}
+                        className="hover:bg-ink-50 flex w-full items-start gap-2.5 rounded-lg px-2 py-1.5 text-left"
+                      >
+                        <span
+                          className={cn(
+                            "mt-0.5 flex size-4 shrink-0 items-center justify-center rounded border",
+                            pickHypothesis
+                              ? "border-brick bg-brick text-white"
+                              : "border-ink-300"
+                          )}
+                        >
+                          {pickHypothesis && <IconCheck size={11} stroke={3} />}
+                        </span>
+                        <span className="text-ink-700 text-[13px] leading-snug">
+                          <span className="text-ink-400 font-medium">
+                            Test sharper hypothesis:{" "}
+                          </span>
+                          {latest.revisedHypothesis}
+                        </span>
+                      </button>
+                    )}
+                  </div>
+                  <div className="mt-3 flex flex-wrap items-center gap-2">
+                    <button
+                      type="button"
+                      disabled={
+                        isGenerating ||
+                        (pickedChanges.size === 0 && !pickHypothesis)
+                      }
+                      onClick={() =>
+                        onApplyChanges(
+                          latest.suggestedChanges.filter((_, i) =>
+                            pickedChanges.has(i)
+                          ),
+                          pickHypothesis ? latest.revisedHypothesis : undefined,
+                          "lab-data"
+                        )
+                      }
+                      className="bg-brick hover:bg-brick-hover flex items-center gap-2 rounded-lg px-4 py-2.5 text-[13px] font-semibold text-white transition-colors disabled:opacity-50"
+                    >
+                      {isGenerating ? (
+                        <IconLoader2 size={15} className="animate-spin" />
+                      ) : (
+                        <IconRefresh size={15} />
+                      )}
+                      {isGenerating
+                        ? "Generating…"
+                        : `Make these changes → design v${nextVersionNumber}`}
+                    </button>
+                    <button
+                      type="button"
+                      disabled={isGenerating}
+                      onClick={onContinueToDesign}
+                      className="border-ink-200 text-ink-700 hover:bg-ink-50 flex items-center gap-2 rounded-lg border px-4 py-2.5 text-[13px] font-medium transition-colors disabled:opacity-50"
+                    >
+                      Continue without iterating
+                    </button>
+                  </div>
+                </div>
+              )}
+            {latest.verdict === "supported" && (
+              <div className="space-y-3">
+                <div className="flex items-center gap-2 text-[13px] font-medium text-emerald-700">
+                  <IconCheck size={16} /> Hypothesis supported — you can take
+                  this design forward, or push further with another round.
+                </div>
+                <button
+                  type="button"
+                  onClick={onContinueToDesign}
+                  className="border-ink-200 text-ink-700 hover:bg-ink-50 flex items-center gap-2 rounded-lg border px-4 py-2.5 text-[13px] font-medium transition-colors"
+                >
+                  Continue with this design
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Step 1 — data entry + parse (Iterate only; item 13 removed it from
+          Validate, which is now purely pre-lab simulation) */}
+      {mode === "iterate" && canEdit && (
+        <div className="border-ink-200 rounded-2xl border bg-white p-5">
+          <h3 className="text-ink-900 text-[14px] font-semibold">
+            {iterations.length === 0
+              ? "Add your lab results"
+              : `Log iteration ${nextRound} data`}
+          </h3>
+          <p className="text-ink-500 mt-0.5 text-[12.5px]">
+            Paste measurements, attach a CSV/PDF, or upload a{" "}
+            <b className="text-ink-700 font-medium">photo</b> — a gel, an
+            instrument screenshot, or a snap of your notebook page. A vision
+            model reads it into a table you can check before validating.
+          </p>
+          <textarea
+            value={raw}
+            onChange={e => {
+              setRaw(e.target.value)
+              setParsed(null)
+            }}
+            rows={5}
+            placeholder="e.g. At 20 mM the readout rose to 3.1 ± 0.2 vs 1.0 control; 40 mM plateaued at 3.0 with higher variance. n = 3 per arm…"
+            className="border-ink-200 focus:border-teal-journey mt-3 w-full rounded-lg border p-3 text-[13px] outline-none transition-colors"
+          />
+          {files.length > 0 && (
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              {files.map((f, i) => (
+                <span
+                  key={i}
+                  className="border-ink-200 text-ink-700 bg-ink-50 inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[12px]"
+                >
+                  {f.name}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setFiles(prev => prev.filter((_, j) => j !== i))
+                      setParsed(null)
+                    }}
+                    className="text-ink-400 hover:text-ink-700"
+                  >
+                    <IconX size={12} />
+                  </button>
+                </span>
+              ))}
+            </div>
+          )}
+          <div className="mt-3 flex items-center justify-between gap-3">
+            <input
+              ref={fileRef}
+              type="file"
+              accept=".pdf,.csv,.txt,.docx,.jpeg,.jpg,.png"
+              multiple
+              className="hidden"
+              onChange={e => {
+                void handleUpload(e.target.files)
+                e.target.value = ""
+              }}
+            />
+            <button
+              type="button"
+              onClick={() => fileRef.current?.click()}
+              disabled={uploading}
+              className="border-ink-200 text-ink-700 hover:bg-ink-50 flex items-center gap-1.5 rounded-lg border px-3 py-2 text-[12.5px] font-medium disabled:opacity-50"
+            >
+              {uploading ? (
+                <IconLoader2 size={14} className="animate-spin" />
+              ) : (
+                <IconUpload size={14} />
+              )}
+              {uploading ? "Uploading…" : "Attach data file"}
+            </button>
+            <button
+              type="button"
+              onClick={doParse}
+              disabled={!hasData || parsing || uploading}
+              className="bg-ink text-paper flex items-center gap-2 rounded-lg px-4 py-2 text-[13px] font-semibold transition-opacity hover:opacity-90 disabled:opacity-50"
+            >
+              {parsing ? (
+                <IconLoader2 size={15} className="animate-spin" />
+              ) : (
+                <IconSparkles size={15} />
+              )}
+              {parsing ? "Reading data…" : "Parse data"}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Step 2 — parsed data review + validate */}
+      {mode === "iterate" && parsed && canEdit && (
+        <div className="border-ink-200 overflow-hidden rounded-2xl border bg-white">
+          <div className="border-ink-100 flex items-center gap-2 border-b px-5 py-3">
+            <IconClipboardText size={15} className="text-teal-journey" />
+            <span className="text-ink-900 text-[14px] font-semibold">
+              What we read from your data
+            </span>
+          </div>
+          <div className="space-y-4 p-5">
+            {parsed.summary && (
+              <p className="text-ink-700 text-[13px] leading-relaxed">
+                {parsed.summary}
+              </p>
+            )}
+            {parsed.rows.length > 0 ? (
+              <div className="border-ink-200 overflow-x-auto rounded-lg border">
+                <table className="w-full text-[12.5px]">
+                  <thead>
+                    <tr className="border-ink-200 bg-ink-50 border-b">
+                      {parsed.columns.map((c, i) => (
+                        <th
+                          key={i}
+                          className="text-ink-500 px-3 py-2 text-left text-[11px] font-semibold uppercase tracking-wide"
+                        >
+                          {c}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {parsed.rows.map((row, ri) => (
+                      <tr
+                        key={ri}
+                        className="border-ink-100 border-b last:border-0"
+                      >
+                        {row.map((cell, ci) => (
+                          <td
+                            key={ci}
+                            className="text-ink-800 px-3 py-2 tabular-nums"
+                          >
+                            {cell}
+                          </td>
+                        ))}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <div className="border-ink-200 text-ink-500 rounded-lg border border-dashed p-3 text-[12.5px]">
+                No numeric rows extracted. You can still validate on the
+                summary, or add clearer numbers above and re-parse.
+              </div>
+            )}
+            {parsed.rows.length > 0 && <ParsedDataChart parsed={parsed} />}
+            {parsed.caveats.length > 0 && (
+              <div className="rounded-lg border border-amber-200 bg-amber-50 p-3">
+                <div className="mb-1 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-amber-700">
+                  <IconAlertTriangle size={13} /> Data-quality notes
+                </div>
+                <ul className="space-y-0.5">
+                  {parsed.caveats.map((c, i) => (
+                    <li key={i} className="text-[12.5px] text-amber-800">
+                      • {c}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+            <button
+              type="button"
+              onClick={() => onValidate(raw.trim(), files, parsed)}
+              disabled={isValidating}
+              className="bg-brick hover:bg-brick-hover flex items-center gap-2 rounded-lg px-4 py-2.5 text-[13px] font-semibold text-white transition-colors disabled:opacity-50"
+            >
+              {isValidating ? (
+                <IconLoader2 size={15} className="animate-spin" />
+              ) : (
+                <IconRefresh size={15} />
+              )}
+              {isValidating
+                ? "Validating…"
+                : "Validate hypothesis against this data"}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Iteration timeline */}
+      {mode === "iterate" && iterations.length > 0 && (
+        <div>
+          <div className="text-ink-400 mb-2 text-[11px] font-semibold uppercase tracking-wider">
+            Iteration history
+          </div>
+          <ol className="space-y-2">
+            {[...iterations].reverse().map(it => (
+              <li
+                key={it.id}
+                className="border-ink-200 rounded-xl border bg-white p-3.5"
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span
+                      className={cn(
+                        "size-2 rounded-full",
+                        verdictTone(it.verdict).dot
+                      )}
+                    />
+                    <span className="text-ink-900 text-[13px] font-semibold">
+                      Iteration {it.index}
+                    </span>
+                    <span
+                      className={cn(
+                        "rounded-full px-2 py-0.5 text-[11px] font-semibold",
+                        verdictTone(it.verdict).bg,
+                        verdictTone(it.verdict).text
+                      )}
+                    >
+                      {verdictLabel(it.verdict)}
+                    </span>
+                  </div>
+                  <span className="text-ink-400 font-mono text-[11px] tabular-nums">
+                    {new Date(it.createdAt).toLocaleDateString()}
+                  </span>
+                </div>
+                {it.insights.length > 0 && (
+                  <p className="text-ink-500 mt-1.5 line-clamp-2 text-[12.5px]">
+                    {it.insights.join(" · ")}
+                  </p>
+                )}
+              </li>
+            ))}
+          </ol>
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ── Library sidebar ───────────────────────────────────────────────────────
 // Full-height right panel (NotebookLM "Studio" style): a grid of artifact
 // generators built from the current design. "Report" opens the existing
@@ -3260,6 +6183,9 @@ type LibraryArtifact = {
   needsDesign?: boolean
 }
 
+// Order follows how a scientist actually uses the outputs: understand it
+// (Overview), run it (SOP → Material List → Bench Execution), then cite and
+// write it up (Citations → Design Report).
 const LIBRARY_ARTIFACTS: LibraryArtifact[] = [
   {
     key: "overview",
@@ -3269,11 +6195,20 @@ const LIBRARY_ARTIFACTS: LibraryArtifact[] = [
     action: "overview"
   },
   {
-    key: "design-report",
-    label: "Design Report",
-    desc: "Data-driven write-up",
-    icon: <IconFileText size={16} />,
-    action: "report"
+    key: "sop",
+    label: "SOP",
+    desc: "Full protocol PDF",
+    icon: <IconClipboardText size={16} />,
+    action: "sop",
+    needsDesign: true
+  },
+  {
+    key: "material-list",
+    label: "Material List",
+    desc: "Reagents & equipment",
+    icon: <IconListDetails size={16} />,
+    action: "materials",
+    needsDesign: true
   },
   {
     key: "bench-execution",
@@ -3291,43 +6226,139 @@ const LIBRARY_ARTIFACTS: LibraryArtifact[] = [
     action: "citations"
   },
   {
-    key: "sop",
-    label: "SOP",
-    desc: "Full protocol PDF",
-    icon: <IconClipboardText size={16} />,
-    action: "sop",
-    needsDesign: true
-  },
-  {
-    key: "material-list",
-    label: "Material List",
-    desc: "Reagents & equipment",
-    icon: <IconListDetails size={16} />,
-    action: "materials",
-    needsDesign: true
+    key: "design-report",
+    label: "Design Report",
+    desc: "Data-driven write-up",
+    icon: <IconFileText size={16} />,
+    action: "report"
   }
 ]
 
 function DesignLibrarySidebar({
   ctx,
   design,
+  iterations,
   getExportable,
   onClose
 }: {
   ctx: DesignSubViewContext
   design: any
-  /** Builds an ExportableDesign from the LIVE design content at click time. */
-  getExportable: () => ExportableDesign
+  /** The design's iteration series (latest first-of-list = "current", then
+   *  each saved version) so the user can generate assets for whichever one. */
+  iterations: { id: string; label: string; designs: GeneratedDesign[] }[]
+  /** Builds an ExportableDesign from the LIVE design content at click time.
+   *  Pass a version's designs to export THAT iteration instead of the latest. */
+  getExportable: (designsOverride?: GeneratedDesign[]) => ExportableDesign
   onClose: () => void
 }) {
   const [reportModalOpen, setReportModalOpen] = useState(false)
+  // Reports generated FROM this design, listed as assets under the buttons.
+  // Reports already carry source_design_id, so no new linkage is needed.
+  const [reportAssets, setReportAssets] = useState<any[]>([])
+  // Templates saved from finished reports. Listed alongside the reports so a
+  // saved template is visible where the researcher expects to find it, rather
+  // than only existing inside the generate-report dropdown.
+  const [templateAssets, setTemplateAssets] = useState<
+    Array<{ id: string; name: string; section_count?: number }>
+  >([])
+  const [presetTemplateId, setPresetTemplateId] = useState<string | null>(null)
+  // Both lists are fetched when the rail opens, so for the first second or two
+  // the panel rendered as though the design had no reports and no templates -
+  // and then they appeared, which reads as a glitch. Track the first load so
+  // the sections can hold a placeholder instead of asserting emptiness.
+  const [assetsLoading, setAssetsLoading] = useState(true)
+  const [templatesLoading, setTemplatesLoading] = useState(true)
+  const [openAssetId, setOpenAssetId] = useState<string | null>(null)
+  const [deletingAssetId, setDeletingAssetId] = useState<string | null>(null)
+
+  const refreshAssets = useCallback(async () => {
+    if (!design?.id || !ctx.workspaceId) {
+      setAssetsLoading(false)
+      return
+    }
+    try {
+      const all = await getReportsByWorkspaceId(ctx.workspaceId)
+      setReportAssets(
+        (all ?? [])
+          // Only reports the researcher actually SAVED count as assets. The
+          // generate flow creates a row per attempt (draft state), which made
+          // one report show up 4 times.
+          .filter((r: any) => r.source_design_id === design.id && r.is_saved)
+          .sort((a: any, b: any) =>
+            String(b.updated_at ?? b.created_at ?? "").localeCompare(
+              String(a.updated_at ?? a.created_at ?? "")
+            )
+          )
+      )
+    } catch (err) {
+      console.warn("Couldn't load report assets:", err)
+    } finally {
+      setAssetsLoading(false)
+    }
+  }, [design?.id, ctx.workspaceId])
+
+  const refreshTemplates = useCallback(async () => {
+    if (!ctx.workspaceId) {
+      setTemplatesLoading(false)
+      return
+    }
+    try {
+      const res = await fetch(
+        `/api/report-templates?workspaceId=${encodeURIComponent(ctx.workspaceId)}`
+      )
+      if (!res.ok) return
+      const json = await res.json()
+      setTemplateAssets(Array.isArray(json?.templates) ? json.templates : [])
+    } catch (err) {
+      console.warn("Couldn't load report templates:", err)
+    } finally {
+      setTemplatesLoading(false)
+    }
+  }, [ctx.workspaceId])
+
+  useEffect(() => {
+    void refreshAssets()
+    void refreshTemplates()
+  }, [refreshAssets, refreshTemplates])
+
+  /** Delete an asset. Blocked once it has been filed to an ELN (#6). */
+  const handleDeleteAsset = async (r: any) => {
+    if (r.eln_uploaded_at) return
+    if (
+      !window.confirm(
+        `Delete "${r.name || "Untitled report"}"? This is permanent.`
+      )
+    )
+      return
+    setDeletingAssetId(r.id)
+    try {
+      await deleteReport(r.id)
+      setReportAssets(prev => prev.filter(x => x.id !== r.id))
+      toast.success("Report deleted")
+    } catch (e: any) {
+      toast.error(`Couldn't delete: ${e?.message ?? "unknown error"}`)
+    } finally {
+      setDeletingAssetId(null)
+    }
+  }
+
+  // Which iteration to generate assets from. Defaults to the latest design.
+  const [selectedIterId, setSelectedIterId] = useState("current")
+  const selectedIter =
+    iterations.find(i => i.id === selectedIterId) ?? iterations[0]
+  const hasIterations = iterations.length > 1
 
   const handleArtifact = async (a: LibraryArtifact) => {
     if (a.action === "report") {
       setReportModalOpen(true)
       return
     }
-    const exportable = getExportable()
+    // Export the SELECTED iteration's designs (latest = live content).
+    const exportable = getExportable(
+      selectedIter && selectedIter.id !== "current"
+        ? selectedIter.designs
+        : undefined
+    )
     const hasDesign =
       Array.isArray((exportable.content as any)?.designs) &&
       (exportable.content as any).designs.length > 0
@@ -3358,7 +6389,7 @@ function DesignLibrarySidebar({
         <div className="flex items-center gap-2">
           <IconBooks size={18} className="text-ink-700" />
           <span className="text-ink-900 text-[17px] font-semibold tracking-tight">
-            Library
+            Export
           </span>
         </div>
         <button
@@ -3382,6 +6413,64 @@ function DesignLibrarySidebar({
           Each artifact is built from this design&apos;s problem, literature,
           and locked protocol.
         </p>
+
+        {/* Names the exact source of whatever gets exported. With several
+            simulated versions in play, "Generate from this design" alone left
+            it ambiguous which one an asset would be built from. Always shown,
+            including the single-version case, so the answer is never inferred
+            from the absence of a picker. */}
+        <div className="border-ink-200 bg-ink-50/60 mt-3 rounded-xl border p-3">
+          <div className="text-ink-400 text-[10px] font-bold uppercase tracking-[0.14em]">
+            Exporting from
+          </div>
+          <div
+            className="text-ink-900 mt-1 truncate text-[13px] font-semibold"
+            title={ctx.designName}
+          >
+            {ctx.designName}
+          </div>
+          <div className="text-ink-600 mt-0.5 text-[12px]">
+            {selectedIter?.label ?? "Latest version"}
+            {selectedIter?.designs?.length
+              ? ` · ${selectedIter.designs.length} design${
+                  selectedIter.designs.length === 1 ? "" : "s"
+                }`
+              : ""}
+          </div>
+        </div>
+
+        {/* Iteration picker: choose WHICH design version the assets are built
+            from. Only shown once there's more than one iteration. */}
+        {hasIterations && (
+          <div className="mt-4">
+            <p className="text-ink-400 mb-1.5 text-[11px] font-bold uppercase tracking-[0.14em]">
+              Iteration
+            </p>
+            <div className="flex flex-wrap gap-1.5">
+              {iterations.map(it => (
+                <button
+                  key={it.id}
+                  type="button"
+                  onClick={() => setSelectedIterId(it.id)}
+                  className={`rounded-lg border px-2.5 py-1 text-[12px] font-medium transition-colors ${
+                    selectedIter?.id === it.id
+                      ? "border-ink-900 bg-ink-900 text-white"
+                      : "border-ink-200 text-ink-600 hover:bg-ink-50"
+                  }`}
+                >
+                  {it.label}
+                </button>
+              ))}
+            </div>
+            <p className="text-ink-400 mt-1.5 text-[11px] leading-snug">
+              Assets below are generated from{" "}
+              <span className="text-ink-600 font-medium">
+                {selectedIter?.label}
+              </span>
+              .
+            </p>
+          </div>
+        )}
 
         <div className="mt-4 grid grid-cols-2 gap-2.5">
           {LIBRARY_ARTIFACTS.map(a => (
@@ -3407,6 +6496,154 @@ function DesignLibrarySidebar({
         </div>
       </div>
 
+      {/* Saved report assets for this design. Click to reopen in the same
+          modal; download as PDF or delete outright. */}
+      {/* Placeholder while the first fetch runs, so the panel doesn't briefly
+          assert there are no reports and then contradict itself. */}
+      {assetsLoading && reportAssets.length === 0 && (
+        <div className="border-ink-100 shrink-0 border-t p-3">
+          <div className="text-ink-400 mb-2 text-[10px] font-bold uppercase tracking-[0.13em]">
+            Reports
+          </div>
+          <div className="space-y-1.5">
+            {[0, 1].map(i => (
+              <div
+                key={i}
+                className="border-ink-100 bg-ink-50 h-[46px] animate-pulse rounded-lg border"
+              />
+            ))}
+          </div>
+        </div>
+      )}
+
+      {reportAssets.length > 0 && (
+        <div className="border-ink-100 shrink-0 border-t p-3">
+          <div className="text-ink-400 mb-2 text-[10px] font-bold uppercase tracking-[0.13em]">
+            Reports ({reportAssets.length})
+          </div>
+          <ul className="space-y-1.5">
+            {reportAssets.map(r => (
+              <li
+                key={r.id}
+                className="border-ink-200 hover:border-ink-300 group flex items-start gap-2 rounded-lg border bg-white p-2 transition-colors"
+              >
+                <button
+                  type="button"
+                  onClick={() => {
+                    setOpenAssetId(r.id)
+                    setReportModalOpen(true)
+                  }}
+                  className="min-w-0 flex-1 text-left"
+                  title="Open this report"
+                >
+                  <span className="text-ink-800 block truncate text-[12.5px] font-medium">
+                    {r.name || "Untitled report"}
+                  </span>
+                  {r.source_design_version && (
+                    <span className="text-ink-400 block truncate text-[10.5px]">
+                      from {r.source_design_version}
+                    </span>
+                  )}
+                  {/* Date AND time of the last save (#5): with several
+                      reports off one design, the date alone doesn't say which
+                      is the newest. Falls back to created_at for older rows. */}
+                  <span className="text-ink-400 block text-[10.5px]">
+                    {(() => {
+                      const ts = r.updated_at || r.created_at
+                      if (!ts) return "Saved"
+                      const d = new Date(ts)
+                      return `Saved ${d.toLocaleDateString()} · ${d.toLocaleTimeString(
+                        undefined,
+                        { hour: "2-digit", minute: "2-digit" }
+                      )}`
+                    })()}
+                  </span>
+                </button>
+                <div className="flex shrink-0 items-center gap-0.5">
+                  {r.eln_uploaded_at ? (
+                    <span
+                      title={`Filed to your ELN on ${new Date(r.eln_uploaded_at).toLocaleString()} - locked so it matches the filed record`}
+                      className="rounded border border-amber-300 bg-amber-50 px-1.5 py-0.5 text-[9.5px] font-bold uppercase text-amber-800"
+                    >
+                      ELN
+                    </span>
+                  ) : (
+                    <>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setOpenAssetId(r.id)
+                          setReportModalOpen(true)
+                        }}
+                        title="Edit this report"
+                        className="text-ink-400 hover:text-ink-800 hover:bg-ink-100 rounded p-1"
+                      >
+                        <IconPencil size={14} />
+                      </button>
+                      <button
+                        type="button"
+                        disabled={deletingAssetId === r.id}
+                        onClick={() => void handleDeleteAsset(r)}
+                        title="Delete this report"
+                        className="text-ink-400 rounded p-1 hover:bg-red-50 hover:text-red-600 disabled:opacity-50"
+                      >
+                        <IconTrash size={14} />
+                      </button>
+                    </>
+                  )}
+                </div>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      {/* Templates saved from finished reports. A researcher who saved one had
+          no way to see it afterwards - it existed only inside the generate
+          dialog's dropdown - so it sits here beside the reports, named, and
+          starts a new report pre-set to it. */}
+      {templatesLoading && templateAssets.length === 0 && (
+        <div className="border-ink-100 shrink-0 border-t p-3">
+          <div className="text-ink-400 mb-2 text-[10px] font-bold uppercase tracking-[0.13em]">
+            Templates
+          </div>
+          <div className="border-ink-100 bg-ink-50 h-[46px] animate-pulse rounded-lg border" />
+        </div>
+      )}
+
+      {templateAssets.length > 0 && (
+        <div className="border-ink-100 shrink-0 border-t p-3">
+          <div className="text-ink-400 mb-2 text-[10px] font-bold uppercase tracking-[0.13em]">
+            Templates ({templateAssets.length})
+          </div>
+          <ul className="space-y-1.5">
+            {templateAssets.map(t => (
+              <li key={t.id}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setOpenAssetId(null)
+                    setPresetTemplateId(t.id)
+                    setReportModalOpen(true)
+                  }}
+                  title="Start a new report from this template"
+                  className="border-ink-200 hover:border-ink-300 hover:bg-ink-50 w-full rounded-lg border bg-white p-2 text-left transition-colors"
+                >
+                  <span className="text-ink-800 block truncate text-[12.5px] font-medium">
+                    {t.name}
+                  </span>
+                  <span className="text-ink-400 block text-[10.5px]">
+                    {typeof t.section_count === "number"
+                      ? `${t.section_count} sections · new report from this`
+                      : "New report from this"}
+                  </span>
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
       {/* Footer: Add note */}
       <div className="border-ink-100 shrink-0 border-t p-3">
         <button
@@ -3420,10 +6657,28 @@ function DesignLibrarySidebar({
 
       <GenerateReportModal
         open={reportModalOpen}
-        onOpenChange={setReportModalOpen}
+        onOpenChange={o => {
+          setReportModalOpen(o)
+          if (!o) {
+            setOpenAssetId(null)
+            setPresetTemplateId(null)
+            // A report may have been saved as a template while the modal was
+            // open, so re-read the list rather than waiting for a remount.
+            void refreshTemplates()
+          }
+        }}
         design={design}
         workspaceId={ctx.workspaceId}
         locale={ctx.locale}
+        sourceVersionLabel={selectedIter?.label}
+        initialReportId={openAssetId}
+        initialSavedTemplateId={presetTemplateId}
+        onSaved={() => {
+          setOpenAssetId(null)
+          setPresetTemplateId(null)
+          void refreshAssets()
+          void refreshTemplates()
+        }}
       />
     </div>
   )
@@ -3511,6 +6766,8 @@ function LiteratureTab(props: {
    * we sifted through 95.
    */
   totalCandidates?: number
+  /** Pre-dedup hits across all sources - what "N examined" reports. */
+  rawCandidates?: number
   onRevise: () => void
   /** Save the paper into this design's library (workspace paper library). */
   onSavePaper: (paper: Paper) => void
@@ -3530,6 +6787,7 @@ function LiteratureTab(props: {
     isSearching,
     progress,
     totalCandidates,
+    rawCandidates,
     onRevise,
     onSavePaper,
     savedPaperIds
@@ -3713,7 +6971,13 @@ function LiteratureTab(props: {
             paper: p,
             score: p.relevanceScore ?? 1 - i / Math.max(papers.length, 1),
             year: Number(p.year) || 0,
-            cites: p.citationCount ?? 0
+            cites: p.citationCount ?? 0,
+            // Web-arm (Tavily) hits are publisher landing pages: they score
+            // high on relevance (the scraped page repeats the query terms) but
+            // carry no citation count, so they used to crowd the top of the
+            // list even though indexed literature made up ~80% of the pool.
+            // Rank indexed records above web scrapes when relevance is close.
+            indexed: p.source && p.source !== "tavily" ? 1 : 0
           }))
           // relevance → score, then citations, then year.
           // recency   → year, then citations, then score.
@@ -3726,7 +6990,12 @@ function LiteratureTab(props: {
                 if (b.cites !== a.cites) return b.cites - a.cites
                 if (b.score !== a.score) return b.score - a.score
               } else {
-                if (b.score !== a.score) return b.score - a.score
+                // Bucket relevance to 0.05 so near-ties let the indexed-source
+                // and citation signals decide, instead of a 0.01 scrape edge.
+                const ba = Math.round(b.score / 0.05)
+                const aa = Math.round(a.score / 0.05)
+                if (ba !== aa) return ba - aa
+                if (b.indexed !== a.indexed) return b.indexed - a.indexed
                 if (b.cites !== a.cites) return b.cites - a.cites
                 if (b.year !== a.year) return b.year - a.year
               }
@@ -3739,6 +7008,7 @@ function LiteratureTab(props: {
             pubmed: "PubMed",
             arxiv: "arXiv",
             semantic_scholar: "Semantic Scholar",
+            openalex: "OpenAlex",
             scholar: "Google Scholar",
             tavily: "Web",
             user: "Uploaded"
@@ -3756,11 +7026,11 @@ function LiteratureTab(props: {
           // typically much larger than ranked.length); fall back to
           // ranked.length when the run hasn't reported it (older
           // payloads, user-uploaded-only runs).
-          const searchedTotal =
-            typeof totalCandidates === "number" &&
-            totalCandidates > ranked.length
-              ? totalCandidates
-              : ranked.length
+          const searchedTotal = Math.max(
+            typeof rawCandidates === "number" ? rawCandidates : 0,
+            typeof totalCandidates === "number" ? totalCandidates : 0,
+            ranked.length
+          )
           return (
             <div className="space-y-3">
               <div className="text-ink-3 flex items-center justify-between text-[12px]">
@@ -3769,12 +7039,8 @@ function LiteratureTab(props: {
                   <b className="text-ink">{ranked.length}</b> paper
                   {ranked.length === 1 ? "" : "s"} surfaced · ranked by{" "}
                   {sortMode === "recency" ? "latest" : "relevance"}
-                  {searchedTotal > ranked.length && (
-                    <>
-                      {" · from "}
-                      <b className="text-ink">{searchedTotal}</b> searched
-                    </>
-                  )}
+                  {" · "}
+                  <b className="text-ink">{searchedTotal}</b> examined
                 </span>
                 {selectedCount > 0 && (
                   <span>
@@ -3807,8 +7073,13 @@ function LiteratureTab(props: {
                       <span className="text-rust font-mono text-[11px] font-semibold">
                         #{idx + 1}
                       </span>
-                      <h4 className="text-ink flex-1 text-[14px] font-semibold leading-snug">
-                        {paper.title}
+                      {/* Cleaned at RENDER time as well as at fetch time:
+                          papers stored before the cleanup shipped still carry
+                          the publisher furniture ("… | Journal | Springer
+                          Nature Link") in Firestore, and would otherwise keep
+                          showing it forever. */}
+                      <h4 className="text-ink flex-1 whitespace-normal break-words text-[14px] font-semibold leading-snug">
+                        {cleanPaperTitle(paper.title)}
                       </h4>
                     </div>
                     {(() => {
@@ -3965,6 +7236,18 @@ function HypothesesTab(props: {
    *  an accurate "generation failed - retry" message instead of the
    *  misleading "approve literature" prompt. */
   genError?: string | null
+  /** Hypothesis stage sub-tab (Suggested vs Create your own) + controls. */
+  subTab: "suggested" | "own"
+  onSubTab: (t: "suggested" | "own") => void
+  /** Auto mode runs the whole pipeline unattended, so "Create your own" is not
+   *  a path that exists here - offering the tab only invited a dead end. */
+  autoMode?: boolean
+  /** Explicitly ask us to suggest hypotheses from the selected papers. */
+  onGenerateSuggested: () => void
+  /** Open the setup-questions flow to draft the researcher's own hypothesis. */
+  onBuildOwn: () => void
+  /** Adopt a hypothesis the researcher typed in the "own" tab. */
+  onUseOwnText: (text: string) => void
 }) {
   const {
     hypotheses,
@@ -3980,8 +7263,20 @@ function HypothesesTab(props: {
     isGenerating,
     progress,
     onRevise,
-    genError
+    genError,
+    subTab: rawSubTab,
+    onSubTab,
+    autoMode,
+    onGenerateSuggested,
+    onBuildOwn,
+    onUseOwnText
   } = props
+
+  // In auto mode the "own" panel is unreachable, so pin the view to the
+  // generated list even if the tab state was left on "own" from an earlier run.
+  const subTab = autoMode ? "suggested" : rawSubTab
+
+  const [ownText, setOwnText] = useState("")
 
   const paperById = useMemo(() => {
     const m = new Map<string, Paper>()
@@ -3999,216 +7294,591 @@ function HypothesesTab(props: {
         onRevise={onRevise}
       />
 
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h3 className="text-purple-persona text-sm font-bold uppercase tracking-widest">
-            Review &amp; select hypotheses
-          </h3>
-          <p className="text-ink-500 mt-0.5 text-xs">
-            {isApproved
-              ? "Hypotheses approved. The selected hypotheses were used to generate experiment designs."
-              : "Review the hypotheses below and select one or more to carry into experimental design."}
-          </p>
-          {!isApproved && (
-            <p className="text-ink-400 mt-1 text-[11px] italic">
-              Tip: choose <b>at least 1 hypothesis</b> (or several) - your picks
-              drive the design that gets generated next.
-            </p>
-          )}
-        </div>
-        {hypotheses.length > 0 && (
-          <span
-            className={cn(
-              "rounded-full border px-2.5 py-1 text-[11px] font-semibold",
-              selectedCount > 0
-                ? "border-purple-persona bg-purple-persona-tint text-purple-persona"
-                : "border-ink-200 text-ink-500"
-            )}
-          >
-            {selectedCount} of {hypotheses.length} selected
-          </span>
-        )}
-      </div>
-
-      {hypotheses.length === 0 ? (
-        isGenerating ? (
-          <PhaseProgressView
-            accentClass="border-purple-persona/30 bg-purple-persona-tint"
-            title="Generating hypotheses"
-            subtitle="Five generation agents, then rank, reflect, evolve, and meta-review."
-            events={progress ?? []}
-          />
-        ) : genError ? (
-          <div className="space-y-3 rounded-xl border border-dashed border-red-300 bg-red-50 p-8 text-center">
-            <p className="text-[13px] font-semibold text-red-700">
-              Hypothesis generation didn&apos;t complete
-            </p>
-            <p className="text-[12px] text-red-600">{genError}</p>
-            <p className="text-ink-500 text-[11.5px]">
-              This is usually a transient hiccup - your literature is still
-              approved. Try generating again.
-            </p>
-            <Button
-              onClick={onRegenerate}
-              disabled={isBusy}
-              className="bg-purple-persona hover:bg-purple-persona/90 text-white"
+      {!isApproved && !autoMode && (
+        <div className="border-line inline-flex rounded-lg border p-0.5 text-[12px] font-semibold">
+          {(["suggested", "own"] as const).map(t => (
+            <button
+              key={t}
+              type="button"
+              onClick={() => onSubTab(t)}
+              className={cn(
+                "rounded-md px-3 py-1.5 transition-colors",
+                subTab === t
+                  ? "bg-purple-persona text-white"
+                  : "text-ink-500 hover:text-ink-800"
+              )}
             >
-              <IconRefresh size={14} className="mr-1.5" />
-              Try again
-            </Button>
-          </div>
-        ) : (
-          <div className="border-purple-persona/30 bg-purple-persona-tint text-ink-500 rounded-xl border border-dashed p-8 text-center text-xs">
-            {isBusy
-              ? "Generating hypotheses..."
-              : "No hypotheses yet. Approve Literature to generate hypotheses."}
-          </div>
-        )
-      ) : (
-        <div className="space-y-3">
-          {hypotheses.map((h, hi) => (
-            <div
-              key={h.id}
-              className="border-ink-200 flex items-start gap-3 rounded-xl border bg-white p-4"
-            >
-              <Checkbox
-                checked={h.selected}
-                onCheckedChange={() => onToggle(h.id)}
-                className="mt-1"
-                disabled={isApproved || !canEdit}
-              />
-              <div className="min-w-0 flex-1">
-                {/* Issue #27 - render an auto-generated short title above
-                    the full hypothesis text. `autoTitleFromHypothesis`
-                    picks the first ~6 words so the scientist can scan a
-                    list of hypotheses at a glance, then the full text
-                    follows in EditableHypothesis. */}
-                <div className="text-purple-persona mb-1 text-[12px] font-bold uppercase tracking-wide">
-                  Hypothesis #{hi + 1}: {autoTitleFromHypothesis(h.text)}
-                </div>
-                <EditableHypothesis
-                  text={h.text}
-                  disabled={isApproved || !canEdit}
-                  onSave={next => onEdit(h.id, next)}
-                />
-                {/* Cited-from chips: surface paper titles inline so the user
-                    sees the evidence chain without opening the popover. */}
-                {h.basedOnPaperIds.length > 0 && (
-                  <div className="mt-2 flex flex-wrap items-center gap-1.5">
-                    <span className="text-ink-400 text-[10px] font-bold uppercase tracking-wide">
-                      Cited from
-                    </span>
-                    {h.basedOnPaperIds.slice(0, 3).map(pid => {
-                      const paper = paperById.get(pid)
-                      const label = paper?.title
-                        ? paper.title.length > 60
-                          ? `${paper.title.slice(0, 60)}…`
-                          : paper.title
-                        : `Reference ${pid}`
-                      return (
-                        <span
-                          key={pid}
-                          title={paper?.title ?? pid}
-                          className="text-ink-700 border-ink-200 bg-ink-50 inline-flex max-w-[220px] truncate rounded-full border px-2 py-0.5 text-[10.5px]"
-                        >
-                          {label}
-                        </span>
-                      )
-                    })}
-                    {h.basedOnPaperIds.length > 3 && (
-                      <span className="text-ink-400 text-[10.5px]">
-                        +{h.basedOnPaperIds.length - 3} more
-                      </span>
-                    )}
-                  </div>
-                )}
-                {/* Reasoning rendered inline so the user sees the "why"
-                    without clicking. We split on blank lines so multi-
-                    paragraph reasoning (premise → mechanism → prediction)
-                    stays legible. Long reasoning is collapsed with a
-                    "Show more" toggle to keep the list scannable. */}
-                <ReasoningInline reasoning={h.reasoning ?? ""} />
-
-                {/* "Based on" papers - full citation block - stays behind
-                    a popover since the inline chips already surface the
-                    paper names. The popover gives authors / year / journal /
-                    source link without dominating the card. */}
-                {h.basedOnPaperIds.length > 0 && (
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <button className="text-purple-persona hover:bg-purple-persona-tint mt-2 inline-flex items-center gap-1 rounded px-2 py-1 text-[11px] font-semibold">
-                        <IconInfoCircle size={13} />
-                        Reference details
-                      </button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-96 text-xs">
-                      <div className="text-ink-400 text-[10px] font-bold uppercase tracking-wide">
-                        Based on
-                      </div>
-                      <ul className="mt-1 space-y-2">
-                        {h.basedOnPaperIds.map(pid => {
-                          const paper = paperById.get(pid)
-                          if (!paper) {
-                            return (
-                              <li key={pid} className="text-ink-400 italic">
-                                Reference {pid} (not available)
-                              </li>
-                            )
-                          }
-                          const authorLabel =
-                            paper.authors && paper.authors.length
-                              ? paper.authors.length <= 3
-                                ? paper.authors.join(", ")
-                                : `${paper.authors.slice(0, 3).join(", ")} et al.`
-                              : ""
-                          const meta = [authorLabel, paper.year, paper.journal]
-                            .filter(Boolean)
-                            .join(" · ")
-                          return (
-                            <li
-                              key={pid}
-                              className="border-ink-100 bg-ink-50 rounded-md border p-2"
-                            >
-                              <div className="text-ink-900 font-semibold leading-snug">
-                                {paper.title}
-                              </div>
-                              {meta && (
-                                <div className="text-ink-500 mt-0.5 text-[10px]">
-                                  {meta}
-                                </div>
-                              )}
-                              {paper.sourceUrl && (
-                                <a
-                                  href={paper.sourceUrl}
-                                  target="_blank"
-                                  rel="noreferrer"
-                                  className="text-orange-product mt-1 inline-block text-[10px] underline"
-                                >
-                                  Open source
-                                </a>
-                              )}
-                            </li>
-                          )
-                        })}
-                      </ul>
-                    </PopoverContent>
-                  </Popover>
-                )}
-              </div>
-            </div>
+              {t === "suggested" ? "Generated hypotheses" : "Create your own"}
+            </button>
           ))}
         </div>
       )}
 
-      <PhaseActionBar
-        onApprove={onApproveAndGenerate}
-        approveLabel="Approve & Generate Design"
-        approveDisabled={!canGenerate || !canEdit}
-        onRegenerate={hypotheses.length > 0 ? onRegenerate : undefined}
-        regenerateLabel="Regenerate Hypotheses"
-        isBusy={isBusy}
-        isApproved={isApproved}
-      />
+      {subTab === "own" && !isApproved ? (
+        <OwnHypothesisPanel
+          canEdit={canEdit}
+          isBusy={isBusy}
+          ownText={ownText}
+          onOwnText={setOwnText}
+          onBuildOwn={onBuildOwn}
+          onUseOwnText={onUseOwnText}
+        />
+      ) : (
+        <>
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div>
+              <h3 className="text-purple-persona text-sm font-bold uppercase tracking-widest">
+                Review &amp; select hypotheses
+              </h3>
+              <p className="text-ink-500 mt-0.5 text-xs">
+                {isApproved
+                  ? "Hypotheses approved. The selected hypotheses were used to generate experiment designs."
+                  : "Review the hypotheses below and select one or more to carry into experimental design."}
+              </p>
+              {!isApproved && (
+                <p className="text-ink-400 mt-1 text-[11px] italic">
+                  Tip: choose <b>at least 1 hypothesis</b> (or several) - your
+                  picks drive the design that gets generated next.
+                </p>
+              )}
+            </div>
+            {hypotheses.length > 0 && (
+              <span
+                className={cn(
+                  "rounded-full border px-2.5 py-1 text-[11px] font-semibold",
+                  selectedCount > 0
+                    ? "border-purple-persona bg-purple-persona-tint text-purple-persona"
+                    : "border-ink-200 text-ink-500"
+                )}
+              >
+                {selectedCount} of {hypotheses.length} selected
+              </span>
+            )}
+          </div>
+
+          {/* While a generation is in flight, show ONLY the progress view -
+              never the previous list. Rendering the old (possibly selected)
+              hypotheses next to a "generating" spinner read as if those cards
+              were the new output, which was genuinely confusing when the
+              researcher asked for their own hypothesis after picking a
+              suggested one. */}
+          {isGenerating ? (
+            <PhaseProgressView
+              accentClass="border-purple-persona/30 bg-purple-persona-tint"
+              title={
+                hypotheses.length > 0
+                  ? "Generating your hypothesis"
+                  : "Generating hypotheses"
+              }
+              subtitle="Five generation agents, then rank, reflect, evolve, and meta-review."
+              events={progress ?? []}
+            />
+          ) : hypotheses.length === 0 ? (
+            genError ? (
+              <div className="space-y-3 rounded-xl border border-dashed border-red-300 bg-red-50 p-8 text-center">
+                <p className="text-[13px] font-semibold text-red-700">
+                  Hypothesis generation didn&apos;t complete
+                </p>
+                <p className="text-[12px] text-red-600">{genError}</p>
+                <p className="text-ink-500 text-[11.5px]">
+                  This is usually a transient hiccup - your literature is still
+                  approved. Try generating again.
+                </p>
+                <Button
+                  onClick={onRegenerate}
+                  disabled={isBusy}
+                  className="bg-purple-persona hover:bg-purple-persona/90 text-white"
+                >
+                  <IconRefresh size={14} className="mr-1.5" />
+                  Try again
+                </Button>
+              </div>
+            ) : (
+              <div className="border-purple-persona/30 bg-purple-persona-tint space-y-3 rounded-xl border border-dashed p-8 text-center">
+                <p className="text-ink-800 text-[13px] font-semibold">
+                  Build hypotheses from the papers you selected
+                </p>
+                <p className="text-ink-500 mx-auto max-w-md text-[12px] leading-relaxed">
+                  We&apos;ll propose a set of distinct, testable hypotheses
+                  drawn across your selected papers.
+                  {!autoMode && (
+                    <>
+                      {" "}
+                      Prefer to start from your own idea? Switch to{" "}
+                      <b>Create your own</b> above.
+                    </>
+                  )}
+                </p>
+                <Button
+                  onClick={onGenerateSuggested}
+                  disabled={isBusy || !canEdit}
+                  className="bg-purple-persona hover:bg-purple-persona/90 text-white"
+                >
+                  <IconSparkles size={14} className="mr-1.5" />
+                  Generate hypotheses
+                </Button>
+              </div>
+            )
+          ) : (
+            <div className="space-y-3">
+              {hypotheses.map((h, hi) => (
+                <div
+                  key={h.id}
+                  className="border-ink-200 flex items-start gap-3 rounded-xl border bg-white p-4"
+                >
+                  <Checkbox
+                    checked={h.selected}
+                    onCheckedChange={() => onToggle(h.id)}
+                    className="mt-1"
+                    disabled={isApproved || !canEdit}
+                  />
+                  <div className="min-w-0 flex-1">
+                    {/* Issue #27 - render an auto-generated short title above
+                    the full hypothesis text. `autoTitleFromHypothesis`
+                    picks the first ~6 words so the scientist can scan a
+                    list of hypotheses at a glance, then the full text
+                    follows in EditableHypothesis. */}
+                    <div className="text-purple-persona mb-1 text-[12px] font-bold uppercase tracking-wide">
+                      Hypothesis #{hi + 1}:{" "}
+                      {h.title || autoTitleFromHypothesis(h.text)}
+                    </div>
+                    <EditableHypothesis
+                      text={h.text}
+                      disabled={isApproved || !canEdit}
+                      onSave={next => onEdit(h.id, next)}
+                    />
+                    {/* Cited-from chips: surface paper titles inline so the user
+                    sees the evidence chain without opening the popover. */}
+                    {h.basedOnPaperIds.length > 0 && (
+                      <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                        <span className="text-ink-400 text-[10px] font-bold uppercase tracking-wide">
+                          Cited from
+                        </span>
+                        {h.basedOnPaperIds.map(pid => {
+                          const paper = paperById.get(pid)
+                          const label = paper?.title ?? `Reference ${pid}`
+                          return (
+                            <span
+                              key={pid}
+                              title={paper?.title ?? pid}
+                              className="text-ink-700 border-ink-200 bg-ink-50 inline-flex rounded-full border px-2 py-0.5 text-[10.5px]"
+                            >
+                              {label}
+                            </span>
+                          )
+                        })}
+                      </div>
+                    )}
+                    {/* Reasoning rendered inline so the user sees the "why"
+                    without clicking. We split on blank lines so multi-
+                    paragraph reasoning (premise → mechanism → prediction)
+                    stays legible. Long reasoning is collapsed with a
+                    "Show more" toggle to keep the list scannable. */}
+                    <ReasoningInline reasoning={h.reasoning ?? ""} />
+
+                    {/* "Based on" papers - full citation block - stays behind
+                    a popover since the inline chips already surface the
+                    paper names. The popover gives authors / year / journal /
+                    source link without dominating the card. */}
+                    {h.basedOnPaperIds.length > 0 && (
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <button className="text-purple-persona hover:bg-purple-persona-tint mt-2 inline-flex items-center gap-1 rounded px-2 py-1 text-[11px] font-semibold">
+                            <IconInfoCircle size={13} />
+                            Reference details
+                          </button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-96 text-xs">
+                          <div className="text-ink-400 text-[10px] font-bold uppercase tracking-wide">
+                            Based on
+                          </div>
+                          <ul className="mt-1 space-y-2">
+                            {h.basedOnPaperIds.map(pid => {
+                              const paper = paperById.get(pid)
+                              if (!paper) {
+                                return (
+                                  <li key={pid} className="text-ink-400 italic">
+                                    Reference {pid} (not available)
+                                  </li>
+                                )
+                              }
+                              const authorLabel =
+                                paper.authors && paper.authors.length
+                                  ? paper.authors.length <= 3
+                                    ? paper.authors.join(", ")
+                                    : `${paper.authors.slice(0, 3).join(", ")} et al.`
+                                  : ""
+                              const meta = [
+                                authorLabel,
+                                paper.year,
+                                paper.journal
+                              ]
+                                .filter(Boolean)
+                                .join(" · ")
+                              return (
+                                <li
+                                  key={pid}
+                                  className="border-ink-100 bg-ink-50 rounded-md border p-2"
+                                >
+                                  <div className="text-ink-900 font-semibold leading-snug">
+                                    {paper.title}
+                                  </div>
+                                  {meta && (
+                                    <div className="text-ink-500 mt-0.5 text-[10px]">
+                                      {meta}
+                                    </div>
+                                  )}
+                                  {paper.sourceUrl && (
+                                    <a
+                                      href={paper.sourceUrl}
+                                      target="_blank"
+                                      rel="noreferrer"
+                                      className="text-orange-product mt-1 inline-block text-[10px] underline"
+                                    >
+                                      Open source
+                                    </a>
+                                  )}
+                                </li>
+                              )
+                            })}
+                          </ul>
+                        </PopoverContent>
+                      </Popover>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Write your own, right here, WITHOUT losing the generated set.
+              The "Create your own" tab clears the suggestions on switch, so
+              the one moment a researcher is best placed to write a sharper
+              hypothesis - having just read four of ours - was also the moment
+              acting on it meant throwing them away. This adds theirs alongside
+              rather than instead. */}
+          {!isApproved && !isGenerating && hypotheses.length > 0 && canEdit && (
+            <details className="border-purple-persona/30 group rounded-xl border border-dashed bg-white p-4 open:pb-4">
+              <summary className="text-purple-persona cursor-pointer list-none text-[12.5px] font-semibold">
+                <span className="group-open:hidden">
+                  + Write your own hypothesis instead
+                </span>
+                <span className="hidden group-open:inline">
+                  Write your own hypothesis
+                </span>
+              </summary>
+              <p className="text-ink-500 mt-2 text-[12px] leading-relaxed">
+                Read something above you&apos;d sharpen, or have your own idea?
+                Write it here. It joins the list as an extra option - nothing
+                above is lost, and you can still pick whichever you prefer.
+              </p>
+              <textarea
+                value={ownText}
+                onChange={e => setOwnText(e.target.value)}
+                rows={3}
+                placeholder="e.g. Combining 50 mM lysine with 50 mM proline lowers viscosity at 150 mg/mL further than either alone, because they suppress different self-association contacts."
+                className="border-ink-200 focus:border-purple-persona mt-3 w-full rounded-lg border p-3 text-[13px] outline-none transition-colors"
+              />
+              <div className="mt-2 flex flex-wrap items-center gap-2">
+                <Button
+                  size="sm"
+                  disabled={isBusy || !ownText.trim()}
+                  onClick={() => {
+                    onUseOwnText(ownText.trim())
+                    setOwnText("")
+                  }}
+                  className="bg-purple-persona hover:bg-purple-persona/90 text-white"
+                >
+                  Add to the list
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={isBusy}
+                  onClick={onBuildOwn}
+                >
+                  Or answer a few questions and we&apos;ll draft it
+                </Button>
+              </div>
+            </details>
+          )}
+
+          <PhaseActionBar
+            onApprove={onApproveAndGenerate}
+            approveLabel="Approve & Generate Design"
+            approveDisabled={!canGenerate || !canEdit}
+            onRegenerate={hypotheses.length > 0 ? onRegenerate : undefined}
+            regenerateLabel="Regenerate Hypotheses"
+            isBusy={isBusy}
+            isApproved={isApproved}
+          />
+        </>
+      )}
+    </div>
+  )
+}
+
+/**
+ * "Create your own" tab body: answer setup questions to have the tool draft a
+ * hypothesis steered by the answers, OR type your own directly. Either path
+ * ends with a selected hypothesis carried into the design stage.
+ */
+function OwnHypothesisPanel(props: {
+  canEdit: boolean
+  isBusy: boolean
+  ownText: string
+  onOwnText: (v: string) => void
+  onBuildOwn: () => void
+  onUseOwnText: (text: string) => void
+}) {
+  const { canEdit, isBusy, ownText, onOwnText, onBuildOwn, onUseOwnText } =
+    props
+  return (
+    <div className="space-y-4">
+      <div className="border-purple-persona/30 bg-purple-persona-tint/40 rounded-xl border p-4">
+        <h4 className="text-ink-800 text-[13px] font-semibold">
+          Answer a few setup questions and we draft a hypothesis for you
+          together
+        </h4>
+        <p className="text-ink-500 mt-1 text-[12px] leading-relaxed">
+          A short, senior-bench-scientist set of questions about your system,
+          working concentrations, readout and comparison - then we generate a
+          sharp, testable hypothesis steered by your answers and the papers you
+          selected.
+        </p>
+        <Button
+          onClick={onBuildOwn}
+          disabled={!canEdit || isBusy}
+          className="bg-purple-persona hover:bg-purple-persona/90 mt-3 text-white"
+        >
+          <IconSparkles size={14} className="mr-1.5" />
+          Answer questions &amp; generate
+        </Button>
+      </div>
+
+      <div className="flex items-center gap-3">
+        <div className="bg-ink-100 h-px flex-1" />
+        <span className="text-ink-400 text-[11px] font-semibold uppercase tracking-wide">
+          or write your own
+        </span>
+        <div className="bg-ink-100 h-px flex-1" />
+      </div>
+
+      <div className="border-ink-200 space-y-2 rounded-xl border p-4">
+        <Textarea
+          value={ownText}
+          onChange={e => onOwnText(e.target.value)}
+          disabled={!canEdit || isBusy}
+          rows={3}
+          placeholder="Type your hypothesis. e.g. Raising arginine to 150 mM lowers the viscosity of the 150 mg/mL mAb formulation below 20 cP at 25 C without loss of monomer."
+        />
+        <div className="flex justify-end">
+          <Button
+            onClick={() => onUseOwnText(ownText)}
+            disabled={!canEdit || isBusy || ownText.trim().length < 8}
+            variant="outline"
+          >
+            Use my hypothesis →
+          </Button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+/**
+ * ASSUMPTION LEDGER panel. The design generator logs every value it had to
+ * assume; this asks the scientist to confirm or correct each one so the final
+ * protocol rests on their judgement, not the model's defaults. Highest-impact
+ * assumptions first - those are the ones that break the calculations.
+ */
+function AssumptionsPanel(props: {
+  assumptions: DesignAssumption[]
+  canEdit: boolean
+  isBusy: boolean
+  onResolve: (
+    answers: { id: string; value: string; acceptedAssumption: boolean }[]
+  ) => void
+}) {
+  const { assumptions, canEdit, isBusy, onResolve } = props
+  const open = assumptions.filter(a => !a.resolution)
+  const [picked, setPicked] = useState<Record<string, string>>({})
+  const [typed, setTyped] = useState<Record<string, string>>({})
+  const [collapsed, setCollapsed] = useState(false)
+
+  if (open.length === 0) return null
+
+  const valueFor = (a: DesignAssumption) =>
+    (typed[a.id] ?? "").trim() || picked[a.id] || ""
+  const answeredCount = open.filter(a => valueFor(a)).length
+
+  const submit = (acceptAll: boolean) => {
+    onResolve(
+      open.map(a => {
+        const v = valueFor(a)
+        return acceptAll || !v
+          ? { id: a.id, value: a.assumedValue, acceptedAssumption: true }
+          : {
+              id: a.id,
+              value: v,
+              acceptedAssumption: v === a.assumedValue
+            }
+      })
+    )
+  }
+
+  const tone = (impact: string) =>
+    impact === "high"
+      ? "border-rust/40 bg-rust/5"
+      : impact === "medium"
+        ? "border-line bg-paper-2"
+        : "border-line bg-surface"
+
+  return (
+    <div className="border-rust/40 bg-rust/5 space-y-3 rounded-xl border p-4">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0">
+          <h4 className="text-ink flex items-center gap-1.5 text-[13px] font-bold">
+            <IconAlertTriangle size={15} className="text-rust" />
+            {open.length} choice{open.length === 1 ? "" : "s"} made for you
+          </h4>
+          <p className="text-ink-2 mt-1 max-w-2xl text-[12px] leading-relaxed">
+            Each was picked from the literature and your inputs, with the
+            reasoning shown. Confirm them or set your own values, and the
+            protocol is rebuilt on your numbers - recomputing every dependent
+            volume, count and total.
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={() => setCollapsed(c => !c)}
+          className="text-ink-3 hover:text-ink shrink-0 text-[11px] font-semibold uppercase tracking-wide"
+        >
+          {collapsed ? "Show" : "Hide"}
+        </button>
+      </div>
+
+      {!collapsed && (
+        <>
+          <div className="space-y-2.5">
+            {open.map(a => (
+              <div
+                key={a.id}
+                className={cn(
+                  "space-y-2 rounded-lg border p-3",
+                  tone(a.impact)
+                )}
+              >
+                <div className="flex flex-wrap items-baseline gap-2">
+                  <span className="text-ink text-[12.5px] font-semibold">
+                    {a.parameter}
+                  </span>
+                  {a.impact === "high" && (
+                    <span className="text-rust border-rust/40 rounded-full border px-1.5 py-0.5 text-[10px] font-bold uppercase">
+                      changes the calcs
+                    </span>
+                  )}
+                  {a.section && (
+                    <span className="text-ink-3 text-[10.5px]">
+                      {a.section}
+                    </span>
+                  )}
+                </div>
+                <p className="text-ink-2 text-[12px] leading-relaxed">
+                  Selected: <b className="text-ink">{a.assumedValue}</b>.{" "}
+                  {a.whyItMatters}
+                </p>
+                <div className="flex flex-wrap gap-1.5">
+                  {/* The chosen value is ALWAYS offered as an option and
+                      flagged as the recommendation - the model often omitted
+                      its own pick from the list, leaving no way to select the
+                      thing it had already (usually correctly) decided on. */}
+                  {(a.options.some(
+                    o =>
+                      o.trim().toLowerCase() ===
+                      a.assumedValue.trim().toLowerCase()
+                  )
+                    ? a.options
+                    : [a.assumedValue, ...a.options]
+                  ).map(opt => {
+                    const isRecommended =
+                      opt.trim().toLowerCase() ===
+                      a.assumedValue.trim().toLowerCase()
+                    const isPicked =
+                      (picked[a.id] ?? a.assumedValue) === opt &&
+                      !(typed[a.id] ?? "").trim()
+                    return (
+                      <button
+                        key={opt}
+                        type="button"
+                        disabled={!canEdit || isBusy}
+                        onClick={() => {
+                          setPicked(p => ({ ...p, [a.id]: opt }))
+                          setTyped(t => ({ ...t, [a.id]: "" }))
+                        }}
+                        className={cn(
+                          "rounded-full border px-2.5 py-1 text-[11.5px] transition-colors",
+                          isPicked
+                            ? "border-ink bg-ink text-white"
+                            : isRecommended
+                              ? "border-ink text-ink bg-surface font-medium"
+                              : "border-line text-ink-2 hover:border-line-strong bg-surface"
+                        )}
+                      >
+                        {opt}
+                        {isRecommended && (
+                          <span
+                            className={cn(
+                              "ml-1.5 text-[9.5px] font-bold uppercase tracking-wide",
+                              isPicked ? "text-white/70" : "text-ink-3"
+                            )}
+                          >
+                            chosen
+                          </span>
+                        )}
+                      </button>
+                    )
+                  })}
+                </div>
+                <Input
+                  value={typed[a.id] ?? ""}
+                  onChange={e =>
+                    setTyped(t => ({ ...t, [a.id]: e.target.value }))
+                  }
+                  disabled={!canEdit || isBusy}
+                  placeholder={`Or type the exact value (e.g. ${a.assumedValue})`}
+                  className="h-8 text-[12px]"
+                />
+              </div>
+            ))}
+          </div>
+
+          <div className="border-line/60 flex flex-wrap items-center justify-between gap-2 border-t pt-3">
+            <span className="text-ink-3 text-[11.5px]">
+              {answeredCount} of {open.length} changed
+            </span>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="ghost"
+                size="sm"
+                disabled={!canEdit || isBusy}
+                onClick={() => submit(true)}
+                className="text-ink-2"
+              >
+                Confirm all
+              </Button>
+              <Button
+                size="sm"
+                disabled={!canEdit || isBusy || answeredCount === 0}
+                onClick={() => submit(false)}
+                className="bg-rust hover:bg-rust/90 text-white"
+              >
+                Apply my changes
+              </Button>
+            </div>
+          </div>
+        </>
+      )}
     </div>
   )
 }
@@ -4487,9 +8157,30 @@ function DesignSectionContent(props: {
   // Promote any paragraph-embedded bullet markers onto their own line so the
   // markdown renderer turns them into a real list (fixes runs that squash
   // bullets into a wall of text).
+  //
+  // TABLE ROWS ARE EXEMPT. Applied blindly, these rules fire inside table
+  // cells: a cell reading "20 mM - pH 6.0" or "1. Add buffer" contains the
+  // same " - " / " 1. " pattern, so the row was split across several lines and
+  // GFM stopped recognising the block as a table - which is why the conditions
+  // and condition-prep sections came back as walls of pipes after an
+  // iteration, where cells tend to carry more description. Rewriting per line,
+  // skipping anything that looks like a table row or separator, keeps both
+  // behaviours.
   const normalized = section.body
-    .replace(/\s+([-*•])\s+(?=\S)/g, "\n$1 ")
-    .replace(/\s+(\d+\.)\s+(?=\S)/g, "\n$1 ")
+    .split("\n")
+    .map(line => {
+      const t = line.trim()
+      const isTableRow = t.startsWith("|") || /^\|?[\s:|-]+\|[\s:|-]*$/.test(t)
+      if (isTableRow) return line
+      return line
+        .replace(/\s+([-*•])\s+(?=\S)/g, "\n$1 ")
+        .replace(/\s+(\d+\.)\s+(?=\S)/g, "\n$1 ")
+    })
+    .join("\n")
+    // A table butted directly against the paragraph above it is parsed as part
+    // of that paragraph, so it renders as literal pipes. Guarantee the blank
+    // line GFM needs.
+    .replace(/([^\n|])\n(\|)/g, "$1\n\n$2")
 
   return (
     <section
@@ -4510,7 +8201,7 @@ function DesignSectionContent(props: {
           <button
             type="button"
             onClick={enterEdit}
-            className="text-ink-3 hover:text-ink hover:bg-paper-2 ml-auto inline-flex h-7 items-center gap-1.5 rounded-md px-2 text-[12.5px] opacity-0 transition-opacity focus:opacity-100 group-hover/section:opacity-100"
+            className="text-ink-3 hover:text-ink hover:bg-paper-2 border-line ml-auto inline-flex h-7 shrink-0 items-center gap-1.5 rounded-md border px-2 text-[12.5px] transition-colors"
             title="Edit section"
           >
             <IconPencil size={13} /> Edit
@@ -4620,8 +8311,11 @@ function DesignTab(props: {
   activeId: string | null
   onSelect: (id: string) => void
   activeDesign?: GeneratedDesign
-  onSave: (id: string) => void
   onApproveAndContinue: () => void
+  /** Open the Validate & iterate modal (simulate or bring lab data). */
+  onValidateIterate?: () => void
+  /** Finalise/save the design directly (was the bottom "Next" -> gate). */
+  onSaveNow?: () => void
   onRegenerate: () => void
   isApproved: boolean
   canEdit: boolean
@@ -4630,7 +8324,23 @@ function DesignTab(props: {
   progress?: PhaseProgress[]
   onRevise: () => void
   designVersions?: DesignVersionSnapshot[]
+  /** What the LIVE design is called. Not always one above the highest in
+   *  history: promoting an older version brings its own number forward. */
+  liveVersionNumber?: number
+  /** Set while a NEW version is being generated: which version, and the
+   *  changes going into it. Replaces the superseded design with progress. */
+  regenPlan?: { version: number; changes: string[]; hypothesis?: string } | null
+  /** Provenance of the live design — labels the newest rail entry. */
+  currentOrigin?: "original" | "simulation" | "lab-data" | "manual"
   onRestoreVersion?: (versionId: string) => void
+  /** Resolve the assumption ledger (confirm or correct assumed values). */
+  onResolveAssumptions?: (
+    answers: { id: string; value: string; acceptedAssumption: boolean }[]
+  ) => void
+  /** Version currently being READ (null = the live design). */
+  viewingVersionId?: string | null
+  /** Move the read pointer. Browsing never mutates or renumbers history. */
+  onViewVersion?: (versionId: string | null) => void
   onEditSection?: (
     designId: string,
     heading: string,
@@ -4643,8 +8353,9 @@ function DesignTab(props: {
     activeId,
     onSelect,
     activeDesign,
-    onSave,
     onApproveAndContinue,
+    onValidateIterate,
+    onSaveNow,
     onRegenerate,
     isApproved,
     canEdit,
@@ -4653,7 +8364,13 @@ function DesignTab(props: {
     progress,
     onRevise,
     designVersions = [],
+    liveVersionNumber,
+    regenPlan = null,
+    currentOrigin = "original",
     onRestoreVersion,
+    onResolveAssumptions,
+    viewingVersionId = null,
+    onViewVersion,
     onEditSection
   } = props
 
@@ -4666,249 +8383,552 @@ function DesignTab(props: {
 
   const scrollContainerId = "design-detail-scroll"
 
-  return (
-    <div className="space-y-4">
-      <PhaseBanner
-        isApproved={isApproved}
-        phaseName="Experiment Design"
-        onRevise={onRevise}
-      />
+  // Iteration timeline (item 16). Oldest → newest, with the live design last.
+  // designVersions is stored newest-first, so reverse it for the rail.
+  const timeline: {
+    key: string
+    version: number
+    label: string
+    createdAt?: string
+    isCurrent: boolean
+    versionId?: string
+    outcome?: DesignVersionSnapshot["outcome"]
+  }[] = [
+    ...[...designVersions].reverse().map(v => ({
+      key: v.id,
+      version: v.versionNumber,
+      label: originLabel(v.origin),
+      createdAt: v.createdAt,
+      isCurrent: false,
+      versionId: v.id,
+      outcome: v.outcome
+    })),
+    {
+      key: "current",
+      version:
+        regenPlan?.version ??
+        liveVersionNumber ??
+        designVersions.reduce((m, v) => Math.max(m, v.versionNumber), 0) + 1,
+      label: regenPlan ? "Generating…" : originLabel(currentOrigin),
+      isCurrent: true
+    }
+  ]
 
-      {designs.length === 0 ? (
-        isGenerating ? (
-          <>
-            {/* Issue #25 - while the design is being generated, the user
+  // Which rail entry is being READ. The live design is the default view, so
+  // "current" is highlighted whenever no version pointer is set.
+  const isViewed = (t: { isCurrent: boolean; versionId?: string }): boolean =>
+    viewingVersionId ? t.versionId === viewingVersionId : t.isCurrent
+  const viewedEntry = timeline.find(t => isViewed(t))
+  const viewedVersion = viewingVersionId
+    ? (designVersions.find(v => v.id === viewingVersionId) ?? null)
+    : null
+
+  return (
+    <div className="flex gap-5">
+      {/* LEFT: sequential iteration rail. Only once there's more than one
+          version — a single design doesn't need a timeline. */}
+      {/* Shown whenever there IS history - it used to be hidden below the lg
+          breakpoint, so saving (which opens the Export panel and squeezes the
+          reading width) made the whole version list appear to vanish. */}
+      {designs.length > 0 && timeline.length > 1 && (
+        <aside className="w-40 shrink-0 lg:w-48">
+          <div className="text-ink-400 mb-2 text-[11px] font-semibold uppercase tracking-wider">
+            Design iterations
+          </div>
+          <ol className="relative space-y-1">
+            {timeline.map((t, i) => (
+              <li key={t.key} className="relative">
+                {i < timeline.length - 1 && (
+                  <span className="bg-ink-200 absolute left-[7px] top-[22px] h-[calc(100%-14px)] w-px" />
+                )}
+                <button
+                  type="button"
+                  disabled={!onViewVersion}
+                  onClick={() => onViewVersion?.(t.versionId ?? null)}
+                  title={
+                    isViewed(t)
+                      ? "You're reading this version"
+                      : t.isCurrent
+                        ? "Back to the current design"
+                        : `Open v${t.version} (read-only)`
+                  }
+                  className={cn(
+                    "group flex w-full items-start gap-2 rounded-lg px-2 py-1.5 text-left transition-colors",
+                    isViewed(t)
+                      ? "bg-ink-50 cursor-default"
+                      : "hover:bg-ink-50 cursor-pointer"
+                  )}
+                >
+                  <span
+                    className={cn(
+                      "mt-0.5 size-[15px] shrink-0 rounded-full border-2 bg-white",
+                      isViewed(t) ? "border-brick" : "border-ink-300"
+                    )}
+                  />
+                  <span className="min-w-0">
+                    <span
+                      className={cn(
+                        "block text-[12px] font-semibold",
+                        isViewed(t) ? "text-ink-900" : "text-ink-700"
+                      )}
+                    >
+                      v{t.version}
+                      {t.isCurrent && (
+                        <span className="text-brick ml-1 font-medium">
+                          · current
+                        </span>
+                      )}
+                    </span>
+                    <span className="text-ink-500 block text-[11px] leading-snug">
+                      {t.label}
+                    </span>
+                    {t.createdAt && (
+                      <span className="text-ink-400 block font-mono text-[10px]">
+                        {new Date(t.createdAt).toLocaleDateString()}
+                      </span>
+                    )}
+                    {/* Auto mode iterates on its own, so a researcher opening
+                        Validate only ever saw the LATEST simulation and had no
+                        idea the earlier version had been simulated at all.
+                        Each entry now advertises its own result, and clicking
+                        the entry opens that version with its verdict panel. */}
+                    {t.outcome &&
+                      (typeof t.outcome.meetRate === "number" ||
+                        t.outcome.verdict) && (
+                        <span className="mt-1 block">
+                          {typeof t.outcome.meetRate === "number" && (
+                            <span
+                              className={cn(
+                                "inline-block rounded-full px-1.5 py-0.5 text-[10px] font-semibold",
+                                t.outcome.metTarget
+                                  ? "bg-emerald-50 text-emerald-700"
+                                  : "bg-amber-50 text-amber-700"
+                              )}
+                            >
+                              hit {Math.round(t.outcome.meetRate * 100)}%
+                            </span>
+                          )}
+                          <span className="text-teal-journey mt-0.5 block text-[10px] font-medium underline-offset-2 group-hover:underline">
+                            View simulation
+                          </span>
+                        </span>
+                      )}
+                  </span>
+                </button>
+              </li>
+            ))}
+          </ol>
+        </aside>
+      )}
+
+      <div className="min-w-0 flex-1 space-y-4">
+        {/* Reading history: make it obvious this isn't the live design, and give
+            both ways out - back to current, or promote this one. */}
+        {/* Reading an OLD version: show the evidence that superseded it -
+            the verdict at the time and the changes that produced the next
+            version. Previously only the latest version had any of this, so
+            stepping back showed a protocol with no reasoning attached. */}
+        {viewedVersion?.outcome &&
+          (viewedVersion.outcome.verdict ||
+            viewedVersion.outcome.simulation ||
+            (viewedVersion.outcome.appliedChanges?.length ?? 0) > 0) && (
+            <SimulationOutcome
+              outcome={viewedVersion.outcome}
+              title={`v${viewedVersion.versionNumber} · what this version showed`}
+            />
+          )}
+
+        {viewedVersion && (
+          <div className="border-line bg-paper-2 flex flex-wrap items-center justify-between gap-3 rounded-lg border px-3 py-2">
+            <p className="text-ink-2 text-[12px]">
+              Reading <b className="text-ink">v{viewedVersion.versionNumber}</b>
+              {viewedEntry ? ` · ${viewedEntry.label}` : ""} — read-only.
+            </p>
+            <div className="flex items-center gap-2">
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => onViewVersion?.(null)}
+              >
+                Back to current
+              </Button>
+              {onRestoreVersion && canEdit && (
+                <Button
+                  size="sm"
+                  variant="outline"
+                  disabled={isBusy}
+                  onClick={() => onRestoreVersion(viewedVersion.id)}
+                >
+                  Make this the current design
+                </Button>
+              )}
+            </div>
+          </div>
+        )}
+        {/* Assumption ledger - only for the LIVE design (a historical version
+            is read-only, and its assumptions were already settled). */}
+        {!viewedVersion &&
+          onResolveAssumptions &&
+          (activeDesign?.assumptions?.length ?? 0) > 0 && (
+            <AssumptionsPanel
+              assumptions={activeDesign!.assumptions!}
+              canEdit={canEdit}
+              isBusy={isBusy}
+              onResolve={onResolveAssumptions}
+            />
+          )}
+        <PhaseBanner
+          isApproved={isApproved}
+          phaseName="Experiment Design"
+          onRevise={onRevise}
+        />
+
+        {/* Validate & iterate lives at the TOP so it's visible without
+            scrolling a long design (it used to sit under the protocol, below
+            the fold). One button; inside the modal the researcher picks
+            simulate-the-results or bring-your-own lab data. */}
+        {/* Stays available AFTER saving too. It used to be hidden once the
+            design was saved, on the reasoning that iterating would silently
+            fork a finalised design - but saving then validating is the normal
+            order of work, and hiding the button just stranded the researcher.
+            Iterating writes a NEW version and leaves the saved one intact, so
+            nothing is silently overwritten; the copy says so. */}
+        {designs.length > 0 &&
+          onValidateIterate &&
+          !viewedVersion &&
+          !regenPlan && (
+            <div className="border-teal-journey/30 bg-teal-journey/5 flex flex-wrap items-center justify-between gap-3 rounded-xl border px-4 py-3">
+              <p className="text-ink-600 min-w-0 text-[12.5px]">
+                <span className="text-ink-800 font-semibold">
+                  Stress-test this design
+                </span>{" "}
+                {isApproved
+                  ? "— simulate the outcome, or check it against your own lab data. Any changes land as a new version; the saved design stays as it is."
+                  : "— simulate the outcome, or check it against your own lab data — or save it and head to downloads."}
+              </p>
+              <div className="flex shrink-0 items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={onValidateIterate}
+                  disabled={isBusy}
+                  className="border-teal-journey/40 text-teal-journey hover:bg-teal-journey/10 gap-1.5"
+                >
+                  <IconChartHistogram size={15} /> Validate &amp; iterate
+                </Button>
+                {/* Keyed off UNSAVED WORK, not phase approval. Editing a section
+                  after saving clears that design's `saved` flag, and gating
+                  this on `!isApproved` meant the button never came back - the
+                  edit was stranded with no way to commit it. */}
+                {onSaveNow && (!isApproved || designs.some(d => !d.saved)) && (
+                  <Button
+                    size="sm"
+                    onClick={onSaveNow}
+                    disabled={isBusy}
+                    className="bg-brick hover:bg-brick-hover gap-1.5"
+                  >
+                    <IconCheck size={15} />
+                    {isApproved ? "Save changes" : "Save now"}
+                  </Button>
+                )}
+              </div>
+            </div>
+          )}
+
+        {/* A regeneration in flight takes over the reading pane. The old
+            behaviour left the SUPERSEDED design on screen with every control
+            disabled, so it looked as though the page had frozen on a protocol
+            that was already on its way out. */}
+        {regenPlan ? (
+          <div className="space-y-4">
+            <div className="border-teal-journey/30 bg-teal-journey/5 rounded-xl border p-4">
+              <div className="flex items-center gap-2">
+                <IconLoader2
+                  size={16}
+                  className="text-teal-journey animate-spin"
+                />
+                <span className="text-ink-900 text-[13.5px] font-semibold">
+                  Generating v{regenPlan.version}
+                </span>
+              </div>
+              <p className="text-ink-600 mt-1 text-[12.5px]">
+                v{liveVersionNumber ?? regenPlan.version - 1} is saved in the
+                timeline on the left and stays readable while this builds.
+              </p>
+              {regenPlan.changes.length > 0 && (
+                <div className="mt-3">
+                  <div className="text-ink-400 mb-1 text-[10.5px] font-bold uppercase tracking-wider">
+                    Changes going in
+                  </div>
+                  <ul className="text-ink-700 list-disc space-y-0.5 pl-4 text-[12.5px]">
+                    {regenPlan.changes.map(c => (
+                      <li key={c}>{c}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+              {regenPlan.hypothesis && (
+                <div className="mt-3">
+                  <div className="text-ink-400 mb-1 text-[10.5px] font-bold uppercase tracking-wider">
+                    Revised hypothesis
+                  </div>
+                  <p className="text-ink-700 text-[12.5px] leading-relaxed">
+                    {regenPlan.hypothesis}
+                  </p>
+                </div>
+              )}
+            </div>
+            <PhaseProgressView
+              accentClass="border-sage-brand/30 bg-sage-brand-tint"
+              title={`Rebuilding the design as v${regenPlan.version}`}
+              subtitle="Four phases per hypothesis: setup, materials, protocol, analysis."
+              events={progress ?? []}
+            />
+          </div>
+        ) : designs.length === 0 ? (
+          isGenerating ? (
+            <>
+              {/* Issue #25 - while the design is being generated, the user
                 should still see the hypotheses that drove it. We pull the
                 selected hypotheses from the parent and render them as a
                 pinned slab above the progress view so the scientist has
                 continuous context during the (often slow) generation. */}
-            {hypotheses.filter(h => h.selected).length > 0 && (
-              <div className="border-purple-persona/30 bg-purple-persona-tint space-y-2 rounded-xl border p-4">
-                <div className="text-purple-persona text-[10.5px] font-bold uppercase tracking-widest">
-                  Generating from {hypotheses.filter(h => h.selected).length}{" "}
-                  hypothes
-                  {hypotheses.filter(h => h.selected).length === 1
-                    ? "is"
-                    : "es"}
-                </div>
-                {hypotheses
-                  .filter(h => h.selected)
-                  .map((h, i) => (
-                    <div
-                      key={h.id}
-                      className="border-purple-persona/20 rounded-lg border bg-white p-3"
-                    >
-                      <div className="text-purple-persona mb-1 text-[11.5px] font-bold uppercase tracking-wide">
-                        Hypothesis #{i + 1}: {autoTitleFromHypothesis(h.text)}
-                      </div>
-                      <p className="text-ink-900 text-[13px] leading-relaxed">
-                        {h.text}
-                      </p>
-                    </div>
-                  ))}
-              </div>
-            )}
-            <PhaseProgressView
-              accentClass="border-sage-brand/30 bg-sage-brand-tint"
-              title="Generating experiment designs"
-              subtitle="Four phases per hypothesis: setup, materials, protocol, analysis."
-              events={progress ?? []}
-            />
-          </>
-        ) : (
-          <div className="border-sage-brand/30 bg-sage-brand-tint text-ink-500 rounded-xl border border-dashed p-8 text-center text-xs">
-            {isBusy
-              ? "Generating experiment designs..."
-              : "No designs yet. Approve Hypotheses to generate designs."}
-          </div>
-        )
-      ) : (
-        <>
-          <div className="flex flex-wrap gap-2">
-            {designs.map(d => {
-              const isActive = d.id === (activeId ?? designs[0].id)
-              const hyp = hypotheses.find(h => h.id === d.hypothesisId)
-              const hypIdx = hyp
-                ? hypotheses.findIndex(h => h.id === hyp.id) + 1
-                : null
-              const shortHyp = autoTitleFromHypothesis(hyp?.text)
-              const tabLabel = hyp
-                ? `Hypothesis #${hypIdx}: ${shortHyp}`
-                : d.title
-              return (
-                <button
-                  key={d.id}
-                  onClick={() => onSelect(d.id)}
-                  title={hyp?.text ?? d.title}
-                  className={
-                    "flex max-w-full items-center gap-2 whitespace-normal break-words rounded-lg border px-3 py-1.5 text-left text-xs font-semibold transition-colors md:max-w-[360px] " +
-                    (isActive
-                      ? "border-sage-brand bg-sage-brand-active text-sage-brand"
-                      : "border-ink-200 text-ink-500 hover:bg-ink-100")
-                  }
-                >
-                  <span className="min-w-0 flex-1">{tabLabel}</span>
-                  {d.saved && (
-                    <span
-                      aria-label="Saved"
-                      className="bg-sage-brand mt-0.5 inline-block size-1.5 shrink-0 rounded-full"
-                    />
-                  )}
-                </button>
-              )
-            })}
-          </div>
-
-          {activeDesign && (
-            <div className="grid grid-cols-[200px_minmax(0,1fr)] gap-6">
-              <aside className="hidden md:block">
-                <DesignSectionIndex
-                  sections={activeDesign.sections}
-                  containerId={scrollContainerId}
-                />
-              </aside>
-
-              <Card className="rounded-2xl">
-                <CardHeader className="flex flex-row items-start justify-between gap-3 pb-3">
-                  <div className="min-w-0 flex-1">
-                    <div className="text-ink-400 text-[10px] font-bold uppercase tracking-[0.13em]">
-                      Experiment Design
-                    </div>
-                    <CardTitle
-                      className="text-sage-brand mt-1 whitespace-normal break-words text-lg leading-tight"
-                      title={activeDesign.title}
-                    >
-                      {activeDesign.title}
-                    </CardTitle>
-                    {activeHypothesis?.text && (
-                      <div
-                        className="text-ink-2 mt-2 border-l-2 border-[color:var(--rust)] pl-3 text-[13.5px] italic leading-relaxed"
-                        title={activeHypothesis.text}
-                      >
-                        <span className="text-ink-3 mr-2 font-mono text-[11px] uppercase not-italic tracking-widest">
-                          Hypothesis
-                        </span>
-                        {activeHypothesis.text}
-                      </div>
-                    )}
+              {hypotheses.filter(h => h.selected).length > 0 && (
+                <div className="border-purple-persona/30 bg-purple-persona-tint space-y-2 rounded-xl border p-4">
+                  <div className="text-purple-persona text-[10.5px] font-bold uppercase tracking-widest">
+                    Generating from {hypotheses.filter(h => h.selected).length}{" "}
+                    hypothes
+                    {hypotheses.filter(h => h.selected).length === 1
+                      ? "is"
+                      : "es"}
                   </div>
-                  {/* Per-design "Check statistics" + "Make a plan" actions
+                  {hypotheses
+                    .filter(h => h.selected)
+                    .map((h, i) => (
+                      <div
+                        key={h.id}
+                        className="border-purple-persona/20 rounded-lg border bg-white p-3"
+                      >
+                        <div className="text-purple-persona mb-1 text-[11.5px] font-bold uppercase tracking-wide">
+                          Hypothesis #{i + 1}:{" "}
+                          {h.title || autoTitleFromHypothesis(h.text)}
+                        </div>
+                        <p className="text-ink-900 text-[13px] leading-relaxed">
+                          {h.text}
+                        </p>
+                      </div>
+                    ))}
+                </div>
+              )}
+              <PhaseProgressView
+                accentClass="border-sage-brand/30 bg-sage-brand-tint"
+                title="Generating experiment designs"
+                subtitle="Four phases per hypothesis: setup, materials, protocol, analysis."
+                events={progress ?? []}
+              />
+            </>
+          ) : (
+            <div className="border-sage-brand/30 bg-sage-brand-tint text-ink-500 rounded-xl border border-dashed p-8 text-center text-xs">
+              {isBusy
+                ? "Generating experiment designs..."
+                : "No designs yet. Approve Hypotheses to generate designs."}
+            </div>
+          )
+        ) : (
+          <>
+            <div className="flex flex-wrap gap-2">
+              {designs.map(d => {
+                const isActive = d.id === (activeId ?? designs[0].id)
+                const hyp = hypotheses.find(h => h.id === d.hypothesisId)
+                const hypIdx = hyp
+                  ? hypotheses.findIndex(h => h.id === hyp.id) + 1
+                  : null
+                const shortHyp = autoTitleFromHypothesis(hyp?.text)
+                const tabLabel = hyp
+                  ? `Hypothesis #${hypIdx}: ${shortHyp}`
+                  : d.title
+                return (
+                  <button
+                    key={d.id}
+                    onClick={() => onSelect(d.id)}
+                    title={hyp?.text ?? d.title}
+                    className={
+                      "flex max-w-full items-center gap-2 whitespace-normal break-words rounded-lg border px-3 py-1.5 text-left text-xs font-semibold transition-colors md:max-w-[360px] " +
+                      (isActive
+                        ? "border-sage-brand bg-sage-brand-active text-sage-brand"
+                        : "border-ink-200 text-ink-500 hover:bg-ink-100")
+                    }
+                  >
+                    <span className="min-w-0 flex-1">{tabLabel}</span>
+                    {d.saved && (
+                      <span
+                        aria-label="Saved"
+                        className="bg-sage-brand mt-0.5 inline-block size-1.5 shrink-0 rounded-full"
+                      />
+                    )}
+                  </button>
+                )
+              })}
+            </div>
+
+            {activeDesign && (
+              <div className="grid grid-cols-[200px_minmax(0,1fr)] gap-6">
+                <aside className="hidden md:block">
+                  <DesignSectionIndex
+                    sections={activeDesign.sections}
+                    containerId={scrollContainerId}
+                  />
+                </aside>
+
+                <Card className="rounded-2xl">
+                  <CardHeader className="flex flex-row items-start justify-between gap-3 pb-3">
+                    <div className="min-w-0 flex-1">
+                      <div className="text-ink-400 text-[10px] font-bold uppercase tracking-[0.13em]">
+                        Experiment Design
+                      </div>
+                      <CardTitle
+                        className="text-sage-brand mt-1 whitespace-normal break-words text-lg leading-tight"
+                        title={activeDesign.title}
+                      >
+                        {activeDesign.title}
+                      </CardTitle>
+                      {activeHypothesis?.text && (
+                        <div
+                          className="text-ink-2 mt-2 border-l-2 border-[color:var(--rust)] pl-3 text-[13.5px] italic leading-relaxed"
+                          title={activeHypothesis.text}
+                        >
+                          <span className="text-ink-3 mr-2 font-mono text-[11px] uppercase not-italic tracking-widest">
+                            Hypothesis
+                          </span>
+                          {activeHypothesis.text}
+                        </div>
+                      )}
+                    </div>
+                    {/* Per-design "Check statistics" + "Make a plan" actions
                       were removed from this view. Both flows are now reached
                       via the dashboard "New design" dropdown using the
                       `check-stats` / `make-plan` modes against an existing
                       design. */}
-                  {designVersions.length > 0 && onRestoreVersion && (
-                    <Popover>
-                      <PopoverTrigger asChild>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="h-7 shrink-0 gap-1 text-xs"
-                        >
-                          <IconRefresh size={12} />v
-                          {(designVersions[0]?.versionNumber ?? 0) + 1} ·
-                          history
-                        </Button>
-                      </PopoverTrigger>
-                      <PopoverContent align="end" className="w-72 p-2">
-                        <div className="text-ink-400 mb-2 px-1 text-[10px] font-bold uppercase tracking-widest">
-                          Prior versions
-                        </div>
-                        <ul className="space-y-1">
-                          {designVersions.map(v => (
-                            <li key={v.id}>
-                              <button
-                                onClick={() => onRestoreVersion(v.id)}
-                                className="hover:bg-ink-100 flex w-full items-center justify-between rounded-md px-2 py-1.5 text-left text-xs"
-                              >
-                                <span className="font-semibold">
-                                  v{v.versionNumber}
-                                </span>
-                                <span className="text-ink-400">
-                                  {new Date(v.createdAt).toLocaleDateString()}
-                                </span>
-                              </button>
-                            </li>
-                          ))}
-                        </ul>
-                        <p className="text-ink-400 mt-2 px-1 text-[10px]">
-                          Selecting a version restores it and archives the
-                          current design.
-                        </p>
-                      </PopoverContent>
-                    </Popover>
-                  )}
-                </CardHeader>
-                <CardContent>
-                  <div
-                    id={scrollContainerId}
-                    className="max-h-[60vh] space-y-5 overflow-auto pr-2"
-                  >
-                    {activeDesign.sections.map((sec, i) => (
-                      <DesignSectionContent
-                        key={sec.heading}
-                        section={sec}
-                        index={i}
-                        editable={
-                          !isApproved && canEdit && Boolean(onEditSection)
-                        }
-                        onSave={
-                          onEditSection
-                            ? async next =>
-                                onEditSection(
-                                  activeDesign.id,
-                                  sec.heading,
-                                  next
-                                )
-                            : undefined
-                        }
-                      />
-                    ))}
-                  </div>
+                    {designVersions.length > 0 && onRestoreVersion && (
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-7 shrink-0 gap-1 text-xs"
+                          >
+                            <IconRefresh size={12} />v
+                            {liveVersionNumber ??
+                              designVersions.reduce(
+                                (m, v) => Math.max(m, v.versionNumber),
+                                0
+                              ) + 1}{" "}
+                            · history
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent align="end" className="w-72 p-2">
+                          <div className="text-ink-400 mb-2 px-1 text-[10px] font-bold uppercase tracking-widest">
+                            Prior versions
+                          </div>
+                          <ul className="space-y-1">
+                            {designVersions.map(v => (
+                              <li key={v.id}>
+                                <button
+                                  onClick={() => onViewVersion?.(v.id)}
+                                  className="hover:bg-ink-100 flex w-full items-center justify-between rounded-md px-2 py-1.5 text-left text-xs"
+                                >
+                                  <span className="font-semibold">
+                                    v{v.versionNumber}
+                                  </span>
+                                  <span className="text-ink-400">
+                                    {new Date(v.createdAt).toLocaleDateString()}
+                                  </span>
+                                </button>
+                              </li>
+                            ))}
+                          </ul>
+                          <p className="text-ink-400 mt-2 px-1 text-[10px]">
+                            Opens the version read-only. Numbering never
+                            changes; use &ldquo;Make this the current
+                            design&rdquo; to promote it.
+                          </p>
+                        </PopoverContent>
+                      </Popover>
+                    )}
+                  </CardHeader>
+                  <CardContent>
+                    <div
+                      id={scrollContainerId}
+                      className="max-h-[60vh] space-y-5 overflow-auto pr-2"
+                    >
+                      {activeDesign.sections.map((sec, i) => (
+                        <DesignSectionContent
+                          key={sec.heading}
+                          section={sec}
+                          index={i}
+                          /* Editable AFTER saving too. Saving marks the design
+                             approved, which used to strip every section's Edit
+                             button and leave the chat as the only way to change
+                             a word - the researcher asked for the same per-
+                             section pencil the report has. Editing clears the
+                             design's `saved` flag, so an edited design visibly
+                             needs re-saving rather than quietly diverging. */
+                          editable={canEdit && Boolean(onEditSection)}
+                          onSave={
+                            onEditSection
+                              ? async next =>
+                                  onEditSection(
+                                    activeDesign.id,
+                                    sec.heading,
+                                    next
+                                  )
+                              : undefined
+                          }
+                        />
+                      ))}
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+            )}
+          </>
+        )}
 
-                  <DesignActionsBar design={activeDesign} onSave={onSave} />
-                </CardContent>
-              </Card>
-            </div>
-          )}
-        </>
-      )}
-
-      <PhaseActionBar
-        onApprove={onApproveAndContinue}
-        approveLabel="Approve & Finalize Design"
-        approveDisabled={designs.length === 0 || !canEdit}
-        onRegenerate={designs.length > 0 ? onRegenerate : undefined}
-        regenerateLabel="Regenerate Designs"
-        isBusy={isBusy}
-        isApproved={isApproved}
-      />
+        {/* The bottom "Next" moved to the top row as "Save now" - a long
+            protocol buried it below the fold. Only Regenerate stays down here,
+            next to the content it regenerates. */}
+        {!isApproved && designs.length > 0 && (
+          <div className="border-ink-100 mt-6 border-t pt-4">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={onRegenerate}
+              disabled={isBusy}
+              className="gap-1.5"
+            >
+              <IconRefresh size={14} /> Regenerate Designs
+            </Button>
+          </div>
+        )}
+      </div>
     </div>
   )
 }
 
-function DesignActionsBar(props: {
-  design: GeneratedDesign
-  onSave: (id: string) => void
-}) {
-  const { design, onSave } = props
-
-  // Download + Share moved out of this bar: Save is the only per-design action
-  // here now. Export (Markdown / JSON / PDF) and sharing/collaborators live in
-  // the top-right Share dialog so there's a single place to manage them.
-  return (
-    <div className="border-ink-100 mt-4 flex flex-wrap items-center justify-end gap-2 border-t pt-3">
-      <Button
-        size="sm"
-        onClick={() => onSave(design.id)}
-        disabled={design.saved}
-        className="bg-brick hover:bg-brick-hover gap-1.5"
-      >
-        <IconFlask size={14} />
-        {design.saved ? "Saved" : "Save Design"}
-      </Button>
-    </div>
-  )
+/** Human label for a design version's provenance, used by the iteration rail. */
+function originLabel(
+  origin?: "original" | "simulation" | "lab-data" | "manual"
+): string {
+  switch (origin) {
+    case "simulation":
+      return "Simulated version"
+    case "lab-data":
+      return "From lab data"
+    case "manual":
+      return "Edited by hand"
+    default:
+      return "Original design"
+  }
 }
 
 function OverviewTab(props: {

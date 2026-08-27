@@ -16,24 +16,149 @@ import {
 } from "@/lib/azure-openai"
 import { runTasksWithConcurrency } from "@/app/api/design/draft/worker"
 import type { AgentTask } from "@/app/api/design/draft/types/interfaces"
-import type {
-  DesignContentV2,
-  Hypothesis,
-  Paper,
-  ProblemContext
+import {
+  resolveEffortConfig,
+  type DesignContentV2,
+  type Hypothesis,
+  type Paper,
+  type ProblemContext
 } from "@/lib/design-agent"
 
 const GENERATION_AGENT_COUNT = 5
 const GENERATION_CONCURRENCY = 4
-const FINAL_TOP_N = 5
 
 interface RankedHypothesis {
   id: string
+  title: string
   text: string
   explanation: string
+  /**
+   * The generation agent's citations - "[2] Paper title - how it informed
+   * this". These were being thrown away the moment they arrived, so the
+   * literature the researcher selected had no visible influence on the
+   * hypotheses and no bearing on which one ranked top. In auto mode, where
+   * exactly one hypothesis is carried forward automatically, that meant the
+   * single hypothesis could be the least grounded of the batch.
+   */
+  provenance: string[]
+  /** Indices (1-based) of the selected papers this hypothesis cites. */
+  paperIndices: number[]
   rank: number
   feasibility: number
   novelty: number
+}
+
+/** Pull the `[N]` paper references out of an agent's provenance strings. */
+function paperIndicesFrom(provenance: string[], paperCount: number): number[] {
+  const found = new Set<number>()
+  for (const line of provenance) {
+    for (const m of String(line).matchAll(/\[(\d{1,2})\]/g)) {
+      const n = Number(m[1])
+      if (n >= 1 && n <= paperCount) found.add(n)
+    }
+  }
+  return [...found].sort((a, b) => a - b)
+}
+
+/**
+ * Content words of a hypothesis, for cross-agent near-duplicate detection.
+ * The parallel agents can still land on the same idea; ranking alone would then
+ * surface it repeatedly ("the same hypothesis in different language").
+ */
+const STOP = new Set([
+  "the",
+  "a",
+  "an",
+  "of",
+  "in",
+  "on",
+  "at",
+  "to",
+  "for",
+  "and",
+  "or",
+  "by",
+  "with",
+  "from",
+  "is",
+  "are",
+  "be",
+  "will",
+  "would",
+  "that",
+  "this",
+  "these",
+  "those",
+  "as",
+  "than",
+  "increase",
+  "increases",
+  "increasing",
+  "increased",
+  "decrease",
+  "decreases",
+  "decreasing",
+  "decreased",
+  "higher",
+  "lower",
+  "reduce",
+  "reduces",
+  "reducing",
+  "reduced",
+  "improve",
+  "improves",
+  "improving",
+  "improved",
+  "effect",
+  "effects"
+])
+
+function contentWords(text: string): Set<string> {
+  return new Set(
+    (text || "")
+      .toLowerCase()
+      .replace(/[^a-z0-9\s.-]/g, " ")
+      .split(/\s+/)
+      .filter(w => w.length > 3 && !STOP.has(w))
+  )
+}
+
+/** Jaccard overlap of content words; >= 0.5 reads as the same claim reworded. */
+function similarity(a: Set<string>, b: Set<string>): number {
+  if (!a.size || !b.size) return 0
+  let shared = 0
+  for (const w of a) if (b.has(w)) shared++
+  return shared / (a.size + b.size - shared)
+}
+
+/**
+ * Greedy diversity-aware pick: walk the ranked pool and keep a hypothesis only
+ * if it isn't a near-duplicate of one already kept. Falls back to filling the
+ * remaining slots from the skipped set so we always return `n` when possible.
+ */
+function pickDiverse(
+  pool: RankedHypothesis[],
+  n: number,
+  threshold = 0.5
+): RankedHypothesis[] {
+  const kept: RankedHypothesis[] = []
+  const keptWords: Set<string>[] = []
+  const skipped: RankedHypothesis[] = []
+  for (const h of pool) {
+    if (kept.length >= n) break
+    const words = contentWords(h.text)
+    if (keptWords.some(k => similarity(words, k) >= threshold)) {
+      skipped.push(h)
+      continue
+    }
+    kept.push(h)
+    keptWords.push(words)
+  }
+  for (const h of skipped) {
+    if (kept.length >= n) break
+    kept.push(h)
+  }
+  return kept
 }
 
 type Progress = (ev: Record<string, unknown>) => void
@@ -48,11 +173,26 @@ export async function runHypothesesPhase(
   onProgress: Progress
 ): Promise<Partial<DesignContentV2>> {
   const { ctx, existing, body, designId } = args
+  // Effort scales how many hypotheses survive the tournament to the user.
+  const FINAL_TOP_N = resolveEffortConfig(ctx.effort).finalHypotheses
   const litCtx = existing.literatureContext
+  // The objective, success criteria and condition budget were being collected
+  // from the researcher and then never handed to the generation agents, so
+  // hypotheses drifted off the stated goal and proposed arm counts the lab
+  // could not run. Known/unknown variables are passed too, but explicitly
+  // labelled low-weight so they inform without steering.
+  const cs = ctx.constraintsStructured
+  const vs = ctx.variablesStructured
   const planMeta = {
     title: ctx.title || "Untitled",
     description: [
       ctx.problemStatement || ctx.goal || "",
+      ctx.objective
+        ? `Objective (what success looks like): ${ctx.objective}`
+        : "",
+      ctx.successCriteria
+        ? `Success criteria - the hypothesis must be capable of being judged against these: ${ctx.successCriteria}`
+        : "",
       ctx.additionalDetails
         ? `Operating parameters (be specific to these - use concrete concentrations, buffers, temperatures, and ranges, not generic language): ${ctx.additionalDetails}`
         : ""
@@ -60,6 +200,12 @@ export async function runHypothesesPhase(
       .filter(Boolean)
       .join("\n\n"),
     constraints: {
+      conditionBudget: ctx.designSpec?.conditions || undefined,
+      materialAvailable: cs?.material || undefined,
+      timeAvailable: cs?.time || undefined,
+      equipmentAvailable: cs?.equipment || undefined,
+      knownVariablesLowWeight: vs?.known || undefined,
+      unknownVariablesLowWeight: vs?.unknown || undefined,
       variables: (ctx as { variables?: string[] }).variables,
       constraints: (ctx as { constraints?: string[] }).constraints
     }
@@ -84,6 +230,9 @@ export async function runHypothesesPhase(
       priority: 1,
       metadata: {
         plan: planMeta,
+        // Each parallel agent gets a distinct diversity lens + paper anchor
+        // (see GENERATION_LENSES) so the pool isn't N takes on one idea.
+        agentIndex: i,
         ...(litCtx ? { literatureContext: litCtx } : {}),
         selectedPapers: selectedPapers.map((p, idx) => ({
           index: idx + 1,
@@ -112,10 +261,16 @@ export async function runHypothesesPhase(
     for (const r of genResults) {
       if (r.status === "success" && Array.isArray(r.output)) {
         for (const item of r.output as any[]) {
+          const provenance: string[] = Array.isArray(item.provenance)
+            ? item.provenance.map((x: unknown) => String(x))
+            : []
           pool.push({
             id: `h-${uuidv4()}`,
+            title: (item.title || "").trim(),
             text: item.hypothesis || "",
             explanation: item.explanation || "",
+            provenance,
+            paperIndices: paperIndicesFrom(provenance, selectedPapers.length),
             rank: 0,
             feasibility: item.feasibility_score ?? 0,
             novelty: item.novelty_score ?? 0
@@ -149,7 +304,18 @@ export async function runHypothesesPhase(
       })
     )
   })
-  const numberedList = pool.map((h, i) => `[${i + 1}] ${h.text}`).join("\n")
+  // Ranking sees the CITATIONS too. Scoring on the hypothesis sentence alone
+  // rewarded whichever one sounded boldest, regardless of whether the selected
+  // literature supported it - which is how auto mode ended up carrying forward
+  // a hypothesis that read as unrelated to the papers.
+  const numberedList = pool
+    .map((h, i) => {
+      const cites = h.provenance.length
+        ? `\n    Grounded in: ${h.provenance.join(" | ").slice(0, 600)}`
+        : "\n    Grounded in: (no papers cited)"
+      return `[${i + 1}] ${h.text}${cites}`
+    })
+    .join("\n")
   onProgress({
     step: "ranking",
     message: `Ranking ${pool.length} hypotheses by rigor, feasibility, novelty...`
@@ -162,13 +328,14 @@ export async function runHypothesesPhase(
       messages: [
         {
           role: "system",
-          content: `You are a scientific hypothesis ranking agent. You will receive a numbered list of hypotheses and must score each one from 0-100 based on:
-- Quantitative specificity (35%) - a strong hypothesis names the SPECIFIC variable, direction, magnitude, and conditions (e.g. concentrations with units, temperatures, pH, timepoints). HEAVILY penalise vague, hand-wavy, or purely qualitative statements ("X may improve stability") that lack concrete, testable quantities.
-- Scientific rigor and testability (25%)
-- Feasibility and practicality (20%)
-- Novelty and potential impact (20%)
+          content: `You are a scientific hypothesis ranking agent. You will receive a numbered list of hypotheses, each with the papers it cites, and must score each one from 0-100 based on:
+- GROUNDING IN THE SELECTED LITERATURE (30%) - the researcher chose these papers, and a hypothesis exists to build on them. Score highly when the cited work genuinely supports the claim and the hypothesis reads as a next step from it, ideally synthesising ACROSS more than one paper. A hypothesis citing NO papers, or whose citations do not actually bear on what it claims, must be scored LOW however clever it sounds - it is speculation, and the researcher will read it as random.
+- Quantitative specificity (25%) - a strong hypothesis names the SPECIFIC variable, direction, magnitude, and conditions (e.g. concentrations with units, temperatures, pH, timepoints). HEAVILY penalise vague, hand-wavy, or purely qualitative statements ("X may improve stability") that lack concrete, testable quantities.
+- Scientific rigor and testability (20%)
+- Feasibility and practicality (15%)
+- Novelty and potential impact (10%)
 
-Reward hypotheses that read as crisp, falsifiable, quantitative predictions tied to the researcher's stated operating parameters. Return every hypothesis with its original index number, a score, and a one-sentence reasoning.`
+The top-ranked hypothesis may be carried forward on its own without the researcher choosing it, so it must be the one best supported by their literature - not merely the most striking. Return every hypothesis with its original index number, a score, and a one-sentence reasoning.`
         },
         {
           role: "user",
@@ -193,10 +360,13 @@ Reward hypotheses that read as crisp, falsifiable, quantitative predictions tied
   }
 
   pool.sort((a, b) => b.rank - a.rank)
-  const topHypotheses = pool.slice(0, FINAL_TOP_N)
+  // Diversity-aware pick, NOT a plain slice: the parallel agents can still
+  // converge, and slicing the top N then returned the same claim reworded N
+  // times. Near-duplicates are pushed down in favour of the next distinct idea.
+  const topHypotheses = pickDiverse(pool, FINAL_TOP_N)
   onProgress({
     step: "ranked",
-    message: `Top ${FINAL_TOP_N} selected`,
+    message: `Top ${topHypotheses.length} selected`,
     scores: topHypotheses.map(h => h.rank)
   })
 
@@ -288,13 +458,27 @@ Reward hypotheses that read as crisp, falsifiable, quantitative predictions tied
   await runTasksWithConcurrency([metaTask], 1)
 
   // ── Assemble Hypothesis[] for the frontend ──────────────────────────────────
-  const hypotheses: Hypothesis[] = topHypotheses.map(h => ({
-    id: h.id,
-    text: h.text,
-    reasoning: h.explanation,
-    basedOnPaperIds: [],
-    selected: false
-  }))
+  // Attach the literature the hypothesis was built on: the ids so the UI can
+  // link the actual paper cards, and the agent's own one-line justifications
+  // appended to the reasoning so the researcher can see WHY each paper matters
+  // here. Both were previously dropped, leaving every hypothesis looking
+  // untethered from the papers that produced it.
+  const hypotheses: Hypothesis[] = topHypotheses.map(h => {
+    const citedIds = h.paperIndices
+      .map(n => selectedPapers[n - 1]?.id)
+      .filter((id): id is string => !!id)
+    const reasoning = h.provenance.length
+      ? `${h.explanation}\n\nBuilt on:\n${h.provenance.map(p => `- ${p}`).join("\n")}`
+      : h.explanation
+    return {
+      id: h.id,
+      ...(h.title ? { title: h.title } : {}),
+      text: h.text,
+      reasoning,
+      basedOnPaperIds: citedIds,
+      selected: false
+    }
+  })
 
   const papers = body.papers ?? existing.papers ?? []
   // Downstream clear (wipe stale designs) is applied by the worker's finalize

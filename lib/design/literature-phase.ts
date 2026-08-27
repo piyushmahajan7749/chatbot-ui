@@ -9,15 +9,23 @@
  */
 import {
   callLiteratureScoutAgent,
-  type LiteratureScoutProgressEvent
+  planLiteratureSearch,
+  runLiteratureRound,
+  type LiteraturePlan,
+  type LiteraturePrecomputed,
+  type LiteratureRoundResult,
+  type LiteratureScoutProgressEvent,
+  type LiteratureScoutSearchOptions
 } from "@/app/api/design/draft/agents"
 import type { ExperimentDesignState } from "@/app/api/design/draft/types"
-import type {
-  DesignContentV2,
-  Paper,
-  ProblemContext,
-  StoredLiteratureContext
+import {
+  resolveEffortConfig,
+  type DesignContentV2,
+  type Paper,
+  type ProblemContext,
+  type StoredLiteratureContext
 } from "@/lib/design-agent"
+import { cleanPaperTitle, dedupePapers } from "./paper-title"
 
 function toAgentState(ctx: ProblemContext): ExperimentDesignState {
   // Fold the researcher's operating parameters into the search context so the
@@ -27,12 +35,13 @@ function toAgentState(ctx: ProblemContext): ExperimentDesignState {
     ...((ctx as { constraints?: string[] }).constraints ?? [])
   ]
   if (ctx.additionalDetails?.trim()) {
-    // Loose context only - bias the search toward the researcher's system but
-    // do NOT require papers to match these exact values (they mainly drive the
-    // hypotheses + design). Finding methodologically strong primary research in
-    // the same area matters more than matching every parameter.
+    // The researcher's Refine answers — SECONDARY steering only. The search is
+    // anchored on the problem statement + objective (below); these answers just
+    // nudge the KIND of paper (system, mechanism family, readout). They are NOT
+    // hard filters and must NOT become the subject of the search — that dilutes
+    // it. Numeric values (concentrations, ranges) are directional only.
     considerations.push(
-      `Background context (use to bias relevance, do NOT over-filter to these exact values): ${ctx.additionalDetails.trim()}`
+      `Secondary steering from the researcher (nudge the KIND of paper — system, mechanism family, readouts — but keep the search anchored on the problem + objective, and do not exclude strong methodologically-relevant adjacent work): ${ctx.additionalDetails.trim()}`
     )
   }
   return {
@@ -49,37 +58,63 @@ function toAgentState(ctx: ProblemContext): ExperimentDesignState {
   }
 }
 
-export async function runLiteraturePhase(
-  args: {
-    ctx: ProblemContext
-    existing: DesignContentV2
-    mode?: "append" | "replace"
-  },
-  onProgress: (ev: LiteratureScoutProgressEvent) => void
-): Promise<Partial<DesignContentV2>> {
-  const { ctx, existing } = args
-  const appendMode = args.mode === "append"
-  const existingPapers = existing.papers ?? []
+export interface LiteraturePhaseArgs {
+  ctx: ProblemContext
+  existing: DesignContentV2
+  mode?: "append" | "replace"
+}
 
-  const agentState = toAgentState(ctx)
-  // Initial run targets 10 unique papers (#13). "Generate more" (append)
-  // targets 5 NEW papers on top of what's already there (#19) and excludes
-  // current urls/titles so rounds aren't blocked re-finding the same ones.
-  const result = await callLiteratureScoutAgent(
-    agentState,
-    undefined,
-    (ev: LiteratureScoutProgressEvent) => onProgress(ev),
-    appendMode
+/**
+ * The agent state + searchOptions for a phase run. Extracted so the Inngest
+ * worker's plan step and the synthesis step derive them IDENTICALLY (both from
+ * the same ctx) — the fan-out/fan-in split only works if the plan the rounds
+ * ran against is the plan synthesis uses.
+ */
+export function buildLiteratureInputs(args: LiteraturePhaseArgs): {
+  agentState: ReturnType<typeof toAgentState>
+  searchOptions: LiteratureScoutSearchOptions
+} {
+  const appendMode = args.mode === "append"
+  const existingPapers = args.existing.papers ?? []
+  // Effort scales the literature pool: how many unique papers to target and how
+  // many query-rounds to run (0 = no cap). Falls back to medium.
+  const eff = resolveEffortConfig(args.ctx.effort)
+  return {
+    agentState: toAgentState(args.ctx),
+    // Initial run targets the effort-scaled pool; "generate more" (append)
+    // targets NEW papers on top of what's already there and excludes current
+    // urls/titles so rounds aren't blocked re-finding the same ones.
+    searchOptions: appendMode
       ? {
           bypassCache: true,
           shuffleQueries: true,
-          minPapers: 5,
+          minPapers: Math.max(8, Math.round(eff.minPapers * 0.6)),
+          maxRounds: eff.litRounds,
           excludeUrls: existingPapers
             .map(p => p.sourceUrl || "")
             .filter(Boolean),
           excludeTitles: existingPapers.map(p => p.title)
         }
-      : { minPapers: 10 }
+      : { minPapers: eff.minPapers, maxRounds: eff.litRounds }
+  }
+}
+
+export async function runLiteraturePhase(
+  args: LiteraturePhaseArgs,
+  onProgress: (ev: LiteratureScoutProgressEvent) => void,
+  /** When the worker ran planning + the PaperFinder rounds as separate Inngest
+   *  steps, it passes them here and the agent goes straight to synthesis. */
+  precomputed?: LiteraturePrecomputed
+): Promise<Partial<DesignContentV2>> {
+  const { ctx, existing } = args
+
+  const { agentState, searchOptions } = buildLiteratureInputs(args)
+  const result = await callLiteratureScoutAgent(
+    agentState,
+    undefined,
+    (ev: LiteratureScoutProgressEvent) => onProgress(ev),
+    searchOptions,
+    precomputed
   )
   const litOutput = result.output
 
@@ -123,7 +158,7 @@ export async function runLiteraturePhase(
     if (!sourceUrl && typeof c.title === "string" && c.title.trim()) {
       sourceUrl = `https://scholar.google.com/scholar?q=${encodeURIComponent(c.title.trim())}`
     }
-    let title = (c.title || "").trim()
+    let title = cleanPaperTitle(c.title || "")
     if (!title && rawSummary) {
       const firstSentence = rawSummary.split(/(?<=[.!?])\s+/)[0]?.slice(0, 160)
       title = firstSentence || `Paper ${i + 1}`
@@ -180,6 +215,7 @@ export async function runLiteraturePhase(
     "no abstract",
     "unknown",
     "untitled",
+    "untitled research result",
     "citation from literature search",
     ""
   ])
@@ -199,24 +235,20 @@ export async function runLiteraturePhase(
 
   let papers: Paper[]
   const sourceNewPapers = qualityPapers
-  if (appendMode) {
-    const seenUrls = new Set(
-      existingPapers.map(p => (p.sourceUrl || "").toLowerCase()).filter(Boolean)
-    )
-    const seenTitles = new Set(existingPapers.map(p => p.title.toLowerCase()))
-    const appended = sourceNewPapers.filter(p => {
-      const url = (p.sourceUrl || "").toLowerCase()
-      const title = p.title.toLowerCase()
-      if (url && seenUrls.has(url)) return false
-      if (seenTitles.has(title)) return false
-      seenUrls.add(url)
-      seenTitles.add(title)
-      return true
-    })
-    papers = [...existingPapers, ...appended]
-  } else {
-    papers = sourceNewPapers
-  }
+  const appendMode = args.mode === "append"
+  const existingPapers = existing.papers ?? []
+  // One shared de-duplication for both modes.
+  //
+  // The append path used to compare raw lowercase titles and URLs, which only
+  // caught byte-identical repeats. The same study retrieved from PubMed and
+  // scraped off the web has a different URL and a title differing by a trailing
+  // period or a "| Journal | Publisher" tail, so it survived twice and the
+  // researcher saw it listed twice. dedupePapers matches on the normalized
+  // title, keeps the copy from the more authoritative source, and carries over
+  // the `selected` tick so nothing chosen can be dropped.
+  papers = appendMode
+    ? dedupePapers([...existingPapers, ...sourceNewPapers])
+    : dedupePapers(sourceNewPapers)
 
   const literatureContext: StoredLiteratureContext = {
     whatOthersHaveDone: litOutput.whatOthersHaveDone,

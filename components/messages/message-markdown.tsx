@@ -1,8 +1,13 @@
 import React, { FC } from "react"
+import { IconAlertTriangle } from "@tabler/icons-react"
 import remarkGfm from "remark-gfm"
 import remarkMath from "remark-math"
 import { cn } from "@/lib/utils"
-import { DesignPatchBlock, extractDesignPatches } from "./design-patch-block"
+import {
+  claimsAppliedWithoutPatch,
+  DesignPatchBlock,
+  extractDesignPatches
+} from "./design-patch-block"
 import { MessageCodeBlock } from "./message-codeblock"
 import { MessageMarkdownMemoized } from "./message-markdown-memoized"
 
@@ -239,7 +244,27 @@ export const MessageMarkdown: FC<MessageMarkdownProps> = ({
     </MessageMarkdownMemoized>
   )
 
-  if (!hasPatch) return renderText(processedContent)
+  if (!hasPatch) {
+    // The model sometimes narrates an edit it never proposed. Nothing changes
+    // the design except approving a patch card, so flag it rather than let the
+    // researcher believe their protocol was updated.
+    if (!isUser && claimsAppliedWithoutPatch(processedContent)) {
+      return (
+        <div className="space-y-2">
+          {renderText(processedContent)}
+          <div className="flex items-start gap-2 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-[12px] text-amber-900">
+            <IconAlertTriangle size={14} className="mt-0.5 shrink-0" />
+            <span>
+              <b>No change was made to the design.</b> Edits only take effect
+              when you approve a proposed change card. Ask for the edit again -
+              say which section it belongs in - and one will appear here.
+            </span>
+          </div>
+        </div>
+      )
+    }
+    return renderText(processedContent)
+  }
 
   return (
     <>

@@ -181,51 +181,58 @@ export function DesignPatchBlock({ patch }: DesignPatchBlockProps) {
   const isWholeReplace = !!patch.newBody && !patch.find
 
   return (
+    /* Wraps rather than packing everything onto one row. These cards render
+       inside the in-design chat RAIL, which is far narrower than the main
+       chat column: the label and the two shrink-0 buttons together exceeded
+       the rail's width, so the actions rode over the section name. The status
+       row now sits under the label whenever there isn't room beside it. */
     <div
       className={cn(
-        "border-orange-product/40 bg-orange-product-tint/40 my-3 flex items-center gap-3 rounded-xl border px-3 py-2.5",
+        "border-orange-product/40 bg-orange-product-tint/40 my-3 rounded-xl border px-3 py-2.5",
         state === "applied" && "border-emerald-300 bg-emerald-50",
         state === "rejected" && "opacity-50 grayscale"
       )}
     >
-      <div className="text-orange-product flex size-7 shrink-0 items-center justify-center rounded-full bg-white/70">
-        <IconEdit size={14} />
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+        <div className="text-orange-product flex size-7 shrink-0 items-center justify-center rounded-full bg-white/70">
+          <IconEdit size={14} />
+        </div>
+        <div className="min-w-[120px] flex-1">
+          <div className="text-ink text-[12.5px] font-semibold">
+            Proposed edit
+          </div>
+          <div className="text-ink-3 break-words text-[11.5px]">
+            Section: <b className="text-ink-2">{patch.sectionHeading}</b>
+          </div>
+        </div>
+        {state === "applied" ? (
+          <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-emerald-100 px-2.5 py-1 text-[11px] font-semibold text-emerald-700">
+            <IconCheck size={12} /> Applied
+          </span>
+        ) : state === "rejected" ? (
+          <span className="text-ink-3 bg-paper-2 inline-flex shrink-0 items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-semibold">
+            Dismissed
+          </span>
+        ) : (
+          <div className="ml-auto flex shrink-0 items-center gap-1.5">
+            <button
+              type="button"
+              onClick={() => setState("rejected")}
+              className="text-ink-3 hover:bg-paper-2 hover:text-ink inline-flex h-7 items-center gap-1 rounded-md px-2 text-[11.5px] font-medium"
+            >
+              <IconX size={12} />
+              Dismiss
+            </button>
+            <button
+              type="button"
+              onClick={() => setOpen(true)}
+              className="bg-ink text-paper inline-flex h-7 items-center gap-1 rounded-md px-2.5 text-[11.5px] font-semibold hover:opacity-90"
+            >
+              Review change
+            </button>
+          </div>
+        )}
       </div>
-      <div className="min-w-0 flex-1">
-        <div className="text-ink text-[12.5px] font-semibold">
-          Proposed edit
-        </div>
-        <div className="text-ink-3 truncate text-[11.5px]">
-          Section: <b className="text-ink-2">{patch.sectionHeading}</b>
-        </div>
-      </div>
-      {state === "applied" ? (
-        <span className="inline-flex items-center gap-1 rounded-full bg-emerald-100 px-2.5 py-1 text-[11px] font-semibold text-emerald-700">
-          <IconCheck size={12} /> Applied
-        </span>
-      ) : state === "rejected" ? (
-        <span className="text-ink-3 bg-paper-2 inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-semibold">
-          Dismissed
-        </span>
-      ) : (
-        <div className="flex shrink-0 items-center gap-1.5">
-          <button
-            type="button"
-            onClick={() => setState("rejected")}
-            className="text-ink-3 hover:bg-paper-2 hover:text-ink inline-flex h-7 items-center gap-1 rounded-md px-2 text-[11.5px] font-medium"
-          >
-            <IconX size={12} />
-            Dismiss
-          </button>
-          <button
-            type="button"
-            onClick={() => setOpen(true)}
-            className="bg-ink text-paper inline-flex h-7 items-center gap-1 rounded-md px-2.5 text-[11.5px] font-semibold hover:opacity-90"
-          >
-            Review change
-          </button>
-        </div>
-      )}
 
       {/* Readable review popup */}
       <Dialog open={open} onOpenChange={setOpen}>
@@ -312,6 +319,20 @@ export function DesignPatchBlock({ patch }: DesignPatchBlockProps) {
  * single card (the model sometimes echoes the change twice). Malformed JSON
  * falls through to a text segment so the user still sees what was said.
  */
+/**
+ * True when an assistant message TALKS as if it already changed the design but
+ * carries no patch block. The design can only change when the researcher
+ * approves a patch card, so this is always a false claim - we surface a warning
+ * next to the message rather than let the researcher walk away believing their
+ * protocol was updated.
+ */
+export function claimsAppliedWithoutPatch(content: string): boolean {
+  if (/<design-patch>/.test(content)) return false
+  return /\b(i(?:'ve| have)?\s+(?:now\s+)?(?:updated|applied|changed|revised|edited|modified|replaced)|the design (?:now|has been)\s|changes? (?:have been|were) (?:applied|made)|i\s+made\s+(?:the|those|these)\s+changes?)\b/i.test(
+    content
+  )
+}
+
 export function extractDesignPatches(
   content: string
 ): Array<

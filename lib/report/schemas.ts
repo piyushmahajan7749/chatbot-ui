@@ -34,7 +34,39 @@ export const VisualizationSchema = z.object({
       label: z.string().describe("Short category/group name"),
       value: z.number().describe("Numeric value to plot")
     })
-  )
+  ),
+  /**
+   * Every OTHER metric in the uploaded data, one entry each.
+   *
+   * This is the field the report actually persists and the viewer reads. It was
+   * previously only added to the chart-rendering TOOL's schema, which is a
+   * different call - so the visualization agent, bound to THIS schema by
+   * zodResponseFormat, could not emit the field however firmly the prompt asked
+   * for it. Structured output can only return what the schema declares, so the
+   * extra metrics were dropped at the source and the report showed one dataset
+   * no matter how many were uploaded.
+   *
+   * `data` above stays the headline chart and the rendered PNG; these are what
+   * the reader switches between.
+   */
+  additionalSeries: z
+    .array(
+      z.object({
+        metric: z
+          .string()
+          .describe("What this series measures, e.g. 'SEC monomer'"),
+        yAxisLabel: z
+          .string()
+          .describe("Axis label WITH units, e.g. 'Monomer (%)'"),
+        chartType: z.enum(["bar", "pie"]).optional(),
+        data: z.array(z.object({ label: z.string(), value: z.number() }))
+      })
+    )
+    .max(8)
+    .optional()
+    .describe(
+      "One entry per ADDITIONAL metric present in the data. Omit ONLY when the data genuinely contains a single metric."
+    )
 })
 export type VisualizationType = z.infer<typeof VisualizationSchema>
 
