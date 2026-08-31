@@ -92,6 +92,29 @@ export function buildDesignChatContext(input: DesignChatContextInput): string {
       h => !input.selectedHypotheses.find(s => s.id === h.id)
     )
   ]
+  // Index the literature by id so a hypothesis can name the papers it was
+  // built on, using the SAME [N] numbering as the "Cited literature" section
+  // below. Without this the chat can see a hypothesis and can see the papers,
+  // but not the edge between them - so "which paper supports the arginine
+  // arm?" is a three-hop question (design → hypothesis → papers) that the
+  // model has to guess at from topic overlap.
+  const paperIndexById = new Map<string, number>()
+  ;(input.papers ?? []).forEach((p, i) => paperIndexById.set(p.id, i + 1))
+  const citeFor = (ids: string[] | undefined): string => {
+    const refs = (ids ?? [])
+      .map(id => {
+        const n = paperIndexById.get(id)
+        if (!n) return null
+        const title = input.papers![n - 1].title
+        return `[${n}] ${title}`
+      })
+      .filter(Boolean) as string[]
+    if (refs.length === 0) return ""
+    // Cap the inline list; the full set is one section further down.
+    const shown = refs.slice(0, 6).join("; ")
+    return refs.length > 6 ? `${shown}; +${refs.length - 6} more` : shown
+  }
+
   if (allHyp.length) {
     lines.push("", "## Hypotheses")
     allHyp.forEach((h, i) => {
@@ -100,6 +123,8 @@ export function buildDesignChatContext(input: DesignChatContextInput): string {
         : "[not selected]"
       lines.push(`${i + 1}. ${tag} ${h.text}`)
       if (h.reasoning) lines.push(`   Reasoning: ${h.reasoning}`)
+      const cited = citeFor(h.basedOnPaperIds)
+      if (cited) lines.push(`   Built on: ${cited}`)
     })
   }
 
@@ -121,28 +146,110 @@ export function buildDesignChatContext(input: DesignChatContextInput): string {
         ? `## Active design: ${d.title}`
         : `## Alternate design: ${d.title}`
     lines.push("", heading)
+    // Close the design → hypothesis hop explicitly. The link is stored on
+    // `hypothesisId`, and stating it here means the chat never has to infer
+    // which hypothesis a design came from by comparing wording.
+    const srcIdx = allHyp.findIndex(h => h.id === d.hypothesisId)
+    if (srcIdx >= 0) {
+      const src = allHyp[srcIdx]
+      lines.push(`Built from hypothesis ${srcIdx + 1}: ${src.text}`)
+      const cited = citeFor(src.basedOnPaperIds)
+      if (cited) lines.push(`That hypothesis was built on: ${cited}`)
+    }
     d.sections.forEach(sec => {
       lines.push("", `### ${sec.heading}`)
       lines.push(sec.body.trim())
     })
   })
 
+  // ── Design lineage ────────────────────────────────────────────────────────
+  //
+  // Every earlier version, oldest to newest, with the verdict that justified
+  // it and the changes actually carried into the version after it.
+  //
+  // This replaces a single sentence - "The design has N prior version(s)
+  // saved" - which named a count and threw the rest away. The consequence was
+  // that a question like "why does v3 run 6 conditions and not 8?" was
+  // unanswerable: the answer is v2's simulation verdict plus the changes
+  // applied from it, and the chat was never shown either, even though both sit
+  // in the object already being passed in.
+  //
+  // Deliberately OUTSIDE the `validation` gate below. Versions exist without a
+  // validation record - a manual edit or a promoted older version both create
+  // one - and gating the lineage on validation dropped the entire history in
+  // exactly those cases.
+  //
+  // Stored newest-first, so sort ascending: a lineage only reads as a
+  // narrative forwards.
+  if (input.designVersions?.length) {
+    const series = [...input.designVersions].sort(
+      (a, b) => a.versionNumber - b.versionNumber
+    )
+    lines.push("", "## Design lineage (oldest → newest)")
+    lines.push(
+      `${series.length} earlier version(s) are recorded. The Active design above is the current one.`
+    )
+    series.forEach(ver => {
+      const origin =
+        ver.origin === "simulation"
+          ? "produced by applying simulation suggestions"
+          : ver.origin === "lab-data"
+            ? "produced from lab data"
+            : ver.origin === "manual"
+              ? "edited by hand"
+              : "the original design"
+      lines.push("", `### v${ver.versionNumber} — ${origin}`)
+
+      const o = ver.outcome
+      if (!o) {
+        lines.push("No recorded outcome for this version.")
+        return
+      }
+      if (typeof o.meetRate === "number") {
+        lines.push(
+          `Met the target in ${Math.round(o.meetRate * 100)}% of simulated runs (${
+            o.metTarget
+              ? "judged as hitting the target"
+              : "judged as falling short"
+          }).`
+        )
+      }
+      if (o.verdict) lines.push(`Verdict: ${o.verdict}`)
+      if (o.insights?.length) lines.push(`Insights: ${o.insights.join("; ")}`)
+      const sim = o.simulation
+      if (sim?.gapAnalysis) lines.push(`Gap to target: ${sim.gapAnalysis}`)
+      if (sim?.distribution) {
+        lines.push(
+          `Predicted readout: mean ${sim.distribution.mean}${
+            sim.distribution.unit ? ` ${sim.distribution.unit}` : ""
+          }, sd ${sim.distribution.sd}.`
+        )
+      }
+      // The edge that answers "why did the next version change?".
+      if (o.appliedChanges?.length) {
+        lines.push(
+          `Changes carried into v${ver.versionNumber + 1}: ${o.appliedChanges.join("; ")}`
+        )
+      } else {
+        lines.push(
+          `No changes were recorded as carried into v${ver.versionNumber + 1}.`
+        )
+      }
+    })
+    lines.push(
+      "",
+      "When asked why the current design differs from an earlier one, answer from this lineage - cite the version, its verdict, and the changes carried forward. Do not infer the reason from the protocol text."
+    )
+  }
+
   // Iteration history: the design→lab→analyze loop. This is what lets the chat
   // "find patterns across the design series" and keep a PhD scholar's context.
   const v = input.validation
-  if (
-    v &&
-    (v.iterations?.length ||
-      v.cumulativeInsights ||
-      v.simulation ||
-      (input.designVersions?.length ?? 0) > 0)
-  ) {
+  // `designVersions` is no longer part of this condition: the lineage above
+  // renders it, and leaving it here emitted an "Iteration history" heading
+  // with nothing under it whenever versions existed but no validation did.
+  if (v && (v.iterations?.length || v.cumulativeInsights || v.simulation)) {
     lines.push("", "## Iteration history (design → lab → analyze loop)")
-    if (input.designVersions?.length) {
-      lines.push(
-        `The design has ${input.designVersions.length} prior version(s) saved; the Active design above is the latest.`
-      )
-    }
     if (v.desiredOutcome)
       lines.push(`Desired outcome / target: ${v.desiredOutcome}`)
     if (v.cumulativeInsights) {

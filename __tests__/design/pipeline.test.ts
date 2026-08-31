@@ -399,3 +399,130 @@ describe("design chat context", () => {
     expect(ctx.length).toBeLessThanOrEqual(TIER3_MAX_CHARS + 32) // +marker slack
   })
 })
+
+/**
+ * Lineage + provenance in the design chat context.
+ *
+ * These are the two multi-hop questions the chat could not answer, and neither
+ * needed new retrieval - both edges were already in the object being passed in
+ * and were being discarded on the way into the prompt. The version history was
+ * collapsed to a count ("N prior version(s) saved") and basedOnPaperIds was
+ * never rendered at all.
+ */
+describe("design chat context — lineage and provenance", () => {
+  const paper = (id: string, title: string): any => ({
+    id,
+    title,
+    summary: "",
+    selected: true
+  })
+  const hyp = (id: string, text: string, papers: string[]): any => ({
+    id,
+    text,
+    reasoning: "because",
+    selected: true,
+    basedOnPaperIds: papers
+  })
+
+  const version = (n: number, over: any = {}): any => ({
+    id: `v${n}`,
+    versionNumber: n,
+    designs: [],
+    createdAt: "2026-01-0" + n + "T00:00:00.000Z",
+    origin: "simulation",
+    ...over
+  })
+
+  const build = (over: any = {}) =>
+    buildDesignChatContext({
+      title: "Viscosity at 150 mg/mL",
+      problemStatement: "Too viscous to inject",
+      objective: "Below 20 cP",
+      domain: "formulation_development",
+      phase: "optimization",
+      selectedHypotheses: [hyp("h1", "Arginine lowers viscosity", ["p2"])],
+      hypotheses: [],
+      papers: [paper("p1", "Unrelated paper"), paper("p2", "Arginine screen")],
+      generatedDesigns: [],
+      activeDesign: {
+        id: "d1",
+        hypothesisId: "h1",
+        title: "Excipient screen",
+        saved: true,
+        sections: [{ heading: "Conditions Table", body: "| Group | n |" }]
+      } as any,
+      ...over
+    })
+
+  it("names the papers a hypothesis was built on, by citation number", () => {
+    const ctx = build()
+    // p2 is the second paper, so it must be cited as [2] - the same numbering
+    // the "Cited literature" section uses, so the model can cross-reference.
+    expect(ctx).toContain("Built on: [2] Arginine screen")
+    // ...and must NOT claim the uncited paper backs it.
+    expect(ctx).not.toContain("Built on: [1] Unrelated paper")
+  })
+
+  it("states which hypothesis a design came from", () => {
+    const ctx = build()
+    expect(ctx).toContain("Built from hypothesis 1: Arginine lowers viscosity")
+  })
+
+  it("renders each version's verdict and the changes carried forward", () => {
+    const ctx = build({
+      designVersions: [
+        version(2, {
+          outcome: {
+            verdict: "Falls short on viscosity",
+            meetRate: 0.42,
+            metTarget: false,
+            appliedChanges: ["Drop to 6 conditions", "Raise arginine to 100 mM"]
+          }
+        }),
+        version(1, {
+          origin: "original",
+          outcome: {
+            verdict: "Underpowered",
+            meetRate: 0.1,
+            metTarget: false,
+            appliedChanges: ["Add a vehicle control"]
+          }
+        })
+      ]
+    })
+
+    expect(ctx).toContain("## Design lineage")
+    // This is the answer to "why does v3 run 6 conditions and not 8?".
+    expect(ctx).toContain("Changes carried into v3: Drop to 6 conditions")
+    expect(ctx).toContain("Falls short on viscosity")
+    expect(ctx).toContain("Met the target in 42% of simulated runs")
+
+    // Oldest first: a lineage only reads as a narrative forwards, and the
+    // versions are stored newest-first.
+    expect(ctx.indexOf("### v1")).toBeLessThan(ctx.indexOf("### v2"))
+  })
+
+  it("renders lineage even when there is no validation record", () => {
+    // Versions exist without validation - a manual edit or a promoted older
+    // version both create one. Gating the lineage on `validation` dropped the
+    // whole history in exactly those cases.
+    const ctx = build({
+      validation: undefined,
+      designVersions: [
+        version(1, {
+          origin: "manual",
+          outcome: { appliedChanges: ["Swapped the buffer"] }
+        })
+      ]
+    })
+    expect(ctx).toContain("## Design lineage")
+    expect(ctx).toContain("Changes carried into v2: Swapped the buffer")
+    // And no empty iteration-history heading left behind.
+    expect(ctx).not.toContain("## Iteration history")
+  })
+
+  it("says so explicitly when a version has no recorded outcome", () => {
+    const ctx = build({ designVersions: [version(1, { outcome: undefined })] })
+    expect(ctx).toContain("No recorded outcome for this version.")
+  })
+})
