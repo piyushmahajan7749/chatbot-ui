@@ -35,6 +35,7 @@ import {
   DialogTitle
 } from "@/components/ui/dialog"
 import { ChatbotUIContext } from "@/context/context"
+import { trackDecision } from "@/lib/eval/track"
 import { cn } from "@/lib/utils"
 
 export interface DesignPatch {
@@ -125,6 +126,22 @@ export function DesignPatchBlock({ patch }: DesignPatchBlockProps) {
   }, [sig])
 
   const markApplied = () => {
+    // A chat-proposed edit accepted verbatim. The cleanest approve signal in
+    // the product: the model wrote an exact change and a human said yes to
+    // precisely that text, with no editing in between - so unlike a section
+    // edit there is no ambiguity about what was approved.
+    trackDecision({
+      surface: "design_patch",
+      decision: "approved_as_is",
+      subjectType: "design",
+      subjectId: designId ?? undefined,
+      itemKey: patch.sectionHeading,
+      editedRatio: 0,
+      meta: {
+        patchKind: isWholeReplace ? "replace_section" : "find_replace",
+        proposedChars: (patch.newBody ?? patch.replace ?? "").length
+      }
+    })
     appliedSignatures.add(sig)
     window.dispatchEvent(
       new CustomEvent<string>("design:patch-applied", { detail: sig })
@@ -217,7 +234,23 @@ export function DesignPatchBlock({ patch }: DesignPatchBlockProps) {
           <div className="ml-auto flex shrink-0 items-center gap-1.5">
             <button
               type="button"
-              onClick={() => setState("rejected")}
+              onClick={() => {
+                // The rejection half. Without it the log holds only accepted
+                // patches, and an approval rate has no denominator.
+                trackDecision({
+                  surface: "design_patch",
+                  decision: "rejected",
+                  subjectType: "design",
+                  subjectId: designId ?? undefined,
+                  itemKey: patch.sectionHeading,
+                  meta: {
+                    patchKind: isWholeReplace
+                      ? "replace_section"
+                      : "find_replace"
+                  }
+                })
+                setState("rejected")
+              }}
               className="text-ink-3 hover:bg-paper-2 hover:text-ink inline-flex h-7 items-center gap-1 rounded-md px-2 text-[11.5px] font-medium"
             >
               <IconX size={12} />
