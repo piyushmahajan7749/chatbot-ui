@@ -12,6 +12,7 @@ import { Badge } from "../ui/badge"
 import { Progress } from "../ui/progress"
 import { Separator } from "../ui/separator"
 import { IconCheck, IconLoader2, IconSparkles } from "@tabler/icons-react"
+import { track } from "@/lib/analytics"
 
 interface PlanInfo {
   id: "free" | "pro" | "max"
@@ -286,7 +287,10 @@ export const UsageBillingPanel: FC = () => {
                     disabled={
                       busy === plan.id || !revenueCat.configured || !pkgId
                     }
-                    onClick={() => startCheckout(pkgId, plan.id)}
+                    onClick={() => {
+                      track("plan_upgrade_started", { plan: plan.id })
+                      startCheckout(pkgId, plan.id)
+                    }}
                   >
                     {busy === plan.id ? (
                       <IconLoader2 className="mr-1 animate-spin" size={15} />

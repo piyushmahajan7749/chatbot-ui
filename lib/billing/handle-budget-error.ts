@@ -1,5 +1,7 @@
 import { toast } from "sonner"
 
+import { track } from "@/lib/analytics"
+
 /**
  * Client-side helpers for the 402 "out of credits" path. Server routes return
  * `{ code: "TOKEN_LIMIT", ... }` with status 402 (see lib/billing/errors.ts).
@@ -8,7 +10,8 @@ import { toast } from "sonner"
 export const OPEN_BILLING_EVENT = "shadow:open-billing"
 
 /** Opens Settings → Usage & Billing (profile-settings listens for this). */
-export function openBillingSettings() {
+export function openBillingSettings(source: string = "unknown") {
+  track("upgrade_clicked", { source })
   if (typeof window !== "undefined") {
     window.dispatchEvent(new CustomEvent(OPEN_BILLING_EVENT))
   }
@@ -31,9 +34,13 @@ export async function handleBudgetError(res: Response): Promise<boolean> {
 
   if (code === "EXPERIMENT_LIMIT") {
     const limit = body?.limit ?? 3
+    track("paywall_hit", { code: "EXPERIMENT_LIMIT", limit })
     toast.error(`You’ve used your ${limit} free experiments.`, {
       description: "Upgrade to keep designing new experiments.",
-      action: { label: "Upgrade", onClick: openBillingSettings },
+      action: {
+        label: "Upgrade",
+        onClick: () => openBillingSettings("paywall_experiment_limit")
+      },
       duration: 9000
     })
     return true
@@ -41,9 +48,14 @@ export async function handleBudgetError(res: Response): Promise<boolean> {
 
   if (code !== "TOKEN_LIMIT") return false
 
+  track("paywall_hit", { code: "TOKEN_LIMIT" })
+
   toast.error("You’re out of credits for this billing period.", {
     description: "Upgrade your plan or add credits to keep going.",
-    action: { label: "Upgrade", onClick: openBillingSettings },
+    action: {
+      label: "Upgrade",
+      onClick: () => openBillingSettings("paywall_token_limit")
+    },
     duration: 8000
   })
   return true
