@@ -9,6 +9,7 @@ import { track as vercelTrack } from "@vercel/analytics"
 export type AnalyticsEvent =
   // Auth
   | "google_auth_clicked"
+  | "signup_form_started"
   | "signup_submitted"
   | "signup_error"
   // Onboarding

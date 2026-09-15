@@ -13,8 +13,11 @@ import { REFERRAL_COOKIE } from "@/lib/affiliate/constants"
 
 export const metadata: Metadata = {
   title: "Create Your Account",
+  // Was "Join thousands of life sciences researchers" - an unverifiable claim,
+  // and inconsistent with the marketing site, where the unsupported trust
+  // claims were deliberately removed.
   description:
-    "Join thousands of life sciences researchers using Shadow AI to design experiments faster. Free to start - no credit card required.",
+    "Create a Shadow AI account and turn a research question into a bench-ready experiment design. Free to start - no credit card required.",
   alternates: { canonical: "/signup" },
   robots: { index: false, follow: false }
 }
@@ -146,7 +149,7 @@ export default async function SignupPage({
   return (
     <AuthShell
       title="Create your account"
-      subtitle="Free to start. From research question to a runnable design in minutes."
+      subtitle="Describe a research question in plain language and get back a bench-ready design - hypotheses, DOE, controls, materials and a statistical plan. Takes about a minute to set up."
       footer={
         <span>
           Already have an account?{" "}
