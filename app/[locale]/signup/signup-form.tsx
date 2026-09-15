@@ -18,10 +18,11 @@ interface SignupFormProps {
 }
 
 /**
- * Client wrapper around the signup `<form>` so we can score the
- * password in real time and disable the submit button until it's at
- * least "Fair" (3/4 segments). Keeps the server action a plain
- * progressive-enhancement target.
+ * Client wrapper around the signup `<form>` so we can score the password in
+ * real time. The submit button is only ever disabled for a reason the user can
+ * see on screen (password under 8 characters, or terms unchecked); a weak but
+ * valid password is allowed through with a nudge rather than a dead end. Keeps
+ * the server action a plain progressive-enhancement target.
  */
 export const SignupForm: FC<SignupFormProps> = ({
   action,
