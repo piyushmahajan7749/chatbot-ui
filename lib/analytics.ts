@@ -9,6 +9,7 @@ import { track as vercelTrack } from "@vercel/analytics"
 export type AnalyticsEvent =
   // Auth
   | "google_auth_clicked"
+  | "signup_form_started"
   | "signup_submitted"
   | "signup_error"
   // Onboarding
@@ -33,6 +34,14 @@ export type AnalyticsEvent =
   // Welcome / landing
   | "landing_cta_clicked"
   | "landing_slide_changed"
+  // Billing / bottom of funnel.
+  // Nothing downstream of signup was instrumented, so the path from "hit a
+  // limit" to "paid" was invisible: we could see people using the product but
+  // not whether they ever met the paywall, let alone converted.
+  | "paywall_hit"
+  | "upgrade_clicked"
+  | "plan_upgrade_started"
+  | "billing_panel_viewed"
 
 export type TrackProperties = Record<string, string | number | boolean | null>
 
